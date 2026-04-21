@@ -1,0 +1,16 @@
+{
+  "folders": [
+    {
+      "path": "."
+    },
+    {
+      "path": "../bng-metric-frontend",
+      "name": "bng-metric-frontend"
+    },
+    {
+      "path": "../bng-metric-backend",
+      "name": "bng-metric-backend"
+    }
+  ],
+  "settings": {}
+}
