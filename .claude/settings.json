@@ -1,5 +1,9 @@
 {
   "permissions": {
+    "additionalDirectories": [
+      "../bng-metric-frontend",
+      "../bng-metric-backend"
+    ],
     "allow": [
       "Read",
       "Write",
