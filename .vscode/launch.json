@@ -1,0 +1,11 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Tilt Up",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "tilt up --stream"
+    }
+  ]
+}

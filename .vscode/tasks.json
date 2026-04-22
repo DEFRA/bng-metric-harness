@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "tilt up",
+      "type": "shell",
+      "command": "tilt up --stream",
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

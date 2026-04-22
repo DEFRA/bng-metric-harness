@@ -43,6 +43,8 @@ npm run dev
 
 Frontend on <http://localhost:3000>, backend on <http://localhost:3001>.
 
+If you have [Tilt](https://tilt.dev/) installed, you can replace steps 5–6 with `tilt up` — see the [Tilt](#tilt) section below.
+
 ## Running the apps
 
 | Command          | What it does                                                                                    |
@@ -87,6 +89,21 @@ npm run be -- db:migrate
 | `npm run test`    | Test both repos (sequential, summary at end) |
 | `npm run test:fe` | Test frontend only                           |
 | `npm run test:be` | Test backend only                            |
+
+## Tilt
+
+[Tilt](https://tilt.dev/) is a local development orchestrator. Instead of manually running `docker compose up` and `npm run dev` separately, Tilt starts the full stack — Docker services **and** both Node apps — in one command, with dependency ordering (apps wait for their backing services to be healthy) and a web dashboard for logs and restarts.
+
+```sh
+tilt up        # starts everything, opens dashboard at http://localhost:10350
+tilt down      # tears it all down
+```
+
+In VS Code, you can also use the **Run and Debug** panel (green play button) to launch "Tilt Up", which streams all logs into the integrated terminal.
+
+The `Tiltfile` in this repo references the backend's `compose.yml` for infrastructure and runs `npm run dev` in each sibling. It can be customised to change how services are started or to add additional commands as needed.
+
+If you prefer not to install Tilt, the manual approach below works identically.
 
 ## Supporting services (Docker Compose)
 
