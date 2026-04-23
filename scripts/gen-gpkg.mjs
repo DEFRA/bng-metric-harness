@@ -176,6 +176,23 @@ const SPATIAL_RISK_RIVER = [
 // ---------------------------------------------------------------------------
 
 
+function expandEnvelope(envelope, env) {
+  envelope[0] = Math.min(envelope[0], env[0]);
+  envelope[1] = Math.max(envelope[1], env[1]);
+  envelope[2] = Math.min(envelope[2], env[2]);
+  envelope[3] = Math.max(envelope[3], env[3]);
+}
+
+function linestringLength(coords) {
+  let length = 0;
+  for (let i = 1; i < coords.length; i++) {
+    const dx = coords[i][0] - coords[i - 1][0];
+    const dy = coords[i][1] - coords[i - 1][1];
+    length += Math.sqrt(dx * dx + dy * dy);
+  }
+  return Math.round(length);
+}
+
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -616,10 +633,7 @@ function generateHabitats(db, boundaryRing, numParcels) {
     const ring = parcels[i];
     const geom = gpkgPolygon(SRS_ID, ring);
     const env = envelopeFromCoords(ring);
-    allEnvelope[0] = Math.min(allEnvelope[0], env[0]);
-    allEnvelope[1] = Math.max(allEnvelope[1], env[1]);
-    allEnvelope[2] = Math.min(allEnvelope[2], env[2]);
-    allEnvelope[3] = Math.max(allEnvelope[3], env[3]);
+    expandEnvelope(allEnvelope, env);
 
     const broad = pick(BROAD_HABITAT_TYPES);
     const habitats = HABITAT_TYPES_BY_BROAD[broad] || HABITAT_TYPES_BY_BROAD.Grassland;
@@ -670,25 +684,17 @@ function generateHedgerows(db, boundaryRing, count) {
     const coords = generateLinestring(boundaryRing, 0.2 + Math.random() * 0.3);
     const geom = gpkgLineString(SRS_ID, coords);
     const env = envelopeFromCoords(coords);
-    allEnvelope[0] = Math.min(allEnvelope[0], env[0]);
-    allEnvelope[1] = Math.max(allEnvelope[1], env[1]);
-    allEnvelope[2] = Math.min(allEnvelope[2], env[2]);
-    allEnvelope[3] = Math.max(allEnvelope[3], env[3]);
+    expandEnvelope(allEnvelope, env);
 
     const hedgeType = pick(HEDGE_TYPES);
     const retention = pick(RETENTION_CATEGORIES);
-    let length = 0;
-    for (let j = 1; j < coords.length; j++) {
-      const dx = coords[j][0] - coords[j - 1][0];
-      const dy = coords[j][1] - coords[j - 1][1];
-      length += Math.sqrt(dx * dx + dy * dy);
-    }
+    const length = linestringLength(coords);
 
     stmt.run(
       geom, `HG${String(i + 1).padStart(2, "0")}`, hedgeType,
       pick(HEDGE_CONDITIONS), pick(STRATEGIC_SIGNIFICANCE), retention,
       retention === "Lost" ? pick(HEDGE_TYPES) : hedgeType,
-      pick(HEDGE_CONDITIONS), pick(STRATEGIC_SIGNIFICANCE), Math.round(length),
+      pick(HEDGE_CONDITIONS), pick(STRATEGIC_SIGNIFICANCE), length,
       retention === "Created" ? String(randInt(0, 3)) : "0",
       retention === "Created" ? String(randInt(0, 2)) : "0",
       pick(SPATIAL_RISK_HABITAT), pick(LOCATIONS), SITE_NAME, SURVEY_DATE,
@@ -726,26 +732,18 @@ function generateRivers(db, boundaryRing, count) {
     const coords = generateLinestring(boundaryRing, 0.3 + Math.random() * 0.4);
     const geom = gpkgLineString(SRS_ID, coords);
     const env = envelopeFromCoords(coords);
-    allEnvelope[0] = Math.min(allEnvelope[0], env[0]);
-    allEnvelope[1] = Math.max(allEnvelope[1], env[1]);
-    allEnvelope[2] = Math.min(allEnvelope[2], env[2]);
-    allEnvelope[3] = Math.max(allEnvelope[3], env[3]);
+    expandEnvelope(allEnvelope, env);
 
     const riverType = pick(RIVER_TYPES);
     const retention = pick(["Retained", "Enhanced"]);
-    let length = 0;
-    for (let j = 1; j < coords.length; j++) {
-      const dx = coords[j][0] - coords[j - 1][0];
-      const dy = coords[j][1] - coords[j - 1][1];
-      length += Math.sqrt(dx * dx + dy * dy);
-    }
+    const length = linestringLength(coords);
 
     stmt.run(
       geom, `R${String(i + 1).padStart(2, "0")}`, riverType,
       pick(CONDITIONS), pick(STRATEGIC_SIGNIFICANCE),
       pick(ENCROACHMENT_WATERCOURSE), pick(ENCROACHMENT_RIPARIAN),
       retention, riverType, pick(CONDITIONS), pick(STRATEGIC_SIGNIFICANCE),
-      Math.round(length), "0", "0", pick(SPATIAL_RISK_RIVER), pick(LOCATIONS),
+      length, "0", "0", pick(SPATIAL_RISK_RIVER), pick(LOCATIONS),
       pick(ENCROACHMENT_WATERCOURSE), pick(ENCROACHMENT_RIPARIAN),
       SITE_NAME, SURVEY_DATE, "River corridor survey", null,
       "J. Smith", "Ecological Consultants Ltd", "OS MasterMap",
@@ -780,10 +778,7 @@ function generateUrbanTrees(db, boundaryRing, count) {
   for (let i = 0; i < count; i++) {
     const [x, y] = randomPointInBBox(boundaryRing);
     const geom = gpkgPoint(SRS_ID, x, y);
-    allEnvelope[0] = Math.min(allEnvelope[0], x);
-    allEnvelope[1] = Math.max(allEnvelope[1], x);
-    allEnvelope[2] = Math.min(allEnvelope[2], y);
-    allEnvelope[3] = Math.max(allEnvelope[3], y);
+    expandEnvelope(allEnvelope, [x, x, y, y]);
 
     const size = pick(treeSizes);
     const type = pick(treeTypes);
