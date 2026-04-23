@@ -11,9 +11,9 @@
  * will produce different output each time.
  *
  * Usage:
- *   node scripts/generate-test-gpkg.mjs
- *   node scripts/generate-test-gpkg.mjs --parcels 20
- *   node scripts/generate-test-gpkg.mjs --outdir /tmp/test-data
+ *   node scripts/gen-gpkg.mjs
+ *   node scripts/gen-gpkg.mjs --parcels 20
+ *   node scripts/gen-gpkg.mjs --outdir /tmp/test-data
  */
 
 import Database from "better-sqlite3";
