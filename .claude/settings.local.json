@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vitest *)",
+      "Bash(git stash *)",
+      "WebFetch(domain:api.github.com)",
+      "Skill(update-config)"
+    ]
+  }
+}
