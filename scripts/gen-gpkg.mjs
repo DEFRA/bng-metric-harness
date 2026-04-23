@@ -270,6 +270,16 @@ function writeUInt32(buf, offset, val) {
   return offset + 4;
 }
 
+/**
+ * Encode a point as WKB (Well-Known Binary), little-endian.
+ *
+ * Layout: byteOrder (1) | wkbType (uint32 = 1) | x (float64) | y (float64)
+ *
+ * @param {number} x - X coordinate
+ * @param {number} y - Y coordinate
+ * @returns {Buffer} WKB-encoded point
+ * @see https://www.ogc.org/standard/sfa/ - OGC Simple Features (WKB encoding)
+ */
 function encodeWkbPoint(x, y) {
   const buf = Buffer.alloc(1 + 4 + 16);
   let off = 0;
@@ -280,6 +290,15 @@ function encodeWkbPoint(x, y) {
   return buf;
 }
 
+/**
+ * Encode a linestring as WKB (Well-Known Binary), little-endian.
+ *
+ * Layout: byteOrder (1) | wkbType (uint32 = 2) | numPoints (uint32) | points (x,y float64 pairs)
+ *
+ * @param {number[][]} coords - Array of [x, y] coordinate pairs
+ * @returns {Buffer} WKB-encoded linestring
+ * @see https://www.ogc.org/standard/sfa/ - OGC Simple Features (WKB encoding)
+ */
 function encodeWkbLineString(coords) {
   const buf = Buffer.alloc(1 + 4 + 4 + coords.length * 16);
   let off = 0;
@@ -293,6 +312,19 @@ function encodeWkbLineString(coords) {
   return buf;
 }
 
+/**
+ * Encode a polygon as WKB (Well-Known Binary), little-endian.
+ *
+ * Layout: byteOrder (1) | wkbType (uint32 = 3) | numRings (uint32) |
+ *         for each ring: numPoints (uint32) | points (x,y float64 pairs)
+ *
+ * The first ring is the exterior boundary; any subsequent rings are interior
+ * holes (not currently used by this script).
+ *
+ * @param {number[][][]} rings - Array of rings, each an array of [x, y] coordinate pairs
+ * @returns {Buffer} WKB-encoded polygon
+ * @see https://www.ogc.org/standard/sfa/ - OGC Simple Features (WKB encoding)
+ */
 function encodeWkbPolygon(rings) {
   let size = 1 + 4 + 4;
   for (const ring of rings) {
@@ -317,6 +349,22 @@ function encodeWkbPolygon(rings) {
 // GeoPackage Binary encoding (header + WKB)
 // ---------------------------------------------------------------------------
 
+/**
+ * Wraps a WKB geometry in a GeoPackage Binary header.
+ *
+ * Layout: magic ("GP") | version (0) | flags | srsId (uint32) | [envelope] | wkb
+ *
+ * The flags byte encodes byte order (bit 0, always 1 = little-endian) and
+ * envelope type (bits 1-3). When an envelope is provided, type 1 is used
+ * which stores [minX, maxX, minY, maxY] as four doubles (32 bytes).
+ *
+ * @param {number} srsId - Spatial reference system ID (e.g. 27700)
+ * @param {Buffer} wkb - Well-Known Binary encoded geometry
+ * @param {number[]|null} envelope - Bounding box [minX, maxX, minY, maxY], or null for no envelope
+ * @returns {Buffer} GeoPackage Binary blob ready to store in a geometry column
+ * @see https://www.geopackage.org/spec/#gpb_format - GeoPackage Binary format spec
+ * @see https://www.ogc.org/standard/sfa/ - OGC Simple Features (WKB encoding)
+ */
 function encodeGpkgBinary(srsId, wkb, envelope) {
   const envType = envelope ? 1 : 0;
   const flags = 0x01 | (envType << 1);
@@ -366,6 +414,19 @@ const SRS_ID = 27700;
 
 const SRS_27700_DEF = `PROJCS["OSGB 1936 / British National Grid",GEOGCS["OSGB 1936",DATUM["OSGB_1936",SPHEROID["Airy 1830",6377563.396,299.3249646]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",49],PARAMETER["central_meridian",-2],PARAMETER["scale_factor",0.9996012717],PARAMETER["false_easting",400000],PARAMETER["false_northing",-100000],UNIT["metre",1]]`;
 
+/**
+ * Initialise a SQLite database as a valid GeoPackage by setting the required
+ * pragmas and creating the three mandatory metadata tables:
+ *
+ * - `gpkg_spatial_ref_sys` — spatial reference system definitions
+ * - `gpkg_contents` — registry of feature/tile tables in the file
+ * - `gpkg_geometry_columns` — geometry column metadata per feature table
+ *
+ * Pre-populates the SRS table with WGS 84 (4326) and British National Grid (27700).
+ *
+ * @param {import("better-sqlite3").Database} db - An open better-sqlite3 database
+ * @see https://www.geopackage.org/spec/#_requirement-1 - GeoPackage required tables
+ */
 function initGeoPackage(db) {
   db.pragma("journal_mode = WAL");
   db.pragma("application_id = 0x47504B47");
@@ -404,6 +465,17 @@ function initGeoPackage(db) {
   `);
 }
 
+/**
+ * Register a feature layer in the GeoPackage metadata tables.
+ *
+ * Inserts (or replaces) rows in `gpkg_contents` and `gpkg_geometry_columns`
+ * so that GIS tools recognise the table as a spatial layer.
+ *
+ * @param {import("better-sqlite3").Database} db - An open better-sqlite3 database
+ * @param {string} tableName - Name of the feature table (e.g. "Habitats")
+ * @param {string} geomType - Geometry type name (e.g. "POLYGON", "LINESTRING", "POINT")
+ * @param {number[]|null} envelope - Bounding box [minX, maxX, minY, maxY], or null
+ */
 function registerLayer(db, tableName, geomType, envelope) {
   db.prepare(`
     INSERT OR REPLACE INTO gpkg_contents
