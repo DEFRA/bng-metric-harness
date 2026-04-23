@@ -23,9 +23,13 @@
     "lint": "node scripts/lint.mjs",
     "test": "node scripts/test.mjs all",
     "test:fe": "node scripts/test.mjs fe",
-    "test:be": "node scripts/test.mjs be"
+    "test:be": "node scripts/test.mjs be",
+    "generate:gpkg": "node scripts/gen-gpkg.mjs"
   },
   "dependencies": {
     "concurrently": "^9.1.0"
+  },
+  "devDependencies": {
+    "better-sqlite3": "^12.9.0"
   }
 }
