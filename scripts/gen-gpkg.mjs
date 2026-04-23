@@ -7,6 +7,9 @@
  * Produces a single file with all 5 feature layers:
  *   Red Line Boundary, Habitats, Hedgerows, Rivers, Urban Trees
  *
+ * Geometry and attribute values are randomised on each run — the same inputs
+ * will produce different output each time.
+ *
  * Usage:
  *   node scripts/generate-test-gpkg.mjs
  *   node scripts/generate-test-gpkg.mjs --parcels 20
