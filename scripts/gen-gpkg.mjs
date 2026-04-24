@@ -14,6 +14,17 @@
  *   node scripts/gen-gpkg.mjs
  *   node scripts/gen-gpkg.mjs --parcels 20
  *   node scripts/gen-gpkg.mjs --outdir /tmp/test-data
+ *   node scripts/gen-gpkg.mjs --bad
+ *
+ * Options:
+ *   --parcels <n>   Number of habitat parcels to generate (default: 50)
+ *   --outdir <dir>  Output directory (default: test-data/)
+ *   --bad           Generate an intentionally invalid GeoPackage for testing
+ *                   upload validation. Currently omits the Red Line Boundary
+ *                   layer. Future iterations may introduce other types of
+ *                   invalid data (e.g. bad enum values, missing fields,
+ *                   invalid geometry).
+ *                   Output file is named bng-test-data-bad.gpkg.
  */
 
 import Database from "better-sqlite3";
@@ -31,6 +42,7 @@ const { values: args } = parseArgs({
   options: {
     parcels: { type: "string", default: "50" },
     outdir: { type: "string", default: "" },
+    bad: { type: "boolean", default: false },
   },
   allowPositionals: false,
 });
@@ -1084,7 +1096,8 @@ async function main() {
 
   if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
 
-  const outPath = path.join(OUT_DIR, "bng-test-data.gpkg");
+  const bad = args.bad;
+  const outPath = path.join(OUT_DIR, bad ? "bng-test-data-bad.gpkg" : "bng-test-data.gpkg");
   if (existsSync(outPath)) {
     const overwrite = await confirm(`${outPath} already exists. Overwrite? (y/N) `);
     if (!overwrite) {
@@ -1093,7 +1106,8 @@ async function main() {
     }
     unlinkSync(outPath);
   }
-  header("Generating BNG test GeoPackage", "cyan");
+  header(`Generating ${bad ? "BAD " : ""}BNG test GeoPackage`, "cyan");
+  if (bad) info("  ⚠ Bad mode: omitting Red Line Boundary");
   info(`  ${SITE_NAME}`);
   info(`  ${numParcels} habitat parcels, ${numHedgerows} hedgerows, ${numRivers} rivers, ${numTrees} urban trees`);
   info(`  → ${outPath}`);
@@ -1106,7 +1120,11 @@ async function main() {
   initGeoPackage(db);
   createAllTables(db);
 
-  const ring = generateRedLineBoundary(db, cx, cy, radius);
+  // In bad mode, generate the boundary ring for placing features but don't
+  // insert it into the database — leaves the Red Line Boundary table empty.
+  const ring = bad
+    ? generateIrregularPolygon(cx, cy, radius)
+    : generateRedLineBoundary(db, cx, cy, radius);
   generateHabitats(db, ring, numParcels);
   generateHedgerows(db, ring, numHedgerows);
   generateRivers(db, ring, numRivers);
