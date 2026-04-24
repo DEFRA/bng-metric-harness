@@ -15,13 +15,22 @@ local_resource(
     labels=['apps'],
 )
 
+# Database migrations (Liquibase)
+local_resource(
+    'db-migrate',
+    cmd=nvm_prefix + ' npm run db:update',
+    dir='../bng-metric-backend',
+    resource_deps=['postgres'],
+    labels=['infra'],
+)
+
 # Backend Node app (port 3001)
 local_resource(
     'backend',
     serve_cmd=nvm_prefix + ' npm run dev',
     serve_dir='../bng-metric-backend',
     deps=['../bng-metric-backend/src'],
-    resource_deps=['localstack', 'redis', 'postgres'],
+    resource_deps=['localstack', 'redis', 'postgres', 'db-migrate'],
     links=['http://localhost:3001'],
     labels=['apps'],
 )
