@@ -17,8 +17,9 @@
  */
 
 import Database from "better-sqlite3";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, unlinkSync } from "node:fs";
 import path from "node:path";
+import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
 import { color, header, info } from "./_lib.mjs";
 
@@ -805,10 +806,277 @@ function generateUrbanTrees(db, boundaryRing, count) {
 }
 
 // ---------------------------------------------------------------------------
+// SLD styles
+// ---------------------------------------------------------------------------
+
+/**
+ * Wrap a symbolizer XML fragment in a complete SLD 1.0.0 document.
+ *
+ * @param {string} layerName - Layer name used in NamedLayer and UserStyle
+ * @param {string} symbolizerXml - Inner symbolizer XML (e.g. PolygonSymbolizer)
+ * @returns {string} Complete SLD XML document
+ */
+function sld(layerName, symbolizerXml) {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<StyledLayerDescriptor version="1.0.0"
+  xmlns="http://www.opengis.net/sld"
+  xmlns:ogc="http://www.opengis.net/ogc">
+  <NamedLayer>
+    <Name>${layerName}</Name>
+    <UserStyle>
+      <Name>${layerName}</Name>
+      <FeatureTypeStyle>
+        <Rule>
+          ${symbolizerXml}
+        </Rule>
+      </FeatureTypeStyle>
+    </UserStyle>
+  </NamedLayer>
+</StyledLayerDescriptor>`;
+}
+
+/**
+ * Generate an SLD document for a polygon layer.
+ *
+ * @param {string} name - Layer name
+ * @param {string} fill - Fill colour as hex (e.g. "#FF0000")
+ * @param {string} stroke - Stroke colour as hex
+ * @param {number} [fillOpacity=0.5] - Fill opacity (0–1)
+ * @param {number} [strokeWidth=1.5] - Stroke width in pixels
+ * @returns {string} Complete SLD XML document
+ */
+function polygonSld(name, fill, stroke, fillOpacity = 0.5, strokeWidth = 1.5) {
+  return sld(name, `<PolygonSymbolizer>
+            <Fill>
+              <CssParameter name="fill">${fill}</CssParameter>
+              <CssParameter name="fill-opacity">${fillOpacity}</CssParameter>
+            </Fill>
+            <Stroke>
+              <CssParameter name="stroke">${stroke}</CssParameter>
+              <CssParameter name="stroke-width">${strokeWidth}</CssParameter>
+            </Stroke>
+          </PolygonSymbolizer>`);
+}
+
+/**
+ * Generate an SLD document for a line layer.
+ *
+ * @param {string} name - Layer name
+ * @param {string} stroke - Stroke colour as hex (e.g. "#0000FF")
+ * @param {number} [strokeWidth=2] - Stroke width in pixels
+ * @returns {string} Complete SLD XML document
+ */
+function lineSld(name, stroke, strokeWidth = 2) {
+  return sld(name, `<LineSymbolizer>
+            <Stroke>
+              <CssParameter name="stroke">${stroke}</CssParameter>
+              <CssParameter name="stroke-width">${strokeWidth}</CssParameter>
+            </Stroke>
+          </LineSymbolizer>`);
+}
+
+/**
+ * Generate an SLD document for a point layer using a circle marker.
+ *
+ * @param {string} name - Layer name
+ * @param {string} fill - Marker fill colour as hex
+ * @param {string} stroke - Marker outline colour as hex
+ * @param {number} [size=8] - Marker size in pixels
+ * @returns {string} Complete SLD XML document
+ */
+function pointSld(name, fill, stroke, size = 8) {
+  return sld(name, `<PointSymbolizer>
+            <Graphic>
+              <Mark>
+                <WellKnownName>circle</WellKnownName>
+                <Fill>
+                  <CssParameter name="fill">${fill}</CssParameter>
+                </Fill>
+                <Stroke>
+                  <CssParameter name="stroke">${stroke}</CssParameter>
+                  <CssParameter name="stroke-width">1</CssParameter>
+                </Stroke>
+              </Mark>
+              <Size>${size}</Size>
+            </Graphic>
+          </PointSymbolizer>`);
+}
+
+// ---------------------------------------------------------------------------
+// QML styles (QGIS native format — used for auto-loading)
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert a hex colour string to a comma-separated RGBA value for QML.
+ *
+ * @param {string} hex - Hex colour (e.g. "#FF0000")
+ * @param {number} [alpha=255] - Alpha value (0–255)
+ * @returns {string} RGBA string (e.g. "255,0,0,255")
+ */
+function hexToRgba(hex, alpha = 255) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `${r},${g},${b},${alpha}`;
+}
+
+/**
+ * Generate a QGIS QML style document for a polygon layer.
+ *
+ * @param {string} fill - Fill colour as hex (e.g. "#FF0000")
+ * @param {string} stroke - Stroke colour as hex
+ * @param {number} [fillOpacity=0.5] - Fill opacity (0–1)
+ * @param {number} [strokeWidth=1.5] - Stroke width in mm
+ * @returns {string} Complete QML XML document
+ */
+function polygonQml(fill, stroke, fillOpacity = 0.5, strokeWidth = 1.5) {
+  const fillAlpha = Math.round(fillOpacity * 255);
+  return `<!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>
+<qgis version="3.34" styleCategories="Symbology">
+  <renderer-v2 type="singleSymbol" symbollevels="0">
+    <symbols>
+      <symbol type="fill" name="0" alpha="1">
+        <layer class="SimpleFill">
+          <Option type="Map">
+            <Option type="QString" name="color" value="${hexToRgba(fill, fillAlpha)}"/>
+            <Option type="QString" name="outline_color" value="${hexToRgba(stroke)}"/>
+            <Option type="QString" name="outline_width" value="${strokeWidth}"/>
+            <Option type="QString" name="outline_width_unit" value="MM"/>
+            <Option type="QString" name="style" value="solid"/>
+            <Option type="QString" name="outline_style" value="solid"/>
+          </Option>
+        </layer>
+      </symbol>
+    </symbols>
+  </renderer-v2>
+</qgis>`;
+}
+
+/**
+ * Generate a QGIS QML style document for a line layer.
+ *
+ * @param {string} stroke - Stroke colour as hex (e.g. "#0000FF")
+ * @param {number} [strokeWidth=2] - Stroke width in mm
+ * @returns {string} Complete QML XML document
+ */
+function lineQml(stroke, strokeWidth = 2) {
+  return `<!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>
+<qgis version="3.34" styleCategories="Symbology">
+  <renderer-v2 type="singleSymbol" symbollevels="0">
+    <symbols>
+      <symbol type="line" name="0" alpha="1">
+        <layer class="SimpleLine">
+          <Option type="Map">
+            <Option type="QString" name="line_color" value="${hexToRgba(stroke)}"/>
+            <Option type="QString" name="line_width" value="${strokeWidth}"/>
+            <Option type="QString" name="line_width_unit" value="MM"/>
+            <Option type="QString" name="line_style" value="solid"/>
+            <Option type="QString" name="capstyle" value="round"/>
+            <Option type="QString" name="joinstyle" value="round"/>
+          </Option>
+        </layer>
+      </symbol>
+    </symbols>
+  </renderer-v2>
+</qgis>`;
+}
+
+/**
+ * Generate a QGIS QML style document for a point layer using a circle marker.
+ *
+ * @param {string} fill - Marker fill colour as hex
+ * @param {string} stroke - Marker outline colour as hex
+ * @param {number} [size=4] - Marker size in mm
+ * @returns {string} Complete QML XML document
+ */
+function pointQml(fill, stroke, size = 4) {
+  return `<!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>
+<qgis version="3.34" styleCategories="Symbology">
+  <renderer-v2 type="singleSymbol" symbollevels="0">
+    <symbols>
+      <symbol type="marker" name="0" alpha="1">
+        <layer class="SimpleMarker">
+          <Option type="Map">
+            <Option type="QString" name="color" value="${hexToRgba(fill)}"/>
+            <Option type="QString" name="outline_color" value="${hexToRgba(stroke)}"/>
+            <Option type="QString" name="outline_width" value="0.4"/>
+            <Option type="QString" name="size" value="${size}"/>
+            <Option type="QString" name="size_unit" value="MM"/>
+            <Option type="QString" name="name" value="circle"/>
+          </Option>
+        </layer>
+      </symbol>
+    </symbols>
+  </renderer-v2>
+</qgis>`;
+}
+
+const LAYER_STYLES = [
+  { table: "Red Line Boundary", sld: polygonSld("Red Line Boundary", "#FF0000", "#CC0000", 0.2, 2.5), qml: polygonQml("#FF0000", "#CC0000", 0.2, 2.5) },
+  { table: "Habitats",          sld: polygonSld("Habitats", "#FFB74D", "#F57C00"),                     qml: polygonQml("#FFB74D", "#F57C00") },
+  { table: "Hedgerows",         sld: lineSld("Hedgerows", "#2E7D32", 3),                               qml: lineQml("#2E7D32", 3) },
+  { table: "Rivers",            sld: lineSld("Rivers", "#1565C0", 2.5),                                qml: lineQml("#1565C0", 2.5) },
+  { table: "Urban Trees",       sld: pointSld("Urban Trees", "#8D6E63", "#4E342E", 8),                 qml: pointQml("#8D6E63", "#4E342E", 4) },
+];
+
+/**
+ * Create the `layer_styles` table and insert default styles for all layers.
+ *
+ * Stores both QML (for QGIS auto-loading) and SLD (for portability to other
+ * GIS tools) in each row.
+ *
+ * @param {import("better-sqlite3").Database} db - An open better-sqlite3 database
+ */
+function createLayerStyles(db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS layer_styles (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      f_table_catalog TEXT DEFAULT '',
+      f_table_schema TEXT DEFAULT '',
+      f_table_name TEXT NOT NULL,
+      f_geometry_column TEXT,
+      styleName TEXT,
+      styleQML TEXT,
+      styleSLD TEXT,
+      useAsDefault BOOLEAN DEFAULT 1,
+      description TEXT DEFAULT '',
+      owner TEXT DEFAULT '',
+      ui TEXT,
+      update_time DATETIME DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+  `);
+
+  const stmt = db.prepare(`
+    INSERT INTO layer_styles (f_table_name, f_geometry_column, styleName, styleQML, styleSLD, useAsDefault)
+    VALUES (?, 'geometry', ?, ?, ?, 1)
+  `);
+
+  for (const style of LAYER_STYLES) {
+    stmt.run(style.table, style.table, style.qml, style.sld);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
-function main() {
+/**
+ * Prompt the user with a yes/no question on stdin.
+ *
+ * @param {string} question - The prompt text to display
+ * @returns {Promise<boolean>} Resolves true if the user answered yes
+ */
+function confirm(question) {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim().toLowerCase().startsWith("y"));
+    });
+  });
+}
+
+async function main() {
   const numParcels = parseInt(args.parcels, 10) || 50;
   const numHedgerows = Math.max(3, Math.floor(numParcels / 3));
   const numRivers = Math.max(1, Math.floor(numParcels / 15));
@@ -817,6 +1085,14 @@ function main() {
   if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
 
   const outPath = path.join(OUT_DIR, "bng-test-data.gpkg");
+  if (existsSync(outPath)) {
+    const overwrite = await confirm(`${outPath} already exists. Overwrite? (y/N) `);
+    if (!overwrite) {
+      console.log("Aborted.");
+      process.exit(0);
+    }
+    unlinkSync(outPath);
+  }
   header("Generating BNG test GeoPackage", "cyan");
   info(`  ${SITE_NAME}`);
   info(`  ${numParcels} habitat parcels, ${numHedgerows} hedgerows, ${numRivers} rivers, ${numTrees} urban trees`);
@@ -835,6 +1111,7 @@ function main() {
   generateHedgerows(db, ring, numHedgerows);
   generateRivers(db, ring, numRivers);
   generateUrbanTrees(db, ring, numTrees);
+  createLayerStyles(db);
 
   db.close();
 
