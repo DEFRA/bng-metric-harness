@@ -7,19 +7,44 @@
  * Produces a single file with all 5 feature layers:
  *   Red Line Boundary, Habitats, Hedgerows, Rivers, Urban Trees
  *
- * Geometry and attribute values are randomised on each run — the same inputs
- * will produce different output each time.
+ * Two modes:
+ *
+ *   1. Synthetic (default).
+ *      Both geometry AND attributes are randomised on each run, so repeat
+ *      runs produce different files. Use --size to scale the fixture and
+ *      --count to produce N varied files at once.
+ *
+ *   2. Workbook-driven (--from / --from-list).
+ *      Attributes are read from a real Defra Statutory Biodiversity Metric
+ *      workbook (xlsx/xlsm) — habitat type, condition, distinctiveness,
+ *      strategic significance, retention category, lengths, areas. Geometry
+ *      (RLB outline, parcel partition, hedge/river routes, tree positions)
+ *      is still randomised, but its sizes match the workbook's areas and
+ *      lengths. Repeat runs over the same workbook give identical attribute
+ *      content with different layouts.
+ *
+ * In either mode --centre <easting,northing> positions the RLB anywhere in
+ * Britain (BNG, EPSG:27700). Defaults to Maidenhead (530000,180000).
+ *
+ * Output goes to test-data/ unless --outdir is set. See the harness README
+ * "Test data generation" section for end-user docs and worked examples.
  *
  * Usage:
+ *   # Synthetic
  *   node scripts/gen-gpkg.mjs
  *   node scripts/gen-gpkg.mjs --size 20
  *   node scripts/gen-gpkg.mjs --count 10
- *   node scripts/gen-gpkg.mjs --outdir /tmp/test-data
  *   node scripts/gen-gpkg.mjs --bad
+ *
+ *   # From a real BNG metric workbook
  *   node scripts/gen-gpkg.mjs --from path/to/MetricWorkbook.xlsx
  *   node scripts/gen-gpkg.mjs --from "https://github.com/abitatdotdev/bng-metrics/blob/main/metrics/CAMBRIDGE_24_02948_FUL.xlsx"
  *   node scripts/gen-gpkg.mjs --from-list workbook-urls.txt
- *   node scripts/gen-gpkg.mjs --inspect path/to/MetricWorkbook.xlsx
+ *   node scripts/gen-gpkg.mjs --from path/to/MetricWorkbook.xlsx --inspect
+ *
+ *   # Common to both modes
+ *   node scripts/gen-gpkg.mjs --outdir /tmp/test-data
+ *   node scripts/gen-gpkg.mjs --centre 545000,258000   # central Cambridge
  *
  * Options:
  *   --size <n>      Overall fixture size — sets habitat parcel count and
