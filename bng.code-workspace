@@ -10,6 +10,10 @@
     {
       "path": "../bng-metric-backend",
       "name": "bng-metric-backend"
+    },
+    {
+      "path": "../bng-metric-digital-prototype",
+      "name": "bng-metric-digital-prototype"
     }
   ],
   "settings": {}
