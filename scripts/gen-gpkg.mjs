@@ -12,12 +12,21 @@
  *
  * Usage:
  *   node scripts/gen-gpkg.mjs
- *   node scripts/gen-gpkg.mjs --parcels 20
+ *   node scripts/gen-gpkg.mjs --size 20
+ *   node scripts/gen-gpkg.mjs --count 10
  *   node scripts/gen-gpkg.mjs --outdir /tmp/test-data
  *   node scripts/gen-gpkg.mjs --bad
  *
  * Options:
- *   --parcels <n>   Number of habitat parcels to generate (default: 50)
+ *   --size <n>      Overall fixture size — sets habitat parcel count and
+ *                   scales hedgerow, river, and urban tree counts from it
+ *                   (default: 50)
+ *   --count <n>     Generate n different GeoPackages in one run, each with
+ *                   its own randomised RLB shape, habitat partition, and
+ *                   attribute values. Files are numbered
+ *                   bng-test-data-001.gpkg, bng-test-data-002.gpkg, ...
+ *                   When >1, existing files are overwritten without prompt.
+ *                   (default: 1)
  *   --outdir <dir>  Output directory (default: test-data/)
  *   --bad           Generate an intentionally invalid GeoPackage for testing
  *                   upload validation. Currently omits the Red Line Boundary
@@ -32,7 +41,7 @@ import { existsSync, mkdirSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
-import { color, header, info } from "./_lib.mjs";
+import { color, error, header, info } from "./_lib.mjs";
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -40,7 +49,8 @@ import { color, header, info } from "./_lib.mjs";
 
 const { values: args } = parseArgs({
   options: {
-    parcels: { type: "string", default: "50" },
+    size: { type: "string", default: "50" },
+    count: { type: "string", default: "1" },
     outdir: { type: "string", default: "" },
     bad: { type: "boolean", default: false },
   },
@@ -191,6 +201,36 @@ const SPATIAL_RISK_RIVER = [
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Ray-casting point-in-polygon test for a single ring.
+ *
+ * @param {number[]} point - [x, y]
+ * @param {number[][]} ring - Closed ring of [x, y] pairs (first === last)
+ * @returns {boolean} True if the point is strictly inside the ring
+ */
+function pointInRing(point, ring) {
+  const [x, y] = point;
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    const intersect =
+      yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+/**
+ * Test whether every vertex of a linestring lies strictly inside the
+ * boundary ring.
+ */
+function lineInsideRing(coords, boundary) {
+  for (const p of coords) {
+    if (!pointInRing(p, boundary)) return false;
+  }
+  return true;
+}
 
 function expandEnvelope(envelope, env) {
   envelope[0] = Math.min(envelope[0], env[0]);
@@ -209,6 +249,23 @@ function linestringLength(coords) {
   return Math.round(length);
 }
 
+/**
+ * Signed area of a closed polygon ring via the shoelace formula.
+ * Sign indicates orientation; we take the absolute value.
+ *
+ * @param {number[][]} ring - Closed ring of [x, y] pairs (first === last)
+ * @returns {number} Polygon area in the ring's coordinate units
+ */
+function polygonArea(ring) {
+  let sum = 0;
+  for (let i = 0; i < ring.length - 1; i++) {
+    const [x1, y1] = ring[i];
+    const [x2, y2] = ring[i + 1];
+    sum += x1 * y2 - x2 * y1;
+  }
+  return Math.abs(sum) / 2;
+}
+
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -225,68 +282,214 @@ function randInt(min, max) {
 // Geometry generators (EPSG:27700 — British National Grid)
 // ---------------------------------------------------------------------------
 
-function generateIrregularPolygon(cx, cy, radius, numPoints = 12) {
-  const points = [];
-  for (let i = 0; i < numPoints; i++) {
-    const angle = (2 * Math.PI * i) / numPoints;
-    const r = radius * (0.7 + Math.random() * 0.6);
-    points.push([cx + r * Math.cos(angle), cy + r * Math.sin(angle)]);
+/**
+ * Andrew's monotone-chain convex hull of a 2D point set.
+ *
+ * @param {number[][]} points - Array of [x, y] pairs (>=3 distinct points)
+ * @returns {number[][]} Closed CCW ring of the hull (first === last)
+ */
+function convexHull(points) {
+  const pts = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) =>
+    (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lower = [];
+  for (const p of pts) {
+    while (lower.length >= 2 && cross(lower.at(-2), lower.at(-1), p) <= 0) {
+      lower.pop();
+    }
+    lower.push(p);
   }
-  points.push([...points[0]]); // close ring
-  return points;
+  const upper = [];
+  for (let i = pts.length - 1; i >= 0; i--) {
+    const p = pts[i];
+    while (upper.length >= 2 && cross(upper.at(-2), upper.at(-1), p) <= 0) {
+      upper.pop();
+    }
+    upper.push(p);
+  }
+  upper.pop();
+  lower.pop();
+  const hull = lower.concat(upper);
+  hull.push([...hull[0]]);
+  return hull;
 }
 
-function subdivideIntoGrid(boundaryRing, numParcels) {
-  const xs = boundaryRing.map((p) => p[0]);
-  const ys = boundaryRing.map((p) => p[1]);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
+/**
+ * Generate a convex, irregular boundary polygon as the convex hull of
+ * random points in an annulus around (cx, cy). The output is always convex,
+ * which is required for the recursive habitat partitioning to tile cleanly.
+ */
+function generateIrregularPolygon(cx, cy, radius, numPoints = 18) {
+  const pts = [];
+  for (let i = 0; i < numPoints; i++) {
+    const angle = Math.random() * 2 * Math.PI;
+    const r = radius * (0.65 + Math.random() * 0.7);
+    pts.push([cx + r * Math.cos(angle), cy + r * Math.sin(angle)]);
+  }
+  return convexHull(pts);
+}
 
-  const cols = Math.ceil(Math.sqrt(numParcels));
-  const rows = Math.ceil(numParcels / cols);
-  const cellW = (maxX - minX) / cols;
-  const cellH = (maxY - minY) / rows;
+/**
+ * Area-weighted centroid of a closed polygon ring (signed-area formula).
+ *
+ * @param {number[][]} ring - Closed ring (first === last)
+ * @returns {[number, number]} Centroid [x, y]
+ */
+function polygonCentroid(ring) {
+  let cx = 0;
+  let cy = 0;
+  let twiceArea = 0;
+  for (let i = 0; i < ring.length - 1; i++) {
+    const [x1, y1] = ring[i];
+    const [x2, y2] = ring[i + 1];
+    const c = x1 * y2 - x2 * y1;
+    twiceArea += c;
+    cx += (x1 + x2) * c;
+    cy += (y1 + y2) * c;
+  }
+  return [cx / (3 * twiceArea), cy / (3 * twiceArea)];
+}
 
-  const parcels = [];
-  for (let r = 0; r < rows && parcels.length < numParcels; r++) {
-    for (let c = 0; c < cols && parcels.length < numParcels; c++) {
-      const x0 = minX + c * cellW;
-      const y0 = minY + r * cellH;
-      const inset = 0.5;
-      parcels.push([
-        [x0 + inset, y0 + inset],
-        [x0 + cellW - inset, y0 + inset],
-        [x0 + cellW - inset, y0 + cellH - inset],
-        [x0 + inset, y0 + cellH - inset],
-        [x0 + inset, y0 + inset],
-      ]);
+/**
+ * Sutherland–Hodgman clip of a polygon ring against a half-plane.
+ *
+ * Keeps the side where (p - point) · normal >= 0. For a convex input, the
+ * result is itself convex. Returns null if fewer than 3 vertices remain.
+ */
+function clipPolygonByHalfPlane(ring, point, normal) {
+  const sd = (p) =>
+    (p[0] - point[0]) * normal[0] + (p[1] - point[1]) * normal[1];
+  const out = [];
+  for (let i = 0; i < ring.length - 1; i++) {
+    const p1 = ring[i];
+    const p2 = ring[i + 1];
+    const d1 = sd(p1);
+    const d2 = sd(p2);
+    if (d1 >= 0) {
+      out.push(p1);
+      if (d2 < 0) {
+        const t = d1 / (d1 - d2);
+        out.push([p1[0] + t * (p2[0] - p1[0]), p1[1] + t * (p2[1] - p1[1])]);
+      }
+    } else if (d2 >= 0) {
+      const t = d1 / (d1 - d2);
+      out.push([p1[0] + t * (p2[0] - p1[0]), p1[1] + t * (p2[1] - p1[1])]);
     }
+  }
+  if (out.length < 3) return null;
+  out.push([...out[0]]);
+  return out;
+}
+
+/**
+ * Split a convex polygon along a random chord that passes near (but not
+ * exactly through) its centroid. The chord direction is uniform-random; its
+ * offset from the centroid is sampled from the middle 60% of the polygon's
+ * extent in the perpendicular direction, which avoids degenerate sliver
+ * splits while still giving size variation between the two halves.
+ *
+ * Returns [a, b] where each is a closed ring; either may be null if the
+ * resulting half is degenerate.
+ */
+function splitPolygonRandom(ring) {
+  const c = polygonCentroid(ring);
+  const angle = Math.random() * Math.PI;
+  const normal = [Math.cos(angle), Math.sin(angle)];
+
+  let minSd = Infinity;
+  let maxSd = -Infinity;
+  for (let i = 0; i < ring.length - 1; i++) {
+    const s =
+      (ring[i][0] - c[0]) * normal[0] + (ring[i][1] - c[1]) * normal[1];
+    if (s < minSd) minSd = s;
+    if (s > maxSd) maxSd = s;
+  }
+  const offset = randBetween(minSd * 0.3, maxSd * 0.3);
+  const chordPoint = [
+    c[0] + normal[0] * offset,
+    c[1] + normal[1] * offset,
+  ];
+
+  const a = clipPolygonByHalfPlane(ring, chordPoint, normal);
+  const b = clipPolygonByHalfPlane(ring, chordPoint, [-normal[0], -normal[1]]);
+  return [a, b];
+}
+
+/**
+ * Recursively partition a convex polygon into `n` non-overlapping pieces
+ * that exactly tile the input. On each step, splits the largest current
+ * piece by a random chord. Stops short if no valid split is found after
+ * a few retries (the returned array may then be smaller than `n`).
+ */
+function partitionPolygon(ring, n, maxRetriesPerSplit = 5) {
+  const parcels = [ring];
+  while (parcels.length < n) {
+    parcels.sort((a, b) => polygonArea(b) - polygonArea(a));
+    const big = parcels[0];
+    let split = null;
+    for (let r = 0; r < maxRetriesPerSplit; r++) {
+      const [a, b] = splitPolygonRandom(big);
+      if (a && b && polygonArea(a) > 1 && polygonArea(b) > 1) {
+        split = [a, b];
+        break;
+      }
+    }
+    if (!split) break;
+    parcels.shift();
+    parcels.push(split[0], split[1]);
   }
   return parcels;
 }
 
-function generateLinestring(boundaryRing, segmentFraction = 0.4) {
-  const n = boundaryRing.length - 1;
-  const start = randInt(0, n);
-  const count = Math.max(2, Math.floor(n * segmentFraction));
-  const points = [];
-  for (let i = 0; i < count; i++) {
-    const idx = (start + i) % n;
-    const [x, y] = boundaryRing[idx];
-    points.push([x + randBetween(-2, 2), y + randBetween(-2, 2)]);
+/**
+ * Rejection-sample a point that lies inside the boundary ring. The boundary's
+ * bounding box is computed once up front and reused across attempts.
+ *
+ * Returns null if no inside point is found within `maxAttempts` tries.
+ */
+function pickInteriorPoint(boundaryRing, maxAttempts = 100) {
+  const bbox = envelopeFromCoords(boundaryRing);
+  for (let i = 0; i < maxAttempts; i++) {
+    const p = randomPointInBBox(bbox);
+    if (pointInRing(p, boundaryRing)) return p;
   }
+  return null;
+}
+
+/**
+ * Generate a linestring that cuts across the interior of the boundary,
+ * not along its edge. Picks two random interior endpoints, then inserts
+ * 1–3 midpoints with a small perpendicular offset so the line bends
+ * slightly. May still produce vertices outside the boundary on concave
+ * regions — the caller is expected to validate and reject.
+ */
+function generateLinestring(boundaryRing) {
+  const start = pickInteriorPoint(boundaryRing);
+  const end = pickInteriorPoint(boundaryRing);
+  if (!start || !end) return null;
+  const dx = end[0] - start[0];
+  const dy = end[1] - start[1];
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len === 0) return null;
+  const px = -dy / len;
+  const py = dx / len;
+  const numMid = 1 + randInt(0, 3);
+  const maxOffset = len * 0.1;
+  const points = [start];
+  for (let i = 1; i <= numMid; i++) {
+    const t = i / (numMid + 1);
+    const offset = randBetween(-maxOffset, maxOffset);
+    points.push([
+      start[0] + dx * t + px * offset,
+      start[1] + dy * t + py * offset,
+    ]);
+  }
+  points.push(end);
   return points;
 }
 
-function randomPointInBBox(ring) {
-  const xs = ring.map((p) => p[0]);
-  const ys = ring.map((p) => p[1]);
-  return [
-    randBetween(Math.min(...xs), Math.max(...xs)),
-    randBetween(Math.min(...ys), Math.max(...ys)),
-  ];
+function randomPointInBBox(bbox) {
+  return [randBetween(bbox[0], bbox[1]), randBetween(bbox[2], bbox[3])];
 }
 
 // ---------------------------------------------------------------------------
@@ -615,9 +818,7 @@ const SURVEY_DATE = "2025-06-15";
 function generateRedLineBoundary(db, cx, cy, radius) {
   const ring = generateIrregularPolygon(cx, cy, radius);
   const geom = gpkgPolygon(SRS_ID, ring);
-  const xs = ring.map((p) => p[0]);
-  const ys = ring.map((p) => p[1]);
-  const area = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys));
+  const area = polygonArea(ring);
 
   db.prepare(
     `INSERT INTO "Red Line Boundary" (geometry, "Area", "Site Name") VALUES (?, ?, ?)`,
@@ -628,7 +829,7 @@ function generateRedLineBoundary(db, cx, cy, radius) {
 }
 
 function generateHabitats(db, boundaryRing, numParcels) {
-  const parcels = subdivideIntoGrid(boundaryRing, numParcels);
+  const parcels = partitionPolygon(boundaryRing, numParcels);
 
   const stmt = db.prepare(`
     INSERT INTO "Habitats" (
@@ -652,18 +853,13 @@ function generateHabitats(db, boundaryRing, numParcels) {
     expandEnvelope(allEnvelope, env);
 
     const broad = pick(BROAD_HABITAT_TYPES);
-    const habitats = HABITAT_TYPES_BY_BROAD[broad] || HABITAT_TYPES_BY_BROAD.Grassland;
-    const baselineHabitat = pick(habitats);
+    const baselineHabitat = pick(HABITAT_TYPES_BY_BROAD[broad]);
     const retention = pick(RETENTION_CATEGORIES);
     const proposedBroad = retention === "Lost" ? pick(BROAD_HABITAT_TYPES) : broad;
-    const proposedHabitats = HABITAT_TYPES_BY_BROAD[proposedBroad] || habitats;
-    const proposedHabitat = retention === "Retained" ? baselineHabitat : pick(proposedHabitats);
-
-    const xs = ring.map((p) => p[0]);
-    const ys = ring.map((p) => p[1]);
-    const area = Math.round(
-      (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys)),
-    );
+    const proposedHabitat = retention === "Retained"
+      ? baselineHabitat
+      : pick(HABITAT_TYPES_BY_BROAD[proposedBroad]);
+    const area = Math.round(polygonArea(ring));
 
     stmt.run(
       geom, `H${String(i + 1).padStart(3, "0")}`, broad, baselineHabitat,
@@ -677,97 +873,110 @@ function generateHabitats(db, boundaryRing, numParcels) {
     );
   }
 
-  registerLayer(db, "Habitats", "POLYGON", allEnvelope);
+  registerLayer(db, "Habitats", "POLYGON", parcels.length > 0 ? allEnvelope : null);
+}
+
+/**
+ * Shared rejection-sampling driver for linestring layers (Hedgerows, Rivers).
+ *
+ * Picks linestrings via `generateLinestring`, rejects any whose vertices fall
+ * outside the boundary, and inserts up to `count` accepted features. The
+ * caller supplies the table name, prepared INSERT SQL, and a per-row builder
+ * that maps `(coords, index)` to the bind values for that row.
+ */
+function generateLineFeatures(db, boundaryRing, count, { tableName, sql, buildRow }) {
+  const stmt = db.prepare(sql);
+  const allEnvelope = [Infinity, -Infinity, Infinity, -Infinity];
+
+  let produced = 0;
+  let attempts = 0;
+  const maxAttempts = count * 20;
+  while (produced < count && attempts < maxAttempts) {
+    attempts++;
+    const coords = generateLinestring(boundaryRing);
+    if (!coords || !lineInsideRing(coords, boundaryRing)) continue;
+    expandEnvelope(allEnvelope, envelopeFromCoords(coords));
+    stmt.run(...buildRow(coords, produced));
+    produced++;
+  }
+
+  registerLayer(db, tableName, "LINESTRING", produced > 0 ? allEnvelope : null);
 }
 
 function generateHedgerows(db, boundaryRing, count) {
-  const stmt = db.prepare(`
-    INSERT INTO "Hedgerows" (
-      geometry, "Parcel Ref", "Baseline Hedge Type", "Baseline Condition",
-      "Baseline Strategic Significance", "Retention Category",
-      "Proposed Hedge Type", "Proposed Condition", "Proposed Strategic Significance",
-      "Length", "Habitat created in advance/years",
-      "Delay in starting habitat creation/years", "Spatial risk category",
-      "Location", "Site Name", "Survey Date", "Survey Details", "Comments",
-      "Mapped by", "Company", "Base Map",
-      "Baseline Distinctiveness", "Proposed Distinctiveness"
-    ) VALUES (${Array(23).fill("?").join(", ")})
-  `);
-
-  const allEnvelope = [Infinity, -Infinity, Infinity, -Infinity];
-
-  for (let i = 0; i < count; i++) {
-    const coords = generateLinestring(boundaryRing, 0.2 + Math.random() * 0.3);
-    const geom = gpkgLineString(SRS_ID, coords);
-    const env = envelopeFromCoords(coords);
-    expandEnvelope(allEnvelope, env);
-
-    const hedgeType = pick(HEDGE_TYPES);
-    const retention = pick(RETENTION_CATEGORIES);
-    const length = linestringLength(coords);
-
-    stmt.run(
-      geom, `HG${String(i + 1).padStart(2, "0")}`, hedgeType,
-      pick(HEDGE_CONDITIONS), pick(STRATEGIC_SIGNIFICANCE), retention,
-      retention === "Lost" ? pick(HEDGE_TYPES) : hedgeType,
-      pick(HEDGE_CONDITIONS), pick(STRATEGIC_SIGNIFICANCE), length,
-      retention === "Created" ? String(randInt(0, 3)) : "0",
-      retention === "Created" ? String(randInt(0, 2)) : "0",
-      pick(SPATIAL_RISK_HABITAT), pick(LOCATIONS), SITE_NAME, SURVEY_DATE,
-      "Hedgerow survey", null, "J. Smith", "Ecological Consultants Ltd",
-      "OS MasterMap", pick(DISTINCTIVENESS), pick(DISTINCTIVENESS),
-    );
-  }
-
-  registerLayer(db, "Hedgerows", "LINESTRING", allEnvelope);
+  generateLineFeatures(db, boundaryRing, count, {
+    tableName: "Hedgerows",
+    sql: `
+      INSERT INTO "Hedgerows" (
+        geometry, "Parcel Ref", "Baseline Hedge Type", "Baseline Condition",
+        "Baseline Strategic Significance", "Retention Category",
+        "Proposed Hedge Type", "Proposed Condition", "Proposed Strategic Significance",
+        "Length", "Habitat created in advance/years",
+        "Delay in starting habitat creation/years", "Spatial risk category",
+        "Location", "Site Name", "Survey Date", "Survey Details", "Comments",
+        "Mapped by", "Company", "Base Map",
+        "Baseline Distinctiveness", "Proposed Distinctiveness"
+      ) VALUES (${Array(23).fill("?").join(", ")})
+    `,
+    buildRow: (coords, i) => {
+      const hedgeType = pick(HEDGE_TYPES);
+      const retention = pick(RETENTION_CATEGORIES);
+      return [
+        gpkgLineString(SRS_ID, coords),
+        `HG${String(i + 1).padStart(3, "0")}`, hedgeType,
+        pick(HEDGE_CONDITIONS), pick(STRATEGIC_SIGNIFICANCE), retention,
+        retention === "Lost" ? pick(HEDGE_TYPES) : hedgeType,
+        pick(HEDGE_CONDITIONS), pick(STRATEGIC_SIGNIFICANCE),
+        linestringLength(coords),
+        retention === "Created" ? String(randInt(0, 3)) : "0",
+        retention === "Created" ? String(randInt(0, 2)) : "0",
+        pick(SPATIAL_RISK_HABITAT), pick(LOCATIONS), SITE_NAME, SURVEY_DATE,
+        "Hedgerow survey", null, "J. Smith", "Ecological Consultants Ltd",
+        "OS MasterMap", pick(DISTINCTIVENESS), pick(DISTINCTIVENESS),
+      ];
+    },
+  });
 }
 
 function generateRivers(db, boundaryRing, count) {
-  const stmt = db.prepare(`
-    INSERT INTO "Rivers" (
-      geometry, "Parcel Ref", "Baseline River Type", "Baseline Condition",
-      "Baseline Strategic Significance",
-      "Baseline Encroachment into Watercourse",
-      "Baseline Encroachment into riparian zone",
-      "Retention Category", "Proposed River Type", "Proposed Condition",
-      "Proposed Strategic Significance", "Length",
-      "Habitat created in advance/years",
-      "Delay in starting habitat creation/years",
-      "Spatial risk category", "Location",
-      "Proposed Encroachment into Watercourse",
-      "Proposed Encroachment into riparian zone",
-      "Site Name", "Survey Date", "Survey Details", "Comments",
-      "Mapped by", "Company", "Base Map",
-      "Enhancement Type", "Baseline Distinctiveness", "Proposed Distinctiveness"
-    ) VALUES (${Array(28).fill("?").join(", ")})
-  `);
-
-  const allEnvelope = [Infinity, -Infinity, Infinity, -Infinity];
-
-  for (let i = 0; i < count; i++) {
-    const coords = generateLinestring(boundaryRing, 0.3 + Math.random() * 0.4);
-    const geom = gpkgLineString(SRS_ID, coords);
-    const env = envelopeFromCoords(coords);
-    expandEnvelope(allEnvelope, env);
-
-    const riverType = pick(RIVER_TYPES);
-    const retention = pick(["Retained", "Enhanced"]);
-    const length = linestringLength(coords);
-
-    stmt.run(
-      geom, `R${String(i + 1).padStart(2, "0")}`, riverType,
-      pick(CONDITIONS), pick(STRATEGIC_SIGNIFICANCE),
-      pick(ENCROACHMENT_WATERCOURSE), pick(ENCROACHMENT_RIPARIAN),
-      retention, riverType, pick(CONDITIONS), pick(STRATEGIC_SIGNIFICANCE),
-      length, "0", "0", pick(SPATIAL_RISK_RIVER), pick(LOCATIONS),
-      pick(ENCROACHMENT_WATERCOURSE), pick(ENCROACHMENT_RIPARIAN),
-      SITE_NAME, SURVEY_DATE, "River corridor survey", null,
-      "J. Smith", "Ecological Consultants Ltd", "OS MasterMap",
-      null, pick(DISTINCTIVENESS), pick(DISTINCTIVENESS),
-    );
-  }
-
-  registerLayer(db, "Rivers", "LINESTRING", allEnvelope);
+  generateLineFeatures(db, boundaryRing, count, {
+    tableName: "Rivers",
+    sql: `
+      INSERT INTO "Rivers" (
+        geometry, "Parcel Ref", "Baseline River Type", "Baseline Condition",
+        "Baseline Strategic Significance",
+        "Baseline Encroachment into Watercourse",
+        "Baseline Encroachment into riparian zone",
+        "Retention Category", "Proposed River Type", "Proposed Condition",
+        "Proposed Strategic Significance", "Length",
+        "Habitat created in advance/years",
+        "Delay in starting habitat creation/years",
+        "Spatial risk category", "Location",
+        "Proposed Encroachment into Watercourse",
+        "Proposed Encroachment into riparian zone",
+        "Site Name", "Survey Date", "Survey Details", "Comments",
+        "Mapped by", "Company", "Base Map",
+        "Enhancement Type", "Baseline Distinctiveness", "Proposed Distinctiveness"
+      ) VALUES (${Array(28).fill("?").join(", ")})
+    `,
+    buildRow: (coords, i) => {
+      const riverType = pick(RIVER_TYPES);
+      const retention = pick(["Retained", "Enhanced"]);
+      return [
+        gpkgLineString(SRS_ID, coords),
+        `R${String(i + 1).padStart(3, "0")}`, riverType,
+        pick(CONDITIONS), pick(STRATEGIC_SIGNIFICANCE),
+        pick(ENCROACHMENT_WATERCOURSE), pick(ENCROACHMENT_RIPARIAN),
+        retention, riverType, pick(CONDITIONS), pick(STRATEGIC_SIGNIFICANCE),
+        linestringLength(coords), "0", "0",
+        pick(SPATIAL_RISK_RIVER), pick(LOCATIONS),
+        pick(ENCROACHMENT_WATERCOURSE), pick(ENCROACHMENT_RIPARIAN),
+        SITE_NAME, SURVEY_DATE, "River corridor survey", null,
+        "J. Smith", "Ecological Consultants Ltd", "OS MasterMap",
+        null, pick(DISTINCTIVENESS), pick(DISTINCTIVENESS),
+      ];
+    },
+  });
 }
 
 function generateUrbanTrees(db, boundaryRing, count) {
@@ -791,9 +1000,11 @@ function generateUrbanTrees(db, boundaryRing, count) {
 
   const allEnvelope = [Infinity, -Infinity, Infinity, -Infinity];
 
-  for (let i = 0; i < count; i++) {
-    const [x, y] = randomPointInBBox(boundaryRing);
-    const geom = gpkgPoint(SRS_ID, x, y);
+  let produced = 0;
+  while (produced < count) {
+    const point = pickInteriorPoint(boundaryRing);
+    if (!point) break;
+    const [x, y] = point;
     expandEnvelope(allEnvelope, [x, x, y, y]);
 
     const size = pick(treeSizes);
@@ -801,7 +1012,7 @@ function generateUrbanTrees(db, boundaryRing, count) {
     const retention = pick(["Retained", "Enhanced", "Lost"]);
 
     stmt.run(
-      geom, `T${String(i + 1).padStart(3, "0")}`, size,
+      gpkgPoint(SRS_ID, x, y), `T${String(produced + 1).padStart(3, "0")}`, size,
       pick(CONDITIONS), pick(STRATEGIC_SIGNIFICANCE), type,
       retention, retention === "Lost" ? "Lost" : "Retained",
       retention === "Lost" ? pick(treeSizes) : size,
@@ -812,9 +1023,10 @@ function generateUrbanTrees(db, boundaryRing, count) {
       "J. Smith", "Ecological Consultants Ltd", "OS MasterMap",
       1, "Urban", "Urban",
     );
+    produced++;
   }
 
-  registerLayer(db, "Urban Trees", "POINT", allEnvelope);
+  registerLayer(db, "Urban Trees", "POINT", produced > 0 ? allEnvelope : null);
 }
 
 // ---------------------------------------------------------------------------
@@ -1088,24 +1300,11 @@ function confirm(question) {
   });
 }
 
-async function main() {
-  const numParcels = parseInt(args.parcels, 10) || 50;
+function generateOne(outPath, bad, numParcels) {
   const numHedgerows = Math.max(3, Math.floor(numParcels / 3));
   const numRivers = Math.max(1, Math.floor(numParcels / 15));
   const numTrees = Math.max(5, Math.floor(numParcels / 2));
 
-  if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
-
-  const bad = args.bad;
-  const outPath = path.join(OUT_DIR, bad ? "bng-test-data-bad.gpkg" : "bng-test-data.gpkg");
-  if (existsSync(outPath)) {
-    const overwrite = await confirm(`${outPath} already exists. Overwrite? (y/N) `);
-    if (!overwrite) {
-      console.log("Aborted.");
-      process.exit(0);
-    }
-    unlinkSync(outPath);
-  }
   header(`Generating ${bad ? "BAD " : ""}BNG test GeoPackage`, "cyan");
   if (bad) info("  ⚠ Bad mode: omitting Red Line Boundary");
   info(`  ${SITE_NAME}`);
@@ -1133,7 +1332,6 @@ async function main() {
 
   db.close();
 
-  // Verify
   const verify = new Database(outPath, { readonly: true });
   const layers = verify
     .prepare("SELECT table_name FROM gpkg_contents WHERE data_type = 'features'")
@@ -1144,9 +1342,44 @@ async function main() {
       .get();
     info(`  ${layer.table_name}: ${count.n} feature(s)`);
   }
-
   verify.close();
-  console.log(color("green", `\n✔ Done. ${outPath}`));
+  console.log(color("green", `✔ Done. ${outPath}`));
 }
 
-main();
+async function main() {
+  const numParcels = parseInt(args.size, 10) || 50;
+  const total = Math.max(1, parseInt(args.count, 10) || 1);
+  const bad = args.bad;
+
+  if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
+
+  for (let i = 1; i <= total; i++) {
+    const suffix = total > 1 ? `-${String(i).padStart(3, "0")}` : "";
+    const filename = bad
+      ? `bng-test-data-bad${suffix}.gpkg`
+      : `bng-test-data${suffix}.gpkg`;
+    const outPath = path.join(OUT_DIR, filename);
+
+    if (existsSync(outPath)) {
+      if (total > 1) {
+        unlinkSync(outPath);
+      } else {
+        const overwrite = await confirm(
+          `${outPath} already exists. Overwrite? (y/N) `,
+        );
+        if (!overwrite) {
+          console.log("Aborted.");
+          process.exit(0);
+        }
+        unlinkSync(outPath);
+      }
+    }
+
+    generateOne(outPath, bad, numParcels);
+  }
+}
+
+main().catch((err) => {
+  error(err.stack || err.message || String(err));
+  process.exit(1);
+});
