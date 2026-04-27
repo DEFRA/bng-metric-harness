@@ -42,6 +42,8 @@ import path from "node:path";
 import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
 import { color, error, header, info } from "./_lib.mjs";
+import { conditionScores as metricConditionScores } from "./data/metric-values-habitat-condition.mjs";
+import { distinctivenessCategories as metricDistinctiveness } from "./data/metric-values-habitat-distinctiveness.mjs";
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -62,11 +64,11 @@ const OUT_DIR = args.outdir
   ? path.resolve(args.outdir)
   : path.resolve(HARNESS_ROOT, "test-data");
 
-// ---------------------------------------------------------------------------
-// Enum lookup tables (from NE GIS Data Standard ISBN 978-1-7393362-6-4)
-// ---------------------------------------------------------------------------
-
-const BROAD_HABITAT_TYPES = [
+// Restrict to inland broad types — fixture site is land-based, so coastal,
+// intertidal, rocky-shore etc. are out of scope. Also skips any habitat the
+// metric defines as non-area (e.g. "Individual trees", "Watercourse footprint",
+// "Infrastructure (IGGI)"), which belong on other layers or aren't applicable.
+const INLAND_BROAD_TYPES = new Set([
   "Cropland",
   "Grassland",
   "Heathland and shrub",
@@ -75,75 +77,43 @@ const BROAD_HABITAT_TYPES = [
   "Urban",
   "Wetland",
   "Woodland and forest",
-];
+]);
 
-const HABITAT_TYPES_BY_BROAD = {
-  Cropland: [
-    "Cereal crops",
-    "Arable field margins pollen and nectar",
-    "Non-cereal crops",
-    "Traditional orchards",
-    "Temporary grass and clover leys",
-  ],
-  Grassland: [
-    "Modified grassland",
-    "Other neutral grassland",
-    "Lowland meadows",
-    "Lowland calcareous grassland",
-    "Other lowland acid grassland",
-  ],
-  "Heathland and shrub": [
-    "Mixed scrub",
-    "Bramble scrub",
-    "Hawthorn scrub",
-    "Lowland heathland",
-    "Gorse scrub",
-  ],
-  Lakes: [
-    "Ponds (priority habitat)",
-    "Ponds (non-priority habitat)",
-    "Ornamental lake or pond",
-  ],
-  "Sparsely vegetated land": [
-    "Ruderal/Ephemeral",
-    "Coastal sand dunes",
-    "Tall forbs",
-  ],
-  Urban: [
-    "Developed land; sealed surface",
-    "Vegetated garden",
-    "Allotments",
-    "Biodiverse green roof",
-    "Introduced shrub",
-    "Open mosaic habitats on previously developed land",
-    "Sustainable drainage system",
-    "Rain garden",
-    "Vacant or derelict land",
-    "Bare ground",
-  ],
-  Wetland: [
-    "Reedbeds",
-    "Lowland raised bog",
-    "Fens (upland and lowland)",
-    "Purple moor grass and rush pastures",
-  ],
-  "Woodland and forest": [
-    "Lowland mixed deciduous woodland",
-    "Other woodland; broadleaved",
-    "Other woodland; mixed",
-    "Wet woodland",
-    "Other coniferous woodland",
-  ],
-};
+/** @type {{ fullName: string, broad: string, type: string, validConditions: string[], distinctiveness: string }[]} */
+const HABITATS = [];
+const HABITATS_BY_BROAD = {};
 
-const CONDITIONS = [
-  "Good",
-  "Fairly Good",
-  "Moderate",
-  "Fairly Poor",
-  "Poor",
-];
+for (const fullName of Object.keys(metricDistinctiveness)) {
+  const sepIdx = fullName.indexOf(" - ");
+  if (sepIdx < 0) continue;
+  const broad = fullName.slice(0, sepIdx);
+  const type = fullName.slice(sepIdx + 3);
+  if (!INLAND_BROAD_TYPES.has(broad)) continue;
 
+  const conds = metricConditionScores[fullName];
+  if (!conds) continue;
+  const validConditions = Object.entries(conds)
+    .filter(([, v]) => typeof v === "number")
+    .map(([k]) => k);
+  if (validConditions.length === 0) continue;
+
+  const habitat = {
+    fullName,
+    broad,
+    type,
+    validConditions,
+    distinctiveness: metricDistinctiveness[fullName],
+  };
+  HABITATS.push(habitat);
+  (HABITATS_BY_BROAD[broad] = HABITATS_BY_BROAD[broad] || []).push(habitat);
+}
+
+const BROAD_HABITAT_TYPES = Object.keys(HABITATS_BY_BROAD);
+
+// Hedgerows / Rivers / Urban Trees use their own metric tables; the prototype
+// validates them separately. Until the same wiring is added for those layers,
+// keep the generic enum lists used previously.
+const CONDITIONS = ["Good", "Fairly Good", "Moderate", "Fairly Poor", "Poor"];
 const DISTINCTIVENESS = ["V.High", "High", "Medium", "Low", "V.Low"];
 
 const STRATEGIC_SIGNIFICANCE = [
@@ -852,24 +822,29 @@ function generateHabitats(db, boundaryRing, numParcels) {
     const env = envelopeFromCoords(ring);
     expandEnvelope(allEnvelope, env);
 
-    const broad = pick(BROAD_HABITAT_TYPES);
-    const baselineHabitat = pick(HABITAT_TYPES_BY_BROAD[broad]);
+    const baseline = pick(HABITATS);
     const retention = pick(RETENTION_CATEGORIES);
-    const proposedBroad = retention === "Lost" ? pick(BROAD_HABITAT_TYPES) : broad;
-    const proposedHabitat = retention === "Retained"
-      ? baselineHabitat
-      : pick(HABITAT_TYPES_BY_BROAD[proposedBroad]);
+    const proposedBroad = retention === "Lost" ? pick(BROAD_HABITAT_TYPES) : baseline.broad;
+    const proposed = retention === "Retained"
+      ? baseline
+      : pick(HABITATS_BY_BROAD[proposedBroad]);
     const area = Math.round(polygonArea(ring));
 
     stmt.run(
-      geom, `H${String(i + 1).padStart(3, "0")}`, broad, baselineHabitat,
-      area, pick(CONDITIONS), pick(STRATEGIC_SIGNIFICANCE), retention,
-      proposedBroad, proposedHabitat, pick(CONDITIONS), pick(STRATEGIC_SIGNIFICANCE),
+      geom, `H${String(i + 1).padStart(3, "0")}`,
+      baseline.broad, baseline.type,
+      area,
+      pick(baseline.validConditions),
+      pick(STRATEGIC_SIGNIFICANCE),
+      retention,
+      proposed.broad, proposed.type,
+      pick(proposed.validConditions),
+      pick(STRATEGIC_SIGNIFICANCE),
       retention === "Created" ? String(randInt(0, 5)) : "0",
       retention === "Created" ? String(randInt(0, 3)) : "0",
       pick(SPATIAL_RISK_HABITAT), pick(LOCATIONS), SITE_NAME, SURVEY_DATE,
       "Phase 1 habitat survey", null, "J. Smith", "Ecological Consultants Ltd",
-      "OS MasterMap", pick(DISTINCTIVENESS), pick(DISTINCTIVENESS),
+      "OS MasterMap", baseline.distinctiveness, proposed.distinctiveness,
     );
   }
 

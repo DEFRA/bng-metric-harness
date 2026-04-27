@@ -6,6 +6,16 @@
       "type": "node-terminal",
       "request": "launch",
       "command": "tilt up --stream"
+    },
+    {
+      "name": "Prototype (port 3002)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "source ~/.nvm/nvm.sh && nvm use && npm run dev",
+      "cwd": "${workspaceFolder}/prototype",
+      "env": {
+        "PORT": "3002"
+      }
     }
   ]
 }
