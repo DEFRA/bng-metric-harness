@@ -2,7 +2,8 @@
   "permissions": {
     "additionalDirectories": [
       "../bng-metric-frontend",
-      "../bng-metric-backend"
+      "../bng-metric-backend",
+      "../bng-metric-digital-prototype"
     ],
     "allow": [
       "Read",
