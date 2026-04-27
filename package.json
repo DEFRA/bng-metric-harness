@@ -30,6 +30,7 @@
     "concurrently": "^9.1.0"
   },
   "devDependencies": {
-    "better-sqlite3": "^12.9.0"
+    "better-sqlite3": "^12.9.0",
+    "xlsx": "^0.18.5"
   }
 }
