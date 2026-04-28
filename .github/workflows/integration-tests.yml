@@ -16,20 +16,6 @@ on:
 
   workflow_call:
     inputs:
-<<<<<<< HEAD
-      frontend-branch:
-        required: false
-        type: string
-        default: main
-      backend-branch:
-        required: false
-        type: string
-        default: main
-      harness-branch:
-        required: false
-        type: string
-        default: main
-=======
       caller:
         description: Which service is calling ('frontend' or 'backend')
         required: false
@@ -45,7 +31,6 @@ on:
         required: false
         type: string
         default: ''
->>>>>>> main
 
 jobs:
   parse-depends-on:
@@ -56,24 +41,6 @@ jobs:
       backend-branch: ${{ steps.resolve.outputs.backend-branch }}
       harness-branch: ${{ steps.resolve.outputs.harness-branch }}
     steps:
-<<<<<<< HEAD
-      - name: Resolve branches from PR body or inputs
-        id: resolve
-        env:
-          PR_BODY: ${{ github.event.pull_request.body || '' }}
-          INPUT_FRONTEND: ${{ inputs.frontend-branch || 'main' }}
-          INPUT_BACKEND: ${{ inputs.backend-branch || 'main' }}
-          # For pull_request trigger: github.head_ref is the PR branch (inputs.* are empty).
-          # For workflow_call trigger: inputs.harness-branch is set; github.head_ref is empty.
-          INPUT_HARNESS: ${{ inputs.harness-branch || github.head_ref || 'main' }}
-        run: |
-          frontend_dep=$(echo "$PR_BODY" | grep -oP '(?<=Depends-On: DEFRA/bng-metric-frontend#)\S+' | head -1)
-          backend_dep=$(echo "$PR_BODY" | grep -oP '(?<=Depends-On: DEFRA/bng-metric-backend#)\S+' | head -1)
-
-          frontend_branch="${frontend_dep:-$INPUT_FRONTEND}"
-          backend_branch="${backend_dep:-$INPUT_BACKEND}"
-          harness_branch="$INPUT_HARNESS"
-=======
       - name: Resolve branches
         id: resolve
         env:
@@ -106,7 +73,6 @@ jobs:
               harness_branch="$HEAD_REF"
               ;;
           esac
->>>>>>> main
 
           echo "frontend-branch=$frontend_branch" >> "$GITHUB_OUTPUT"
           echo "backend-branch=$backend_branch" >> "$GITHUB_OUTPUT"
