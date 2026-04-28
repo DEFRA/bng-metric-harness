@@ -88,28 +88,28 @@ jobs:
     needs: parse-depends-on
     steps:
       - name: Check out bng-metric-harness
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: DEFRA/bng-metric-harness
           ref: ${{ needs.parse-depends-on.outputs.harness-branch }}
           path: bng-metric-harness
 
       - name: Check out bng-metric-frontend
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: DEFRA/bng-metric-frontend
           ref: ${{ needs.parse-depends-on.outputs.frontend-branch }}
           path: bng-metric-frontend
 
       - name: Check out bng-metric-backend
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: DEFRA/bng-metric-backend
           ref: ${{ needs.parse-depends-on.outputs.backend-branch }}
           path: bng-metric-backend
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: bng-metric-frontend/.nvmrc
           cache: npm
