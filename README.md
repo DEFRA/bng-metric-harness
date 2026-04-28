@@ -260,3 +260,6 @@ The sibling repos own their own `.claude/` configuration; the harness does not r
 - **`git pull --ff-only` refuses** — you have local commits or a diverged branch. Resolve manually in the affected repo; the harness will keep going.
 - **`npm run dev` exits immediately** — one of the apps crashed on startup. Check both logs; `--kill-others-on-fail` is intentional. Run `npm run dev:fe` or `npm run dev:be` alone to isolate.
 - **Port conflicts** — 3000/3001 (apps), 5432/6379/4566/3200 (backend services) must all be free.
+
+
+# Test line depends on feature
