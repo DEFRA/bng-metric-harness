@@ -16,6 +16,7 @@ on:
 
   workflow_call:
     inputs:
+<<<<<<< HEAD
       frontend-branch:
         required: false
         type: string
@@ -28,6 +29,23 @@ on:
         required: false
         type: string
         default: main
+=======
+      caller:
+        description: Which service is calling ('frontend' or 'backend')
+        required: false
+        type: string
+        default: ''
+      calling-branch:
+        description: The PR branch of the calling service
+        required: false
+        type: string
+        default: ''
+      pr-body:
+        description: The PR body text, used to extract Depends-On lines
+        required: false
+        type: string
+        default: ''
+>>>>>>> main
 
 jobs:
   parse-depends-on:
@@ -38,6 +56,7 @@ jobs:
       backend-branch: ${{ steps.resolve.outputs.backend-branch }}
       harness-branch: ${{ steps.resolve.outputs.harness-branch }}
     steps:
+<<<<<<< HEAD
       - name: Resolve branches from PR body or inputs
         id: resolve
         env:
@@ -54,6 +73,40 @@ jobs:
           frontend_branch="${frontend_dep:-$INPUT_FRONTEND}"
           backend_branch="${backend_dep:-$INPUT_BACKEND}"
           harness_branch="$INPUT_HARNESS"
+=======
+      - name: Resolve branches
+        id: resolve
+        env:
+          # For workflow_call: inputs are set; github.event.pull_request.body is empty.
+          # For pull_request on harness: inputs are empty; github.event.pull_request.body and github.head_ref are set.
+          PR_BODY: ${{ inputs.pr-body || github.event.pull_request.body || '' }}
+          CALLER: ${{ inputs.caller || '' }}
+          CALLING_BRANCH: ${{ inputs.calling-branch || '' }}
+          HEAD_REF: ${{ github.head_ref || 'main' }}
+        run: |
+          frontend_dep=$(echo "$PR_BODY" | grep -oP '(?<=Depends-On: DEFRA/bng-metric-frontend#)\S+' | head -1)
+          backend_dep=$(echo "$PR_BODY" | grep -oP '(?<=Depends-On: DEFRA/bng-metric-backend#)\S+' | head -1)
+          harness_dep=$(echo "$PR_BODY" | grep -oP '(?<=Depends-On: DEFRA/bng-metric-harness#)\S+' | head -1)
+
+          case "$CALLER" in
+            frontend)
+              frontend_branch="$CALLING_BRANCH"
+              backend_branch="${backend_dep:-main}"
+              harness_branch="${harness_dep:-main}"
+              ;;
+            backend)
+              frontend_branch="${frontend_dep:-main}"
+              backend_branch="$CALLING_BRANCH"
+              harness_branch="${harness_dep:-main}"
+              ;;
+            *)
+              # Harness own PR: use the PR branch for harness, parse fe/be from body
+              frontend_branch="${frontend_dep:-main}"
+              backend_branch="${backend_dep:-main}"
+              harness_branch="$HEAD_REF"
+              ;;
+          esac
+>>>>>>> main
 
           echo "frontend-branch=$frontend_branch" >> "$GITHUB_OUTPUT"
           echo "backend-branch=$backend_branch" >> "$GITHUB_OUTPUT"
