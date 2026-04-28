@@ -16,18 +16,21 @@ on:
 
   workflow_call:
     inputs:
-      frontend-branch:
+      caller:
+        description: Which service is calling ('frontend' or 'backend')
         required: false
         type: string
-        default: main
-      backend-branch:
+        default: ''
+      calling-branch:
+        description: The PR branch of the calling service
         required: false
         type: string
-        default: main
-      harness-branch:
+        default: ''
+      pr-body:
+        description: The PR body text, used to extract Depends-On lines
         required: false
         type: string
-        default: main
+        default: ''
 
 jobs:
   parse-depends-on:
@@ -38,22 +41,38 @@ jobs:
       backend-branch: ${{ steps.resolve.outputs.backend-branch }}
       harness-branch: ${{ steps.resolve.outputs.harness-branch }}
     steps:
-      - name: Resolve branches from PR body or inputs
+      - name: Resolve branches
         id: resolve
         env:
-          PR_BODY: ${{ github.event.pull_request.body || '' }}
-          INPUT_FRONTEND: ${{ inputs.frontend-branch || 'main' }}
-          INPUT_BACKEND: ${{ inputs.backend-branch || 'main' }}
-          # For pull_request trigger: github.head_ref is the PR branch (inputs.* are empty).
-          # For workflow_call trigger: inputs.harness-branch is set; github.head_ref is empty.
-          INPUT_HARNESS: ${{ inputs.harness-branch || github.head_ref || 'main' }}
+          # For workflow_call: inputs are set; github.event.pull_request.body is empty.
+          # For pull_request on harness: inputs are empty; github.event.pull_request.body and github.head_ref are set.
+          PR_BODY: ${{ inputs.pr-body || github.event.pull_request.body || '' }}
+          CALLER: ${{ inputs.caller || '' }}
+          CALLING_BRANCH: ${{ inputs.calling-branch || '' }}
+          HEAD_REF: ${{ github.head_ref || 'main' }}
         run: |
           frontend_dep=$(echo "$PR_BODY" | grep -oP '(?<=Depends-On: DEFRA/bng-metric-frontend#)\S+' | head -1)
           backend_dep=$(echo "$PR_BODY" | grep -oP '(?<=Depends-On: DEFRA/bng-metric-backend#)\S+' | head -1)
+          harness_dep=$(echo "$PR_BODY" | grep -oP '(?<=Depends-On: DEFRA/bng-metric-harness#)\S+' | head -1)
 
-          frontend_branch="${frontend_dep:-$INPUT_FRONTEND}"
-          backend_branch="${backend_dep:-$INPUT_BACKEND}"
-          harness_branch="$INPUT_HARNESS"
+          case "$CALLER" in
+            frontend)
+              frontend_branch="$CALLING_BRANCH"
+              backend_branch="${backend_dep:-main}"
+              harness_branch="${harness_dep:-main}"
+              ;;
+            backend)
+              frontend_branch="${frontend_dep:-main}"
+              backend_branch="$CALLING_BRANCH"
+              harness_branch="${harness_dep:-main}"
+              ;;
+            *)
+              # Harness own PR: use the PR branch for harness, parse fe/be from body
+              frontend_branch="${frontend_dep:-main}"
+              backend_branch="${backend_dep:-main}"
+              harness_branch="$HEAD_REF"
+              ;;
+          esac
 
           echo "frontend-branch=$frontend_branch" >> "$GITHUB_OUTPUT"
           echo "backend-branch=$backend_branch" >> "$GITHUB_OUTPUT"
@@ -69,28 +88,28 @@ jobs:
     needs: parse-depends-on
     steps:
       - name: Check out bng-metric-harness
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: DEFRA/bng-metric-harness
           ref: ${{ needs.parse-depends-on.outputs.harness-branch }}
           path: bng-metric-harness
 
       - name: Check out bng-metric-frontend
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: DEFRA/bng-metric-frontend
           ref: ${{ needs.parse-depends-on.outputs.frontend-branch }}
           path: bng-metric-frontend
 
       - name: Check out bng-metric-backend
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: DEFRA/bng-metric-backend
           ref: ${{ needs.parse-depends-on.outputs.backend-branch }}
           path: bng-metric-backend
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: bng-metric-frontend/.nvmrc
           cache: npm
