@@ -7,6 +7,19 @@
       "command": "tilt up --stream",
       "isBackground": true,
       "problemMatcher": []
+    },
+    {
+      "label": "prototype dev",
+      "type": "shell",
+      "command": "source ~/.nvm/nvm.sh && nvm use && npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/prototype",
+        "env": {
+          "PORT": "3002"
+        }
+      },
+      "isBackground": true,
+      "problemMatcher": []
     }
   ]
 }
