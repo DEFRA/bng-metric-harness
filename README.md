@@ -262,4 +262,4 @@ The sibling repos own their own `.claude/` configuration; the harness does not r
 - **Port conflicts** — 3000/3001 (apps), 5432/6379/4566/3200 (backend services) must all be free.
 
 
-# Test line depends on feature
+# Test line depends on feature - v2
