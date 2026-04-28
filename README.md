@@ -254,6 +254,18 @@ The harness ships shared slash commands under `.claude/commands/`:
 
 The sibling repos own their own `.claude/` configuration; the harness does not reach into them.
 
+### `@`-mention file picker and the sibling symlinks
+
+The `frontend` and `backend` symlinks at the harness root let you `Read`/`Edit` sibling files from a session started here, and `permissions.additionalDirectories` in `.claude/settings.json` authorises tool access to the real paths. **However, the `@`-mention picker does not follow symlinks** — it indexes only the real file tree under the launch directory, and `additionalDirectories` grants access but does not extend discovery.
+
+To make sibling files appear in the `@` picker, launch Claude Code with `--add-dir`:
+
+```sh
+claude --add-dir ../bng-metric-frontend --add-dir ../bng-metric-backend
+```
+
+The symlinks remain useful for typing paths and for tool calls; `--add-dir` is what makes the picker see across repos. See the [Claude Code permissions docs](https://code.claude.com/docs/en/permissions#additional-directories-grant-file-access-not-configuration) for details.
+
 ## Troubleshooting
 
 - **`Sibling "X" not found`** — run `npm run bootstrap`.
