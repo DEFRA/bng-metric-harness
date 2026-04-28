@@ -1,0 +1,116 @@
+name: Integration Tests
+
+permissions:
+  checks: write
+  contents: read
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+
+  workflow_call:
+    inputs:
+      frontend-branch:
+        required: false
+        type: string
+        default: main
+      backend-branch:
+        required: false
+        type: string
+        default: main
+      harness-branch:
+        required: false
+        type: string
+        default: main
+
+jobs:
+  parse-depends-on:
+    name: Resolve branch dependencies
+    runs-on: ubuntu-latest
+    outputs:
+      frontend-branch: ${{ steps.resolve.outputs.frontend-branch }}
+      backend-branch: ${{ steps.resolve.outputs.backend-branch }}
+      harness-branch: ${{ steps.resolve.outputs.harness-branch }}
+    steps:
+      - name: Resolve branches from PR body or inputs
+        id: resolve
+        env:
+          PR_BODY: ${{ github.event.pull_request.body || '' }}
+          INPUT_FRONTEND: ${{ inputs.frontend-branch || 'main' }}
+          INPUT_BACKEND: ${{ inputs.backend-branch || 'main' }}
+          # For pull_request trigger: github.head_ref is the PR branch (inputs.* are empty).
+          # For workflow_call trigger: inputs.harness-branch is set; github.head_ref is empty.
+          INPUT_HARNESS: ${{ inputs.harness-branch || github.head_ref || 'main' }}
+        run: |
+          frontend_dep=$(echo "$PR_BODY" | grep -oP '(?<=Depends-On: DEFRA/bng-metric-frontend#)\S+' | head -1)
+          backend_dep=$(echo "$PR_BODY" | grep -oP '(?<=Depends-On: DEFRA/bng-metric-backend#)\S+' | head -1)
+
+          frontend_branch="${frontend_dep:-$INPUT_FRONTEND}"
+          backend_branch="${backend_dep:-$INPUT_BACKEND}"
+          harness_branch="$INPUT_HARNESS"
+
+          echo "frontend-branch=$frontend_branch" >> "$GITHUB_OUTPUT"
+          echo "backend-branch=$backend_branch" >> "$GITHUB_OUTPUT"
+          echo "harness-branch=$harness_branch" >> "$GITHUB_OUTPUT"
+
+          echo "Resolved frontend branch: $frontend_branch"
+          echo "Resolved backend branch:  $backend_branch"
+          echo "Resolved harness branch:  $harness_branch"
+
+  run-integration-tests:
+    name: Run Integration Tests
+    runs-on: ubuntu-latest
+    needs: parse-depends-on
+    steps:
+      - name: Check out bng-metric-harness
+        uses: actions/checkout@v4
+        with:
+          repository: DEFRA/bng-metric-harness
+          ref: ${{ needs.parse-depends-on.outputs.harness-branch }}
+          path: bng-metric-harness
+
+      - name: Check out bng-metric-frontend
+        uses: actions/checkout@v4
+        with:
+          repository: DEFRA/bng-metric-frontend
+          ref: ${{ needs.parse-depends-on.outputs.frontend-branch }}
+          path: bng-metric-frontend
+
+      - name: Check out bng-metric-backend
+        uses: actions/checkout@v4
+        with:
+          repository: DEFRA/bng-metric-backend
+          ref: ${{ needs.parse-depends-on.outputs.backend-branch }}
+          path: bng-metric-backend
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: bng-metric-frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: |
+            bng-metric-harness/package-lock.json
+            bng-metric-frontend/package-lock.json
+            bng-metric-backend/package-lock.json
+
+      - name: Install harness dependencies
+        run: npm ci
+        working-directory: bng-metric-harness
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: bng-metric-frontend
+
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: bng-metric-backend
+
+      - name: Run integration tests
+        run: node scripts/test.mjs all
+        working-directory: bng-metric-harness
