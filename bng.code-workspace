@@ -1,20 +1,20 @@
 {
   "folders": [
     {
-      "path": "."
+      "path": ".",
     },
     {
       "path": "../bng-metric-frontend",
-      "name": "bng-metric-frontend"
+      "name": "bng-metric-frontend",
     },
     {
       "path": "../bng-metric-backend",
-      "name": "bng-metric-backend"
+      "name": "bng-metric-backend",
     },
     {
       "path": "../bng-metric-digital-prototype",
-      "name": "bng-metric-digital-prototype"
-    }
+      "name": "bng-metric-digital-prototype",
+    },
   ],
-  "settings": {}
+  "settings": {},
 }
