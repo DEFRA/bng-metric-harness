@@ -83,13 +83,24 @@
  *                   Must be inside England for the prototype to accept the
  *                   uploaded GeoPackage.
  *   --bad           Generate an intentionally invalid GeoPackage for testing
- *                   upload validation. Currently omits the Red Line Boundary
- *                   layer.
+ *                   upload validation. Builds a small fixture with deliberate
+ *                   geometry flaws covering most validator checks: a bowtie
+ *                   redline, a bowtie habitat parcel, two overlapping parcels,
+ *                   a parcel placed outside the redline, a hedgerow that
+ *                   crosses outside, a tree placed outside, and habitat areas
+ *                   that don't tile the redline. Ignores --size and any
+ *                   --from / --from-list inputs.
  */
 
 import Database from "better-sqlite3";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  unlinkSync,
+} from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
@@ -358,6 +369,36 @@ function generateIrregularPolygon(cx, cy, radius, numPoints = 18) {
 }
 
 /**
+ * Closed axis-aligned rectangle ring built from two opposite corners.
+ * Used by the --bad fixture generator for fast, predictable parcel shapes.
+ */
+function rectRing(x1, y1, x2, y2) {
+  return [
+    [x1, y1],
+    [x2, y1],
+    [x2, y2],
+    [x1, y2],
+    [x1, y1],
+  ];
+}
+
+/**
+ * Bowtie (self-intersecting) polygon centred on (cx, cy) with the given
+ * half-width. The opposite-corner edges cross, producing a topologically
+ * invalid ring — used to deliberately trigger the SELF_INTERSECTING checks
+ * in --bad mode.
+ */
+function bowtieRing(cx, cy, half) {
+  return [
+    [cx - half, cy - half],
+    [cx + half, cy + half],
+    [cx + half, cy - half],
+    [cx - half, cy + half],
+    [cx - half, cy - half],
+  ];
+}
+
+/**
  * Area-weighted centroid of a closed polygon ring (signed-area formula).
  *
  * @param {number[][]} ring - Closed ring (first === last)
@@ -427,16 +468,12 @@ function splitPolygonRandom(ring) {
   let minSd = Infinity;
   let maxSd = -Infinity;
   for (let i = 0; i < ring.length - 1; i++) {
-    const s =
-      (ring[i][0] - c[0]) * normal[0] + (ring[i][1] - c[1]) * normal[1];
+    const s = (ring[i][0] - c[0]) * normal[0] + (ring[i][1] - c[1]) * normal[1];
     if (s < minSd) minSd = s;
     if (s > maxSd) maxSd = s;
   }
   const offset = randBetween(minSd * 0.3, maxSd * 0.3);
-  const chordPoint = [
-    c[0] + normal[0] * offset,
-    c[1] + normal[1] * offset,
-  ];
+  const chordPoint = [c[0] + normal[0] * offset, c[1] + normal[1] * offset];
 
   const a = clipPolygonByHalfPlane(ring, chordPoint, normal);
   const b = clipPolygonByHalfPlane(ring, chordPoint, [-normal[0], -normal[1]]);
@@ -756,11 +793,19 @@ function envelopeFromCoords(coords) {
 }
 
 function gpkgPolygon(srsId, ring) {
-  return encodeGpkgBinary(srsId, encodeWkbPolygon([ring]), envelopeFromCoords(ring));
+  return encodeGpkgBinary(
+    srsId,
+    encodeWkbPolygon([ring]),
+    envelopeFromCoords(ring),
+  );
 }
 
 function gpkgLineString(srsId, coords) {
-  return encodeGpkgBinary(srsId, encodeWkbLineString(coords), envelopeFromCoords(coords));
+  return encodeGpkgBinary(
+    srsId,
+    encodeWkbLineString(coords),
+    envelopeFromCoords(coords),
+  );
 }
 
 function gpkgPoint(srsId, x, y) {
@@ -838,18 +883,26 @@ function initGeoPackage(db) {
  * @param {number[]|null} envelope - Bounding box [minX, maxX, minY, maxY], or null
  */
 function registerLayer(db, tableName, geomType, envelope) {
-  db.prepare(`
+  // Envelopes flow through this code as [minX, maxX, minY, maxY] (the order
+  // emitted by envelopeFromCoords / expandEnvelope). Destructure into named
+  // locals so the gpkg_contents bind order stays self-documenting.
+  const [minX = null, maxX = null, minY = null, maxY = null] = envelope ?? [];
+
+  db.prepare(
+    `
     INSERT OR REPLACE INTO gpkg_contents
       (table_name, data_type, identifier, description, min_x, min_y, max_x, max_y, srs_id)
     VALUES (?, 'features', ?, '', ?, ?, ?, ?, ?)
-  `).run(tableName, tableName, envelope?.[0] ?? null, envelope?.[2] ?? null,
-    envelope?.[1] ?? null, envelope?.[3] ?? null, SRS_ID);
+  `,
+  ).run(tableName, tableName, minX, minY, maxX, maxY, SRS_ID);
 
-  db.prepare(`
+  db.prepare(
+    `
     INSERT OR REPLACE INTO gpkg_geometry_columns
       (table_name, column_name, geometry_type_name, srs_id, z, m)
     VALUES (?, 'geometry', ?, ?, 0, 0)
-  `).run(tableName, geomType, SRS_ID);
+  `,
+  ).run(tableName, geomType, SRS_ID);
 }
 
 // ---------------------------------------------------------------------------
@@ -939,6 +992,39 @@ function createAllTables(db) {
 
 const SITE_NAME = "Oakwood Regional Development";
 const SURVEY_DATE = "2025-06-15";
+const MAPPED_BY = "J. Smith";
+const SURVEY_COMPANY = "Ecological Consultants Ltd";
+const BASE_MAP = "OS MasterMap";
+const WORKBOOK_IMPORT_LABEL = "Workbook import";
+const WORKBOOK_SURVEY_DETAILS = "From metric workbook";
+const BAD_FIXTURE_SURVEY_DETAILS = "Bad-mode fixture";
+const TREE_TYPE_STREET = "Street tree";
+
+// Width of the zero-padded numeric suffix used in feature reference codes
+// (e.g. H001, HG003, T012). Kept consistent across all layers and generators.
+const FEATURE_REF_PAD = 3;
+const FEATURE_REF_PAD_CHAR = "0";
+
+// Column counts for each layer's INSERT statement. Must match the column lists
+// in createAllTables(). Centralised here so all generators stay in sync if a
+// column is ever added or removed.
+const HABITATS_INSERT_COLUMNS = 25;
+const HEDGEROWS_INSERT_COLUMNS = 23;
+const URBAN_TREES_INSERT_COLUMNS = 26;
+
+// British National Grid envelope, used for sanity-checking --centre input.
+// Generous bounds — England/Scotland/Wales fit comfortably inside.
+const BNG_MAX_EASTING = 700000;
+const BNG_MAX_NORTHING = 1300000;
+
+// Workbook fixture sizing.
+const HECTARES_TO_SQ_M = 10000;
+// The boundary diameter must exceed the longest linear feature so it actually
+// fits inside the polygon. 1.2× gives a comfortable margin.
+const BOUNDARY_OVERSIZE_FACTOR = 1.2;
+// Sites smaller than this are almost certainly an empty/unparseable workbook
+// rather than a real BNG submission.
+const MIN_GENERATED_AREA_SQ_M = 100;
 
 function generateRedLineBoundary(db, cx, cy, radius) {
   const ring = generateIrregularPolygon(cx, cy, radius);
@@ -979,31 +1065,49 @@ function generateHabitats(db, boundaryRing, numParcels) {
 
     const baseline = pick(HABITATS);
     const retention = pick(RETENTION_CATEGORIES);
-    const proposedBroad = retention === "Lost" ? pick(BROAD_HABITAT_TYPES) : baseline.broad;
-    const proposed = retention === "Retained"
-      ? baseline
-      : pick(HABITATS_BY_BROAD[proposedBroad]);
+    const proposedBroad =
+      retention === "Lost" ? pick(BROAD_HABITAT_TYPES) : baseline.broad;
+    const proposed =
+      retention === "Retained"
+        ? baseline
+        : pick(HABITATS_BY_BROAD[proposedBroad]);
     const area = Math.round(polygonArea(ring));
 
     stmt.run(
-      geom, `H${String(i + 1).padStart(3, "0")}`,
-      baseline.broad, baseline.type,
+      geom,
+      `H${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
+      baseline.broad,
+      baseline.type,
       area,
       pick(baseline.validConditions),
       pick(STRATEGIC_SIGNIFICANCE),
       retention,
-      proposed.broad, proposed.type,
+      proposed.broad,
+      proposed.type,
       pick(proposed.validConditions),
       pick(STRATEGIC_SIGNIFICANCE),
       retention === "Created" ? String(randInt(0, 5)) : "0",
       retention === "Created" ? String(randInt(0, 3)) : "0",
-      pick(SPATIAL_RISK_HABITAT), pick(LOCATIONS), SITE_NAME, SURVEY_DATE,
-      "Phase 1 habitat survey", null, "J. Smith", "Ecological Consultants Ltd",
-      "OS MasterMap", baseline.distinctiveness, proposed.distinctiveness,
+      pick(SPATIAL_RISK_HABITAT),
+      pick(LOCATIONS),
+      SITE_NAME,
+      SURVEY_DATE,
+      "Phase 1 habitat survey",
+      null,
+      MAPPED_BY,
+      SURVEY_COMPANY,
+      BASE_MAP,
+      baseline.distinctiveness,
+      proposed.distinctiveness,
     );
   }
 
-  registerLayer(db, "Habitats", "POLYGON", parcels.length > 0 ? allEnvelope : null);
+  registerLayer(
+    db,
+    "Habitats",
+    "POLYGON",
+    parcels.length > 0 ? allEnvelope : null,
+  );
 }
 
 /**
@@ -1014,7 +1118,12 @@ function generateHabitats(db, boundaryRing, numParcels) {
  * caller supplies the table name, prepared INSERT SQL, and a per-row builder
  * that maps `(coords, index)` to the bind values for that row.
  */
-function generateLineFeatures(db, boundaryRing, count, { tableName, sql, buildRow }) {
+function generateLineFeatures(
+  db,
+  boundaryRing,
+  count,
+  { tableName, sql, buildRow },
+) {
   const stmt = db.prepare(sql);
   const allEnvelope = [Infinity, -Infinity, Infinity, -Infinity];
 
@@ -1053,16 +1162,28 @@ function generateHedgerows(db, boundaryRing, count) {
       const retention = pick(RETENTION_CATEGORIES);
       return [
         gpkgLineString(SRS_ID, coords),
-        `HG${String(i + 1).padStart(3, "0")}`, hedgeType,
-        pick(HEDGE_CONDITIONS), pick(STRATEGIC_SIGNIFICANCE), retention,
+        `HG${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
+        hedgeType,
+        pick(HEDGE_CONDITIONS),
+        pick(STRATEGIC_SIGNIFICANCE),
+        retention,
         retention === "Lost" ? pick(HEDGE_TYPES) : hedgeType,
-        pick(HEDGE_CONDITIONS), pick(STRATEGIC_SIGNIFICANCE),
+        pick(HEDGE_CONDITIONS),
+        pick(STRATEGIC_SIGNIFICANCE),
         linestringLength(coords),
         retention === "Created" ? String(randInt(0, 3)) : "0",
         retention === "Created" ? String(randInt(0, 2)) : "0",
-        pick(SPATIAL_RISK_HABITAT), pick(LOCATIONS), SITE_NAME, SURVEY_DATE,
-        "Hedgerow survey", null, "J. Smith", "Ecological Consultants Ltd",
-        "OS MasterMap", pick(DISTINCTIVENESS), pick(DISTINCTIVENESS),
+        pick(SPATIAL_RISK_HABITAT),
+        pick(LOCATIONS),
+        SITE_NAME,
+        SURVEY_DATE,
+        "Hedgerow survey",
+        null,
+        MAPPED_BY,
+        SURVEY_COMPANY,
+        BASE_MAP,
+        pick(DISTINCTIVENESS),
+        pick(DISTINCTIVENESS),
       ];
     },
   });
@@ -1094,16 +1215,33 @@ function generateRivers(db, boundaryRing, count) {
       const retention = pick(["Retained", "Enhanced"]);
       return [
         gpkgLineString(SRS_ID, coords),
-        `R${String(i + 1).padStart(3, "0")}`, riverType,
-        pick(CONDITIONS), pick(STRATEGIC_SIGNIFICANCE),
-        pick(ENCROACHMENT_WATERCOURSE), pick(ENCROACHMENT_RIPARIAN),
-        retention, riverType, pick(CONDITIONS), pick(STRATEGIC_SIGNIFICANCE),
-        linestringLength(coords), "0", "0",
-        pick(SPATIAL_RISK_RIVER), pick(LOCATIONS),
-        pick(ENCROACHMENT_WATERCOURSE), pick(ENCROACHMENT_RIPARIAN),
-        SITE_NAME, SURVEY_DATE, "River corridor survey", null,
-        "J. Smith", "Ecological Consultants Ltd", "OS MasterMap",
-        null, pick(DISTINCTIVENESS), pick(DISTINCTIVENESS),
+        `R${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
+        riverType,
+        pick(CONDITIONS),
+        pick(STRATEGIC_SIGNIFICANCE),
+        pick(ENCROACHMENT_WATERCOURSE),
+        pick(ENCROACHMENT_RIPARIAN),
+        retention,
+        riverType,
+        pick(CONDITIONS),
+        pick(STRATEGIC_SIGNIFICANCE),
+        linestringLength(coords),
+        "0",
+        "0",
+        pick(SPATIAL_RISK_RIVER),
+        pick(LOCATIONS),
+        pick(ENCROACHMENT_WATERCOURSE),
+        pick(ENCROACHMENT_RIPARIAN),
+        SITE_NAME,
+        SURVEY_DATE,
+        "River corridor survey",
+        null,
+        MAPPED_BY,
+        SURVEY_COMPANY,
+        BASE_MAP,
+        null,
+        pick(DISTINCTIVENESS),
+        pick(DISTINCTIVENESS),
       ];
     },
   });
@@ -1111,7 +1249,12 @@ function generateRivers(db, boundaryRing, count) {
 
 function generateUrbanTrees(db, boundaryRing, count) {
   const treeSizes = ["Small", "Medium", "Large"];
-  const treeTypes = ["Street tree", "Park/garden tree", "Woodland tree", "Hedgerow tree"];
+  const treeTypes = [
+    TREE_TYPE_STREET,
+    "Park/garden tree",
+    "Woodland tree",
+    "Hedgerow tree",
+  ];
 
   const stmt = db.prepare(`
     INSERT INTO "Urban Trees" (
@@ -1142,16 +1285,32 @@ function generateUrbanTrees(db, boundaryRing, count) {
     const retention = pick(["Retained", "Enhanced", "Lost"]);
 
     stmt.run(
-      gpkgPoint(SRS_ID, x, y), `T${String(produced + 1).padStart(3, "0")}`, size,
-      pick(CONDITIONS), pick(STRATEGIC_SIGNIFICANCE), type,
-      retention, retention === "Lost" ? "Lost" : "Retained",
+      gpkgPoint(SRS_ID, x, y),
+      `T${String(produced + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
+      size,
+      pick(CONDITIONS),
+      pick(STRATEGIC_SIGNIFICANCE),
+      type,
+      retention,
+      retention === "Lost" ? "Lost" : "Retained",
       retention === "Lost" ? pick(treeSizes) : size,
-      pick(CONDITIONS), pick(STRATEGIC_SIGNIFICANCE),
+      pick(CONDITIONS),
+      pick(STRATEGIC_SIGNIFICANCE),
       retention === "Lost" ? pick(treeTypes) : type,
-      pick(LOCATIONS), "0", "0", pick(SPATIAL_RISK_HABITAT),
-      SITE_NAME, SURVEY_DATE, "Tree survey", null,
-      "J. Smith", "Ecological Consultants Ltd", "OS MasterMap",
-      1, "Urban", "Urban",
+      pick(LOCATIONS),
+      "0",
+      "0",
+      pick(SPATIAL_RISK_HABITAT),
+      SITE_NAME,
+      SURVEY_DATE,
+      "Tree survey",
+      null,
+      MAPPED_BY,
+      SURVEY_COMPANY,
+      BASE_MAP,
+      1,
+      "Urban",
+      "Urban",
     );
     produced++;
   }
@@ -1200,7 +1359,9 @@ function sld(layerName, symbolizerXml) {
  * @returns {string} Complete SLD XML document
  */
 function polygonSld(name, fill, stroke, fillOpacity = 0.5, strokeWidth = 1.5) {
-  return sld(name, `<PolygonSymbolizer>
+  return sld(
+    name,
+    `<PolygonSymbolizer>
             <Fill>
               <CssParameter name="fill">${fill}</CssParameter>
               <CssParameter name="fill-opacity">${fillOpacity}</CssParameter>
@@ -1209,7 +1370,8 @@ function polygonSld(name, fill, stroke, fillOpacity = 0.5, strokeWidth = 1.5) {
               <CssParameter name="stroke">${stroke}</CssParameter>
               <CssParameter name="stroke-width">${strokeWidth}</CssParameter>
             </Stroke>
-          </PolygonSymbolizer>`);
+          </PolygonSymbolizer>`,
+  );
 }
 
 /**
@@ -1221,12 +1383,15 @@ function polygonSld(name, fill, stroke, fillOpacity = 0.5, strokeWidth = 1.5) {
  * @returns {string} Complete SLD XML document
  */
 function lineSld(name, stroke, strokeWidth = 2) {
-  return sld(name, `<LineSymbolizer>
+  return sld(
+    name,
+    `<LineSymbolizer>
             <Stroke>
               <CssParameter name="stroke">${stroke}</CssParameter>
               <CssParameter name="stroke-width">${strokeWidth}</CssParameter>
             </Stroke>
-          </LineSymbolizer>`);
+          </LineSymbolizer>`,
+  );
 }
 
 /**
@@ -1239,7 +1404,9 @@ function lineSld(name, stroke, strokeWidth = 2) {
  * @returns {string} Complete SLD XML document
  */
 function pointSld(name, fill, stroke, size = 8) {
-  return sld(name, `<PointSymbolizer>
+  return sld(
+    name,
+    `<PointSymbolizer>
             <Graphic>
               <Mark>
                 <WellKnownName>circle</WellKnownName>
@@ -1253,7 +1420,8 @@ function pointSld(name, fill, stroke, size = 8) {
               </Mark>
               <Size>${size}</Size>
             </Graphic>
-          </PointSymbolizer>`);
+          </PointSymbolizer>`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1365,12 +1533,52 @@ function pointQml(fill, stroke, size = 4) {
 </qgis>`;
 }
 
+// Style tunables — bundled here so the LAYER_STYLES table reads as
+// configuration rather than a soup of bare literals.
+const REDLINE_FILL_OPACITY = 0.2; // see-through, so habitats remain visible
+const REDLINE_STROKE_WIDTH = 2.5;
+const HEDGEROW_STROKE_WIDTH = 3;
+const RIVER_STROKE_WIDTH = 2.5;
+const URBAN_TREE_SLD_SIZE = 8;
+const URBAN_TREE_QML_SIZE = 4;
+
 const LAYER_STYLES = [
-  { table: "Red Line Boundary", sld: polygonSld("Red Line Boundary", "#FF0000", "#CC0000", 0.2, 2.5), qml: polygonQml("#FF0000", "#CC0000", 0.2, 2.5) },
-  { table: "Habitats",          sld: polygonSld("Habitats", "#FFB74D", "#F57C00"),                     qml: polygonQml("#FFB74D", "#F57C00") },
-  { table: "Hedgerows",         sld: lineSld("Hedgerows", "#2E7D32", 3),                               qml: lineQml("#2E7D32", 3) },
-  { table: "Rivers",            sld: lineSld("Rivers", "#1565C0", 2.5),                                qml: lineQml("#1565C0", 2.5) },
-  { table: "Urban Trees",       sld: pointSld("Urban Trees", "#8D6E63", "#4E342E", 8),                 qml: pointQml("#8D6E63", "#4E342E", 4) },
+  {
+    table: "Red Line Boundary",
+    sld: polygonSld(
+      "Red Line Boundary",
+      "#FF0000",
+      "#CC0000",
+      REDLINE_FILL_OPACITY,
+      REDLINE_STROKE_WIDTH,
+    ),
+    qml: polygonQml(
+      "#FF0000",
+      "#CC0000",
+      REDLINE_FILL_OPACITY,
+      REDLINE_STROKE_WIDTH,
+    ),
+  },
+  {
+    table: "Habitats",
+    sld: polygonSld("Habitats", "#FFB74D", "#F57C00"),
+    qml: polygonQml("#FFB74D", "#F57C00"),
+  },
+  {
+    table: "Hedgerows",
+    sld: lineSld("Hedgerows", "#2E7D32", HEDGEROW_STROKE_WIDTH),
+    qml: lineQml("#2E7D32", HEDGEROW_STROKE_WIDTH),
+  },
+  {
+    table: "Rivers",
+    sld: lineSld("Rivers", "#1565C0", RIVER_STROKE_WIDTH),
+    qml: lineQml("#1565C0", RIVER_STROKE_WIDTH),
+  },
+  {
+    table: "Urban Trees",
+    sld: pointSld("Urban Trees", "#8D6E63", "#4E342E", URBAN_TREE_SLD_SIZE),
+    qml: pointQml("#8D6E63", "#4E342E", URBAN_TREE_QML_SIZE),
+  },
 ];
 
 /**
@@ -1424,7 +1632,9 @@ const CACHE_DIR = path.resolve(HARNESS_ROOT, ".cache", "bng500");
  * the actual file content.
  */
 function rewriteGithubBlobUrl(url) {
-  const m = url.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/);
+  const m = url.match(
+    /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/,
+  );
   if (!m) return url;
   const [, owner, repo, ref, p] = m;
   return `https://media.githubusercontent.com/media/${owner}/${repo}/${ref}/${p}`;
@@ -1448,7 +1658,10 @@ async function downloadToCache(url) {
   // Detect a Git LFS pointer accidentally returned (small text starting with
   // "version https://git-lfs"). Most often happens when callers pass a raw.
   // url instead of a media.githubusercontent.com URL.
-  if (buf.length < 1024 && buf.slice(0, 64).toString("utf8").startsWith("version https://git-lfs")) {
+  if (
+    buf.length < 1024 &&
+    buf.slice(0, 64).toString("utf8").startsWith("version https://git-lfs")
+  ) {
     throw new Error(
       `${url} returned a Git LFS pointer, not the actual file. ` +
         "Use the GitHub blob URL (or the media.githubusercontent.com/media URL) for LFS-tracked files.",
@@ -1538,14 +1751,22 @@ function buildHabitatRowsFromWorkbook(wb, { strict = false } = {}) {
     if (
       strict &&
       (!isHabitatConditionValid(b.broad, b.type, b.condition) ||
-        !isHabitatConditionValid(proposed.broad, proposed.type, proposed.condition))
+        !isHabitatConditionValid(
+          proposed.broad,
+          proposed.type,
+          proposed.condition,
+        ))
     ) {
-      skipReasons.push(`baseline ref ${b.ref}: invalid (habitat, condition) under --strict-habitats`);
+      skipReasons.push(
+        `baseline ref ${b.ref}: invalid (habitat, condition) under --strict-habitats`,
+      );
       continue;
     }
 
+    const refIndex = nextRef;
+    nextRef += 1;
     rows.push({
-      ref: `H${String(nextRef++).padStart(3, "0")}`,
+      ref: `H${String(refIndex).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
       retention: enh ? "Enhanced" : "Retained",
       area: b.area,
       baseline: {
@@ -1560,15 +1781,16 @@ function buildHabitatRowsFromWorkbook(wb, { strict = false } = {}) {
   }
 
   for (const c of wb.habitats.created) {
-    if (
-      strict &&
-      !isHabitatConditionValid(c.broad, c.type, c.condition)
-    ) {
-      skipReasons.push(`created ref ${c.ref}: invalid (habitat, condition) under --strict-habitats`);
+    if (strict && !isHabitatConditionValid(c.broad, c.type, c.condition)) {
+      skipReasons.push(
+        `created ref ${c.ref}: invalid (habitat, condition) under --strict-habitats`,
+      );
       continue;
     }
+    const refIndex = nextRef;
+    nextRef += 1;
     rows.push({
-      ref: `H${String(nextRef++).padStart(3, "0")}`,
+      ref: `H${String(refIndex).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
       retention: "Created",
       area: c.area,
       baseline: { ...CREATED_BASELINE },
@@ -1643,18 +1865,31 @@ function generateHabitatsFromWorkbook(db, boundaryRing, rows) {
     const geom = gpkgPolygon(SRS_ID, cell);
     expandEnvelope(allEnvelope, envelopeFromCoords(cell));
     stmt.run(
-      geom, r.ref,
-      r.baseline.broad, r.baseline.type,
+      geom,
+      r.ref,
+      r.baseline.broad,
+      r.baseline.type,
       Math.round(polygonArea(cell)),
-      r.baseline.condition, r.baseline.strategicSig,
+      r.baseline.condition,
+      r.baseline.strategicSig,
       r.retention,
-      r.proposed.broad, r.proposed.type,
-      r.proposed.condition, r.proposed.strategicSig,
+      r.proposed.broad,
+      r.proposed.type,
+      r.proposed.condition,
+      r.proposed.strategicSig,
       String(r.proposed.advanceYears ?? 0),
       String(r.proposed.delayYears ?? 0),
-      pick(SPATIAL_RISK_HABITAT), "On-site", SITE_NAME, SURVEY_DATE,
-      "From metric workbook", null, "Workbook import", "Workbook import",
-      "OS MasterMap", r.baseline.distinctiveness, r.proposed.distinctiveness,
+      pick(SPATIAL_RISK_HABITAT),
+      "On-site",
+      SITE_NAME,
+      SURVEY_DATE,
+      WORKBOOK_SURVEY_DETAILS,
+      null,
+      WORKBOOK_IMPORT_LABEL,
+      WORKBOOK_IMPORT_LABEL,
+      BASE_MAP,
+      r.baseline.distinctiveness,
+      r.proposed.distinctiveness,
     );
     written++;
   }
@@ -1669,7 +1904,11 @@ function generateHabitatsFromWorkbook(db, boundaryRing, rows) {
  * along that direction, and inserts 1–2 lightly-offset midpoints. Retries
  * if either endpoint falls outside the boundary.
  */
-function generateLinestringOfLength(boundaryRing, targetLengthM, maxAttempts = 20) {
+function generateLinestringOfLength(
+  boundaryRing,
+  targetLengthM,
+  maxAttempts = 20,
+) {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const start = pickInteriorPoint(boundaryRing);
     if (!start) return null;
@@ -1724,8 +1963,16 @@ function generateHedgerowsFromWorkbook(db, boundaryRing, baseline, created) {
   let written = 0;
 
   const records = [
-    ...baseline.map((h) => ({ retention: "Retained", hedge: h, isCreated: false })),
-    ...created.map((h) => ({ retention: "Created", hedge: h, isCreated: true })),
+    ...baseline.map((h) => ({
+      retention: "Retained",
+      hedge: h,
+      isCreated: false,
+    })),
+    ...created.map((h) => ({
+      retention: "Created",
+      hedge: h,
+      isCreated: true,
+    })),
   ];
   for (let i = 0; i < records.length; i++) {
     const { retention, hedge, isCreated } = records[i];
@@ -1734,22 +1981,40 @@ function generateHedgerowsFromWorkbook(db, boundaryRing, baseline, created) {
     const geom = gpkgLineString(SRS_ID, coords);
     expandEnvelope(allEnvelope, envelopeFromCoords(coords));
     stmt.run(
-      geom, `HG${String(i + 1).padStart(3, "0")}`,
+      geom,
+      `HG${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
       isCreated ? "(Created)" : hedge.type,
       hedge.condition ?? "Moderate",
-      hedge.strategicSignificance ?? "Area/compensation not in local strategy/ no local strategy",
+      hedge.strategicSignificance ??
+        "Area/compensation not in local strategy/ no local strategy",
       retention,
-      hedge.type, hedge.condition ?? "Moderate",
-      hedge.strategicSignificance ?? "Area/compensation not in local strategy/ no local strategy",
-      hedge.lengthM, "0", "0",
-      "Compensation inside LPA boundary or NCA of impact site", "On-site",
-      SITE_NAME, SURVEY_DATE, "From metric workbook", null,
-      "Workbook import", "Workbook import", "OS MasterMap",
-      hedge.distinctiveness ?? "Medium", hedge.distinctiveness ?? "Medium",
+      hedge.type,
+      hedge.condition ?? "Moderate",
+      hedge.strategicSignificance ??
+        "Area/compensation not in local strategy/ no local strategy",
+      hedge.lengthM,
+      "0",
+      "0",
+      "Compensation inside LPA boundary or NCA of impact site",
+      "On-site",
+      SITE_NAME,
+      SURVEY_DATE,
+      WORKBOOK_SURVEY_DETAILS,
+      null,
+      WORKBOOK_IMPORT_LABEL,
+      WORKBOOK_IMPORT_LABEL,
+      BASE_MAP,
+      hedge.distinctiveness ?? "Medium",
+      hedge.distinctiveness ?? "Medium",
     );
     written++;
   }
-  registerLayer(db, "Hedgerows", "LINESTRING", written > 0 ? allEnvelope : null);
+  registerLayer(
+    db,
+    "Hedgerows",
+    "LINESTRING",
+    written > 0 ? allEnvelope : null,
+  );
   return written;
 }
 
@@ -1786,18 +2051,34 @@ function generateRiversFromWorkbook(db, boundaryRing, baseline, created) {
     const geom = gpkgLineString(SRS_ID, coords);
     expandEnvelope(allEnvelope, envelopeFromCoords(coords));
     stmt.run(
-      geom, `R${String(i + 1).padStart(3, "0")}`,
-      river.type, river.condition ?? "Moderate",
+      geom,
+      `R${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
+      river.type,
+      river.condition ?? "Moderate",
       river.strategicSignificance ?? "Within waterbody catchment",
-      "No Encroachment", "No Encroachment/No Encroachment",
-      retention, river.type, river.condition ?? "Moderate",
+      "No Encroachment",
+      "No Encroachment/No Encroachment",
+      retention,
+      river.type,
+      river.condition ?? "Moderate",
       river.strategicSignificance ?? "Within waterbody catchment",
-      river.lengthM, "0", "0",
-      "Within waterbody catchment", "On-site",
-      "No Encroachment", "No Encroachment/No Encroachment",
-      SITE_NAME, SURVEY_DATE, "From metric workbook", null,
-      "Workbook import", "Workbook import", "OS MasterMap",
-      null, river.distinctiveness ?? "Medium", river.distinctiveness ?? "Medium",
+      river.lengthM,
+      "0",
+      "0",
+      "Within waterbody catchment",
+      "On-site",
+      "No Encroachment",
+      "No Encroachment/No Encroachment",
+      SITE_NAME,
+      SURVEY_DATE,
+      WORKBOOK_SURVEY_DETAILS,
+      null,
+      WORKBOOK_IMPORT_LABEL,
+      WORKBOOK_IMPORT_LABEL,
+      BASE_MAP,
+      null,
+      river.distinctiveness ?? "Medium",
+      river.distinctiveness ?? "Medium",
     );
     written++;
   }
@@ -1835,17 +2116,33 @@ function generateUrbanTreesFromWorkbook(db, boundaryRing, baseline, created) {
     expandEnvelope(allEnvelope, [x, x, y, y]);
     stmt.run(
       gpkgPoint(SRS_ID, x, y),
-      `T${String(i + 1).padStart(3, "0")}`,
-      "Medium", tree.condition ?? "Moderate",
-      tree.strategicSignificance ?? "Area/compensation not in local strategy/ no local strategy",
-      tree.type, retention, retention === "Lost" ? "Lost" : "Retained",
-      "Medium", tree.condition ?? "Moderate",
-      tree.strategicSignificance ?? "Area/compensation not in local strategy/ no local strategy",
-      tree.type, "On-site", "0", "0",
+      `T${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
+      "Medium",
+      tree.condition ?? "Moderate",
+      tree.strategicSignificance ??
+        "Area/compensation not in local strategy/ no local strategy",
+      tree.type,
+      retention,
+      retention === "Lost" ? "Lost" : "Retained",
+      "Medium",
+      tree.condition ?? "Moderate",
+      tree.strategicSignificance ??
+        "Area/compensation not in local strategy/ no local strategy",
+      tree.type,
+      "On-site",
+      "0",
+      "0",
       "Compensation inside LPA boundary or NCA of impact site",
-      SITE_NAME, SURVEY_DATE, "From metric workbook", null,
-      "Workbook import", "Workbook import", "OS MasterMap",
-      1, "Urban", "Urban",
+      SITE_NAME,
+      SURVEY_DATE,
+      WORKBOOK_SURVEY_DETAILS,
+      null,
+      WORKBOOK_IMPORT_LABEL,
+      WORKBOOK_IMPORT_LABEL,
+      BASE_MAP,
+      1,
+      "Urban",
+      "Urban",
     );
     written++;
   }
@@ -1884,36 +2181,46 @@ const DEFAULT_CENTRE_N = 180000;
  * input rather than throwing — caller is `main()`.
  */
 function parseCentre(value) {
-  if (!value) return null;
+  if (!value) {
+    return null;
+  }
   const parts = value.split(",").map((s) => s.trim());
   if (parts.length !== 2) {
     error(`--centre expects "easting,northing" (got: ${value})`);
-    process.exit(1);
+    return process.exit(1);
   }
   const e = Number(parts[0]);
   const n = Number(parts[1]);
   if (!Number.isFinite(e) || !Number.isFinite(n)) {
     error(`--centre values must be numbers (got: ${value})`);
-    process.exit(1);
+    return process.exit(1);
   }
   // BNG covers roughly easting 0–700000, northing 0–1300000. Warn (not error)
   // outside that, since hand-typed coords often have transposed pairs.
-  if (e < 0 || e > 700000 || n < 0 || n > 1300000) {
-    warn(`--centre ${e},${n} is outside the BNG envelope; the prototype's ` +
-      "in-England check will likely reject the upload");
+  if (e < 0 || e > BNG_MAX_EASTING || n < 0 || n > BNG_MAX_NORTHING) {
+    warn(
+      `--centre ${e},${n} is outside the BNG envelope; the prototype's ` +
+        "in-England check will likely reject the upload",
+    );
   }
   return [e, n];
 }
 
 function generateOne(outPath, bad, numParcels, centre) {
+  if (bad) {
+    generateOneBad(outPath, centre);
+    return;
+  }
+
   const numHedgerows = Math.max(3, Math.floor(numParcels / 3));
   const numRivers = Math.max(1, Math.floor(numParcels / 15));
   const numTrees = Math.max(5, Math.floor(numParcels / 2));
 
-  header(`Generating ${bad ? "BAD " : ""}BNG test GeoPackage`, "cyan");
-  if (bad) info("  ⚠ Bad mode: omitting Red Line Boundary");
+  header(`Generating BNG test GeoPackage`, "cyan");
   info(`  ${SITE_NAME}`);
-  info(`  ${numParcels} habitat parcels, ${numHedgerows} hedgerows, ${numRivers} rivers, ${numTrees} urban trees`);
+  info(
+    `  ${numParcels} habitat parcels, ${numHedgerows} hedgerows, ${numRivers} rivers, ${numTrees} urban trees`,
+  );
   info(`  centre: ${centre[0]},${centre[1]} (BNG)`);
   info(`  → ${outPath}`);
 
@@ -1924,11 +2231,7 @@ function generateOne(outPath, bad, numParcels, centre) {
   initGeoPackage(db);
   createAllTables(db);
 
-  // In bad mode, generate the boundary ring for placing features but don't
-  // insert it into the database — leaves the Red Line Boundary table empty.
-  const ring = bad
-    ? generateIrregularPolygon(cx, cy, radius)
-    : generateRedLineBoundary(db, cx, cy, radius);
+  const ring = generateRedLineBoundary(db, cx, cy, radius);
   generateHabitats(db, ring, numParcels);
   generateHedgerows(db, ring, numHedgerows);
   generateRivers(db, ring, numRivers);
@@ -1937,9 +2240,119 @@ function generateOne(outPath, bad, numParcels, centre) {
 
   db.close();
 
+  reportContents(outPath);
+  console.log(color("green", `✔ Done. ${outPath}`));
+}
+
+/**
+ * --bad fixture: deliberately invalid GeoPackage that exercises the backend's
+ * geometry validation checks. Each flaw maps to a specific error code so the
+ * dropout page can render every category.
+ */
+/**
+ * Layout for the --bad fixture. All distances in BNG metres. Each local is
+ * named so the bad-fixture geometry has no bare numeric literals.
+ */
+function buildBadFixtureGeometry(cx, cy) {
+  const REDLINE_HALF = 200;
+  const PARCEL_HALF = 50;
+  const VALID_PARCEL_OFFSET_X = -100;
+  const VALID_PARCEL_OFFSET_Y = -100;
+  const OVERLAP_A_OFFSET_X = 80;
+  const OVERLAP_A_OFFSET_Y = -100;
+  const OVERLAP_B_OFFSET_X = 130;
+  const OVERLAP_B_OFFSET_Y = -80;
+  const BOWTIE_PARCEL_HALF = 30;
+  const BOWTIE_PARCEL_OFFSET_Y = 60;
+  const OUTSIDE_PARCEL_OFFSET = 450;
+  const HEDGEROW_INSIDE_OFFSET = 100;
+  const HEDGEROW_OUTSIDE_OFFSET = 600;
+  const TREE_INSIDE_OFFSET_Y = -80;
+  const TREE_OUTSIDE_OFFSET = 700;
+
+  const square = (offsetX, offsetY) =>
+    rectRing(
+      cx + offsetX - PARCEL_HALF,
+      cy + offsetY - PARCEL_HALF,
+      cx + offsetX + PARCEL_HALF,
+      cy + offsetY + PARCEL_HALF,
+    );
+
+  return {
+    redline: bowtieRing(cx, cy, REDLINE_HALF),
+    parcels: [
+      square(VALID_PARCEL_OFFSET_X, VALID_PARCEL_OFFSET_Y), // valid
+      square(OVERLAP_A_OFFSET_X, OVERLAP_A_OFFSET_Y), // overlaps next
+      square(OVERLAP_B_OFFSET_X, OVERLAP_B_OFFSET_Y), // overlaps prev
+      bowtieRing(cx, cy + BOWTIE_PARCEL_OFFSET_Y, BOWTIE_PARCEL_HALF),
+      square(OUTSIDE_PARCEL_OFFSET, OUTSIDE_PARCEL_OFFSET), // outside redline
+    ],
+    hedgerow: [
+      [cx - HEDGEROW_INSIDE_OFFSET, cy + HEDGEROW_INSIDE_OFFSET],
+      [cx + HEDGEROW_OUTSIDE_OFFSET, cy + HEDGEROW_OUTSIDE_OFFSET],
+    ],
+    trees: [
+      [cx, cy + TREE_INSIDE_OFFSET_Y],
+      [cx + TREE_OUTSIDE_OFFSET, cy + TREE_OUTSIDE_OFFSET],
+    ],
+  };
+}
+
+function logBadFixtureBanner(cx, cy, outPath) {
+  header(`Generating BAD BNG test GeoPackage`, "cyan");
+  info(
+    `  ⚠ Bad mode: deliberately invalid geometry to exercise validation checks`,
+  );
+  info(`  Expected validation errors:`);
+  info(`    REDLINE_SELF_INTERSECTING       (bowtie redline polygon)`);
+  info(`    AREA_PARCELS_SELF_INTERSECTING  (one bowtie habitat parcel)`);
+  info(`    PARCEL_OVERLAPS                 (two habitat parcels overlap)`);
+  info(`    AREA_PARCELS_OUTSIDE_REDLINE    (parcel placed outside redline)`);
+  info(`    HEDGEROWS_OUTSIDE_REDLINE       (hedgerow runs outside redline)`);
+  info(`    TREES_OUTSIDE_REDLINE           (tree placed outside redline)`);
+  info(`    AREA_SUM_MISMATCH               (parcels do not tile redline)`);
+  info(`  centre: ${cx},${cy} (BNG)`);
+  info(`  → ${outPath}`);
+}
+
+function insertBadRedline(db, ring) {
+  db.prepare(
+    `INSERT INTO "Red Line Boundary" (geometry, "Area", "Site Name") VALUES (?, ?, ?)`,
+  ).run(
+    gpkgPolygon(SRS_ID, ring),
+    Math.round(polygonArea(ring)),
+    `${SITE_NAME} (BAD)`,
+  );
+  registerLayer(db, "Red Line Boundary", "POLYGON", envelopeFromCoords(ring));
+}
+
+function generateOneBad(outPath, centre) {
+  const [cx, cy] = centre;
+  logBadFixtureBanner(cx, cy, outPath);
+
+  const db = new Database(outPath);
+  initGeoPackage(db);
+  createAllTables(db);
+
+  const fixture = buildBadFixtureGeometry(cx, cy);
+  insertBadRedline(db, fixture.redline);
+  insertBadHabitats(db, fixture.parcels);
+  insertBadHedgerow(db, fixture.hedgerow);
+  insertBadTrees(db, fixture.trees);
+
+  createLayerStyles(db);
+  db.close();
+
+  reportContents(outPath);
+  console.log(color("green", `✔ Done (bad fixture). ${outPath}`));
+}
+
+function reportContents(outPath) {
   const verify = new Database(outPath, { readonly: true });
   const layers = verify
-    .prepare("SELECT table_name FROM gpkg_contents WHERE data_type = 'features'")
+    .prepare(
+      "SELECT table_name FROM gpkg_contents WHERE data_type = 'features'",
+    )
     .all();
   for (const layer of layers) {
     const count = verify
@@ -1948,17 +2361,159 @@ function generateOne(outPath, bad, numParcels, centre) {
     info(`  ${layer.table_name}: ${count.n} feature(s)`);
   }
   verify.close();
-  console.log(color("green", `✔ Done. ${outPath}`));
 }
 
-function generateOneFromWorkbook(outPath, workbook, sourceLabel, { strict = false, centre } = {}) {
-  const { rows: habitatRows, skipReasons } = buildHabitatRowsFromWorkbook(workbook, { strict });
-  const habitatTotalM2 = habitatRows.reduce((s, r) => s + r.area, 0) * 10000;
-  const declaredSiteM2 = (workbook.siteInfo.totalSiteAreaHa ?? 0) * 10000;
+function insertBadHabitats(db, parcels) {
+  const stmt = db.prepare(`
+    INSERT INTO "Habitats" (
+      geometry, "Parcel Ref", "Baseline Broad Habitat Type", "Baseline Habitat Type",
+      "Area", "Baseline Condition", "Baseline Strategic Significance",
+      "Retention Category", "Proposed Broad Habitat Type", "Proposed Habitat Type",
+      "Proposed Condition", "Proposed Strategic Significance",
+      "Habitat created in advance/years", "Delay in starting habitat creation/years",
+      "Spatial risk category", "Location", "Site Name", "Survey Date",
+      "Survey Details", "Comment", "Mapped by", "Company", "Base Map",
+      "Baseline Distinctiveness", "Proposed Distinctiveness"
+    ) VALUES (${Array.from({ length: HABITATS_INSERT_COLUMNS }, () => "?").join(", ")})
+  `);
+  const env = [Infinity, -Infinity, Infinity, -Infinity];
+  parcels.forEach((ring, i) => {
+    expandEnvelope(env, envelopeFromCoords(ring));
+    const baseline = HABITATS[0];
+    stmt.run(
+      gpkgPolygon(SRS_ID, ring),
+      `H${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
+      baseline.broad,
+      baseline.type,
+      Math.round(Math.abs(polygonArea(ring))),
+      baseline.validConditions[0],
+      STRATEGIC_SIGNIFICANCE[0],
+      "Retained",
+      baseline.broad,
+      baseline.type,
+      baseline.validConditions[0],
+      STRATEGIC_SIGNIFICANCE[0],
+      "0",
+      "0",
+      SPATIAL_RISK_HABITAT[0],
+      "On-site",
+      `${SITE_NAME} (BAD)`,
+      SURVEY_DATE,
+      BAD_FIXTURE_SURVEY_DETAILS,
+      null,
+      MAPPED_BY,
+      SURVEY_COMPANY,
+      BASE_MAP,
+      baseline.distinctiveness,
+      baseline.distinctiveness,
+    );
+  });
+  registerLayer(db, "Habitats", "POLYGON", env);
+}
 
-  // Make sure the boundary is large enough to accommodate the longest linear
-  // feature (longest hedge or river) — otherwise it can't physically fit
-  // inside the polygon. We require boundary diameter > 1.2 × longest length.
+function insertBadHedgerow(db, coords) {
+  db.prepare(
+    `
+    INSERT INTO "Hedgerows" (
+      geometry, "Parcel Ref", "Baseline Hedge Type", "Baseline Condition",
+      "Baseline Strategic Significance", "Retention Category",
+      "Proposed Hedge Type", "Proposed Condition", "Proposed Strategic Significance",
+      "Length", "Habitat created in advance/years",
+      "Delay in starting habitat creation/years", "Spatial risk category",
+      "Location", "Site Name", "Survey Date", "Survey Details", "Comments",
+      "Mapped by", "Company", "Base Map",
+      "Baseline Distinctiveness", "Proposed Distinctiveness"
+    ) VALUES (${Array.from({ length: HEDGEROWS_INSERT_COLUMNS }, () => "?").join(", ")})
+  `,
+  ).run(
+    gpkgLineString(SRS_ID, coords),
+    "HG001",
+    HEDGE_TYPES[0],
+    HEDGE_CONDITIONS[0],
+    STRATEGIC_SIGNIFICANCE[0],
+    "Retained",
+    HEDGE_TYPES[0],
+    HEDGE_CONDITIONS[0],
+    STRATEGIC_SIGNIFICANCE[0],
+    Math.round(linestringLength(coords)),
+    "0",
+    "0",
+    SPATIAL_RISK_HABITAT[0],
+    "On-site",
+    `${SITE_NAME} (BAD)`,
+    SURVEY_DATE,
+    BAD_FIXTURE_SURVEY_DETAILS,
+    null,
+    MAPPED_BY,
+    SURVEY_COMPANY,
+    BASE_MAP,
+    DISTINCTIVENESS[0],
+    DISTINCTIVENESS[0],
+  );
+  registerLayer(db, "Hedgerows", "LINESTRING", envelopeFromCoords(coords));
+}
+
+function insertBadTrees(db, points) {
+  const stmt = db.prepare(`
+    INSERT INTO "Urban Trees" (
+      geometry, "Tree Ref", "Baseline Tree Size", "Baseline Condition",
+      "Baseline Strategic Significance", "Baseline Tree Type",
+      "Retention Category", "Category",
+      "Proposed Tree Size", "Proposed Condition",
+      "Proposed Strategic Significance", "Proposed Tree Type",
+      "Location", "Habitat Created/Enhanced in advance/years",
+      "Delay in starting habitat creation/enhancement in years",
+      "Spatial risk category", "Site Name", "Survey Date",
+      "Survey Details", "Comment", "Mapped by", "Company", "Base Map",
+      "Count", "Baseline Rural or Urban Tree", "Proposed Rural or Urban Tree"
+    ) VALUES (${Array.from({ length: URBAN_TREES_INSERT_COLUMNS }, () => "?").join(", ")})
+  `);
+  const env = [Infinity, -Infinity, Infinity, -Infinity];
+  points.forEach(([x, y], i) => {
+    expandEnvelope(env, [x, x, y, y]);
+    stmt.run(
+      gpkgPoint(SRS_ID, x, y),
+      `T${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
+      "Medium",
+      CONDITIONS[0],
+      STRATEGIC_SIGNIFICANCE[0],
+      TREE_TYPE_STREET,
+      "Retained",
+      "Retained",
+      "Medium",
+      CONDITIONS[0],
+      STRATEGIC_SIGNIFICANCE[0],
+      TREE_TYPE_STREET,
+      "On-site",
+      "0",
+      "0",
+      SPATIAL_RISK_HABITAT[0],
+      `${SITE_NAME} (BAD)`,
+      SURVEY_DATE,
+      BAD_FIXTURE_SURVEY_DETAILS,
+      null,
+      MAPPED_BY,
+      SURVEY_COMPANY,
+      BASE_MAP,
+      1,
+      "Urban",
+      "Urban",
+    );
+  });
+  registerLayer(db, "Urban Trees", "POINT", env);
+}
+
+/**
+ * Compute the redline area for a workbook-driven fixture. Picks the largest
+ * of (sum of habitat areas, declared site area, area required to fit the
+ * longest linear feature).
+ */
+function computeWorkbookFixturePlan(workbook, habitatRows) {
+  const habitatTotalM2 =
+    habitatRows.reduce((s, r) => s + r.area, 0) * HECTARES_TO_SQ_M;
+  const declaredSiteM2 =
+    (workbook.siteInfo.totalSiteAreaHa ?? 0) * HECTARES_TO_SQ_M;
+
   const linearLengths = [
     ...workbook.hedgerows.baseline.map((h) => h.lengthM),
     ...workbook.hedgerows.created.map((h) => h.lengthM),
@@ -1966,17 +2521,37 @@ function generateOneFromWorkbook(outPath, workbook, sourceLabel, { strict = fals
     ...workbook.watercourses.created.map((r) => r.lengthM),
   ];
   const longestLinearM = linearLengths.length ? Math.max(...linearLengths) : 0;
-  const minRadiusM = (longestLinearM * 1.2) / 2;
+  const minRadiusM = (longestLinearM * BOUNDARY_OVERSIZE_FACTOR) / 2;
   const minAreaFromDiameterM2 = Math.PI * minRadiusM * minRadiusM;
 
-  const totalAreaM2 = Math.max(habitatTotalM2, declaredSiteM2, minAreaFromDiameterM2);
-  const totalAreaHa = totalAreaM2 / 10000;
-  const siteName = String(workbook.siteInfo.projectName ?? "BNG500 site");
+  const totalAreaM2 = Math.max(
+    habitatTotalM2,
+    declaredSiteM2,
+    minAreaFromDiameterM2,
+  );
+  return {
+    totalAreaM2,
+    totalAreaHa: totalAreaM2 / HECTARES_TO_SQ_M,
+    siteName: String(workbook.siteInfo.projectName ?? "BNG500 site"),
+  };
+}
 
+function logWorkbookFixtureBanner({
+  workbook,
+  sourceLabel,
+  centre,
+  outPath,
+  habitatRows,
+  plan,
+}) {
   header(`Generating BNG GeoPackage from workbook`, "cyan");
   info(`  source: ${sourceLabel}`);
-  info(`  site: ${siteName} (${workbook.siteInfo.planningAuthority ?? "unknown LPA"})`);
-  info(`  total area: ${totalAreaHa.toFixed(4)} ha (${Math.round(totalAreaM2)} m²)`);
+  info(
+    `  site: ${plan.siteName} (${workbook.siteInfo.planningAuthority ?? "unknown LPA"})`,
+  );
+  info(
+    `  total area: ${plan.totalAreaHa.toFixed(4)} ha (${Math.round(plan.totalAreaM2)} m²)`,
+  );
   info(
     `  habitats: ${habitatRows.length} (${workbook.habitats.baseline.length} baseline, ` +
       `${workbook.habitats.created.length} created, ${workbook.habitats.enhancements.length} enhanced)`,
@@ -1992,42 +2567,88 @@ function generateOneFromWorkbook(outPath, workbook, sourceLabel, { strict = fals
   );
   info(`  centre: ${centre[0]},${centre[1]} (BNG)`);
   info(`  → ${outPath}`);
+}
 
-  if (totalAreaM2 < 100) {
-    warn(`  total area is < 100 m² — workbook may be empty or unparseable; aborting`);
+function writeWorkbookLayers(db, ring, workbook, habitatRows) {
+  return {
+    habitats: generateHabitatsFromWorkbook(db, ring, habitatRows),
+    hedgerows: generateHedgerowsFromWorkbook(
+      db,
+      ring,
+      workbook.hedgerows.baseline,
+      workbook.hedgerows.created,
+    ),
+    rivers: generateRiversFromWorkbook(
+      db,
+      ring,
+      workbook.watercourses.baseline,
+      workbook.watercourses.created,
+    ),
+    trees: generateUrbanTreesFromWorkbook(
+      db,
+      ring,
+      workbook.trees.baseline,
+      workbook.trees.created,
+    ),
+  };
+}
+
+function logWorkbookPostWrite(workbook, skipReasons, written, outPath) {
+  info(
+    `  written: ${written.habitats} habitats, ${written.hedgerows} hedgerows, ` +
+      `${written.rivers} rivers, ${written.trees} trees`,
+  );
+  for (const w of workbook.summary.warnings) {
+    warn(`  ${w}`);
+  }
+  for (const s of workbook.summary.skipped) {
+    warn(`  skipped ${s.sheet}:${s.row} (${s.reason})`);
+  }
+  for (const r of skipReasons) {
+    warn(`  ${r}`);
+  }
+  console.log(color("green", `✔ Done. ${outPath}`));
+}
+
+function generateOneFromWorkbook(
+  outPath,
+  workbook,
+  sourceLabel,
+  { strict = false, centre } = {},
+) {
+  const { rows: habitatRows, skipReasons } = buildHabitatRowsFromWorkbook(
+    workbook,
+    { strict },
+  );
+  const plan = computeWorkbookFixturePlan(workbook, habitatRows);
+
+  logWorkbookFixtureBanner({
+    workbook,
+    sourceLabel,
+    centre,
+    outPath,
+    habitatRows,
+    plan,
+  });
+
+  if (plan.totalAreaM2 < MIN_GENERATED_AREA_SQ_M) {
+    warn(
+      `  total area is < ${MIN_GENERATED_AREA_SQ_M} m² — workbook may be empty or unparseable; aborting`,
+    );
     return false;
   }
 
   const [cx, cy] = centre;
-
   const db = new Database(outPath);
   initGeoPackage(db);
   createAllTables(db);
 
-  const ring = generateRedLineBoundaryFromArea(db, cx, cy, totalAreaM2);
-  const habitatsWritten = generateHabitatsFromWorkbook(db, ring, habitatRows);
-  const hedgerowsWritten = generateHedgerowsFromWorkbook(
-    db, ring, workbook.hedgerows.baseline, workbook.hedgerows.created,
-  );
-  const riversWritten = generateRiversFromWorkbook(
-    db, ring, workbook.watercourses.baseline, workbook.watercourses.created,
-  );
-  const treesWritten = generateUrbanTreesFromWorkbook(
-    db, ring, workbook.trees.baseline, workbook.trees.created,
-  );
+  const ring = generateRedLineBoundaryFromArea(db, cx, cy, plan.totalAreaM2);
+  const written = writeWorkbookLayers(db, ring, workbook, habitatRows);
   createLayerStyles(db);
   db.close();
 
-  info(
-    `  written: ${habitatsWritten} habitats, ${hedgerowsWritten} hedgerows, ` +
-      `${riversWritten} rivers, ${treesWritten} trees`,
-  );
-  for (const w of workbook.summary.warnings) warn(`  ${w}`);
-  for (const s of workbook.summary.skipped) {
-    warn(`  skipped ${s.sheet}:${s.row} (${s.reason})`);
-  }
-  for (const r of skipReasons) warn(`  ${r}`);
-  console.log(color("green", `✔ Done. ${outPath}`));
+  logWorkbookPostWrite(workbook, skipReasons, written, outPath);
   return true;
 }
 
@@ -2085,7 +2706,10 @@ async function main() {
     process.exit(1);
   }
 
-  const centre = parseCentre(args.centre) ?? [DEFAULT_CENTRE_E, DEFAULT_CENTRE_N];
+  const centre = parseCentre(args.centre) ?? [
+    DEFAULT_CENTRE_E,
+    DEFAULT_CENTRE_N,
+  ];
 
   if (args["from-list"]) {
     const listPath = path.resolve(args["from-list"]);
@@ -2099,7 +2723,11 @@ async function main() {
       .filter((s) => s && !s.startsWith("#"));
     for (const entry of entries) {
       try {
-        await runFromWorkbook(entry, { strict: args["strict-habitats"], inspect: false, centre });
+        await runFromWorkbook(entry, {
+          strict: args["strict-habitats"],
+          inspect: false,
+          centre,
+        });
       } catch (e) {
         error(`Failed for ${entry}: ${e.message}`);
       }
@@ -2123,7 +2751,10 @@ async function main() {
   if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
 
   for (let i = 1; i <= total; i++) {
-    const suffix = total > 1 ? `-${String(i).padStart(3, "0")}` : "";
+    const suffix =
+      total > 1
+        ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`
+        : "";
     const filename = bad
       ? `bng-test-data-bad${suffix}.gpkg`
       : `bng-test-data${suffix}.gpkg`;
