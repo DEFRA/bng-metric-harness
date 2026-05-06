@@ -35,6 +35,7 @@
  *   node scripts/gen-gpkg.mjs --size 20
  *   node scripts/gen-gpkg.mjs --count 10
  *   node scripts/gen-gpkg.mjs --bad
+ *   node scripts/gen-gpkg.mjs --zero-habitats
  *
  *   # From a real BNG metric workbook
  *   node scripts/gen-gpkg.mjs --from path/to/MetricWorkbook.xlsx
@@ -90,6 +91,11 @@
  *                   crosses outside, a tree placed outside, and habitat areas
  *                   that don't tile the redline. Ignores --size and any
  *                   --from / --from-list inputs.
+ *   --zero-habitats Generate an otherwise-valid GeoPackage whose Habitats
+ *                   layer is registered but contains zero rows, to exercise
+ *                   the prototype's NO_HABITAT_AREAS validator. Hedgerows,
+ *                   rivers, and urban trees are still populated normally.
+ *                   Mutually exclusive with --bad / --from / --from-list.
  */
 
 import Database from "better-sqlite3";
@@ -119,6 +125,7 @@ const { values: args } = parseArgs({
     count: { type: "string", default: "1" },
     outdir: { type: "string", default: "" },
     bad: { type: "boolean", default: false },
+    "zero-habitats": { type: "boolean", default: false },
     from: { type: "string", default: "" },
     "from-list": { type: "string", default: "" },
     "strict-habitats": { type: "boolean", default: false },
@@ -1040,6 +1047,13 @@ function generateRedLineBoundary(db, cx, cy, radius) {
 }
 
 function generateHabitats(db, boundaryRing, numParcels) {
+  // Zero-parcel fixture: register the layer in gpkg_contents and
+  // gpkg_geometry_columns but insert no rows. partitionPolygon(_, 0) would
+  // otherwise return the whole boundary as a single parcel.
+  if (numParcels === 0) {
+    registerLayer(db, "Habitats", "POLYGON", null);
+    return;
+  }
   const parcels = partitionPolygon(boundaryRing, numParcels);
 
   const stmt = db.prepare(`
@@ -2206,20 +2220,26 @@ function parseCentre(value) {
   return [e, n];
 }
 
-function generateOne(outPath, bad, numParcels, centre) {
+function generateOne(outPath, bad, numParcels, centre, zeroHabitats = false) {
   if (bad) {
     generateOneBad(outPath, centre);
     return;
   }
 
+  const habitatCount = zeroHabitats ? 0 : numParcels;
   const numHedgerows = Math.max(3, Math.floor(numParcels / 3));
   const numRivers = Math.max(1, Math.floor(numParcels / 15));
   const numTrees = Math.max(5, Math.floor(numParcels / 2));
 
   header(`Generating BNG test GeoPackage`, "cyan");
   info(`  ${SITE_NAME}`);
+  if (zeroHabitats) {
+    info(
+      `  ⚠ Zero-habitats mode: Habitats layer empty (NO_HABITAT_AREAS)`,
+    );
+  }
   info(
-    `  ${numParcels} habitat parcels, ${numHedgerows} hedgerows, ${numRivers} rivers, ${numTrees} urban trees`,
+    `  ${habitatCount} habitat parcels, ${numHedgerows} hedgerows, ${numRivers} rivers, ${numTrees} urban trees`,
   );
   info(`  centre: ${centre[0]},${centre[1]} (BNG)`);
   info(`  → ${outPath}`);
@@ -2232,7 +2252,7 @@ function generateOne(outPath, bad, numParcels, centre) {
   createAllTables(db);
 
   const ring = generateRedLineBoundary(db, cx, cy, radius);
-  generateHabitats(db, ring, numParcels);
+  generateHabitats(db, ring, habitatCount);
   generateHedgerows(db, ring, numHedgerows);
   generateRivers(db, ring, numRivers);
   generateUrbanTrees(db, ring, numTrees);
@@ -2706,6 +2726,16 @@ async function main() {
     process.exit(1);
   }
 
+  if (
+    args["zero-habitats"] &&
+    (args.bad || args.from || args["from-list"])
+  ) {
+    error(
+      "--zero-habitats is mutually exclusive with --bad, --from, and --from-list",
+    );
+    process.exit(1);
+  }
+
   const centre = parseCentre(args.centre) ?? [
     DEFAULT_CENTRE_E,
     DEFAULT_CENTRE_N,
@@ -2747,6 +2777,7 @@ async function main() {
   const numParcels = parseInt(args.size, 10) || 50;
   const total = Math.max(1, parseInt(args.count, 10) || 1);
   const bad = args.bad;
+  const zeroHabitats = args["zero-habitats"];
 
   if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
 
@@ -2755,10 +2786,15 @@ async function main() {
       total > 1
         ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`
         : "";
-    const filename = bad
-      ? `bng-test-data-bad${suffix}.gpkg`
-      : `bng-test-data${suffix}.gpkg`;
-    const outPath = path.join(OUT_DIR, filename);
+    let basename;
+    if (bad) {
+      basename = "bng-test-data-bad";
+    } else if (zeroHabitats) {
+      basename = "bng-test-data-zero-habitats";
+    } else {
+      basename = "bng-test-data";
+    }
+    const outPath = path.join(OUT_DIR, `${basename}${suffix}.gpkg`);
 
     if (existsSync(outPath)) {
       if (total > 1) {
@@ -2775,7 +2811,7 @@ async function main() {
       }
     }
 
-    generateOne(outPath, bad, numParcels, centre);
+    generateOne(outPath, bad, numParcels, centre, zeroHabitats);
   }
 }
 
