@@ -1,0 +1,89 @@
+// BNG Environment Alignment - LikeC4 Definition
+// Maps Defra Customer ID OIDC provider environments (Azure) to
+// BNG CDP deployment environments (AWS).
+//
+// NOTE: Reuses cloud platform boundaries (azureUkSouth, awsEuWest2) defined in
+// bng-architecture.likec4 via `extend`. LikeC4 merges all .likec4 files into a
+// single model, so we only declare the new environment elements and
+// relationships here.
+
+model {
+  extend azureUkSouth {
+    boundary defraCustomerIdEnvs "Defra Customer ID Environments" {
+      description "OIDC provider environments hosted in Azure"
+
+      service oidcCpdev "CPDEV" {
+        description "Defra Customer ID development OIDC environment"
+        style {
+          color indigo
+        }
+      }
+
+      service oidcPreProd "PRE-PROD" {
+        description "Defra Customer ID pre-production OIDC environment"
+        style {
+          color indigo
+        }
+      }
+
+      service oidcProd "PROD" {
+        description "Defra Customer ID production OIDC environment"
+        style {
+          color indigo
+        }
+      }
+    }
+  }
+
+  extend awsEuWest2 {
+    boundary bngCdpEnvs "BNG CDP Deployment Environments" {
+      description "BNG project environments deployed on CDP"
+
+      service cdpDev "Dev" {
+        description "BNG development environment on CDP"
+        style {
+          color green
+        }
+      }
+
+      service cdpTest "Test" {
+        description "BNG test environment on CDP"
+        style {
+          color green
+        }
+      }
+
+      service cdpExtTest "Ext-Test" {
+        description "BNG external-test environment on CDP"
+        style {
+          color green
+        }
+      }
+
+      service cdpProd "Production" {
+        description "BNG production environment on CDP"
+        style {
+          color red
+        }
+      }
+    }
+  }
+
+  // OIDC-to-CDP environment alignment
+  azureUkSouth.defraCustomerIdEnvs.oidcCpdev   -> awsEuWest2.bngCdpEnvs.cdpDev     "Auth provider for"
+  azureUkSouth.defraCustomerIdEnvs.oidcPreProd -> awsEuWest2.bngCdpEnvs.cdpTest    "Auth provider for"
+  azureUkSouth.defraCustomerIdEnvs.oidcPreProd -> awsEuWest2.bngCdpEnvs.cdpExtTest "Auth provider for"
+  azureUkSouth.defraCustomerIdEnvs.oidcProd    -> awsEuWest2.bngCdpEnvs.cdpProd    "Auth provider for"
+}
+
+views {
+  view oidcEnvAlignment {
+    title "OIDC to CDP Environment Alignment"
+    description "Mapping of Defra Customer ID OIDC provider environments (Azure) to BNG CDP deployment environments (AWS)"
+
+    autoLayout LeftRight
+
+    include azureUkSouth.defraCustomerIdEnvs.*
+    include awsEuWest2.bngCdpEnvs.*
+  }
+}
