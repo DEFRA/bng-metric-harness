@@ -1,0 +1,91 @@
+// BNG GIS Data Serving Architecture - LikeC4 Definition
+// Data architecture for storing and serving GIS geometry.
+//
+// Write path: once geometry is validated, the BNG Service Core API stores it
+// in PostGIS in British National Grid (EPSG:27700) and adds geometry
+// references to the BNG project JSONB document.
+//
+// Read path: MapLibre on the front-end calls a dedicated GIS Data API
+// (an endpoint of the BNG Service Core API) with a BNG project reference.
+// The API resolves geometry references from the project document, fetches
+// rows from PostGIS using ST_Transform to project them into WGS84
+// (EPSG:4326), and returns to MapLibre. An HTTP cache (browser / proxy) and
+// a Redis cache (server-side, keyed by project + layer) minimise repeat
+// CRS conversions inside PostGIS.
+//
+// NOTE: Reuses backendApi, postgresDb (bng-architecture.likec4) and
+// bngJsonDocument (bng-context.likec4). LikeC4 merges all .likec4 files into
+// a single model.
+
+model {
+  // ── Front-end map viewer ──
+
+  service mapLibreViewer "MapLibre Map Viewer" {
+    description "Front-end map component that renders GIS layers in WGS84"
+    technology "MapLibre GL JS"
+    style {
+      color green
+    }
+  }
+
+  // ── Edge HTTP cache (browser + intermediate proxies) ──
+
+  cache httpCache "HTTP Cache" {
+    description "Browser and intermediate-proxy HTTP cache, populated via Cache-Control and ETag response headers on the GIS Data API. First-line cache to avoid hitting the API at all for unchanged data."
+    technology "HTTP cache headers"
+  }
+
+  // ── Server-side GIS read pipeline ──
+  // GIS Data API is an endpoint of the BNG Service Core API; CRS conversion
+  // is performed by PostGIS via ST_Transform, not by a separate process.
+
+  extend awsEuWest2.privateBoundaryCDP.backendApi {
+    service gisDataApi "GIS Data API" {
+      description "Dedicated read endpoint of the BNG Service Core API. Takes a BNG project reference, resolves geometry references from the project's JSONB document, and fetches geometry rows from PostGIS already projected into WGS84."
+      technology "Node.js / Hapi"
+      style {
+        color green
+      }
+    }
+  }
+
+  extend awsEuWest2.privateBoundaryCDP {
+    cache redisCache "Redis GIS Cache" {
+      description "Server-side cache of WGS84 geometry, keyed by BNG project reference and layer. Avoids re-running ST_Transform in PostGIS across requests and users."
+      technology "Redis"
+      icon https://icons.terrastruct.com/dev%2Fredis.svg
+    }
+  }
+
+  // ── Write path: validated geometry stored in BNG CRS ──
+
+  awsEuWest2.privateBoundaryCDP.backendApi -> awsEuWest2.privateBoundaryCDP.postgresDb "Stores validated geometry layers (British National Grid / EPSG:27700)"
+  awsEuWest2.privateBoundaryCDP.backendApi -> awsEuWest2.privateBoundaryCDP.bngJsonDocument "Adds geometry references to the project document"
+
+  // ── Read path: MapLibre fetches WGS84 geometry ──
+
+  mapLibreViewer -> httpCache "Requests GIS by BNG project ref"
+  httpCache      -> awsEuWest2.privateBoundaryCDP.backendApi.gisDataApi "Cache miss: forward request"
+
+  awsEuWest2.privateBoundaryCDP.backendApi.gisDataApi -> awsEuWest2.privateBoundaryCDP.redisCache             "Lookup cached WGS84 geometry"
+  awsEuWest2.privateBoundaryCDP.backendApi.gisDataApi -> awsEuWest2.privateBoundaryCDP.bngJsonDocument        "Resolve project ref to geometry references"
+  awsEuWest2.privateBoundaryCDP.backendApi.gisDataApi -> awsEuWest2.privateBoundaryCDP.postgresDb             "Fetch geometry rows + ST_Transform to WGS84 (EPSG:4326)"
+  awsEuWest2.privateBoundaryCDP.backendApi.gisDataApi -> awsEuWest2.privateBoundaryCDP.redisCache             "Populate cache on miss"
+}
+
+views {
+  view gisDataServingArchitecture {
+    title "GIS Data Serving Architecture"
+    description "Read/write data architecture for GIS geometry: stored in British National Grid in PostGIS, referenced from the BNG project JSONB document, served as WGS84 to MapLibre via the GIS Data API endpoint of the BNG Service Core API. PostGIS performs the ST_Transform; HTTP and Redis caches minimise repeat conversions."
+
+    autoLayout LeftRight
+
+    include mapLibreViewer
+    include httpCache
+    include awsEuWest2.privateBoundaryCDP.backendApi
+    include awsEuWest2.privateBoundaryCDP.backendApi.gisDataApi
+    include awsEuWest2.privateBoundaryCDP.redisCache
+    include awsEuWest2.privateBoundaryCDP.postgresDb
+    include awsEuWest2.privateBoundaryCDP.bngJsonDocument
+  }
+}

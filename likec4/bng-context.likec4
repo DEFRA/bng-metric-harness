@@ -72,19 +72,21 @@ model {
 
   // ── Data Linkage Model elements ──
 
-  service bngJsonDocument "BNG JSONB Document" {
-    description "Core JSONB document stored in PostgreSQL representing a BNG project. Contains references to GIS layers in PostGIS and uploaded files in S3, acting as the single linking record across all data stores."
-    technology "JSONB / PostgreSQL"
-    icon https://icons.terrastruct.com/dev%2Fpostgresql.svg
-    style {
-      color green
+  extend awsEuWest2.privateBoundaryCDP {
+    service bngJsonDocument "BNG JSONB Document" {
+      description "Core JSONB document stored in PostgreSQL representing a BNG project. Contains references to GIS layers in PostGIS and uploaded files in S3, acting as the single linking record across all data stores."
+      technology "JSONB / PostgreSQL"
+      icon https://icons.terrastruct.com/dev%2Fpostgresql.svg
+      style {
+        color green
+      }
     }
   }
 
   // Data Linkage relationships
-  awsEuWest2.privateBoundaryCDP.postgresDb -> bngJsonDocument "Stores & retrieves"
-  bngJsonDocument -> awsEuWest2.privateBoundaryCDP.postgresDb "References GIS layers (red-line boundary, habitat parcels)"
-  bngJsonDocument -> awsEuWest2.privateBoundaryCDP.fileStorageS3 "References uploaded files (GeoPackages, shapefiles, PDFs)"
+  awsEuWest2.privateBoundaryCDP.postgresDb -> awsEuWest2.privateBoundaryCDP.bngJsonDocument "Stores & retrieves"
+  awsEuWest2.privateBoundaryCDP.bngJsonDocument -> awsEuWest2.privateBoundaryCDP.postgresDb "References GIS layers (red-line boundary, habitat parcels)"
+  awsEuWest2.privateBoundaryCDP.bngJsonDocument -> awsEuWest2.privateBoundaryCDP.fileStorageS3 "References uploaded files (GeoPackages, shapefiles, PDFs)"
 
   // Audit event stream relationships
   awsEuWest2.privateBoundaryCDP.backendApi -> awsEuWest2.privateBoundaryCDP.firehoseStream "Pushes audit events"
@@ -493,8 +495,7 @@ views {
     autoLayout TopBottom
 
     include awsEuWest2.privateBoundaryCDP.postgresDb
-    include bngJsonDocument
-    include awsEuWest2.privateBoundaryCDP.postgresDb
+    include awsEuWest2.privateBoundaryCDP.bngJsonDocument
     include awsEuWest2.privateBoundaryCDP.fileStorageS3
   }
 
