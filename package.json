@@ -24,7 +24,9 @@
     "test": "node scripts/test.mjs all",
     "test:fe": "node scripts/test.mjs fe",
     "test:be": "node scripts/test.mjs be",
-    "generate:gpkg": "node scripts/gen-gpkg.mjs"
+    "generate:gpkg": "node scripts/gen-gpkg.mjs",
+    "likec4": "npx likec4 start",
+    "likec4:export": "docker run --rm -v \"$PWD:/data\" -w /data likec4/likec4 export png -o ./arch-diagrams"
   },
   "dependencies": {
     "concurrently": "^9.1.0"
