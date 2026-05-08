@@ -1,0 +1,330 @@
+// BNG Metric Architecture - LikeC4 Definition
+// Generic BNG Proposed Architecture - High Level
+
+specification {
+  element actor {
+    style {
+      shape person
+      color amber
+    }
+  }
+  element system {
+    style {
+      shape rectangle
+      color slate
+    }
+  }
+  element service {
+    style {
+      shape rectangle
+      color green
+    }
+  }
+  element database {
+    style {
+      shape cylinder
+      color blue
+    }
+  }
+  element storage {
+    style {
+      shape rectangle
+      color sky
+    }
+  }
+  element queue {
+    style {
+      shape queue
+      color amber
+    }
+  }
+  element cache {
+    style {
+      shape rectangle
+      color green
+    }
+  }
+  element platform {
+    style {
+      shape rectangle
+      color indigo
+    }
+  }
+  element visualisation {
+    style {
+      shape rectangle
+      color indigo
+    }
+  }
+  element boundary {
+    style {
+      color muted
+    }
+  }
+}
+
+model {
+  // External Boundary - Actors and Identity
+  system defraCustomerId "Defra Customer ID" {
+    description "Handles external users login and authentication"
+    style {
+      shape person
+      color indigo
+    }
+  }
+
+  system defraCustomerIdLpa "Defra Customer ID (LPA)" {
+    description "Trusted Third-Party flow for LPA authentication"
+    style {
+      shape person
+      color indigo
+    }
+  }
+
+  // AWS eu-west-2 (London) Region
+  boundary awsEuWest2 "CDP – AWS eu-west-2 (London)" {
+    description "AWS London region hosting CDP infrastructure"
+    icon https://icons.terrastruct.com/dev%2Famazonwebservices.svg
+
+    // Security - Public Ingress
+    boundary publicEgress "Public Egress" {
+      description "Public-facing edge network with DDoS protection"
+
+      service awsShield "AWS Shield" {
+        description "DDoS protection for all inbound traffic to the platform"
+        technology "AWS Shield Advanced"
+        icon https://icon.icepanel.io/AWS/svg/Security-Identity-Compliance/Shield.svg
+        style {
+          color red
+        }
+      }
+    }
+
+    service publicAlbWaf "Public ALB / AWS WAF" {
+      description "Application Load Balancer with Web Application Firewall for traffic filtering and routing to front-end services"
+      technology "AWS ALB / WAF"
+      icon https://icon.icepanel.io/AWS/svg/Security-Identity-Compliance/WAF.svg
+      style {
+        color red
+      }
+    }
+
+    service secretsManager "AWS Secrets Manager" {
+      description "Centralized secrets management for API keys, database credentials, and service tokens used by all application tiers"
+      technology "AWS Secrets Manager"
+      icon https://icon.icepanel.io/AWS/svg/Security-Identity-Compliance/Secrets-Manager.svg
+      style {
+        color red
+      }
+    }
+
+    // Public Boundary CDP (AWS)
+    boundary publicBoundaryCDP "Public Boundary CDP" {
+      description "AWS Public Zone"
+      icon https://icon.icepanel.io/AWS/svg/Compute/Fargate.svg
+
+      service publicApp "BNG Completion Front-end" {
+        description "Public-facing application for BNG completion"
+        technology "Node.js / AWS"
+        icon https://icons.terrastruct.com/dev%2Fnodejs.svg
+        style {
+          color green
+        }
+      }
+
+      service lpaApp "LPA BNG Assessment front-end" {
+        description "LPA-facing application for BNG assessment"
+        technology "Node.js / AWS"
+        icon https://icons.terrastruct.com/dev%2Fnodejs.svg
+        style {
+          color green
+        }
+      }
+    }
+
+    // Private Boundary CDP (AWS)
+    boundary privateBoundaryCDP "Private Boundary CDP" {
+      description "AWS Private Zone"
+      icon https://icon.icepanel.io/AWS/svg/Compute/Fargate.svg
+
+      service backendApi "BNG Service Core API" {
+        description "Backend API handling BNG metric processing"
+        technology "Node.js / AWS"
+        icon https://icons.terrastruct.com/dev%2Fnodejs.svg
+        style {
+          color green
+        }
+      }
+
+      service virusScanService "CDP Virus Scanning Service" {
+        description "Scans uploaded files for malware before storage"
+        technology "ClamAV / AWS"
+        icon https://icon.icepanel.io/AWS/svg/Security-Identity-Compliance/Inspector.svg
+        style {
+          color green
+        }
+      }
+
+      storage fileStorageS3 "File Storage - S3" {
+        description "Used for any uploaded data by users, associated with case and user"
+        technology "AWS S3"
+        icon https://icons.terrastruct.com/aws%2FStorage%2FAmazon-Simple-Storage-Service-S3.svg
+        style {
+          shape rectangle
+          color sky
+        }
+      }
+
+      storage bngProjectDataS3 "BNG Audit Events - S3" {
+        description "Dedicated S3 bucket receiving audit events from Firehose. Not accessible to the BNG service directly. Read by the GIO Data Platform for data lake ingestion."
+        technology "AWS S3"
+        icon https://icons.terrastruct.com/aws%2FStorage%2FAmazon-Simple-Storage-Service-S3.svg
+        style {
+          shape rectangle
+          color sky
+        }
+      }
+
+      database postgresDb "CDP Postgres / PostGIS Database" {
+        description "Primary data store. JSONB used to store BNG project data in relational table(s). PostGIS stores reference data (e.g. Living England habitats) and user uploaded/created GIS layers. JSON documents hold references to GIS data stored in PostGIS."
+        technology "PostgreSQL / PostGIS"
+        icon https://icons.terrastruct.com/dev%2Fpostgresql.svg
+      }
+    }
+
+    service privateOutboundSubnet "Private Outbound Subnet" {
+      description "NAT Gateway subnet with Squid Proxy for all outbound API calls from private services"
+      technology "AWS VPC / NAT Gateway"
+      icon https://icon.icepanel.io/AWS/svg/Security-Identity-Compliance/Network-Firewall.svg
+      style {
+        color red
+      }
+    }
+  }
+
+  // Azure UK South (London) Region
+  boundary azureUkSouth "Azure UK South (London)" {
+    description "Azure London region hosting data platform"
+    icon https://az-icons.com/export/icons/0e64f85d4661e42d46e4e2bc1602eadb.svg
+
+    boundary azureDataPlatform "Azure Data Platform" {
+      description "Azure cloud services for reporting and data platform"
+
+      platform dynamicsPlatform "GIO Data Platform" {
+        description "Power BI-based data platform for BNG reporting, analysis, and data management"
+        technology "Microsoft Power BI"
+        icon https://az-icons.com/export/icons/e4e7a2a46c0b319dc5989d4b4977cad1.svg
+      }
+    }
+  }
+
+  // Generic Defra Customer ID (security diagram only)
+  system defraCustomerIdGeneric "Defra Customer ID" {
+    description "Handles login and authentication for all user types (completers, LPA officers)"
+    style {
+      shape person
+      color indigo
+    }
+  }
+
+  // External Services
+  service archGovukNotify "GOV.UK Notify" {
+    description "Send alerts to BNG stakeholders about changes"
+    technology "GOV.UK Notify"
+    icon https://icons.terrastruct.com/aws%2FCustomer%20Engagement%2FAmazon-Simple-Email-Service-SES.svg
+    style {
+      color amber
+    }
+  }
+
+  service externalApiCalls "External API Calls" {
+    description "Calls to external services such as Ordnance Survey, ArcGIS or GovUK Notify"
+    technology "REST / HTTPS"
+    icon https://icons.terrastruct.com/aws%2F_General%2FInternet-alt2_light-bg.svg
+    style {
+      color amber
+    }
+  }
+
+  service thirdPartyApis "Third-party API Services" {
+    description "External API services consumed by the platform (e.g. GOV.UK Notify, OS Data Hub, address lookups)"
+    technology "REST / HTTPS"
+    icon https://icons.terrastruct.com/aws%2F_General%2FInternet-alt2_light-bg.svg
+    style {
+      color amber
+    }
+  }
+
+  // Relationships
+
+  // External to Public CDP
+  defraCustomerId -> awsEuWest2.publicBoundaryCDP.publicApp "Authenticates users"
+  defraCustomerIdLpa -> awsEuWest2.publicBoundaryCDP.lpaApp "Authenticates LPA users"
+
+  // Public to Private CDP
+  awsEuWest2.publicBoundaryCDP.publicApp -> awsEuWest2.privateBoundaryCDP.backendApi "Internal API calls"
+  awsEuWest2.publicBoundaryCDP.lpaApp -> awsEuWest2.privateBoundaryCDP.backendApi "Internal API calls"
+
+  // Within Private CDP
+  awsEuWest2.privateBoundaryCDP.backendApi -> awsEuWest2.privateBoundaryCDP.virusScanService "Sends files for scanning"
+  awsEuWest2.privateBoundaryCDP.virusScanService -> awsEuWest2.privateBoundaryCDP.fileStorageS3 "Stores scanned files"
+  awsEuWest2.privateBoundaryCDP.backendApi -> awsEuWest2.privateBoundaryCDP.postgresDb "Application data (JSONB) & GIS operations"
+  
+  // Backend to External API Calls
+  awsEuWest2.privateBoundaryCDP.backendApi -> externalApiCalls "External API calls"
+
+  // AWS to Azure cross-cloud data ingestion
+  awsEuWest2.privateBoundaryCDP.bngProjectDataS3 -> azureUkSouth.azureDataPlatform.dynamicsPlatform "GIO reads audit events for data lake ingestion"
+
+  // Security routing - Ingress
+  defraCustomerId -> awsEuWest2.publicEgress.awsShield "Inbound traffic"
+  defraCustomerIdLpa -> awsEuWest2.publicEgress.awsShield "Inbound traffic"
+  defraCustomerIdGeneric -> awsEuWest2.publicEgress.awsShield "Inbound traffic"
+  awsEuWest2.publicEgress.awsShield -> awsEuWest2.publicAlbWaf "DDoS-filtered traffic"
+  awsEuWest2.publicAlbWaf -> awsEuWest2.publicBoundaryCDP.publicApp "Routes to BNG app"
+  awsEuWest2.publicAlbWaf -> awsEuWest2.publicBoundaryCDP.lpaApp "Routes to LPA app"
+
+  // Security - Secrets Management
+  awsEuWest2.publicBoundaryCDP.publicApp -> awsEuWest2.secretsManager "Retrieves secrets"
+  awsEuWest2.publicBoundaryCDP.lpaApp -> awsEuWest2.secretsManager "Retrieves secrets"
+  awsEuWest2.privateBoundaryCDP.backendApi -> awsEuWest2.secretsManager "Retrieves secrets"
+
+  // Security - Private Egress
+  awsEuWest2.privateBoundaryCDP.backendApi -> awsEuWest2.privateOutboundSubnet "Outbound API calls"
+  awsEuWest2.privateOutboundSubnet -> thirdPartyApis "External API calls"
+}
+
+views {
+  view index {
+    title "BNG Metric - Complete Flow"
+    description "Complete view showing all components and their connections"
+
+    // Include all actual components (not the boundary containers)
+    include defraCustomerId
+    include defraCustomerIdLpa
+    include awsEuWest2.publicBoundaryCDP.publicApp
+    include awsEuWest2.publicBoundaryCDP.lpaApp
+    include awsEuWest2.privateBoundaryCDP.backendApi
+    include awsEuWest2.privateBoundaryCDP.virusScanService
+    include awsEuWest2.privateBoundaryCDP.fileStorageS3
+    include awsEuWest2.privateBoundaryCDP.postgresDb
+    include externalApiCalls
+
+    // This will automatically include all relationships between the included elements
+  }
+
+  view securityFlow {
+    title "BNG Metric - AWS Security & Routing"
+    description "AWS security mechanisms: Shield DDoS protection, WAF/ALB routing, Secrets Manager, and private outbound subnet for external API calls"
+
+    include defraCustomerIdGeneric
+    include awsEuWest2.publicEgress.awsShield
+    include awsEuWest2.publicAlbWaf
+    include awsEuWest2.publicBoundaryCDP.publicApp
+    include awsEuWest2.publicBoundaryCDP.lpaApp
+    include awsEuWest2.secretsManager
+    include awsEuWest2.privateBoundaryCDP.backendApi
+    include awsEuWest2.privateOutboundSubnet
+    include thirdPartyApis
+  }
+}
