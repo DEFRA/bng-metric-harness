@@ -94,10 +94,19 @@ npm run be -- db:migrate
 
 The harness ships a script for producing realistic BNG GeoPackages — `.gpkg` files matching the Natural England statutory metric template — for testing uploads against the prototype and the production frontend.
 
+On a fresh clone, install dependencies first:
+
 ```sh
-node scripts/gen-gpkg.mjs                # synthetic, ~50 habitats, default site
-node scripts/gen-gpkg.mjs --size 100     # bigger fixture
-node scripts/gen-gpkg.mjs --count 10     # ten different files in one run
+nvm use         # picks up the appropriate NodeJS version from the .nvmrc file
+npm install     # installs dependencies required by the script.
+```
+
+Then:
+
+```sh
+npm run generate:gpkg                       # synthetic, ~50 habitats, default site
+npm run generate:gpkg -- --size 100         # bigger fixture
+npm run generate:gpkg -- --count 10         # ten different files in one run
 ```
 
 Output goes to `test-data/` by default; override with `--outdir <dir>`. All files include the five layers the prototype expects (Red Line Boundary, Habitats, Hedgerows, Rivers, Urban Trees) and are pre-validated against the prototype's `(habitat, condition)` lookup table so they upload cleanly.
@@ -111,14 +120,14 @@ The script reads the workbook's habitat / hedgerow / watercourse / tree data and
 **From a local file:**
 
 ```sh
-node scripts/gen-gpkg.mjs --from path/to/MyMetric.xlsx
+npm run generate:gpkg -- --from path/to/MyMetric.xlsx
 # → test-data/MyMetric.gpkg
 ```
 
 **From a GitHub URL** (auto-handles Git LFS — the BNG500 corpus uses LFS):
 
 ```sh
-node scripts/gen-gpkg.mjs --from "https://github.com/abitatdotdev/bng-metrics/blob/main/metrics/CAMBRIDGE_24_02948_FUL.xlsx"
+npm run generate:gpkg -- --from "https://github.com/abitatdotdev/bng-metrics/blob/main/metrics/CAMBRIDGE_24_02948_FUL.xlsx"
 # → test-data/CAMBRIDGE_24_02948_FUL.gpkg
 ```
 
@@ -135,7 +144,7 @@ https://github.com/abitatdotdev/bng-metrics/blob/main/metrics/AshfieldV20240166.
 ./scripts/data/sample-workbooks/BCP_APP_24_00318_F.xlsx
 EOF
 
-node scripts/gen-gpkg.mjs --from-list /tmp/wbs.txt
+npm run generate:gpkg -- --from-list /tmp/wbs.txt
 ```
 
 Each workbook produces one `.gpkg` named after the input file. Failures on individual entries are logged but don't stop the batch.
@@ -143,7 +152,7 @@ Each workbook produces one `.gpkg` named after the input file. Failures on indiv
 **Just inspect a workbook** without writing anything:
 
 ```sh
-node scripts/gen-gpkg.mjs --from path/to/MyMetric.xlsx --inspect
+npm run generate:gpkg -- --from path/to/MyMetric.xlsx --inspect
 ```
 
 Prints a JSON summary of the parsed site info, layer row counts, and any rows the parser had to skip. Useful for debugging an unfamiliar workbook before generating from it.
@@ -161,8 +170,8 @@ The Excel does **not** contain coordinates or geometry, so:
 - The RLB centre defaults to Maidenhead (`530000, 180000`) — pass `--centre <e,n>` to position the fixture wherever you want (in BNG eastings/northings):
 
   ```sh
-  node scripts/gen-gpkg.mjs --from path/to/MyMetric.xlsx --centre 545000,258000   # central Cambridge
-  node scripts/gen-gpkg.mjs --from path/to/MyMetric.xlsx --centre 393000,93000    # central Bournemouth
+  npm run generate:gpkg -- --from path/to/MyMetric.xlsx --centre 545000,258000   # central Cambridge
+  npm run generate:gpkg -- --from path/to/MyMetric.xlsx --centre 393000,93000    # central Bournemouth
   ```
 
 - The RLB outline, parcel partition, hedgerow/river routes, and tree positions are randomised — the same workbook gives a different geometry layout each run, with identical attribute content. Run with `--count` to produce multiple variants.
@@ -174,7 +183,7 @@ By default, the generator emits the workbook's data as-is — including any real
 If you want only validator-clean rows, pass `--strict-habitats`:
 
 ```sh
-node scripts/gen-gpkg.mjs --from <workbook> --strict-habitats
+npm run generate:gpkg -- --from <workbook> --strict-habitats
 ```
 
 This drops any `(habitat, condition)` pair the prototype's metric tables would reject (e.g. `Cropland — Non-cereal crops` with condition `Fairly Good`, which the metric scores as `Not Possible`).
@@ -184,7 +193,7 @@ This drops any `(habitat, condition)` pair the prototype's metric tables would r
 To produce a structurally invalid GeoPackage for testing upload validation (currently: omits the Red Line Boundary layer):
 
 ```sh
-node scripts/gen-gpkg.mjs --bad
+npm run generate:gpkg -- --bad
 # → test-data/bng-test-data-bad.gpkg
 ```
 
