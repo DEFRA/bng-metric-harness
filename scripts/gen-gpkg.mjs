@@ -2238,25 +2238,29 @@ function parseCentre(value) {
   return [e, n];
 }
 
-function generateOne(outPath, badFlawNames, numParcels, centre, emptyLayers = new Set()) {
-  if (badFlawNames && badFlawNames.length > 0) {
-    generateOneBad(outPath, centre, badFlawNames);
-    return;
-  }
+const SYNTHETIC_RLB_RADIUS = 400;
 
-  // Counts: zero for any layer the caller asked to leave empty, otherwise the
-  // same defaults the synthetic fixture has always used.
-  const numHabitats = emptyLayers.has("habitats") ? 0 : numParcels;
-  const numHedgerows = emptyLayers.has("hedgerows")
-    ? 0
-    : Math.max(3, Math.floor(numParcels / 3));
-  const numRivers = emptyLayers.has("rivers")
-    ? 0
-    : Math.max(1, Math.floor(numParcels / 15));
-  const numTrees = emptyLayers.has("trees")
-    ? 0
-    : Math.max(5, Math.floor(numParcels / 2));
+function computeLayerCounts(numParcels, emptyLayers) {
+  const ifEmpty = (key, value) => (emptyLayers.has(key) ? 0 : value);
+  return {
+    numHabitats: ifEmpty("habitats", numParcels),
+    numHedgerows: ifEmpty(
+      "hedgerows",
+      Math.max(HEDGEROWS_MIN, Math.floor(numParcels / HEDGEROWS_PER_PARCEL)),
+    ),
+    numRivers: ifEmpty(
+      "rivers",
+      Math.max(RIVERS_MIN, Math.floor(numParcels / RIVERS_PER_PARCEL)),
+    ),
+    numTrees: ifEmpty(
+      "trees",
+      Math.max(TREES_MIN, Math.floor(numParcels / TREES_PER_PARCEL)),
+    ),
+  };
+}
 
+function logSyntheticBanner(outPath, centre, counts, emptyLayers) {
+  const { numHabitats, numHedgerows, numRivers, numTrees } = counts;
   header(`Generating BNG test GeoPackage`, "cyan");
   info(`  ${SITE_NAME}`);
   info(
@@ -2269,29 +2273,51 @@ function generateOne(outPath, badFlawNames, numParcels, centre, emptyLayers = ne
   }
   info(`  centre: ${centre[0]},${centre[1]} (BNG)`);
   info(`  → ${outPath}`);
+}
 
-  const [cx, cy] = centre;
-  const radius = 400;
-
-  const db = new Database(outPath);
-  initGeoPackage(db);
-  createAllTables(db);
-
-  const ring = generateRedLineBoundary(db, cx, cy, radius);
-
-  // For an "empty" layer we want the table to exist with zero rows. We can't
-  // just call generateHabitats(0) — it would still emit one parcel covering
-  // the whole boundary. Instead, register the layer here with a null envelope
-  // and skip the matching generator below.
+// For an "empty" layer we want the table to exist with zero rows. We can't
+// just call generateHabitats(0) — it would still emit one parcel covering the
+// whole boundary. Instead, register the layer here with a null envelope and
+// skip the matching generator in runLayerGenerators.
+function registerEmptyLayers(db, emptyLayers) {
   for (const [key, { table, geom }] of Object.entries(EMPTYABLE_LAYERS)) {
     if (emptyLayers.has(key)) {
       registerLayer(db, table, geom, null);
     }
   }
-  if (!emptyLayers.has("habitats")) generateHabitats(db, ring, numHabitats);
-  if (!emptyLayers.has("hedgerows")) generateHedgerows(db, ring, numHedgerows);
-  if (!emptyLayers.has("rivers")) generateRivers(db, ring, numRivers);
-  if (!emptyLayers.has("trees")) generateUrbanTrees(db, ring, numTrees);
+}
+
+function runLayerGenerators(db, ring, counts, emptyLayers) {
+  const generators = {
+    habitats: () => generateHabitats(db, ring, counts.numHabitats),
+    hedgerows: () => generateHedgerows(db, ring, counts.numHedgerows),
+    rivers: () => generateRivers(db, ring, counts.numRivers),
+    trees: () => generateUrbanTrees(db, ring, counts.numTrees),
+  };
+  for (const [key, generate] of Object.entries(generators)) {
+    if (!emptyLayers.has(key)) {
+      generate();
+    }
+  }
+}
+
+function generateOne(outPath, badFlawNames, numParcels, centre, emptyLayers = new Set()) {
+  if (badFlawNames && badFlawNames.length > 0) {
+    generateOneBad(outPath, centre, badFlawNames);
+    return;
+  }
+
+  const counts = computeLayerCounts(numParcels, emptyLayers);
+  logSyntheticBanner(outPath, centre, counts, emptyLayers);
+
+  const [cx, cy] = centre;
+  const db = new Database(outPath);
+  initGeoPackage(db);
+  createAllTables(db);
+
+  const ring = generateRedLineBoundary(db, cx, cy, SYNTHETIC_RLB_RADIUS);
+  registerEmptyLayers(db, emptyLayers);
+  runLayerGenerators(db, ring, counts, emptyLayers);
   createLayerStyles(db);
 
   db.close();
@@ -2314,6 +2340,50 @@ function generateOne(outPath, badFlawNames, numParcels, centre, emptyLayers = ne
 
 const BAD_REDLINE_HALF = 200; // base bad-fixture redline is a 400m × 400m square
 const BAD_PARCEL_HALF = 50;
+
+// Per-flaw layout offsets, in BNG metres from the fixture centre. Each pair
+// places a feature far enough from the redline (or from sibling features) for
+// the targeted validator to fire deterministically.
+const BOWTIE_PARCEL_DY = 60;
+const BOWTIE_PARCEL_HALF = 30;
+const OVERLAP_A_DX = 80;
+const OVERLAP_A_DY = -100;
+const OVERLAP_B_DX = 130;
+const OVERLAP_B_DY = -80;
+const OUTSIDE_PARCEL_DXY = 450;
+const HEDGEROW_INSIDE_OFFSET = 100;
+const HEDGEROW_OUTSIDE_OFFSET = 600;
+const WATERCOURSE_INSIDE_OFFSET = 100;
+const WATERCOURSE_OUTSIDE_OFFSET = 700;
+const TREE_OUTSIDE_OFFSET = 700;
+const IGGI_OUTSIDE_OFFSET = 500;
+const IGGI_HALF = 40;
+const AREA_MISMATCH_PARCEL_DXY = -100;
+const SLIVER_GAP = 0.002; // 2mm — under 1m² sliver area threshold, above GEOS grid
+
+// Wales (Snowdonia) centre — inside BNG envelope but outside England.
+const SNOWDONIA_E = 262000;
+const SNOWDONIA_N = 354000;
+const TOO_LARGE_HALF = 6000; // 12 km × 12 km = 144 sq km, over the 100 sq km cap
+
+// Layer-count ratios for the synthetic fixture, derived from parcel count.
+const HEDGEROWS_MIN = 3;
+const HEDGEROWS_PER_PARCEL = 3;
+const RIVERS_MIN = 1;
+const RIVERS_PER_PARCEL = 15;
+const TREES_MIN = 5;
+const TREES_PER_PARCEL = 2;
+
+// Banner formatting: width reserved for the error-code column so flaw lines
+// align under "Applied flaws".
+const FLAW_BANNER_ERRCODE_WIDTH = 34;
+
+// Number of columns in the Rivers INSERT statement — matches the schema.
+const RIVERS_COLUMN_COUNT = 28;
+
+// Banner text for empty-layer flaws — no validation error is triggered, the
+// fixture is just useful for exercising downstream null/empty handling.
+const NO_SPECIFIC_ERROR = "(no specific backend error)";
 
 /** Square ring of half-size `half` centred at (cx, cy). */
 function badSquareRing(cx, cy, half = BAD_PARCEL_HALF) {
@@ -2342,22 +2412,24 @@ const FLAWS = {
     description: "one habitat parcel drawn as a bowtie",
     errorCode: "AREA_PARCELS_INVALID_GEOMETRY",
     apply(s) {
-      s.parcels.push(bowtieRing(s.cx, s.cy + 60, 30));
+      s.parcels.push(bowtieRing(s.cx, s.cy + BOWTIE_PARCEL_DY, BOWTIE_PARCEL_HALF));
     },
   },
   "overlapping-parcels": {
     description: "two habitat parcels overlap each other",
     errorCode: "PARCEL_OVERLAPS",
     apply(s) {
-      s.parcels.push(badSquareRing(s.cx + 80, s.cy - 100));
-      s.parcels.push(badSquareRing(s.cx + 130, s.cy - 80));
+      s.parcels.push(
+        badSquareRing(s.cx + OVERLAP_A_DX, s.cy + OVERLAP_A_DY),
+        badSquareRing(s.cx + OVERLAP_B_DX, s.cy + OVERLAP_B_DY),
+      );
     },
   },
   "parcel-outside-redline": {
     description: "a habitat parcel placed entirely outside the redline",
     errorCode: "AREA_PARCELS_OUTSIDE_REDLINE",
     apply(s) {
-      s.parcels.push(badSquareRing(s.cx + 450, s.cy + 450));
+      s.parcels.push(badSquareRing(s.cx + OUTSIDE_PARCEL_DXY, s.cy + OUTSIDE_PARCEL_DXY));
     },
   },
   sliver: {
@@ -2377,9 +2449,10 @@ const FLAWS = {
       // resulting sliver area is 0.002m × 400m = 0.8 sq m, under the 1 sq m
       // sliver threshold and above the 1mm GEOS overlay grid.
       const r = BAD_REDLINE_HALF;
-      const sliverGap = 0.002;
-      s.parcels.push(rectRing(s.cx - r, s.cy - r, s.cx + r, s.cy));
-      s.parcels.push(rectRing(s.cx - r, s.cy + sliverGap, s.cx + r, s.cy + r));
+      s.parcels.push(
+        rectRing(s.cx - r, s.cy - r, s.cx + r, s.cy),
+        rectRing(s.cx - r, s.cy + SLIVER_GAP, s.cx + r, s.cy + r),
+      );
     },
   },
   "hedgerow-outside": {
@@ -2387,8 +2460,8 @@ const FLAWS = {
     errorCode: "HEDGEROWS_OUTSIDE_REDLINE",
     apply(s) {
       s.hedgerows.push([
-        [s.cx - 100, s.cy + 100],
-        [s.cx + 600, s.cy + 600],
+        [s.cx - HEDGEROW_INSIDE_OFFSET, s.cy + HEDGEROW_INSIDE_OFFSET],
+        [s.cx + HEDGEROW_OUTSIDE_OFFSET, s.cy + HEDGEROW_OUTSIDE_OFFSET],
       ]);
     },
   },
@@ -2397,8 +2470,8 @@ const FLAWS = {
     errorCode: "WATERCOURSES_OUTSIDE_REDLINE",
     apply(s) {
       s.rivers.push([
-        [s.cx + 100, s.cy - 100],
-        [s.cx + 700, s.cy - 700],
+        [s.cx + WATERCOURSE_INSIDE_OFFSET, s.cy - WATERCOURSE_INSIDE_OFFSET],
+        [s.cx + WATERCOURSE_OUTSIDE_OFFSET, s.cy - WATERCOURSE_OUTSIDE_OFFSET],
       ]);
     },
   },
@@ -2406,21 +2479,21 @@ const FLAWS = {
     description: "a tree is placed outside the redline",
     errorCode: "TREES_OUTSIDE_REDLINE",
     apply(s) {
-      s.trees.push([s.cx + 700, s.cy + 700]);
+      s.trees.push([s.cx + TREE_OUTSIDE_OFFSET, s.cy + TREE_OUTSIDE_OFFSET]);
     },
   },
   "iggi-outside": {
     description: "an IGGI polygon is placed outside the redline",
     errorCode: "IGGIS_OUTSIDE_REDLINE",
     apply(s) {
-      s.iggis.push(badSquareRing(s.cx - 500, s.cy - 500, 40));
+      s.iggis.push(badSquareRing(s.cx - IGGI_OUTSIDE_OFFSET, s.cy - IGGI_OUTSIDE_OFFSET, IGGI_HALF));
     },
   },
   "area-sum-mismatch": {
     description: "habitat parcels do not tile the redline",
     errorCode: "AREA_SUM_MISMATCH",
     apply(s) {
-      s.parcels.push(badSquareRing(s.cx - 100, s.cy - 100));
+      s.parcels.push(badSquareRing(s.cx + AREA_MISMATCH_PARCEL_DXY, s.cy + AREA_MISMATCH_PARCEL_DXY));
     },
   },
   "redline-not-in-england": {
@@ -2428,9 +2501,8 @@ const FLAWS = {
     errorCode: "REDLINE_OUTSIDE_ENGLAND",
     standalone: true,
     apply(s) {
-      // Snowdonia in EPSG:27700 — inside the BNG envelope but outside England.
-      s.cx = 262000;
-      s.cy = 354000;
+      s.cx = SNOWDONIA_E;
+      s.cy = SNOWDONIA_N;
       s.centre = [s.cx, s.cy];
       s.redline = badSquareRing(s.cx, s.cy, BAD_REDLINE_HALF);
     },
@@ -2440,9 +2512,7 @@ const FLAWS = {
     errorCode: "REDLINE_AREA_TOO_LARGE",
     standalone: true,
     apply(s) {
-      // 12 km × 12 km square = 144 sq km.
-      const half = 6000;
-      s.redline = badSquareRing(s.cx, s.cy, half);
+      s.redline = badSquareRing(s.cx, s.cy, TOO_LARGE_HALF);
     },
   },
   "no-habitats": {
@@ -2452,17 +2522,17 @@ const FLAWS = {
   },
   "no-hedgerows": {
     description: "Hedgerows layer present with zero rows",
-    errorCode: "(no specific backend error)",
+    errorCode: NO_SPECIFIC_ERROR,
     emptyLayer: "hedgerows",
   },
   "no-rivers": {
     description: "Rivers layer present with zero rows",
-    errorCode: "(no specific backend error)",
+    errorCode: NO_SPECIFIC_ERROR,
     emptyLayer: "rivers",
   },
   "no-trees": {
     description: "Urban Trees layer present with zero rows",
-    errorCode: "(no specific backend error)",
+    errorCode: NO_SPECIFIC_ERROR,
     emptyLayer: "trees",
   },
 };
@@ -2484,30 +2554,31 @@ const ALL_FLAW_NAMES = Object.keys(FLAWS);
  *  parcel-modifying flaws). */
 const BAD_DEFAULT_FLAWS = ALL_FLAW_NAMES.filter((n) => {
   const f = FLAWS[n];
-  if (f.standalone) return false;
-  if (f.emptyLayer) return false;
-  if (n === "sliver") return false;
+  if (f.standalone) {
+    return false;
+  }
+  if (f.emptyLayer) {
+    return false;
+  }
+  if (n === "sliver") {
+    return false;
+  }
   return true;
 });
 
-function resolveFlawSelection({ bad, flaws }) {
+function collectRequestedFlaws(bad, flaws) {
   const requested = new Set(bad ? BAD_DEFAULT_FLAWS : []);
   for (const name of flaws) {
     if (!FLAWS[name]) {
-      error(
-        `Unknown flaw: ${name}. Valid: ${ALL_FLAW_NAMES.join(", ")}`,
-      );
+      error(`Unknown flaw: ${name}. Valid: ${ALL_FLAW_NAMES.join(", ")}`);
       process.exit(1);
     }
     requested.add(name);
   }
-  const names = [...requested];
+  return [...requested];
+}
 
-  // Empty-layer flaws use the regular generator (a valid fixture with one
-  // layer emptied); geometric flaws use the bad-fixture builder (a tiny
-  // deliberately-broken fixture). They can't coexist in a single output.
-  const emptyLayerNames = names.filter((n) => FLAWS[n].emptyLayer);
-  const geometricNames = names.filter((n) => !FLAWS[n].emptyLayer);
+function assertEmptyAndGeometricNotMixed(emptyLayerNames, geometricNames, bad) {
   if (emptyLayerNames.length && geometricNames.length) {
     error(
       `Empty-layer flaws (${emptyLayerNames.join(", ")}) cannot be combined ` +
@@ -2524,8 +2595,9 @@ function resolveFlawSelection({ bad, flaws }) {
       "every feature layer is being emptied; the output will contain only the Red Line Boundary",
     );
   }
+}
 
-  // Standalone flaws may not coexist with anything else.
+function assertNoStandaloneCombination(geometricNames) {
   const standalone = geometricNames.filter((n) => FLAWS[n].standalone);
   if (standalone.length && geometricNames.length > 1) {
     error(
@@ -2533,17 +2605,32 @@ function resolveFlawSelection({ bad, flaws }) {
     );
     process.exit(1);
   }
+}
 
-  // Pairwise conflicts.
+function assertNoPairwiseConflicts(geometricNames) {
   for (const name of geometricNames) {
     const conflicts = FLAWS[name].conflictsWith ?? [];
-    for (const other of conflicts) {
-      if (geometricNames.includes(other)) {
-        error(`Flaws "${name}" and "${other}" conflict and cannot be combined.`);
-        process.exit(1);
-      }
+    const clash = conflicts.find((other) => geometricNames.includes(other));
+    if (clash) {
+      error(`Flaws "${name}" and "${clash}" conflict and cannot be combined.`);
+      process.exit(1);
     }
   }
+}
+
+function resolveFlawSelection({ bad, flaws }) {
+  const names = collectRequestedFlaws(bad, flaws);
+
+  // Empty-layer flaws use the regular generator (a valid fixture with one
+  // layer emptied); geometric flaws use the bad-fixture builder (a tiny
+  // deliberately-broken fixture). They can't coexist in a single output.
+  const emptyLayerNames = names.filter((n) => FLAWS[n].emptyLayer);
+  const geometricNames = names.filter((n) => !FLAWS[n].emptyLayer);
+
+  assertEmptyAndGeometricNotMixed(emptyLayerNames, geometricNames, bad);
+  assertNoStandaloneCombination(geometricNames);
+  assertNoPairwiseConflicts(geometricNames);
+
   return {
     geometric: geometricNames,
     emptyLayers: new Set(emptyLayerNames.map((n) => FLAWS[n].emptyLayer)),
@@ -2572,7 +2659,7 @@ function logBadFixtureBanner(state, outPath, flawNames) {
   info(`  Applied flaws (${flawNames.length}):`);
   for (const name of flawNames) {
     const flaw = FLAWS[name];
-    info(`    ${flaw.errorCode.padEnd(34)} ${name} — ${flaw.description}`);
+    info(`    ${flaw.errorCode.padEnd(FLAW_BANNER_ERRCODE_WIDTH)} ${name} — ${flaw.description}`);
   }
   info(`  centre: ${state.cx},${state.cy} (BNG)`);
   info(`  → ${outPath}`);
@@ -2604,11 +2691,21 @@ function generateOneBad(outPath, centre, flawNames) {
   }
 
   insertBadRedline(db, state.redline);
-  if (state.parcels.length) insertBadHabitats(db, state.parcels);
-  if (state.hedgerows.length) insertBadHedgerows(db, state.hedgerows);
-  if (state.rivers.length) insertBadRivers(db, state.rivers);
-  if (state.trees.length) insertBadTrees(db, state.trees);
-  if (state.iggis.length) insertBadIggis(db, state.iggis);
+  if (state.parcels.length) {
+    insertBadHabitats(db, state.parcels);
+  }
+  if (state.hedgerows.length) {
+    insertBadHedgerows(db, state.hedgerows);
+  }
+  if (state.rivers.length) {
+    insertBadRivers(db, state.rivers);
+  }
+  if (state.trees.length) {
+    insertBadTrees(db, state.trees);
+  }
+  if (state.iggis.length) {
+    insertBadIggis(db, state.iggis);
+  }
 
   createLayerStyles(db);
   db.close();
@@ -2743,7 +2840,7 @@ function insertBadRivers(db, rivers) {
       "Site Name", "Survey Date", "Survey Details", "Comments",
       "Mapped by", "Company", "Base Map",
       "Enhancement Type", "Baseline Distinctiveness", "Proposed Distinctiveness"
-    ) VALUES (${Array(28).fill("?").join(", ")})
+    ) VALUES (${new Array(RIVERS_COLUMN_COUNT).fill("?").join(", ")})
   `);
   const env = [Infinity, -Infinity, Infinity, -Infinity];
   rivers.forEach((coords, i) => {
@@ -3060,38 +3157,90 @@ async function runFromWorkbook(source, { strict, inspect, centre }) {
   generateOneFromWorkbook(outPath, workbook, source, { strict, centre });
 }
 
+const DEFAULT_NUM_PARCELS = 50;
+
+async function runFromListBatch(listPath, centre) {
+  if (!existsSync(listPath)) {
+    error(`--from-list file not found: ${listPath}`);
+    process.exit(1);
+  }
+  const entries = readFileSync(listPath, "utf8")
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter((s) => s && !s.startsWith("#"));
+  for (const entry of entries) {
+    try {
+      await runFromWorkbook(entry, {
+        strict: args["strict-habitats"],
+        inspect: false,
+        centre,
+      });
+    } catch (e) {
+      error(`Failed for ${entry}: ${e.message}`);
+    }
+  }
+}
+
+async function ensureWritable(outPath, total) {
+  if (!existsSync(outPath)) {
+    return true;
+  }
+  if (total > 1) {
+    unlinkSync(outPath);
+    return true;
+  }
+  const overwrite = await confirm(`${outPath} already exists. Overwrite? (y/N) `);
+  if (!overwrite) {
+    console.log("Aborted.");
+    process.exit(0);
+  }
+  unlinkSync(outPath);
+  return true;
+}
+
+async function runSyntheticBatch(centre) {
+  const numParcels = parseInt(args.size, 10) || DEFAULT_NUM_PARCELS;
+  const total = Math.max(1, parseInt(args.count, 10) || 1);
+  const { geometric, emptyLayers, emptyFlawNames } = resolveFlawSelection({
+    bad: args.bad,
+    flaws: args.flaw,
+  });
+  const baseSuffix = buildFlawFilenameSuffix({
+    bad: geometric.length > 0,
+    flagBad: args.bad,
+    geometric,
+    emptyFlawNames,
+  });
+
+  if (!existsSync(OUT_DIR)) {
+    mkdirSync(OUT_DIR, { recursive: true });
+  }
+
+  for (let i = 1; i <= total; i++) {
+    const countSuffix =
+      total > 1
+        ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`
+        : "";
+    const stamp = timestampSuffix();
+    const outPath = path.join(
+      OUT_DIR,
+      `bng-test-data${baseSuffix}${countSuffix}-${stamp}.gpkg`,
+    );
+    await ensureWritable(outPath, total);
+    generateOne(outPath, geometric, numParcels, centre, emptyLayers);
+  }
+}
+
 async function main() {
   if (args.inspect && !args.from) {
     error("--inspect requires --from <path-or-url>");
     process.exit(1);
   }
 
-  const centre = parseCentre(args.centre) ?? [
-    DEFAULT_CENTRE_E,
-    DEFAULT_CENTRE_N,
-  ];
+  const centre = parseCentre(args.centre) ?? [DEFAULT_CENTRE_E, DEFAULT_CENTRE_N];
 
   if (args["from-list"]) {
-    const listPath = path.resolve(args["from-list"]);
-    if (!existsSync(listPath)) {
-      error(`--from-list file not found: ${listPath}`);
-      process.exit(1);
-    }
-    const entries = readFileSync(listPath, "utf8")
-      .split(/\r?\n/)
-      .map((s) => s.trim())
-      .filter((s) => s && !s.startsWith("#"));
-    for (const entry of entries) {
-      try {
-        await runFromWorkbook(entry, {
-          strict: args["strict-habitats"],
-          inspect: false,
-          centre,
-        });
-      } catch (e) {
-        error(`Failed for ${entry}: ${e.message}`);
-      }
-    }
+    await runFromListBatch(path.resolve(args["from-list"]), centre);
     return;
   }
 
@@ -3104,48 +3253,7 @@ async function main() {
     return;
   }
 
-  const numParcels = parseInt(args.size, 10) || 50;
-  const total = Math.max(1, parseInt(args.count, 10) || 1);
-  const { geometric, emptyLayers, emptyFlawNames } = resolveFlawSelection({
-    bad: args.bad,
-    flaws: args.flaw,
-  });
-  const bad = geometric.length > 0;
-  const baseSuffix = buildFlawFilenameSuffix({
-    bad,
-    flagBad: args.bad,
-    geometric,
-    emptyFlawNames,
-  });
-
-  if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
-
-  for (let i = 1; i <= total; i++) {
-    const countSuffix =
-      total > 1
-        ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`
-        : "";
-    const stamp = timestampSuffix();
-    const filename = `bng-test-data${baseSuffix}${countSuffix}-${stamp}.gpkg`;
-    const outPath = path.join(OUT_DIR, filename);
-
-    if (existsSync(outPath)) {
-      if (total > 1) {
-        unlinkSync(outPath);
-      } else {
-        const overwrite = await confirm(
-          `${outPath} already exists. Overwrite? (y/N) `,
-        );
-        if (!overwrite) {
-          console.log("Aborted.");
-          process.exit(0);
-        }
-        unlinkSync(outPath);
-      }
-    }
-
-    generateOne(outPath, geometric, numParcels, centre, emptyLayers);
-  }
+  await runSyntheticBatch(centre);
 }
 
 // Output basename suffix following `bng-test-data`. Examples:
