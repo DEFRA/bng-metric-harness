@@ -136,6 +136,7 @@ const { values: args } = parseArgs({
 
 const URBAN_TREES_TABLE = "Urban Trees";
 
+const DEFAULT_NUM_PARCELS = 50;
 const MIN_HEDGEROWS = 3;
 const HEDGEROWS_PER_PARCEL = 3;
 const RIVERS_PER_PARCEL = 15;
@@ -2801,43 +2802,51 @@ async function runFromList(listPath, opts) {
   }
 }
 
+// Tag the output filename with which layers were emptied, so a user can tell
+// at a glance what a fixture represents (e.g. "...-empty-habitats.gpkg").
+// Layer names are sorted so "--empty rivers --empty habitats" produces the
+// same filename as "--empty habitats --empty rivers".
+function buildEmptySuffix(emptyLayers) {
+  if (emptyLayers.size === 0) return "";
+  const sorted = [...emptyLayers].sort((a, b) => a.localeCompare(b)).join("-");
+  return `-empty-${sorted}`;
+}
+
+function buildFilename({ i, total, bad, emptySuffix }) {
+  const suffix =
+    total > 1
+      ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`
+      : "";
+  return bad
+    ? `bng-test-data-bad${suffix}.gpkg`
+    : `bng-test-data${suffix}${emptySuffix}.gpkg`;
+}
+
+async function ensureWritable(outPath, total) {
+  if (!existsSync(outPath)) return;
+  if (total > 1) {
+    unlinkSync(outPath);
+    return;
+  }
+  const overwrite = await confirm(
+    `${outPath} already exists. Overwrite? (y/N) `,
+  );
+  if (!overwrite) {
+    console.log("Aborted.");
+    process.exit(0);
+  }
+  unlinkSync(outPath);
+}
+
 async function runDefaultGeneration({ numParcels, total, bad, centre, emptyLayers }) {
   if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
 
-  // Tag the output filename with which layers were emptied, so a user can tell
-  // at a glance what a fixture represents (e.g. "...-empty-habitats.gpkg").
-  // Layer names are sorted so "--empty rivers --empty habitats" produces the
-  // same filename as "--empty habitats --empty rivers".
-  const emptySuffix =
-    emptyLayers.size > 0
-      ? `-empty-${[...emptyLayers].sort((a, b) => a.localeCompare(b)).join("-")}`
-      : "";
+  const emptySuffix = buildEmptySuffix(emptyLayers);
 
   for (let i = 1; i <= total; i++) {
-    const suffix =
-      total > 1
-        ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`
-        : "";
-    const filename = bad
-      ? `bng-test-data-bad${suffix}.gpkg`
-      : `bng-test-data${suffix}${emptySuffix}.gpkg`;
+    const filename = buildFilename({ i, total, bad, emptySuffix });
     const outPath = path.join(OUT_DIR, filename);
-
-    if (existsSync(outPath)) {
-      if (total > 1) {
-        unlinkSync(outPath);
-      } else {
-        const overwrite = await confirm(
-          `${outPath} already exists. Overwrite? (y/N) `,
-        );
-        if (!overwrite) {
-          console.log("Aborted.");
-          process.exit(0);
-        }
-        unlinkSync(outPath);
-      }
-    }
-
+    await ensureWritable(outPath, total);
     generateOne(outPath, bad, numParcels, centre, emptyLayers);
   }
 }
@@ -2879,8 +2888,8 @@ async function main() {
   }
 
   await runDefaultGeneration({
-    numParcels: parseInt(args.size, 10) || 50,
-    total: Math.max(1, parseInt(args.count, 10) || 1),
+    numParcels: Number.parseInt(args.size, 10) || DEFAULT_NUM_PARCELS,
+    total: Math.max(1, Number.parseInt(args.count, 10) || 1),
     bad: args.bad,
     centre,
     emptyLayers,
