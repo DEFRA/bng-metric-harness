@@ -134,11 +134,19 @@ const { values: args } = parseArgs({
   allowPositionals: false,
 });
 
+const URBAN_TREES_TABLE = "Urban Trees";
+
+const MIN_HEDGEROWS = 3;
+const HEDGEROWS_PER_PARCEL = 3;
+const RIVERS_PER_PARCEL = 15;
+const MIN_TREES = 5;
+const TREES_PER_PARCEL = 2;
+
 const EMPTYABLE_LAYERS = {
   habitats: { table: "Habitats", geom: "POLYGON" },
   hedgerows: { table: "Hedgerows", geom: "LINESTRING" },
   rivers: { table: "Rivers", geom: "LINESTRING" },
-  trees: { table: "Urban Trees", geom: "POINT" },
+  trees: { table: URBAN_TREES_TABLE, geom: "POINT" },
 };
 
 const HARNESS_ROOT = path.resolve(import.meta.dirname, "..");
@@ -1332,7 +1340,7 @@ function generateUrbanTrees(db, boundaryRing, count) {
     produced++;
   }
 
-  registerLayer(db, "Urban Trees", "POINT", produced > 0 ? allEnvelope : null);
+  registerLayer(db, URBAN_TREES_TABLE, "POINT", produced > 0 ? allEnvelope : null);
 }
 
 // ---------------------------------------------------------------------------
@@ -1592,8 +1600,8 @@ const LAYER_STYLES = [
     qml: lineQml("#1565C0", RIVER_STROKE_WIDTH),
   },
   {
-    table: "Urban Trees",
-    sld: pointSld("Urban Trees", "#8D6E63", "#4E342E", URBAN_TREE_SLD_SIZE),
+    table: URBAN_TREES_TABLE,
+    sld: pointSld(URBAN_TREES_TABLE, "#8D6E63", "#4E342E", URBAN_TREE_SLD_SIZE),
     qml: pointQml("#8D6E63", "#4E342E", URBAN_TREE_QML_SIZE),
   },
 ];
@@ -2163,7 +2171,7 @@ function generateUrbanTreesFromWorkbook(db, boundaryRing, baseline, created) {
     );
     written++;
   }
-  registerLayer(db, "Urban Trees", "POINT", written > 0 ? allEnvelope : null);
+  registerLayer(db, URBAN_TREES_TABLE, "POINT", written > 0 ? allEnvelope : null);
   return written;
 }
 
@@ -2223,29 +2231,40 @@ function parseCentre(value) {
   return [e, n];
 }
 
+function computeLayerCounts(numParcels, emptyLayers) {
+  const numHedgerows = emptyLayers.has("hedgerows")
+    ? 0
+    : Math.max(MIN_HEDGEROWS, Math.floor(numParcels / HEDGEROWS_PER_PARCEL));
+  const numRivers = emptyLayers.has("rivers")
+    ? 0
+    : Math.max(1, Math.floor(numParcels / RIVERS_PER_PARCEL));
+  const numTrees = emptyLayers.has("trees")
+    ? 0
+    : Math.max(MIN_TREES, Math.floor(numParcels / TREES_PER_PARCEL));
+  const numHabitats = emptyLayers.has("habitats") ? 0 : numParcels;
+  return { numHabitats, numHedgerows, numRivers, numTrees };
+}
+
 function generateOne(outPath, bad, numParcels, centre, emptyLayers = new Set()) {
   if (bad) {
     generateOneBad(outPath, centre);
     return;
   }
 
-  const numHedgerows = emptyLayers.has("hedgerows")
-    ? 0
-    : Math.max(3, Math.floor(numParcels / 3));
-  const numRivers = emptyLayers.has("rivers")
-    ? 0
-    : Math.max(1, Math.floor(numParcels / 15));
-  const numTrees = emptyLayers.has("trees")
-    ? 0
-    : Math.max(5, Math.floor(numParcels / 2));
+  const { numHabitats, numHedgerows, numRivers, numTrees } = computeLayerCounts(
+    numParcels,
+    emptyLayers,
+  );
 
   header(`Generating BNG test GeoPackage`, "cyan");
   info(`  ${SITE_NAME}`);
   info(
-    `  ${emptyLayers.has("habitats") ? 0 : numParcels} habitat parcels, ${numHedgerows} hedgerows, ${numRivers} rivers, ${numTrees} urban trees`,
+    `  ${numHabitats} habitat parcels, ${numHedgerows} hedgerows, ${numRivers} rivers, ${numTrees} urban trees`,
   );
   if (emptyLayers.size > 0) {
-    info(`  empty layers: ${[...emptyLayers].sort().join(", ")}`);
+    info(
+      `  empty layers: ${[...emptyLayers].sort((a, b) => a.localeCompare(b)).join(", ")}`,
+    );
   }
   info(`  centre: ${centre[0]},${centre[1]} (BNG)`);
   info(`  → ${outPath}`);
@@ -2264,14 +2283,22 @@ function generateOne(outPath, bad, numParcels, centre, emptyLayers = new Set()) 
   // parcel covering the whole boundary. So instead, for each empty layer we
   // register it here ourselves and then skip its generator below.
   for (const [key, { table, geom }] of Object.entries(EMPTYABLE_LAYERS)) {
-    if (!emptyLayers.has(key)) continue;
-    registerLayer(db, table, geom, null);
+    if (emptyLayers.has(key)) {
+      registerLayer(db, table, geom, null);
+    }
   }
 
-  if (!emptyLayers.has("habitats")) generateHabitats(db, ring, numParcels);
-  if (!emptyLayers.has("hedgerows")) generateHedgerows(db, ring, numHedgerows);
-  if (!emptyLayers.has("rivers")) generateRivers(db, ring, numRivers);
-  if (!emptyLayers.has("trees")) generateUrbanTrees(db, ring, numTrees);
+  const generators = {
+    habitats: () => generateHabitats(db, ring, numParcels),
+    hedgerows: () => generateHedgerows(db, ring, numHedgerows),
+    rivers: () => generateRivers(db, ring, numRivers),
+    trees: () => generateUrbanTrees(db, ring, numTrees),
+  };
+  for (const [key, generate] of Object.entries(generators)) {
+    if (!emptyLayers.has(key)) {
+      generate();
+    }
+  }
   createLayerStyles(db);
 
   db.close();
@@ -2536,7 +2563,7 @@ function insertBadTrees(db, points) {
       "Urban",
     );
   });
-  registerLayer(db, "Urban Trees", "POINT", env);
+  registerLayer(db, URBAN_TREES_TABLE, "POINT", env);
 }
 
 /**
@@ -2736,14 +2763,9 @@ async function runFromWorkbook(source, { strict, inspect, centre }) {
   generateOneFromWorkbook(outPath, workbook, source, { strict, centre });
 }
 
-async function main() {
-  if (args.inspect && !args.from) {
-    error("--inspect requires --from <path-or-url>");
-    process.exit(1);
-  }
-
+function parseEmptyLayers(rawList) {
   const emptyLayers = new Set();
-  for (const raw of args.empty) {
+  for (const raw of rawList) {
     const key = raw.toLowerCase();
     if (!(key in EMPTYABLE_LAYERS)) {
       error(
@@ -2753,63 +2775,33 @@ async function main() {
     }
     emptyLayers.add(key);
   }
-
-  if (
-    emptyLayers.size > 0 &&
-    (args.bad || args.from || args["from-list"])
-  ) {
-    error("--empty cannot be combined with --bad, --from, or --from-list");
-    process.exit(1);
-  }
-
   if (emptyLayers.size === Object.keys(EMPTYABLE_LAYERS).length) {
     warn(
       "--empty covers every feature layer; the output will contain only the Red Line Boundary",
     );
   }
+  return emptyLayers;
+}
 
-  const centre = parseCentre(args.centre) ?? [
-    DEFAULT_CENTRE_E,
-    DEFAULT_CENTRE_N,
-  ];
-
-  if (args["from-list"]) {
-    const listPath = path.resolve(args["from-list"]);
-    if (!existsSync(listPath)) {
-      error(`--from-list file not found: ${listPath}`);
-      process.exit(1);
-    }
-    const entries = readFileSync(listPath, "utf8")
-      .split(/\r?\n/)
-      .map((s) => s.trim())
-      .filter((s) => s && !s.startsWith("#"));
-    for (const entry of entries) {
-      try {
-        await runFromWorkbook(entry, {
-          strict: args["strict-habitats"],
-          inspect: false,
-          centre,
-        });
-      } catch (e) {
-        error(`Failed for ${entry}: ${e.message}`);
-      }
-    }
-    return;
+async function runFromList(listPath, opts) {
+  if (!existsSync(listPath)) {
+    error(`--from-list file not found: ${listPath}`);
+    process.exit(1);
   }
-
-  if (args.from) {
-    await runFromWorkbook(args.from, {
-      strict: args["strict-habitats"],
-      inspect: args.inspect,
-      centre,
-    });
-    return;
+  const entries = readFileSync(listPath, "utf8")
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter((s) => s && !s.startsWith("#"));
+  for (const entry of entries) {
+    try {
+      await runFromWorkbook(entry, opts);
+    } catch (e) {
+      error(`Failed for ${entry}: ${e.message}`);
+    }
   }
+}
 
-  const numParcels = parseInt(args.size, 10) || 50;
-  const total = Math.max(1, parseInt(args.count, 10) || 1);
-  const bad = args.bad;
-
+async function runDefaultGeneration({ numParcels, total, bad, centre, emptyLayers }) {
   if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
 
   // Tag the output filename with which layers were emptied, so a user can tell
@@ -2817,7 +2809,9 @@ async function main() {
   // Layer names are sorted so "--empty rivers --empty habitats" produces the
   // same filename as "--empty habitats --empty rivers".
   const emptySuffix =
-    emptyLayers.size > 0 ? `-empty-${[...emptyLayers].sort().join("-")}` : "";
+    emptyLayers.size > 0
+      ? `-empty-${[...emptyLayers].sort((a, b) => a.localeCompare(b)).join("-")}`
+      : "";
 
   for (let i = 1; i <= total; i++) {
     const suffix =
@@ -2846,6 +2840,51 @@ async function main() {
 
     generateOne(outPath, bad, numParcels, centre, emptyLayers);
   }
+}
+
+async function main() {
+  if (args.inspect && !args.from) {
+    error("--inspect requires --from <path-or-url>");
+    process.exit(1);
+  }
+
+  const emptyLayers = parseEmptyLayers(args.empty);
+
+  if (emptyLayers.size > 0 && (args.bad || args.from || args["from-list"])) {
+    error("--empty cannot be combined with --bad, --from, or --from-list");
+    process.exit(1);
+  }
+
+  const centre = parseCentre(args.centre) ?? [
+    DEFAULT_CENTRE_E,
+    DEFAULT_CENTRE_N,
+  ];
+
+  if (args["from-list"]) {
+    await runFromList(path.resolve(args["from-list"]), {
+      strict: args["strict-habitats"],
+      inspect: false,
+      centre,
+    });
+    return;
+  }
+
+  if (args.from) {
+    await runFromWorkbook(args.from, {
+      strict: args["strict-habitats"],
+      inspect: args.inspect,
+      centre,
+    });
+    return;
+  }
+
+  await runDefaultGeneration({
+    numParcels: parseInt(args.size, 10) || 50,
+    total: Math.max(1, parseInt(args.count, 10) || 1),
+    bad: args.bad,
+    centre,
+    emptyLayers,
+  });
 }
 
 main().catch((err) => {
