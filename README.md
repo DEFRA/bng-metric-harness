@@ -111,6 +111,31 @@ npm run generate:gpkg -- --count 10         # ten different files in one run
 
 Output goes to `test-data/` by default; override with `--outdir <dir>`. All files include the five layers the prototype expects (Red Line Boundary, Habitats, Hedgerows, Rivers, Urban Trees) and are pre-validated against the prototype's `(habitat, condition)` lookup table so they upload cleanly.
 
+### Running in Docker (no local Node required)
+
+For convenience and to avoid having to setup the NodeJS environment on your host machine the same script can be run inside a docker container as shown below. Note this approach requires Docker (Desktop or Engine).
+
+```sh
+npm run generate:gpkg:docker                       # synthetic, default site
+npm run generate:gpkg:docker -- --size 100         # bigger fixture
+npm run generate:gpkg:docker -- --count 10 --bad   # ten invalid files
+```
+
+The script builds the image on first run (cached after that) and writes output to `./test-data/` on the host, same as the non-Docker path. Two host folders are bind-mounted into the container:
+
+- `./test-data/` — output (read/write)
+- `./workbooks/` — input for `--from` / `--from-list` modes (read-only)
+
+To run in workbook-driven mode, drop the `.xlsx` / `.xlsm` into `./workbooks/` and reference its container path:
+
+```sh
+cp ~/Downloads/MyMetric.xlsx workbooks/
+npm run generate:gpkg:docker -- --from /app/workbooks/MyMetric.xlsx
+# → test-data/MyMetric.gpkg
+```
+
+Known limits of the Docker path: `--outdir` other than the default has no effect (files would land inside the container), and URL-based `--from` re-downloads on every run (the `.cache/` directory isn't mounted). Use the local Node script if either matters.
+
 ### Generating from a real BNG metric workbook
 
 Another way to generate the geopackage is to feed in a real **Defra Statutory Biodiversity Metric** workbook file (`.xlsx` / `.xlsm`) — for example one of the FOI submissions in the public [`abitatdotdev/bng-metrics`](https://github.com/abitatdotdev/bng-metrics) corpus.
