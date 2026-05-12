@@ -212,6 +212,7 @@ Combines with `--count` for multiple bad files at once.
 | `--inspect`         | off                | With `--from`, print parsed workbook summary instead of generating |
 | `--strict-habitats` | off                | Drop workbook rows the prototype's validator would reject          |
 | `--bad`             | off                | Emit an intentionally invalid GeoPackage                           |
+| `--empty <layer>`   | —                  | Emit the named layer with table present but zero rows. Repeatable. Valid: `habitats`, `hedgerows`, `rivers`, `trees`. Not for use with `--bad`/`--from`/`--from-list`. |
 
 ## Tilt
 

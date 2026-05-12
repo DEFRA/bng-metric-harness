@@ -82,6 +82,11 @@
  *                     --centre 528000,357000   (central Nottingham)
  *                   Must be inside England for the prototype to accept the
  *                   uploaded GeoPackage.
+ *   --empty <layer> Emit the named feature layer with its table present but
+ *                   zero rows. Repeatable. Valid layers: habitats, hedgerows,
+ *                   rivers, trees. Use to produce fixtures for validation
+ *                   stories like "no area habitat parcel". Incompatible with
+ *                   --bad / --from / --from-list.
  *   --bad           Generate an intentionally invalid GeoPackage for testing
  *                   upload validation. Builds a small fixture with deliberate
  *                   geometry flaws covering most validator checks: a bowtie
@@ -124,9 +129,17 @@ const { values: args } = parseArgs({
     "strict-habitats": { type: "boolean", default: false },
     inspect: { type: "boolean", default: false },
     centre: { type: "string", default: "" },
+    empty: { type: "string", multiple: true, default: [] },
   },
   allowPositionals: false,
 });
+
+const EMPTYABLE_LAYERS = {
+  habitats: { table: "Habitats", geom: "POLYGON" },
+  hedgerows: { table: "Hedgerows", geom: "LINESTRING" },
+  rivers: { table: "Rivers", geom: "LINESTRING" },
+  trees: { table: "Urban Trees", geom: "POINT" },
+};
 
 const HARNESS_ROOT = path.resolve(import.meta.dirname, "..");
 const OUT_DIR = args.outdir
@@ -834,7 +847,11 @@ const SRS_27700_DEF = `PROJCS["OSGB 1936 / British National Grid",GEOGCS["OSGB 1
  * @see https://www.geopackage.org/spec/#_requirement-1 - GeoPackage required tables
  */
 function initGeoPackage(db) {
-  db.pragma("journal_mode = WAL");
+  // DELETE journal mode keeps the database self-contained in a single .gpkg
+  // file. WAL leaves data in -wal / -shm sidecar files that don't ship with
+  // uploads — the backend reads the buffer in isolation and rejects it as
+  // not-a-valid-GeoPackage when those sidecars are missing.
+  db.pragma("journal_mode = DELETE");
   db.pragma("application_id = 0x47504B47");
   db.pragma("user_version = 10301");
 
@@ -2206,21 +2223,30 @@ function parseCentre(value) {
   return [e, n];
 }
 
-function generateOne(outPath, bad, numParcels, centre) {
+function generateOne(outPath, bad, numParcels, centre, emptyLayers = new Set()) {
   if (bad) {
     generateOneBad(outPath, centre);
     return;
   }
 
-  const numHedgerows = Math.max(3, Math.floor(numParcels / 3));
-  const numRivers = Math.max(1, Math.floor(numParcels / 15));
-  const numTrees = Math.max(5, Math.floor(numParcels / 2));
+  const numHedgerows = emptyLayers.has("hedgerows")
+    ? 0
+    : Math.max(3, Math.floor(numParcels / 3));
+  const numRivers = emptyLayers.has("rivers")
+    ? 0
+    : Math.max(1, Math.floor(numParcels / 15));
+  const numTrees = emptyLayers.has("trees")
+    ? 0
+    : Math.max(5, Math.floor(numParcels / 2));
 
   header(`Generating BNG test GeoPackage`, "cyan");
   info(`  ${SITE_NAME}`);
   info(
-    `  ${numParcels} habitat parcels, ${numHedgerows} hedgerows, ${numRivers} rivers, ${numTrees} urban trees`,
+    `  ${emptyLayers.has("habitats") ? 0 : numParcels} habitat parcels, ${numHedgerows} hedgerows, ${numRivers} rivers, ${numTrees} urban trees`,
   );
+  if (emptyLayers.size > 0) {
+    info(`  empty layers: ${[...emptyLayers].sort().join(", ")}`);
+  }
   info(`  centre: ${centre[0]},${centre[1]} (BNG)`);
   info(`  → ${outPath}`);
 
@@ -2232,10 +2258,20 @@ function generateOne(outPath, bad, numParcels, centre) {
   createAllTables(db);
 
   const ring = generateRedLineBoundary(db, cx, cy, radius);
-  generateHabitats(db, ring, numParcels);
-  generateHedgerows(db, ring, numHedgerows);
-  generateRivers(db, ring, numRivers);
-  generateUrbanTrees(db, ring, numTrees);
+
+  // For an "empty" layer we want the table to exist with zero rows. We can't
+  // just ask generateHabitats for zero parcels — it would still produce one
+  // parcel covering the whole boundary. So instead, for each empty layer we
+  // register it here ourselves and then skip its generator below.
+  for (const [key, { table, geom }] of Object.entries(EMPTYABLE_LAYERS)) {
+    if (!emptyLayers.has(key)) continue;
+    registerLayer(db, table, geom, null);
+  }
+
+  if (!emptyLayers.has("habitats")) generateHabitats(db, ring, numParcels);
+  if (!emptyLayers.has("hedgerows")) generateHedgerows(db, ring, numHedgerows);
+  if (!emptyLayers.has("rivers")) generateRivers(db, ring, numRivers);
+  if (!emptyLayers.has("trees")) generateUrbanTrees(db, ring, numTrees);
   createLayerStyles(db);
 
   db.close();
@@ -2706,6 +2742,32 @@ async function main() {
     process.exit(1);
   }
 
+  const emptyLayers = new Set();
+  for (const raw of args.empty) {
+    const key = raw.toLowerCase();
+    if (!(key in EMPTYABLE_LAYERS)) {
+      error(
+        `--empty: unknown layer "${raw}". Valid: ${Object.keys(EMPTYABLE_LAYERS).join(", ")}`,
+      );
+      process.exit(1);
+    }
+    emptyLayers.add(key);
+  }
+
+  if (
+    emptyLayers.size > 0 &&
+    (args.bad || args.from || args["from-list"])
+  ) {
+    error("--empty cannot be combined with --bad, --from, or --from-list");
+    process.exit(1);
+  }
+
+  if (emptyLayers.size === Object.keys(EMPTYABLE_LAYERS).length) {
+    warn(
+      "--empty covers every feature layer; the output will contain only the Red Line Boundary",
+    );
+  }
+
   const centre = parseCentre(args.centre) ?? [
     DEFAULT_CENTRE_E,
     DEFAULT_CENTRE_N,
@@ -2750,6 +2812,13 @@ async function main() {
 
   if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
 
+  // Tag the output filename with which layers were emptied, so a user can tell
+  // at a glance what a fixture represents (e.g. "...-empty-habitats.gpkg").
+  // Layer names are sorted so "--empty rivers --empty habitats" produces the
+  // same filename as "--empty habitats --empty rivers".
+  const emptySuffix =
+    emptyLayers.size > 0 ? `-empty-${[...emptyLayers].sort().join("-")}` : "";
+
   for (let i = 1; i <= total; i++) {
     const suffix =
       total > 1
@@ -2757,7 +2826,7 @@ async function main() {
         : "";
     const filename = bad
       ? `bng-test-data-bad${suffix}.gpkg`
-      : `bng-test-data${suffix}.gpkg`;
+      : `bng-test-data${suffix}${emptySuffix}.gpkg`;
     const outPath = path.join(OUT_DIR, filename);
 
     if (existsSync(outPath)) {
@@ -2775,7 +2844,7 @@ async function main() {
       }
     }
 
-    generateOne(outPath, bad, numParcels, centre);
+    generateOne(outPath, bad, numParcels, centre, emptyLayers);
   }
 }
 
