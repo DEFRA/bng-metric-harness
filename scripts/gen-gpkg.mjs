@@ -2840,7 +2840,7 @@ function insertBadRivers(db, rivers) {
       "Site Name", "Survey Date", "Survey Details", "Comments",
       "Mapped by", "Company", "Base Map",
       "Enhancement Type", "Baseline Distinctiveness", "Proposed Distinctiveness"
-    ) VALUES (${new Array(RIVERS_COLUMN_COUNT).fill("?").join(", ")})
+    ) VALUES (${Array.from({ length: RIVERS_COLUMN_COUNT }, () => "?").join(", ")})
   `);
   const env = [Infinity, -Infinity, Infinity, -Infinity];
   rivers.forEach((coords, i) => {
@@ -3183,11 +3183,11 @@ async function runFromListBatch(listPath, centre) {
 
 async function ensureWritable(outPath, total) {
   if (!existsSync(outPath)) {
-    return true;
+    return;
   }
   if (total > 1) {
     unlinkSync(outPath);
-    return true;
+    return;
   }
   const overwrite = await confirm(`${outPath} already exists. Overwrite? (y/N) `);
   if (!overwrite) {
@@ -3195,12 +3195,11 @@ async function ensureWritable(outPath, total) {
     process.exit(0);
   }
   unlinkSync(outPath);
-  return true;
 }
 
 async function runSyntheticBatch(centre) {
-  const numParcels = parseInt(args.size, 10) || DEFAULT_NUM_PARCELS;
-  const total = Math.max(1, parseInt(args.count, 10) || 1);
+  const numParcels = Number.parseInt(args.size, 10) || DEFAULT_NUM_PARCELS;
+  const total = Math.max(1, Number.parseInt(args.count, 10) || 1);
   const { geometric, emptyLayers, emptyFlawNames } = resolveFlawSelection({
     bad: args.bad,
     flaws: args.flaw,
