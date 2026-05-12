@@ -2807,7 +2807,9 @@ async function runFromList(listPath, opts) {
 // Layer names are sorted so "--empty rivers --empty habitats" produces the
 // same filename as "--empty habitats --empty rivers".
 function buildEmptySuffix(emptyLayers) {
-  if (emptyLayers.size === 0) return "";
+  if (emptyLayers.size === 0) {
+    return "";
+  }
   const sorted = [...emptyLayers].sort((a, b) => a.localeCompare(b)).join("-");
   return `-empty-${sorted}`;
 }
@@ -2823,7 +2825,9 @@ function buildFilename({ i, total, bad, emptySuffix }) {
 }
 
 async function ensureWritable(outPath, total) {
-  if (!existsSync(outPath)) return;
+  if (!existsSync(outPath)) {
+    return;
+  }
   if (total > 1) {
     unlinkSync(outPath);
     return;
