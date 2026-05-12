@@ -2652,11 +2652,16 @@ function generateOneFromWorkbook(
   return true;
 }
 
+function timestampSuffix(d = new Date()) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
+}
+
 function workbookOutputName(source) {
   // Strip trailing query/hash, keep last path segment, replace extension.
   const url = source.replace(/[?#].*$/, "");
   const base = path.basename(url).replace(/\.(xlsx|xlsm|xls)$/i, "");
-  return `${base || "bng-from-workbook"}.gpkg`;
+  return `${base || "bng-from-workbook"}-${timestampSuffix()}.gpkg`;
 }
 
 async function runFromWorkbook(source, { strict, inspect, centre }) {
@@ -2755,9 +2760,10 @@ async function main() {
       total > 1
         ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`
         : "";
+    const stamp = timestampSuffix();
     const filename = bad
-      ? `bng-test-data-bad${suffix}.gpkg`
-      : `bng-test-data${suffix}.gpkg`;
+      ? `bng-test-data-bad${suffix}-${stamp}.gpkg`
+      : `bng-test-data${suffix}-${stamp}.gpkg`;
     const outPath = path.join(OUT_DIR, filename);
 
     if (existsSync(outPath)) {
