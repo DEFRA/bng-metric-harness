@@ -111,7 +111,7 @@ npm run generate:gpkg -- --count 10         # ten different files in one run
 
 Output goes to `test-data/` by default; override with `--outdir <dir>`. All files include the five layers the prototype expects (Red Line Boundary, Habitats, Hedgerows, Rivers, Urban Trees) and are pre-validated against the prototype's `(habitat, condition)` lookup table so they upload cleanly.
 
-### Running in Docker (no local Node required)
+### Running in Docker
 
 For convenience and to avoid having to setup the NodeJS environment on your host machine the same script can be run inside a docker container as shown below. Note this approach requires Docker (Desktop or Engine).
 
@@ -134,7 +134,10 @@ npm run generate:gpkg:docker -- --from /app/workbooks/MyMetric.xlsx
 # → test-data/MyMetric.gpkg
 ```
 
-Known limits of the Docker path: `--outdir` other than the default has no effect (files would land inside the container), and URL-based `--from` re-downloads on every run (the `.cache/` directory isn't mounted). Use the local Node script if either matters.
+**Known limits of the Docker approach.**
+
+- **`--outdir` is ignored.** Only the default `test-data/` directory is bind-mounted into the container, so passing a different `--outdir` writes the file inside the container and it's lost when the container exits.
+- **Workbook downloads aren't cached.** When using `--from <url>`, the workbook is re-downloaded on every run because the `.cache/` directory isn't bind-mounted. Repeated runs over the same URL will be slow.
 
 ### Generating from a real BNG metric workbook
 
