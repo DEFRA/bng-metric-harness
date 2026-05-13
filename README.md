@@ -113,7 +113,7 @@ Output goes to `test-data/` by default; override with `--outdir <dir>`. All file
 
 ### Running in Docker
 
-For convenience and to avoid having to setup the NodeJS environment on your host machine the same script can be run inside a docker container as shown below. Note this approach requires Docker (Desktop or Engine).
+For convenience and to avoid having to set up the NodeJS environment on your host machine the same script can be run inside a docker container as shown below. Note this approach requires Docker (Desktop or Engine).
 
 ```sh
 npm run generate:gpkg:docker                       # synthetic, default site
