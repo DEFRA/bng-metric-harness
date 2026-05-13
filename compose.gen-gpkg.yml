@@ -1,0 +1,7 @@
+services:
+  gen-gpkg:
+    build: .
+    image: bng-gpkg
+    volumes:
+      - ./test-data:/app/test-data
+      - ./workbooks:/app/workbooks:ro
