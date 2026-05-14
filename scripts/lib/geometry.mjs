@@ -4,6 +4,8 @@
  * caller picks (this module is unit-agnostic; downstream uses BNG metres).
  */
 
+import { randomBytes } from "node:crypto";
+
 // ---------------------------------------------------------------------------
 // Tunables — named so SonarCloud's S109 magic-number rule is satisfied.
 // ---------------------------------------------------------------------------
@@ -148,28 +150,31 @@ export function polygonCentroid(ring) {
 }
 
 // ---------------------------------------------------------------------------
-// Random helpers
-//
-// IMPORTANT — this module's only use of randomness is in *test-fixture*
-// geometry: jittered hull vertices, parcel-partition chord angles, random
-// interior points for placing trees, etc. Nothing here ever gets near
-// authentication, cryptography, ID minting, or any other security context.
-// `Math.random()` is the right tool for the job: cheap, deterministic on a
-// fixed seed if we ever need it, and trivially understood. SonarCloud's
-// S2245 rule flags every `Math.random()` because it can't tell apart
-// security-sensitive uses from harmless ones — centralising all calls
-// into this single helper means S2245 is silenced everywhere else in the
-// codebase and only fires once, on the line below where the justification
-// is right next to the suppression.
+// Random helpers — used to generate synthetic geometry / pick-list values
+// for output .gpkg fixtures, never for security-sensitive bytes. Sourced
+// from `crypto.randomBytes` so SonarCloud's S2245 doesn't fire on every
+// call site.
 // ---------------------------------------------------------------------------
 
+// 53-bit float layout: 20 high bits + 32 low bits = 52 mantissa bits.
+const HIGH_MASK_20_BITS = 0x000fffff;
+const SCALE_2_POW_32 = 2 ** 32;
+const SCALE_2_POW_52 = 2 ** 52;
+const RNG_BYTES = 8;
+const HIGH_OFFSET = 0;
+const LOW_OFFSET = 4;
+
 /**
- * Return a uniformly-distributed float in `[0, 1)`. Test-fixture randomness
- * only — see the section comment above for why this is safe.
+ * Return a uniformly-distributed float in `[0, 1)`. Equivalent distribution
+ * to `Math.random()` but sourced from `crypto.randomBytes` so SonarCloud's
+ * S2245 rule is satisfied. ~30× slower than `Math.random()`; still
+ * microseconds per call, negligible at fixture-generation scale.
  */
 export function randomFraction() {
-  // NOSONAR — fixture-only randomness; see section comment.
-  return Math.random();
+  const buf = randomBytes(RNG_BYTES);
+  const high = buf.readUInt32BE(HIGH_OFFSET) & HIGH_MASK_20_BITS;
+  const low = buf.readUInt32BE(LOW_OFFSET);
+  return (high * SCALE_2_POW_32 + low) / SCALE_2_POW_52;
 }
 
 export function pick(arr) {
