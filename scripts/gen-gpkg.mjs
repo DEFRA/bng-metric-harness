@@ -74,7 +74,6 @@
  * BNG knowledge; it could be moved to its own repo unchanged.
  */
 
-import Database from "better-sqlite3";
 import { createHash } from "node:crypto";
 import {
   existsSync,
@@ -93,7 +92,7 @@ import {
   SRS_ID,
   createAllTables,
   createLayerStyles,
-  initGeoPackage,
+  openGeoPackage,
   registerLayer,
 } from "./lib/bng-schema.mjs";
 import { polygonArea } from "./lib/geometry.mjs";
@@ -267,8 +266,7 @@ async function resolveWorkbookSource(ref) {
  */
 function generateBaselineFile(outPath, _workbook, baselineRows, plan, centre) {
   const [cx, cy] = centre;
-  const db = new Database(outPath);
-  initGeoPackage(db);
+  const db = openGeoPackage(outPath);
   createAllTables(db);
 
   const ring = generateRedLineBoundaryFromArea(db, cx, cy, plan.totalAreaM2);
@@ -312,8 +310,7 @@ function generateBaselineFile(outPath, _workbook, baselineRows, plan, centre) {
  * deriving each layer's geometry from the baseline's.
  */
 function generatePostInterventionFile(outPath, workbook, postRows, baselineGeom, plan) {
-  const db = new Database(outPath);
-  initGeoPackage(db);
+  const db = openGeoPackage(outPath);
   createAllTables(db);
 
   // Reuse the exact baseline ring rather than regenerating, so the two files

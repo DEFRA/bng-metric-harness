@@ -2,6 +2,22 @@
  * GeoPackage metadata-table initialisation and feature-layer registration.
  * SRS-agnostic: callers pass in their own SRS definitions and the srsId to
  * tag each layer with.
+ *
+ * Two entry points:
+ *   - `openGeoPackage(filename, opts)` — opens a fresh file and inits it
+ *   - `initGeoPackage(db, extraSrs)`   — inits an already-open handle
+ */
+
+import Database from "better-sqlite3";
+
+/**
+ * @typedef {object} SrsRow
+ * @property {number} srsId
+ * @property {string} name
+ * @property {string} organization
+ * @property {number} organizationCoordsysId
+ * @property {string} definition
+ * @property {string} [description]
  */
 
 /**
@@ -9,6 +25,8 @@
  * an undefined geographic system, and WGS 84.
  *
  * @see https://www.geopackage.org/spec/#_requirement-11
+ *
+ * @type {SrsRow[]}
  */
 export const REQUIRED_SRS = [
   {
@@ -47,14 +65,9 @@ export const REQUIRED_SRS = [
  *
  * @see https://www.geopackage.org/spec/#_requirement-1
  *
- * @param {object} db                       better-sqlite3 Database handle
- * @param {object[]} [extraSrs]             additional SRS rows
- * @param {number}   extraSrs[].srsId
- * @param {string}   extraSrs[].name
- * @param {string}   extraSrs[].organization
- * @param {number}   extraSrs[].organizationCoordsysId
- * @param {string}   extraSrs[].definition
- * @param {string}   [extraSrs[].description]
+ * @param {object}   db          better-sqlite3 Database handle
+ * @param {SrsRow[]} [extraSrs]  additional SRS rows beyond the OGC-mandatory
+ *                               three (-1, 0, 4326)
  */
 export function initGeoPackage(db, extraSrs = []) {
   db.pragma("journal_mode = WAL");
@@ -131,4 +144,26 @@ export function registerLayer(db, tableName, geomType, envelope, srsId) {
     VALUES (?, 'geometry', ?, ?, 0, 0)
   `,
   ).run(tableName, geomType, srsId);
+}
+
+/**
+ * Open (or create) `filename` as a GeoPackage and initialise its metadata
+ * tables. Returns the better-sqlite3 db handle; the caller is responsible
+ * for `db.close()`.
+ *
+ * For read-only access to an existing GeoPackage, use
+ * `new Database(filename, { readonly: true })` directly — there is no
+ * metadata work to do, and the readonly flag conflicts with the writes
+ * that initGeoPackage performs.
+ *
+ * @param {string} filename
+ * @param {object} [opts]
+ * @param {SrsRow[]} [opts.srs]   extra SRS rows beyond the OGC-mandatory
+ *                                three (-1, 0, 4326)
+ * @returns {import('better-sqlite3').Database}
+ */
+export function openGeoPackage(filename, { srs = [] } = {}) {
+  const db = new Database(filename);
+  initGeoPackage(db, srs);
+  return db;
 }

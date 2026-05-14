@@ -15,7 +15,7 @@ import {
   URBAN_TREES_INSERT_COLUMNS,
   createAllTables,
   createLayerStyles,
-  initGeoPackage,
+  openGeoPackage,
   registerLayer,
 } from "./bng-schema.mjs";
 import {
@@ -347,8 +347,7 @@ export function generateOneBad(outPath, centre, flawNames) {
   }
   logBadFixtureBanner(state, outPath, flawNames);
 
-  const db = new Database(outPath);
-  initGeoPackage(db);
+  const db = openGeoPackage(outPath);
   createAllTables(db);
   if (state.iggis.length) {
     createIggisTable(db);

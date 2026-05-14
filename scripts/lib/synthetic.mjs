@@ -16,7 +16,7 @@ import {
   URBAN_TREES_INSERT_COLUMNS,
   createAllTables,
   createLayerStyles,
-  initGeoPackage,
+  openGeoPackage,
   registerLayer,
 } from "./bng-schema.mjs";
 import {
@@ -447,8 +447,7 @@ export function generateOne(outPath, badFlawNames, numParcels, centre, emptyLaye
   logSyntheticBanner(outPath, centre, counts, emptyLayers);
 
   const [cx, cy] = centre;
-  const db = new Database(outPath);
-  initGeoPackage(db);
+  const db = openGeoPackage(outPath);
   createAllTables(db);
 
   const ring = generateRedLineBoundary(db, cx, cy, SYNTHETIC_RLB_RADIUS_M);

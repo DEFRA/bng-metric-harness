@@ -17,6 +17,7 @@ import {
   insertLayerStyle,
   lineQml,
   lineSld,
+  openGeoPackage as openGeoPackageGeneric,
   pointQml,
   pointSld,
   polygonQml,
@@ -46,11 +47,23 @@ export const RIVERS_INSERT_COLUMNS = 28;
 export const URBAN_TREES_INSERT_COLUMNS = 26;
 
 /**
- * Initialise a SQLite database as a BNG-flavoured GeoPackage: standard
- * gpkg_* tables, mandatory OGC SRSes, and the BNG SRS pre-inserted.
+ * Initialise an existing better-sqlite3 handle as a BNG-flavoured
+ * GeoPackage: standard gpkg_* tables, mandatory OGC SRSes, and the BNG
+ * SRS pre-inserted.
+ *
+ * Prefer `openGeoPackage(filename)` below for the common write path —
+ * this is for cases where the caller already holds a db handle.
  */
 export function initGeoPackage(db) {
   initGeoPackageGeneric(db, [BNG_SRS]);
+}
+
+/**
+ * Open (or create) `filename` as a BNG-flavoured GeoPackage. Returns the
+ * better-sqlite3 db handle; the caller is responsible for `db.close()`.
+ */
+export function openGeoPackage(filename) {
+  return openGeoPackageGeneric(filename, { srs: [BNG_SRS] });
 }
 
 /**
