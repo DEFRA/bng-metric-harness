@@ -60,19 +60,29 @@ function harvestLabelValue(row, info) {
   }
 }
 
+/** First numeric cell at or after `startCol` in `row`, or null. */
+function firstNumberAfter(row, startCol) {
+  for (let cc = startCol + 1; cc < row.length; cc++) {
+    const n = readNumber(row[cc]);
+    if (n != null) {
+      return n;
+    }
+  }
+  return null;
+}
+
 function harvestTotalSiteArea(row, info) {
   for (let c = 0; c < row.length; c++) {
     const s = readString(row[c]);
-    if (s && /total site area .*hectares/i.test(s)) {
-      for (let cc = c + 1; cc < row.length; cc++) {
-        const n = readNumber(row[cc]);
-        if (n != null) {
-          info.totalSiteAreaHa = n;
-          return true;
-        }
-      }
-      return false;
+    if (!s || !/total site area .*hectares/i.test(s)) {
+      continue;
     }
+    const n = firstNumberAfter(row, c);
+    if (n != null) {
+      info.totalSiteAreaHa = n;
+      return true;
+    }
+    return false;
   }
   return false;
 }
