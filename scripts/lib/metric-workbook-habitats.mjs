@@ -203,14 +203,18 @@ export function readBaselineHabitats(workbook, summary) {
 // A-2 On-Site Habitat Creation
 // ---------------------------------------------------------------------------
 
+// A-2's broad/type/full-name columns sit between Ref and Area in this exact
+// order from the right: …, broad, type, full-name. So the last non-empty
+// label column is full-name, the second-last is type, the third-last is broad.
+const A2_LABEL_FULL_OFFSET = 1;
+const A2_LABEL_TYPE_OFFSET = 2;
+const A2_LABEL_BROAD_OFFSET = 3;
+
 function resolveCreatedHabitatCols(header) {
   const idx = buildColumnIndex(header);
   const cRef = col(idx, HDR_REF);
   const cArea = col(idx, HDR_AREA_HECTARES);
-  // A-2's broad/type/full-name columns sit between the Ref and Area columns.
-  // The merged header has labels like "Broad Habitat" / "Proposed habitat"
-  // (the latter appears twice for type then full-name). Resolve positionally:
-  // walk right from cRef to cArea, take the last three non-empty header cells.
+  // Walk right from cRef to cArea, take the last three non-empty header cells.
   const labelCols = [];
   for (let c = cRef + 1; c < cArea; c++) {
     if (readString(header[c])) {
@@ -225,9 +229,9 @@ function resolveCreatedHabitatCols(header) {
     cStrat: findStrategicSignificanceCol(header),
     cAdvance: col(idx, "Habitat created in advance (years)", "Habitat created in advance"),
     cDelay: col(idx, "Delay in starting habitat creation (years)", "Delay in starting habitat creation"),
-    cFull: labelCols[labelCols.length - 1] ?? -1,
-    cType: labelCols[labelCols.length - 2] ?? -1,
-    cBroad: labelCols[labelCols.length - 3] ?? -1,
+    cFull: labelCols[labelCols.length - A2_LABEL_FULL_OFFSET] ?? -1,
+    cType: labelCols[labelCols.length - A2_LABEL_TYPE_OFFSET] ?? -1,
+    cBroad: labelCols[labelCols.length - A2_LABEL_BROAD_OFFSET] ?? -1,
   };
 }
 

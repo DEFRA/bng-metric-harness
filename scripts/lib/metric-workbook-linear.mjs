@@ -28,8 +28,9 @@ import {
   readString,
 } from "./metric-workbook-helpers.mjs";
 
-// Sentinel returned by row deciders to signal end-of-data.
-const STOP = Symbol("stop");
+// Action tags returned by per-row deciders so loops stay straight-line.
+const ACTION_STOP = { stop: true };
+const ACTION_SKIP = {};
 
 const KM_TO_M = 1000;
 
@@ -173,18 +174,22 @@ function resolveLinearEnhancementCols(header) {
   };
 }
 
-function enhancementRefForRow(row, cBaseRef) {
+/**
+ * Always returns the same tagged shape — `{ stop: true }`, `{ skip: true }`
+ * (or the equivalent), or `{ baselineRef }`. Keeps the caller loop linear.
+ */
+function decideEnhancementRow(row, cBaseRef) {
   if (!row) {
-    return null;
+    return ACTION_SKIP;
   }
   const baselineRef = readString(row[cBaseRef]);
   if (!baselineRef) {
-    return null;
+    return ACTION_SKIP;
   }
   if (/^total/i.test(baselineRef)) {
-    return STOP;
+    return ACTION_STOP;
   }
-  return baselineRef;
+  return { baselineRef };
 }
 
 function buildLinearEnhancementEntry(row, baselineRef, c) {
@@ -214,12 +219,12 @@ export function readLinearEnhancements(workbook, sheetName, _summary) {
   const cols = resolveLinearEnhancementCols(header);
   const out = [];
   for (let r = dataStart; r < aoa.length; r++) {
-    const baselineRef = enhancementRefForRow(aoa[r], cols.cBaseRef);
-    if (baselineRef === STOP) {
+    const action = decideEnhancementRow(aoa[r], cols.cBaseRef);
+    if (action.stop) {
       break;
     }
-    if (baselineRef) {
-      out.push(buildLinearEnhancementEntry(aoa[r], baselineRef, cols));
+    if (action.baselineRef) {
+      out.push(buildLinearEnhancementEntry(aoa[r], action.baselineRef, cols));
     }
   }
   return out;

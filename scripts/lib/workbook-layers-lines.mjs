@@ -183,8 +183,9 @@ function sliceLinestringSegment(coords, startM, endM) {
   return walkLinestringSlice(coords, sStart, sEnd);
 }
 
-/** Interpolate the point at distance `target` along segment a→b. */
-function interpOnSegment(a, dx, dy, seg, target, segStart) {
+/** Interpolate the point at distance `target` along a segment descriptor. */
+function interpOnSegment(segment, target) {
+  const { a, dx, dy, seg, segStart } = segment;
   const t = seg === 0 ? 0 : (target - segStart) / seg;
   return [a[0] + dx * t, a[1] + dy * t];
 }
@@ -198,7 +199,8 @@ function walkLinestringSlice(coords, sStart, sEnd) {
     const dx = b[0] - a[0];
     const dy = b[1] - a[1];
     const seg = Math.hypot(dx, dy);
-    const result = appendSliceSegment(out, a, b, dx, dy, seg, acc, sStart, sEnd);
+    const segment = { a, b, dx, dy, seg, segStart: acc, segEnd: acc + seg };
+    const result = appendSliceSegment(out, segment, sStart, sEnd);
     if (result === SLICE_DONE) {
       return out;
     }
@@ -219,19 +221,19 @@ const SLICE_BREAK = 2;
  * pass-through vertex, and the end interpolation. Returns a marker telling
  * the caller whether to keep walking, stop with the result, or break out.
  */
-function appendSliceSegment(out, a, b, dx, dy, seg, acc, sStart, sEnd) {
-  const segEnd = acc + seg;
+function appendSliceSegment(out, segment, sStart, sEnd) {
+  const { b, segStart, segEnd } = segment;
   if (segEnd < sStart) {
     return SLICE_CONTINUE;
   }
-  if (acc > sEnd) {
+  if (segStart > sEnd) {
     return SLICE_BREAK;
   }
   if (out.length === 0) {
-    out.push(interpOnSegment(a, dx, dy, seg, sStart, acc));
+    out.push(interpOnSegment(segment, sStart));
   }
   if (segEnd >= sEnd) {
-    out.push(interpOnSegment(a, dx, dy, seg, sEnd, acc));
+    out.push(interpOnSegment(segment, sEnd));
     return SLICE_DONE;
   }
   out.push([b[0], b[1]]);
