@@ -37,10 +37,18 @@ export function envelopeFromCoords(coords) {
   let minY = Infinity;
   let maxY = -Infinity;
   for (const [x, y] of coords) {
-    if (x < minX) minX = x;
-    if (x > maxX) maxX = x;
-    if (y < minY) minY = y;
-    if (y > maxY) maxY = y;
+    if (x < minX) {
+      minX = x;
+    }
+    if (x > maxX) {
+      maxX = x;
+    }
+    if (y < minY) {
+      minY = y;
+    }
+    if (y > maxY) {
+      maxY = y;
+    }
   }
   return [minX, maxX, minY, maxY];
 }
@@ -50,10 +58,18 @@ export function envelopeFromCoords(coords) {
  * the bounding box across multiple features as they're inserted.
  */
 export function expandEnvelope(envelope, env) {
-  if (env[ENV_MIN_X] < envelope[ENV_MIN_X]) envelope[ENV_MIN_X] = env[ENV_MIN_X];
-  if (env[ENV_MAX_X] > envelope[ENV_MAX_X]) envelope[ENV_MAX_X] = env[ENV_MAX_X];
-  if (env[ENV_MIN_Y] < envelope[ENV_MIN_Y]) envelope[ENV_MIN_Y] = env[ENV_MIN_Y];
-  if (env[ENV_MAX_Y] > envelope[ENV_MAX_Y]) envelope[ENV_MAX_Y] = env[ENV_MAX_Y];
+  if (env[ENV_MIN_X] < envelope[ENV_MIN_X]) {
+    envelope[ENV_MIN_X] = env[ENV_MIN_X];
+  }
+  if (env[ENV_MAX_X] > envelope[ENV_MAX_X]) {
+    envelope[ENV_MAX_X] = env[ENV_MAX_X];
+  }
+  if (env[ENV_MIN_Y] < envelope[ENV_MIN_Y]) {
+    envelope[ENV_MIN_Y] = env[ENV_MIN_Y];
+  }
+  if (env[ENV_MAX_Y] > envelope[ENV_MAX_Y]) {
+    envelope[ENV_MAX_Y] = env[ENV_MAX_Y];
+  }
 }
 
 /**

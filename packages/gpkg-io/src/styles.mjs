@@ -192,14 +192,14 @@ export function createLayerStylesTable(db) {
 /**
  * Insert one row into the layer_styles table for a feature layer.
  *
- * @param {object} db      better-sqlite3 Database handle
- * @param {string} table   feature-layer table name
- * @param {string} qml     QML XML
- * @param {string} sld     SLD XML
+ * @param {object} db       better-sqlite3 Database handle
+ * @param {string} table    feature-layer table name
+ * @param {string} qmlXml   QML XML
+ * @param {string} sldXml   SLD XML
  */
-export function insertLayerStyle(db, table, qml, sld) {
+export function insertLayerStyle(db, table, qmlXml, sldXml) {
   db.prepare(
     `INSERT INTO layer_styles (f_table_name, f_geometry_column, styleName, styleQML, styleSLD, useAsDefault)
      VALUES (?, 'geometry', ?, ?, ?, 1)`,
-  ).run(table, table, qml, sld);
+  ).run(table, table, qmlXml, sldXml);
 }
