@@ -8,6 +8,17 @@
  * cells / linestrings / points where possible, so the two files share an
  * identical RLB and post-intervention rows trace back to baseline parcels
  * by ref.
+ *
+ * Function-name convention used throughout:
+ *   generate*  — produces fresh geometry from scratch (random sampling
+ *                inside the RLB). Used for the baseline pass.
+ *   derive*    — shapes the post-intervention geometry FROM the baseline
+ *                geometry the caller passes in (slices baseline cells,
+ *                walks consecutive segments of baseline linestrings,
+ *                reuses baseline tree points). Never invents shapes for
+ *                retained/enhanced rows — only Created rows get fresh
+ *                geometry inside derive*, and only when no baseline
+ *                ancestor exists to reuse.
  */
 
 import {
@@ -48,10 +59,17 @@ const BASE_MAP = "OS MasterMap";
 const WORKBOOK_IMPORT_LABEL = "Workbook import";
 const WORKBOOK_SURVEY_DETAILS = "From metric workbook";
 
+// Default attribute values used by multiple writers — promoted to named
+// constants so any rename / pick-list change happens in one place.
+const LOCATION_ON_SITE = "On-site";
+const TREE_SIZE_DEFAULT = "Medium";
+const RURAL_OR_URBAN_TREE_URBAN = "Urban";
+const SPATIAL_RISK_INSIDE_LPA = "Compensation inside LPA boundary or NCA of impact site";
+
 // Pick lists used only by post-intervention writes (baseline writes leave
 // these NULL).
 const SPATIAL_RISK_HABITAT = [
-  "Compensation inside LPA boundary or NCA of impact site",
+  SPATIAL_RISK_INSIDE_LPA,
   "Compensation outside LPA or NCA of impact site, but in neighbouring LPA or NCA",
 ];
 
@@ -133,7 +151,9 @@ export function partitionBaselineHabitats(boundaryRing, baselineRows) {
   const cells = partitionPolygonByAreas(boundaryRing, targets);
   const byRef = new Map();
   cells.forEach((cell, i) => {
-    if (cell && baselineRows[i]) byRef.set(baselineRows[i].baselineRef, cell);
+    if (cell && baselineRows[i]) {
+      byRef.set(baselineRows[i].baselineRef, cell);
+    }
   });
   return { cells, byRef };
 }
@@ -164,7 +184,9 @@ export function writeHabitatsBaseline(db, cells, rows) {
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     const cell = cells[i];
-    if (!cell) continue;
+    if (!cell) {
+      continue;
+    }
     const geom = gpkgPolygon(SRS_ID, cell);
     expandEnvelope(allEnvelope, envelopeFromCoords(cell));
     stmt.run(
@@ -201,7 +223,10 @@ export function writeHabitatsBaseline(db, cells, rows) {
 }
 
 /**
- * Derive post-intervention habitat geometry from the baseline cells.
+ * Derive post-intervention habitat geometry from the baseline cells —
+ * i.e. SLICE existing baseline polygons rather than generate fresh ones,
+ * so retained/enhanced post rows occupy the same ground as their parent
+ * baseline parcel.
  *
  * For each baseline parcel, the cell is partitioned in a single pass into:
  *   retained slice + enhanced slice + 0..N assigned-created slices + lost
@@ -223,116 +248,144 @@ export function writeHabitatsBaseline(db, cells, rows) {
  * @param {Array} postRows         Output of buildPostInterventionRows.
  * @param {string[]} warnings      Mutable warning sink.
  */
-export function derivePostInterventionHabitatCells(baselineCellsByRef, baselineRowsRaw, postRows, warnings = []) {
-  const cellsForPost = new Array(postRows.length).fill(null);
-  const orphanedLostPool = [];
+const LOST_POOL = "lostPool";
+const ORPHAN_UNDERSIZE_WARN_RATIO = 0.7;
 
-  // Group post rows by baselineRef. Assigned-created rows carry a baselineRef
-  // so they land in the right group.
+/**
+ * Group post rows by baselineRef. Assigned-created rows carry a baselineRef
+ * so they land in their parent baseline's group; unmatched created rows fall
+ * out into the second return value.
+ */
+function groupPostRowsForGeometry(postRows) {
   const groupedByBaseline = new Map();
   const unassignedCreated = [];
   for (let i = 0; i < postRows.length; i++) {
     const r = postRows[i];
     if (r.baselineRef != null) {
-      if (!groupedByBaseline.has(r.baselineRef)) groupedByBaseline.set(r.baselineRef, []);
+      if (!groupedByBaseline.has(r.baselineRef)) {
+        groupedByBaseline.set(r.baselineRef, []);
+      }
       groupedByBaseline.get(r.baselineRef).push({ row: r, postIndex: i });
     } else if (r.retention === "Created") {
       unassignedCreated.push({ row: r, postIndex: i });
     }
   }
+  return { groupedByBaseline, unassignedCreated };
+}
+
+/**
+ * Compute the per-sub-cell area targets and their post-row assignments for
+ * one baseline parcel. Output arrays are aligned and feed
+ * partitionPolygonByAreas. Lost residual (not absorbed by an assigned-
+ * created row) gets the sentinel "lostPool" assignment.
+ */
+function planBaselineCellPartition(baseline, cellArea, group) {
+  const subTargets = [];
+  const subAssignments = [];
+
+  const retainedRow = group.find((g) => g.row.retention === "Retained");
+  if (baseline.areaRetained > 0 && retainedRow) {
+    subTargets.push((baseline.areaRetained / baseline.area) * cellArea);
+    subAssignments.push(retainedRow.postIndex);
+  }
+
+  const enhancedRow = group.find((g) => g.row.retention === "Enhanced");
+  if (baseline.areaEnhanced > 0 && enhancedRow) {
+    subTargets.push((baseline.areaEnhanced / baseline.area) * cellArea);
+    subAssignments.push(enhancedRow.postIndex);
+  }
+
+  let assignedCreatedM2 = 0;
+  for (const g of group.filter((g) => g.row.retention === "Created")) {
+    const target = g.row.area * HECTARES_TO_SQ_M;
+    subTargets.push(target);
+    subAssignments.push(g.postIndex);
+    assignedCreatedM2 += target;
+  }
+
+  const residualLostM2 = (baseline.areaLost / baseline.area) * cellArea - assignedCreatedM2;
+  if (residualLostM2 > MIN_GENERATED_AREA_SQ_M) {
+    subTargets.push(residualLostM2);
+    subAssignments.push(LOST_POOL);
+  }
+  return { subTargets, subAssignments };
+}
+
+/**
+ * Slice one baseline cell into sub-cells and distribute them to post-row
+ * indices (or the orphan lost pool).
+ */
+function distributeBaselineCell(cell, subTargets, subAssignments, cellsForPost, orphanedLostPool) {
+  if (subTargets.length === 0) {
+    return;
+  }
+  const subCells = subTargets.length === 1 ? [cell] : partitionPolygonByAreas(cell, subTargets);
+  for (let i = 0; i < subAssignments.length; i++) {
+    const assignment = subAssignments[i];
+    const sub = subCells[i];
+    if (!sub) {
+      continue;
+    }
+    if (assignment === LOST_POOL) {
+      orphanedLostPool.push(sub);
+    } else {
+      cellsForPost[assignment] = sub;
+    }
+  }
+}
+
+/**
+ * Allocate geometry for unmatched created rows from the orphan lost pool.
+ * Pushes warnings when the pool can't satisfy a request (fragmented).
+ */
+function fillUnassignedCreatedFromOrphanPool(unassignedCreated, orphanedLostPool, cellsForPost, warnings) {
+  if (unassignedCreated.length === 0) {
+    return;
+  }
+  if (orphanedLostPool.length === 0) {
+    for (const u of unassignedCreated) {
+      warnings.push(`created habitat ${u.row.ref}: no lost-area pool available — geometry omitted`);
+    }
+    return;
+  }
+  const targets = unassignedCreated.map((u) => u.row.area * HECTARES_TO_SQ_M);
+  const allocated = allocateAcrossPool(orphanedLostPool, targets);
+  for (let i = 0; i < unassignedCreated.length; i++) {
+    warnOrAssignOrphanCell(unassignedCreated[i], allocated[i], targets[i], cellsForPost, warnings);
+  }
+}
+
+function warnOrAssignOrphanCell(unassigned, cell, target, cellsForPost, warnings) {
+  if (!cell) {
+    warnings.push(`created habitat ${unassigned.row.ref}: orphan lost-area pool exhausted — geometry omitted`);
+    return;
+  }
+  cellsForPost[unassigned.postIndex] = cell;
+  const actualM2 = polygonArea(cell);
+  if (actualM2 < target * ORPHAN_UNDERSIZE_WARN_RATIO) {
+    warnings.push(
+      `created habitat ${unassigned.row.ref}: orphan-pool carve produced ${(actualM2 / HECTARES_TO_SQ_M).toFixed(4)} ha, requested ${(target / HECTARES_TO_SQ_M).toFixed(4)} ha (lost-area pool is fragmented)`,
+    );
+  }
+}
+
+export function derivePostInterventionHabitatCells(baselineCellsByRef, baselineRowsRaw, postRows, warnings = []) {
+  const cellsForPost = new Array(postRows.length).fill(null);
+  const orphanedLostPool = [];
+  const { groupedByBaseline, unassignedCreated } = groupPostRowsForGeometry(postRows);
 
   for (const b of baselineRowsRaw) {
     const baselineRef = String(b.ref);
     const cell = baselineCellsByRef.get(baselineRef);
-    if (!cell) continue;
-    const total = b.area;
-    if (total <= 0) continue;
-    const cellArea = polygonArea(cell);
+    if (!cell || b.area <= 0) {
+      continue;
+    }
     const group = groupedByBaseline.get(baselineRef) ?? [];
-
-    // Build sub-targets in row-emission order: retained, enhanced, then each
-    // assigned-created in the order the row builder emitted them. The lost
-    // residual (anything not absorbed by an assigned-created) becomes the
-    // last sub-target and goes to the orphan pool.
-    const subTargets = [];
-    const subAssignments = []; // postIndex | "lostPool"
-
-    const retainedRow = group.find((g) => g.row.retention === "Retained");
-    if (b.areaRetained > 0 && retainedRow) {
-      subTargets.push((b.areaRetained / total) * cellArea);
-      subAssignments.push(retainedRow.postIndex);
-    }
-
-    const enhancedRow = group.find((g) => g.row.retention === "Enhanced");
-    if (b.areaEnhanced > 0 && enhancedRow) {
-      subTargets.push((b.areaEnhanced / total) * cellArea);
-      subAssignments.push(enhancedRow.postIndex);
-    }
-
-    let assignedCreatedM2 = 0;
-    const assignedCreatedRows = group.filter((g) => g.row.retention === "Created");
-    for (const g of assignedCreatedRows) {
-      const target = g.row.area * HECTARES_TO_SQ_M;
-      subTargets.push(target);
-      subAssignments.push(g.postIndex);
-      assignedCreatedM2 += target;
-    }
-
-    const totalLostM2 = (b.areaLost / total) * cellArea;
-    const residualLostM2 = totalLostM2 - assignedCreatedM2;
-    if (residualLostM2 > MIN_GENERATED_AREA_SQ_M) {
-      subTargets.push(residualLostM2);
-      subAssignments.push("lostPool");
-    }
-
-    if (subTargets.length === 0) continue;
-
-    const subCells = subTargets.length === 1 ? [cell] : partitionPolygonByAreas(cell, subTargets);
-
-    for (let i = 0; i < subAssignments.length; i++) {
-      const assignment = subAssignments[i];
-      const sub = subCells[i];
-      if (!sub) continue;
-      if (assignment === "lostPool") {
-        orphanedLostPool.push(sub);
-      } else {
-        cellsForPost[assignment] = sub;
-      }
-    }
+    const { subTargets, subAssignments } = planBaselineCellPartition(b, polygonArea(cell), group);
+    distributeBaselineCell(cell, subTargets, subAssignments, cellsForPost, orphanedLostPool);
   }
 
-  // Fallback: any A-2 created rows that didn't get matched to a baseline's
-  // lost-area budget carve from the orphan pool. Because we don't union the
-  // pool polygons (a real polygon-union dependency is intentionally avoided),
-  // a single create can only carve from one orphan polygon at a time —
-  // surface a warning when that produces a significantly undersized cell.
-  if (unassignedCreated.length > 0) {
-    if (orphanedLostPool.length === 0) {
-      for (const u of unassignedCreated) {
-        warnings.push(`created habitat ${u.row.ref}: no lost-area pool available — geometry omitted`);
-      }
-    } else {
-      const targets = unassignedCreated.map((u) => u.row.area * HECTARES_TO_SQ_M);
-      const allocated = allocateAcrossPool(orphanedLostPool, targets);
-      const UNDERSIZE_WARN_RATIO = 0.7;
-      for (let i = 0; i < unassignedCreated.length; i++) {
-        const cell = allocated[i];
-        const u = unassignedCreated[i];
-        if (!cell) {
-          warnings.push(`created habitat ${u.row.ref}: orphan lost-area pool exhausted — geometry omitted`);
-          continue;
-        }
-        cellsForPost[u.postIndex] = cell;
-        const actualM2 = polygonArea(cell);
-        if (actualM2 < targets[i] * UNDERSIZE_WARN_RATIO) {
-          warnings.push(
-            `created habitat ${u.row.ref}: orphan-pool carve produced ${(actualM2 / HECTARES_TO_SQ_M).toFixed(4)} ha, requested ${(targets[i] / HECTARES_TO_SQ_M).toFixed(4)} ha (lost-area pool is fragmented)`,
-          );
-        }
-      }
-    }
-  }
-
+  fillUnassignedCreatedFromOrphanPool(unassignedCreated, orphanedLostPool, cellsForPost, warnings);
   return cellsForPost;
 }
 
@@ -347,9 +400,13 @@ function allocateAcrossPool(pool, targets) {
   const live = pool.slice();
   for (let i = 0; i < targets.length; i++) {
     const target = targets[i];
-    if (target <= 0) continue;
+    if (target <= 0) {
+      continue;
+    }
     live.sort((a, b) => polygonArea(b) - polygonArea(a));
-    if (live.length === 0) break;
+    if (live.length === 0) {
+      break;
+    }
     const big = live[0];
     if (polygonArea(big) <= target + 1) {
       // Use the whole polygon — close enough.
@@ -380,7 +437,9 @@ export function writeHabitatsPostIntervention(db, cells, rows) {
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     const cell = cells[i];
-    if (!cell) continue;
+    if (!cell) {
+      continue;
+    }
     const geom = gpkgPolygon(SRS_ID, cell);
     expandEnvelope(allEnvelope, envelopeFromCoords(cell));
     stmt.run(
@@ -399,7 +458,7 @@ export function writeHabitatsPostIntervention(db, cells, rows) {
       String(r.proposed.advanceYears ?? 0),
       String(r.proposed.delayYears ?? 0),
       pick(SPATIAL_RISK_HABITAT),
-      "On-site",
+      LOCATION_ON_SITE,
       SITE_NAME,
       SURVEY_DATE,
       WORKBOOK_SURVEY_DETAILS,
@@ -430,13 +489,17 @@ export function writeHabitatsPostIntervention(db, cells, rows) {
 function generateLinestringOfLength(boundaryRing, targetLengthM, maxAttempts = 20) {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const start = pickInteriorPoint(boundaryRing);
-    if (!start) return null;
+    if (!start) {
+      return null;
+    }
     const angle = Math.random() * 2 * Math.PI;
     const end = [
       start[0] + targetLengthM * Math.cos(angle),
       start[1] + targetLengthM * Math.sin(angle),
     ];
-    if (!pointInRing(end, boundaryRing)) continue;
+    if (!pointInRing(end, boundaryRing)) {
+      continue;
+    }
 
     const dx = end[0] - start[0];
     const dy = end[1] - start[1];
@@ -458,7 +521,9 @@ function generateLinestringOfLength(boundaryRing, targetLengthM, maxAttempts = 2
       }
       points.push(mid);
     }
-    if (points.length === 0) continue;
+    if (points.length === 0) {
+      continue;
+    }
     points.push(end);
     return points;
   }
@@ -466,19 +531,20 @@ function generateLinestringOfLength(boundaryRing, targetLengthM, maxAttempts = 2
 }
 
 /**
- * Derive post-intervention linear coords (hedgerows / rivers).
+ * Derive post-intervention linear coords (hedgerows / rivers) — reuses
+ * each baseline linestring by walking a cursor along it and handing out
+ * consecutive, non-overlapping segments to its post rows. No fresh
+ * sampling for retained/enhanced rows; only Created rows generate fresh.
  *
- * Retained / Enhanced rows are carved from the baseline linestring as
- * consecutive, non-overlapping segments — for a baseline of 100 m with 70 m
- * retained + 30 m enhanced, the retained slice covers [0, 70 m] and the
- * enhanced slice covers [70 m, 100 m]. Created rows generate fresh
- * linestrings inside the boundary.
+ * For a baseline of 100 m with 70 m retained + 30 m enhanced, the
+ * retained slice covers [0, 70 m] and the enhanced slice covers
+ * [70 m, 100 m].
  */
-export function derivePostInterventionLinearCoords(boundaryRing, baselineCoordsByRef, postRows) {
-  const out = new Array(postRows.length).fill(null);
-
-  // Group baseline-derived rows by baselineRef so a single cursor can walk
-  // along the baseline allocating consecutive segments.
+/**
+ * Bucket baseline-derived post rows by baselineRef. Created rows are written
+ * out directly with fresh geometry and don't appear in the returned groups.
+ */
+function bucketLinearPostRowsForDerivation(postRows, boundaryRing, out) {
   const groupsByBaseline = new Map();
   for (let i = 0; i < postRows.length; i++) {
     const r = postRows[i];
@@ -486,28 +552,48 @@ export function derivePostInterventionLinearCoords(boundaryRing, baselineCoordsB
       out[i] = generateLinestringOfLength(boundaryRing, r.lengthM);
       continue;
     }
-    if (!r.baselineRef) continue;
-    if (!groupsByBaseline.has(r.baselineRef)) groupsByBaseline.set(r.baselineRef, []);
+    if (!r.baselineRef) {
+      continue;
+    }
+    if (!groupsByBaseline.has(r.baselineRef)) {
+      groupsByBaseline.set(r.baselineRef, []);
+    }
     groupsByBaseline.get(r.baselineRef).push({ row: r, postIndex: i });
   }
+  return groupsByBaseline;
+}
+
+/**
+ * Walk a cursor along `baseCoords` handing out consecutive segments to each
+ * row in `group`, writing into `out`.
+ */
+function distributeBaselineLinestring(baseCoords, group, out) {
+  const totalLen = linestringLength(baseCoords);
+  let cursor = 0;
+  for (const { row, postIndex } of group) {
+    if (totalLen === 0 || cursor >= totalLen) {
+      // Baseline exhausted — fall back to the full line so the row at
+      // least carries something. Length will read shorter than the
+      // workbook value, but the geometry is non-overlapping.
+      out[postIndex] = baseCoords;
+      continue;
+    }
+    const segment = sliceLinestringSegment(baseCoords, cursor, cursor + row.lengthM);
+    out[postIndex] = segment ?? baseCoords;
+    cursor += row.lengthM;
+  }
+}
+
+export function derivePostInterventionLinearCoords(boundaryRing, baselineCoordsByRef, postRows) {
+  const out = new Array(postRows.length).fill(null);
+  const groupsByBaseline = bucketLinearPostRowsForDerivation(postRows, boundaryRing, out);
 
   for (const [baselineRef, group] of groupsByBaseline) {
     const baseCoords = baselineCoordsByRef.get(baselineRef);
-    if (!baseCoords) continue;
-    const totalLen = linestringLength(baseCoords);
-    let cursor = 0;
-    for (const { row, postIndex } of group) {
-      if (totalLen === 0 || cursor >= totalLen) {
-        // Baseline exhausted — fall back to the full line so the row at
-        // least carries something. Length will read shorter than the
-        // workbook value, but the geometry is non-overlapping.
-        out[postIndex] = baseCoords;
-        continue;
-      }
-      const segment = sliceLinestringSegment(baseCoords, cursor, cursor + row.lengthM);
-      out[postIndex] = segment ?? baseCoords;
-      cursor += row.lengthM;
+    if (!baseCoords) {
+      continue;
     }
+    distributeBaselineLinestring(baseCoords, group, out);
   }
 
   return out;
@@ -519,11 +605,15 @@ export function derivePostInterventionLinearCoords(boundaryRing, baselineCoordsB
  * start and end points fall on.
  */
 function sliceLinestringSegment(coords, startM, endM) {
-  if (!coords || coords.length < 2 || endM <= startM) return null;
+  if (!coords || coords.length < 2 || endM <= startM) {
+    return null;
+  }
   const totalLen = linestringLength(coords);
   const sStart = Math.max(0, Math.min(startM, totalLen));
   const sEnd = Math.max(sStart, Math.min(endM, totalLen));
-  if (sEnd - sStart < 0.5) return null;
+  if (sEnd - sStart < 0.5) {
+    return null;
+  }
 
   const out = [];
   let acc = 0;
@@ -539,7 +629,9 @@ function sliceLinestringSegment(coords, startM, endM) {
       acc = segEnd;
       continue;
     }
-    if (segStart > sEnd) break;
+    if (segStart > sEnd) {
+      break;
+    }
     if (out.length === 0) {
       const t = seg === 0 ? 0 : (sStart - segStart) / seg;
       out.push([a[0] + dx * t, a[1] + dy * t]);
@@ -569,7 +661,9 @@ export function generateBaselineHedgerowGeometry(boundaryRing, baselineRows) {
   for (const row of baselineRows) {
     const coords = generateLinestringOfLength(boundaryRing, row.lengthM);
     coordsList.push(coords);
-    if (coords) byRef.set(row.baselineRef, coords);
+    if (coords) {
+      byRef.set(row.baselineRef, coords);
+    }
   }
   return { coordsList, byRef };
 }
@@ -594,7 +688,9 @@ export function writeHedgerowsBaseline(db, coordsList, rows) {
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     const coords = coordsList[i];
-    if (!coords) continue;
+    if (!coords) {
+      continue;
+    }
     expandEnvelope(allEnvelope, envelopeFromCoords(coords));
     stmt.run(
       gpkgLineString(SRS_ID, coords),
@@ -634,7 +730,9 @@ export function writeHedgerowsPostIntervention(db, coordsList, rows) {
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     const coords = coordsList[i];
-    if (!coords) continue;
+    if (!coords) {
+      continue;
+    }
     expandEnvelope(allEnvelope, envelopeFromCoords(coords));
     stmt.run(
       gpkgLineString(SRS_ID, coords),
@@ -649,8 +747,8 @@ export function writeHedgerowsPostIntervention(db, coordsList, rows) {
       Math.round(linestringLength(coords)),
       String(r.proposed.advanceYears ?? 0),
       String(r.proposed.delayYears ?? 0),
-      "Compensation inside LPA boundary or NCA of impact site",
-      "On-site",
+      SPATIAL_RISK_INSIDE_LPA,
+      LOCATION_ON_SITE,
       SITE_NAME,
       SURVEY_DATE,
       WORKBOOK_SURVEY_DETAILS,
@@ -696,7 +794,9 @@ export function generateBaselineRiverGeometry(boundaryRing, baselineRows) {
   for (const row of baselineRows) {
     const coords = generateLinestringOfLength(boundaryRing, row.lengthM);
     coordsList.push(coords);
-    if (coords) byRef.set(row.baselineRef, coords);
+    if (coords) {
+      byRef.set(row.baselineRef, coords);
+    }
   }
   return { coordsList, byRef };
 }
@@ -708,7 +808,9 @@ export function writeRiversBaseline(db, coordsList, rows) {
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     const coords = coordsList[i];
-    if (!coords) continue;
+    if (!coords) {
+      continue;
+    }
     expandEnvelope(allEnvelope, envelopeFromCoords(coords));
     stmt.run(
       gpkgLineString(SRS_ID, coords),
@@ -753,7 +855,9 @@ export function writeRiversPostIntervention(db, coordsList, rows) {
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     const coords = coordsList[i];
-    if (!coords) continue;
+    if (!coords) {
+      continue;
+    }
     expandEnvelope(allEnvelope, envelopeFromCoords(coords));
     stmt.run(
       gpkgLineString(SRS_ID, coords),
@@ -771,7 +875,7 @@ export function writeRiversPostIntervention(db, coordsList, rows) {
       String(r.proposed.advanceYears ?? 0),
       String(r.proposed.delayYears ?? 0),
       "Within waterbody catchment",
-      "On-site",
+      LOCATION_ON_SITE,
       "No Encroachment",
       "No Encroachment/No Encroachment",
       SITE_NAME,
@@ -816,7 +920,9 @@ export function generateBaselineTreePoints(boundaryRing, baselineRows) {
   for (const row of baselineRows) {
     const point = pickInteriorPoint(boundaryRing);
     points.push(point);
-    if (point) byRef.set(row.baselineRef, point);
+    if (point) {
+      byRef.set(row.baselineRef, point);
+    }
   }
   return { points, byRef };
 }
@@ -828,13 +934,15 @@ export function writeUrbanTreesBaseline(db, points, rows) {
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     const point = points[i];
-    if (!point) continue;
+    if (!point) {
+      continue;
+    }
     const [x, y] = point;
     expandEnvelope(allEnvelope, [x, x, y, y]);
     stmt.run(
       gpkgPoint(SRS_ID, x, y),
       r.ref,
-      "Medium",                              // Baseline Tree Size (workbook doesn't carry this)
+      TREE_SIZE_DEFAULT,                     // Baseline Tree Size (workbook doesn't carry this)
       r.condition,                           // Baseline Condition
       r.strategicSig,                        // Baseline Strategic Significance
       r.type,                                // Baseline Tree Type
@@ -856,7 +964,7 @@ export function writeUrbanTreesBaseline(db, points, rows) {
       WORKBOOK_IMPORT_LABEL,
       BASE_MAP,
       1,                                     // Count
-      "Urban",                               // Baseline Rural or Urban Tree
+      RURAL_OR_URBAN_TREE_URBAN,             // Baseline Rural or Urban Tree
       null,                                  // Proposed Rural or Urban Tree
     );
     written++;
@@ -865,6 +973,11 @@ export function writeUrbanTreesBaseline(db, points, rows) {
   return written;
 }
 
+/**
+ * Derive post-intervention tree points — retained/enhanced rows reuse the
+ * baseline point at the same baseline ref; Created rows get a fresh
+ * interior point.
+ */
 export function derivePostInterventionTreePoints(boundaryRing, baselinePointsByRef, postRows) {
   const out = new Array(postRows.length).fill(null);
   for (let i = 0; i < postRows.length; i++) {
@@ -887,26 +1000,28 @@ export function writeUrbanTreesPostIntervention(db, points, rows) {
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     const point = points[i];
-    if (!point) continue;
+    if (!point) {
+      continue;
+    }
     const [x, y] = point;
     expandEnvelope(allEnvelope, [x, x, y, y]);
     stmt.run(
       gpkgPoint(SRS_ID, x, y),
       r.ref,
-      "Medium",
+      TREE_SIZE_DEFAULT,
       r.baseline?.condition ?? null,
       r.baseline?.strategicSig ?? null,
       r.baseline?.type ?? null,
       r.retention,
       r.retention === "Lost" ? "Lost" : "Retained",
-      "Medium",
+      TREE_SIZE_DEFAULT,
       r.proposed.condition,
       r.proposed.strategicSig,
       r.proposed.type,
-      "On-site",
+      LOCATION_ON_SITE,
       String(r.proposed.advanceYears ?? 0),
       String(r.proposed.delayYears ?? 0),
-      "Compensation inside LPA boundary or NCA of impact site",
+      SPATIAL_RISK_INSIDE_LPA,
       SITE_NAME,
       SURVEY_DATE,
       WORKBOOK_SURVEY_DETAILS,
@@ -915,8 +1030,8 @@ export function writeUrbanTreesPostIntervention(db, points, rows) {
       WORKBOOK_IMPORT_LABEL,
       BASE_MAP,
       1,
-      r.baseline ? "Urban" : null,
-      "Urban",
+      r.baseline ? RURAL_OR_URBAN_TREE_URBAN : null,
+      RURAL_OR_URBAN_TREE_URBAN,
     );
     written++;
   }

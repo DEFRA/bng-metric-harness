@@ -23,7 +23,9 @@ export function pointInRing(point, ring) {
     const [xj, yj] = ring[j];
     const intersect =
       yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
-    if (intersect) inside = !inside;
+    if (intersect) {
+      inside = !inside;
+    }
   }
   return inside;
 }
@@ -34,7 +36,9 @@ export function pointInRing(point, ring) {
  */
 export function lineInsideRing(coords, boundary) {
   for (const p of coords) {
-    if (!pointInRing(p, boundary)) return false;
+    if (!pointInRing(p, boundary)) {
+      return false;
+    }
   }
   return true;
 }
@@ -232,7 +236,9 @@ function clipPolygonByHalfPlane(ring, point, normal) {
       out.push([p1[0] + t * (p2[0] - p1[0]), p1[1] + t * (p2[1] - p1[1])]);
     }
   }
-  if (out.length < 3) return null;
+  if (out.length < 3) {
+    return null;
+  }
   out.push([...out[0]]);
   return out;
 }
@@ -256,8 +262,12 @@ function splitPolygonRandom(ring) {
   let maxSd = -Infinity;
   for (let i = 0; i < ring.length - 1; i++) {
     const s = (ring[i][0] - c[0]) * normal[0] + (ring[i][1] - c[1]) * normal[1];
-    if (s < minSd) minSd = s;
-    if (s > maxSd) maxSd = s;
+    if (s < minSd) {
+      minSd = s;
+    }
+    if (s > maxSd) {
+      maxSd = s;
+    }
   }
   const offset = randBetween(minSd * 0.3, maxSd * 0.3);
   const chordPoint = [c[0] + normal[0] * offset, c[1] + normal[1] * offset];
@@ -277,6 +287,54 @@ function clipPolygonByOffset(ring, normal, offset) {
   return clipPolygonByHalfPlane(ring, point, normal);
 }
 
+/** Project every ring vertex onto `normal` and return the min/max scalars. */
+function projectionRange(ring, normal) {
+  let minSd = Infinity;
+  let maxSd = -Infinity;
+  for (let i = 0; i < ring.length - 1; i++) {
+    const s = ring[i][0] * normal[0] + ring[i][1] * normal[1];
+    if (s < minSd) {
+      minSd = s;
+    }
+    if (s > maxSd) {
+      maxSd = s;
+    }
+  }
+  return { minSd, maxSd };
+}
+
+/**
+ * Binary-search the chord offset along `normal` that splits `ring` so the
+ * "kept" side (`p · normal >= offset`) has area `targetArea`.
+ */
+function searchChordOffsetForArea(ring, normal, lo, hi, targetArea, iterations = 32) {
+  for (let iter = 0; iter < iterations; iter++) {
+    const mid = (lo + hi) / 2;
+    const piece = clipPolygonByOffset(ring, normal, mid);
+    const a = piece ? polygonArea(piece) : 0;
+    if (a > targetArea) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+  return hi;
+}
+
+/** One attempt at carving — random chord direction + binary search. */
+function tryCarveTargetArea(ring, targetArea) {
+  const angle = Math.random() * Math.PI;
+  const normal = [Math.cos(angle), Math.sin(angle)];
+  const { minSd, maxSd } = projectionRange(ring, normal);
+  const offset = searchChordOffsetForArea(ring, normal, minSd, maxSd, targetArea);
+  const piece = clipPolygonByOffset(ring, normal, offset);
+  const rest = clipPolygonByOffset(ring, [-normal[0], -normal[1]], -offset);
+  if (piece && rest && polygonArea(piece) > 1 && polygonArea(rest) > 1) {
+    return { piece, rest, pieceArea: polygonArea(piece) };
+  }
+  return null;
+}
+
 /**
  * Carve a piece of approximately `targetArea` off a convex polygon. Returns
  * { piece, rest, pieceArea } or null if no chord direction could produce a
@@ -286,31 +344,9 @@ function clipPolygonByOffset(ring, normal, offset) {
  */
 export function carveTargetArea(ring, targetArea) {
   for (let attempt = 0; attempt < 8; attempt++) {
-    const angle = Math.random() * Math.PI;
-    const normal = [Math.cos(angle), Math.sin(angle)];
-
-    let minSd = Infinity;
-    let maxSd = -Infinity;
-    for (let i = 0; i < ring.length - 1; i++) {
-      const s = ring[i][0] * normal[0] + ring[i][1] * normal[1];
-      if (s < minSd) minSd = s;
-      if (s > maxSd) maxSd = s;
-    }
-    // Binary search the chord offset for which the kept-side area === target.
-    // Larger offset → smaller kept area (kept side is `p · normal >= offset`).
-    let lo = minSd;
-    let hi = maxSd;
-    for (let iter = 0; iter < 32; iter++) {
-      const mid = (lo + hi) / 2;
-      const piece = clipPolygonByOffset(ring, normal, mid);
-      const a = piece ? polygonArea(piece) : 0;
-      if (a > targetArea) lo = mid;
-      else hi = mid;
-    }
-    const piece = clipPolygonByOffset(ring, normal, hi);
-    const rest = clipPolygonByOffset(ring, [-normal[0], -normal[1]], -hi);
-    if (piece && rest && polygonArea(piece) > 1 && polygonArea(rest) > 1) {
-      return { piece, rest, pieceArea: polygonArea(piece) };
+    const result = tryCarveTargetArea(ring, targetArea);
+    if (result) {
+      return result;
     }
   }
   return null;
@@ -327,8 +363,12 @@ export function carveTargetArea(ring, targetArea) {
  * scale the boundary up front to make the numbers work).
  */
 export function partitionPolygonByAreas(ring, targetAreas) {
-  if (targetAreas.length === 0) return [];
-  if (targetAreas.length === 1) return [ring];
+  if (targetAreas.length === 0) {
+    return [];
+  }
+  if (targetAreas.length === 1) {
+    return [ring];
+  }
 
   const indexed = targetAreas.map((a, i) => ({ area: a, idx: i }));
   // Carve largest first so the last (smallest) carve is least sensitive to
@@ -358,7 +398,9 @@ export function partitionPolygonByAreas(ring, targetAreas) {
  */
 export function scaleRingToArea(ring, targetArea) {
   const currentArea = polygonArea(ring);
-  if (currentArea <= 0) return ring;
+  if (currentArea <= 0) {
+    return ring;
+  }
   const k = Math.sqrt(targetArea / currentArea);
   const [cx, cy] = polygonCentroid(ring);
   return ring.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k]);
@@ -383,7 +425,9 @@ export function partitionPolygon(ring, n, maxRetriesPerSplit = 5) {
         break;
       }
     }
-    if (!split) break;
+    if (!split) {
+      break;
+    }
     parcels.shift();
     parcels.push(split[0], split[1]);
   }
@@ -404,7 +448,9 @@ export function pickInteriorPoint(boundaryRing, maxAttempts = 100) {
   const bbox = envelopeFromCoords(boundaryRing);
   for (let i = 0; i < maxAttempts; i++) {
     const p = randomPointInBBox(bbox);
-    if (pointInRing(p, boundaryRing)) return p;
+    if (pointInRing(p, boundaryRing)) {
+      return p;
+    }
   }
   return null;
 }
@@ -419,11 +465,15 @@ export function pickInteriorPoint(boundaryRing, maxAttempts = 100) {
 export function generateLinestring(boundaryRing) {
   const start = pickInteriorPoint(boundaryRing);
   const end = pickInteriorPoint(boundaryRing);
-  if (!start || !end) return null;
+  if (!start || !end) {
+    return null;
+  }
   const dx = end[0] - start[0];
   const dy = end[1] - start[1];
   const len = Math.sqrt(dx * dx + dy * dy);
-  if (len === 0) return null;
+  if (len === 0) {
+    return null;
+  }
   const px = -dy / len;
   const py = dx / len;
   const numMid = 1 + randInt(0, 3);

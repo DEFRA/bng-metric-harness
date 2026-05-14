@@ -110,14 +110,18 @@ const { values: args } = parseArgs({
     // development gpkg, --mode post-intervention writes only the proposed
     // end-state, --mode both (default) writes both side by side from the
     // same workbook.
-    mode: { type: "string", default: "both" },
+    mode: { type: "string", default: undefined },
   },
   allowPositionals: false,
 });
 
-const VALID_MODES = new Set(["baseline", "post-intervention", "both"]);
-if (!VALID_MODES.has(args.mode)) {
-  console.error(`--mode must be one of: baseline, post-intervention, both (got: ${args.mode})`);
+const MODE_BASELINE = "baseline";
+const MODE_POST_INTERVENTION = "post-intervention";
+const MODE_BOTH = "both";
+const VALID_MODES = new Set([MODE_BASELINE, MODE_POST_INTERVENTION, MODE_BOTH]);
+const selectedMode = args.mode ?? MODE_BOTH;
+if (!VALID_MODES.has(selectedMode)) {
+  console.error(`--mode must be one of: ${[...VALID_MODES].join(", ")} (got: ${args.mode})`);
   process.exit(1);
 }
 
@@ -153,13 +157,17 @@ function rewriteGithubBlobUrl(url) {
   const m = url.match(
     /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/,
   );
-  if (!m) return url;
+  if (!m) {
+    return url;
+  }
   const [, owner, repo, ref, p] = m;
   return `https://media.githubusercontent.com/media/${owner}/${repo}/${ref}/${p}`;
 }
 
 async function downloadToCache(url) {
-  if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
+  if (!existsSync(CACHE_DIR)) {
+    mkdirSync(CACHE_DIR, { recursive: true });
+  }
   const hash = createHash("sha256").update(url).digest("hex").slice(0, 16);
   const ext = path.extname(new URL(url).pathname) || ".xlsx";
   const cached = path.join(CACHE_DIR, `${hash}${ext}`);
@@ -319,7 +327,7 @@ function logWorkbookFixtureBanner({
   info(
     `  site: ${plan.siteName} (${workbook.siteInfo.planningAuthority ?? "unknown LPA"})`,
   );
-  info(`  mode: ${mode ?? "both"}`);
+  info(`  mode: ${mode ?? MODE_BOTH}`);
   info(
     `  total area: ${plan.totalAreaHa.toFixed(4)} ha (${Math.round(plan.totalAreaM2)} m²)`,
   );
@@ -346,14 +354,41 @@ function logWorkbookFileSummary(label, written, outPath) {
   );
 }
 
+function surfaceWorkbookWarnings(workbook, baselineRows, postRows) {
+  for (const w of workbook.summary.warnings) {
+    warn(`  ${w}`);
+  }
+  for (const s of workbook.summary.skipped) {
+    warn(`  skipped ${s.sheet}:${s.row} (${s.reason})`);
+  }
+  for (const r of baselineRows.skipReasons) {
+    warn(`  ${r}`);
+  }
+  if (postRows) {
+    for (const r of postRows.skipReasons) {
+      warn(`  ${r}`);
+    }
+    for (const r of postRows.warnings) {
+      warn(`  ${r}`);
+    }
+  }
+}
+
+function bannerOutPath(outPaths, mode) {
+  if (mode === MODE_BOTH) {
+    return `${outPaths.baseline} + ${outPaths.postIntervention}`;
+  }
+  return outPaths.baseline ?? outPaths.postIntervention;
+}
+
 function generateFromWorkbook(
   outPaths,
   workbook,
   sourceLabel,
-  { strict = false, centre, mode = "both" } = {},
+  { strict = false, centre, mode = MODE_BOTH } = {},
 ) {
   const baselineRows = buildBaselineRows(workbook, { strict });
-  const postRows = mode === "baseline" ? null : buildPostInterventionRows(workbook, { strict });
+  const postRows = mode === MODE_BASELINE ? null : buildPostInterventionRows(workbook, { strict });
 
   // Use the baseline habitat areas (not the post-intervention sub-areas) to
   // size the RLB so it can hold the full pre-development site.
@@ -364,7 +399,7 @@ function generateFromWorkbook(
     workbook,
     sourceLabel,
     centre,
-    outPath: mode === "both" ? `${outPaths.baseline} + ${outPaths.postIntervention}` : (outPaths.baseline ?? outPaths.postIntervention),
+    outPath: bannerOutPath(outPaths, mode),
     habitatRows: baselineRows.habitats,
     plan,
     mode,
@@ -377,21 +412,16 @@ function generateFromWorkbook(
     return false;
   }
 
-  const writeBaseline = mode !== "post-intervention";
-  const writePostInt = mode !== "baseline";
-
-  // We always need to compute baseline geometry — it's the input to post-int
-  // geometry derivation. If the user only asked for post-intervention, we
-  // run the baseline pipeline into a throwaway in-memory db.
-  let baselineGeom;
-  if (writeBaseline) {
-    baselineGeom = generateBaselineFile(outPaths.baseline, workbook, baselineRows, plan, centre);
+  // We always need baseline geometry — it's the input to post-intervention
+  // derivation. If the user asked for post-intervention only, the baseline
+  // pipeline still runs but writes to an in-memory throwaway db.
+  const baselineDest = mode === MODE_POST_INTERVENTION ? ":memory:" : outPaths.baseline;
+  const baselineGeom = generateBaselineFile(baselineDest, workbook, baselineRows, plan, centre);
+  if (mode !== MODE_POST_INTERVENTION) {
     logWorkbookFileSummary("baseline", baselineGeom.written, outPaths.baseline);
-  } else {
-    baselineGeom = generateBaselineFile(":memory:", workbook, baselineRows, plan, centre);
   }
 
-  if (writePostInt) {
+  if (mode !== MODE_BASELINE) {
     const postWritten = generatePostInterventionFile(
       outPaths.postIntervention,
       workbook,
@@ -402,14 +432,7 @@ function generateFromWorkbook(
     logWorkbookFileSummary("post-intervention", postWritten.written, outPaths.postIntervention);
   }
 
-  // Surface warnings and skips.
-  for (const w of workbook.summary.warnings) warn(`  ${w}`);
-  for (const s of workbook.summary.skipped) warn(`  skipped ${s.sheet}:${s.row} (${s.reason})`);
-  for (const r of baselineRows.skipReasons) warn(`  ${r}`);
-  if (postRows) {
-    for (const r of postRows.skipReasons) warn(`  ${r}`);
-    for (const r of postRows.warnings) warn(`  ${r}`);
-  }
+  surfaceWorkbookWarnings(workbook, baselineRows, postRows);
   console.log(color("green", `✔ Done.`));
   return true;
 }
@@ -431,7 +454,9 @@ function workbookOutputNames(source) {
 }
 
 async function runFromWorkbook(source, { strict, inspect, centre, mode }) {
-  if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
+  if (!existsSync(OUT_DIR)) {
+    mkdirSync(OUT_DIR, { recursive: true });
+  }
   const localPath = await resolveWorkbookSource(source);
   const workbook = readMetricWorkbook(localPath);
 
@@ -473,8 +498,12 @@ async function runFromWorkbook(source, { strict, inspect, centre, mode }) {
     baseline: path.join(OUT_DIR, names.baseline),
     postIntervention: path.join(OUT_DIR, names.postIntervention),
   };
-  if (mode !== "post-intervention" && existsSync(outPaths.baseline)) unlinkSync(outPaths.baseline);
-  if (mode !== "baseline" && existsSync(outPaths.postIntervention)) unlinkSync(outPaths.postIntervention);
+  if (mode !== MODE_POST_INTERVENTION && existsSync(outPaths.baseline)) {
+    unlinkSync(outPaths.baseline);
+  }
+  if (mode !== MODE_BASELINE && existsSync(outPaths.postIntervention)) {
+    unlinkSync(outPaths.postIntervention);
+  }
 
   generateFromWorkbook(outPaths, workbook, source, { strict, centre, mode });
 }
@@ -559,7 +588,7 @@ async function main() {
           strict: args["strict-habitats"],
           inspect: false,
           centre,
-          mode: args.mode,
+          mode: selectedMode,
         });
       } catch (e) {
         error(`Failed for ${entry}: ${e.message ?? e}`);
@@ -573,7 +602,7 @@ async function main() {
       strict: args["strict-habitats"],
       inspect: args.inspect,
       centre,
-      mode: args.mode,
+      mode: selectedMode,
     });
     return;
   }
@@ -582,7 +611,9 @@ async function main() {
   const total = Math.max(1, parseInt(args.count, 10) || 1);
   const bad = args.bad;
 
-  if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
+  if (!existsSync(OUT_DIR)) {
+    mkdirSync(OUT_DIR, { recursive: true });
+  }
 
   for (let i = 1; i <= total; i++) {
     const suffix =

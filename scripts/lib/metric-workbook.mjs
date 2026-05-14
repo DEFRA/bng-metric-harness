@@ -68,7 +68,9 @@ function findHeader(aoa, requiredTokens) {
       best = { score: matched.length, dataStart: r + 2, header: merged };
     }
   }
-  if (best.score < requiredTokens.length) return { dataStart: -1, header: null };
+  if (best.score < requiredTokens.length) {
+    return { dataStart: -1, header: null };
+  }
   return best;
 }
 
@@ -90,20 +92,42 @@ function buildColumnIndex(headerRow) {
   const idx = {};
   for (let c = 0; c < headerRow.length; c++) {
     const v = headerRow[c];
-    if (v == null) continue;
+    if (v == null) {
+      continue;
+    }
     const key = String(v).trim();
-    if (!key) continue;
-    if (!(key in idx)) idx[key] = c;
+    if (!key) {
+      continue;
+    }
+    if (!(key in idx)) {
+      idx[key] = c;
+    }
   }
   return idx;
 }
+
+// Header text strings that appear in multiple sheet readers — promoted to
+// named constants so the SonarCloud duplicate-literal rule is happy and any
+// rename only needs to happen in one place.
+const HDR_REF = "Ref";
+const HDR_BASELINE_REF = "Baseline ref";
+const HDR_AREA_HECTARES = "Area (hectares)";
+const HDR_LENGTH_KM = "Length (km)";
+const HDR_DISTINCTIVENESS = "Distinctiveness";
+const HDR_CONDITION = "Condition";
+const HDR_STRATEGIC_SIGNIFICANCE = "Strategic significance";
+const HDR_PROPOSED_BROAD_HABITAT = "Proposed Broad Habitat";
+const HDR_PROPOSED_HABITAT = "Proposed habitat";
+const HDR_BROAD_HABITAT = "Broad Habitat";
 
 // Pick a column by trying several candidate header strings. The index is
 // already trimmed, so candidates only need to vary by spelling/case, not
 // whitespace.
 function col(idx, ...candidates) {
   for (const c of candidates) {
-    if (c in idx) return idx[c];
+    if (c in idx) {
+      return idx[c];
+    }
   }
   return -1;
 }
@@ -115,28 +139,42 @@ function col(idx, ...candidates) {
 // are trimmed and lower-cased — candidates don't need whitespace or case
 // variants.
 function findColAfter(header, candidates, startCol) {
-  if (startCol < 0) return -1;
+  if (startCol < 0) {
+    return -1;
+  }
   const wanted = candidates.map((c) => c.trim().toLowerCase());
   for (let c = startCol + 1; c < header.length; c++) {
     const v = header[c];
-    if (v == null) continue;
+    if (v == null) {
+      continue;
+    }
     const key = String(v).trim().toLowerCase();
-    if (wanted.includes(key)) return c;
+    if (wanted.includes(key)) {
+      return c;
+    }
   }
   return -1;
 }
 
 function readNumber(v) {
-  if (v == null) return null;
-  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (v == null) {
+    return null;
+  }
+  if (typeof v === "number") {
+    return Number.isFinite(v) ? v : null;
+  }
   const s = String(v).trim();
-  if (!s) return null;
+  if (!s) {
+    return null;
+  }
   const n = Number(s);
   return Number.isFinite(n) ? n : null;
 }
 
 function readString(v) {
-  if (v == null) return null;
+  if (v == null) {
+    return null;
+  }
   const s = String(v).trim();
   return s || null;
 }
@@ -147,7 +185,9 @@ function readString(v) {
 
 function readSiteInfo(workbook) {
   const ws = workbook.Sheets[SHEETS.start];
-  if (!ws) return {};
+  if (!ws) {
+    return {};
+  }
   const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
 
   // Each "Project details" field appears as label/value on the same row but in
@@ -163,10 +203,14 @@ function readSiteInfo(workbook) {
   };
   const info = {};
   for (const row of aoa) {
-    if (!row) continue;
+    if (!row) {
+      continue;
+    }
     for (let c = 0; c < row.length; c++) {
       const key = readString(row[c]);
-      if (!key || !(key in labels)) continue;
+      if (!key || !(key in labels)) {
+        continue;
+      }
       for (let cc = c + 1; cc < row.length; cc++) {
         const val = row[cc];
         if (val != null && String(val).trim() !== "") {
@@ -179,7 +223,9 @@ function readSiteInfo(workbook) {
 
   // Total site area (hectares) — search by label.
   for (const row of aoa) {
-    if (!row) continue;
+    if (!row) {
+      continue;
+    }
     for (let c = 0; c < row.length; c++) {
       const s = readString(row[c]);
       if (s && /total site area .*hectares/i.test(s)) {
@@ -193,7 +239,9 @@ function readSiteInfo(workbook) {
         break;
       }
     }
-    if ("totalSiteAreaHa" in info) break;
+    if ("totalSiteAreaHa" in info) {
+      break;
+    }
   }
 
   return info;
@@ -212,21 +260,23 @@ function readSiteInfo(workbook) {
  */
 function readBaselineHabitats(workbook, summary) {
   const ws = workbook.Sheets[SHEETS.habitatsBaseline];
-  if (!ws) return [];
+  if (!ws) {
+    return [];
+  }
   const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
 
-  const { dataStart, header } = findHeader(aoa, ["Ref", "Broad Habitat", "Area (hectares)"]);
+  const { dataStart, header } = findHeader(aoa, [HDR_REF, HDR_BROAD_HABITAT, HDR_AREA_HECTARES]);
   if (dataStart < 0) {
     summary.warnings.push(`Could not locate header row in ${SHEETS.habitatsBaseline}`);
     return [];
   }
   const idx = buildColumnIndex(header);
-  const cRef = col(idx, "Ref");
-  const cBroad = col(idx, "Broad Habitat");
+  const cRef = col(idx, HDR_REF);
+  const cBroad = col(idx, HDR_BROAD_HABITAT);
   const cType = col(idx, "Habitat Type", "Habitat type");
-  const cArea = col(idx, "Area (hectares)");
-  const cDist = col(idx, "Distinctiveness");
-  const cCond = col(idx, "Condition");
+  const cArea = col(idx, HDR_AREA_HECTARES);
+  const cDist = col(idx, HDR_DISTINCTIVENESS);
+  const cCond = col(idx, HDR_CONDITION);
   const cStrat = findStrategicSignificanceCol(header);
   const cIrrep = col(idx, "Irreplaceable habitat");
   // A-1 carries the per-row fate split that drives post-intervention generation.
@@ -237,16 +287,21 @@ function readBaselineHabitats(workbook, summary) {
   const out = [];
   for (let r = dataStart; r < aoa.length; r++) {
     const row = aoa[r];
-    if (!row) continue;
-    const type = readString(row[cType]);
-    const broad = readString(row[cBroad]);
-    const area = readNumber(row[cArea]);
-    if (!type || !broad) continue;
-    if (/^total/i.test(type) || /^site area/i.test(type)) break;
-    if (area == null) {
+    if (!row) {
+      continue;
+    }
+    const decision = classifyBaselineHabitatRow(row, { cType, cBroad, cArea });
+    if (decision.stop) {
+      break;
+    }
+    if (decision.skipBlankArea) {
       summary.skipped.push({ sheet: SHEETS.habitatsBaseline, row: r + 1, reason: "blank area" });
       continue;
     }
+    if (decision.skip) {
+      continue;
+    }
+    const { type, broad, area } = decision;
     out.push({
       ref: readString(row[cRef]) ?? String(out.length + 1),
       broad,
@@ -266,6 +321,24 @@ function readBaselineHabitats(workbook, summary) {
   return out;
 }
 
+/** Decision codes for one A-1 row: stop scanning, skip silently, skip-with-
+ * warning for blank area, or keep with parsed values. */
+function classifyBaselineHabitatRow(row, { cType, cBroad, cArea }) {
+  const type = readString(row[cType]);
+  const broad = readString(row[cBroad]);
+  const area = readNumber(row[cArea]);
+  if (!type || !broad) {
+    return { skip: true };
+  }
+  if (/^total/i.test(type) || /^site area/i.test(type)) {
+    return { stop: true };
+  }
+  if (area == null) {
+    return { skipBlankArea: true };
+  }
+  return { type, broad, area };
+}
+
 /**
  * Strategic Significance has two columns with the same header in the template
  * (a category and a description). Pick the *first* one — it's the canonical
@@ -273,7 +346,9 @@ function readBaselineHabitats(workbook, summary) {
  */
 function findStrategicSignificanceCol(headerRow) {
   for (let c = 0; c < headerRow.length; c++) {
-    if (readString(headerRow[c]) === "Strategic significance") return c;
+    if (readString(headerRow[c]) === HDR_STRATEGIC_SIGNIFICANCE) {
+      return c;
+    }
   }
   return -1;
 }
@@ -291,19 +366,21 @@ function findStrategicSignificanceCol(headerRow) {
  */
 function readCreatedHabitats(workbook, summary) {
   const ws = workbook.Sheets[SHEETS.habitatsCreation];
-  if (!ws) return [];
+  if (!ws) {
+    return [];
+  }
   const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
 
-  const { dataStart, header } = findHeader(aoa, ["Ref", "Area (hectares)", "Distinctiveness"]);
+  const { dataStart, header } = findHeader(aoa, [HDR_REF, HDR_AREA_HECTARES, HDR_DISTINCTIVENESS]);
   if (dataStart < 0) {
     summary.warnings.push(`Could not locate header row in ${SHEETS.habitatsCreation}`);
     return [];
   }
   const idx = buildColumnIndex(header);
-  const cRef = col(idx, "Ref");
-  const cArea = col(idx, "Area (hectares)");
-  const cDist = col(idx, "Distinctiveness");
-  const cCond = col(idx, "Condition");
+  const cRef = col(idx, HDR_REF);
+  const cArea = col(idx, HDR_AREA_HECTARES);
+  const cDist = col(idx, HDR_DISTINCTIVENESS);
+  const cCond = col(idx, HDR_CONDITION);
   const cStrat = findStrategicSignificanceCol(header);
   const cAdvance = col(idx, "Habitat created in advance (years)", "Habitat created in advance");
   const cDelay = col(idx, "Delay in starting habitat creation (years)", "Delay in starting habitat creation");
@@ -314,7 +391,9 @@ function readCreatedHabitats(workbook, summary) {
   // walk right from cRef to cArea, take the last three non-empty header cells.
   const labelCols = [];
   for (let c = cRef + 1; c < cArea; c++) {
-    if (readString(header[c])) labelCols.push(c);
+    if (readString(header[c])) {
+      labelCols.push(c);
+    }
   }
   const cFull = labelCols[labelCols.length - 1] ?? -1;
   const cType = labelCols[labelCols.length - 2] ?? -1;
@@ -323,14 +402,20 @@ function readCreatedHabitats(workbook, summary) {
   const out = [];
   for (let r = dataStart; r < aoa.length; r++) {
     const row = aoa[r];
-    if (!row) continue;
+    if (!row) {
+      continue;
+    }
     const ref = readString(row[cRef]);
     const broad = readString(row[cBroad]);
     const type = readString(row[cType]);
     const full = readString(row[cFull]);
     const area = readNumber(row[cArea]);
-    if (!broad || !type) continue;
-    if (/^total/i.test(broad) || /^totals/i.test(type)) break;
+    if (!broad || !type) {
+      continue;
+    }
+    if (/^total/i.test(broad) || /^totals/i.test(type)) {
+      break;
+    }
     if (area == null) {
       summary.skipped.push({ sheet: SHEETS.habitatsCreation, row: r + 1, reason: "blank area" });
       continue;
@@ -359,42 +444,50 @@ function readCreatedHabitats(workbook, summary) {
  */
 function readEnhancementMappings(workbook, summary) {
   const ws = workbook.Sheets[SHEETS.habitatsEnhancement];
-  if (!ws) return [];
+  if (!ws) {
+    return [];
+  }
   const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
 
-  const { dataStart, header } = findHeader(aoa, ["Baseline ref", "Proposed Broad Habitat", "Proposed habitat"]);
+  const { dataStart, header } = findHeader(aoa, [HDR_BASELINE_REF, HDR_PROPOSED_BROAD_HABITAT, HDR_PROPOSED_HABITAT]);
   if (dataStart < 0) {
     // sheet may exist but be empty for this site — not an error
     return [];
   }
   const idx = buildColumnIndex(header);
-  const cBaseRef = col(idx, "Baseline ref");
-  const cPropBroad = col(idx, "Proposed Broad Habitat");
-  const cPropType = col(idx, "Proposed habitat");
+  const cBaseRef = col(idx, HDR_BASELINE_REF);
+  const cPropBroad = col(idx, HDR_PROPOSED_BROAD_HABITAT);
+  const cPropType = col(idx, HDR_PROPOSED_HABITAT);
   // Two "Area (hectares)" columns exist — the first is the baseline parcel
   // total (col 6 in real workbooks), the second is the enhanced sub-area
   // (col 21). The fate columns on A-1 are authoritative for area, so this
   // value is informational only.
-  const cArea = col(idx, "Total habitat area (hectares)", "Area (hectares)");
+  const cArea = col(idx, "Total habitat area (hectares)", HDR_AREA_HECTARES);
   // The proposed Distinctiveness/Condition/Strategic significance headers sit
   // after the "Proposed habitat" group in the merged row and don't carry the
   // "Proposed" prefix in real workbooks. Locate them positionally — anything
   // to the right of cPropType is the proposed side.
-  const cPropDist = findColAfter(header, ["Distinctiveness"], cPropType);
-  const cPropCond = findColAfter(header, ["Condition"], cPropType);
-  const cPropStrat = findColAfter(header, ["Strategic significance"], cPropType);
+  const cPropDist = findColAfter(header, [HDR_DISTINCTIVENESS], cPropType);
+  const cPropCond = findColAfter(header, [HDR_CONDITION], cPropType);
+  const cPropStrat = findColAfter(header, [HDR_STRATEGIC_SIGNIFICANCE], cPropType);
   const cAdvance = col(idx, "Habitat enhanced in advance (years)", "Habitat enhanced in advance");
   const cDelay = col(idx, "Delay in starting enhancement (years)", "Delay in starting habitat enhancement", "Delay in starting habitat enhancement (years)");
 
   const out = [];
   for (let r = dataStart; r < aoa.length; r++) {
     const row = aoa[r];
-    if (!row) continue;
+    if (!row) {
+      continue;
+    }
     const baselineRef = readString(row[cBaseRef]);
     const propBroad = readString(row[cPropBroad]);
     const propType = readString(row[cPropType]);
-    if (!baselineRef || !propBroad || !propType) continue;
-    if (/^total/i.test(baselineRef) || /^totals/i.test(propBroad)) break;
+    if (!baselineRef || !propBroad || !propType) {
+      continue;
+    }
+    if (/^total/i.test(baselineRef) || /^totals/i.test(propBroad)) {
+      break;
+    }
     out.push({
       baselineRef,
       proposedBroad: propBroad,
@@ -418,20 +511,24 @@ function readEnhancementMappings(workbook, summary) {
 
 function readLinearFeatures(workbook, sheetName, kind, summary, { withFate = false } = {}) {
   const ws = workbook.Sheets[sheetName];
-  if (!ws) return [];
+  if (!ws) {
+    return [];
+  }
   const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
 
   // Hedge sheets use "Hedge number" + "Habitat type"; watercourse sheets use
   // "Watercourse type". Both have "Length (km)" as a stable anchor.
   const typeHeader = kind === "hedge" ? "Habitat type" : "Watercourse type";
-  const { dataStart, header } = findHeader(aoa, ["Ref", typeHeader, "Length (km)"]);
-  if (dataStart < 0) return [];
+  const { dataStart, header } = findHeader(aoa, [HDR_REF, typeHeader, HDR_LENGTH_KM]);
+  if (dataStart < 0) {
+    return [];
+  }
   const idx = buildColumnIndex(header);
-  const cRef = col(idx, "Ref");
+  const cRef = col(idx, HDR_REF);
   const cType = col(idx, typeHeader);
-  const cLen = col(idx, "Length (km)");
-  const cDist = col(idx, "Distinctiveness");
-  const cCond = col(idx, "Condition");
+  const cLen = col(idx, HDR_LENGTH_KM);
+  const cDist = col(idx, HDR_DISTINCTIVENESS);
+  const cCond = col(idx, HDR_CONDITION);
   const cStrat = findStrategicSignificanceCol(header);
   // B-1 / C-1 carry the same per-row fate split as A-1, in length units (km).
   // C-1 uses "Length Lost" (title-case) while B-1 uses "Length lost" — col()
@@ -441,42 +538,70 @@ function readLinearFeatures(workbook, sheetName, kind, summary, { withFate = fal
   const cLenEnhanced = withFate ? col(idx, "Length enhanced", "Length Enhanced") : -1;
   const cLenLost = withFate ? col(idx, "Length lost", "Length Lost") : -1;
 
+  const fateCols = { cLenRetained, cLenEnhanced, cLenLost };
+  const baseCols = { cRef, cType, cLen, cDist, cCond, cStrat };
   const out = [];
   for (let r = dataStart; r < aoa.length; r++) {
     const row = aoa[r];
-    if (!row) continue;
-    const ref = readString(row[cRef]);
-    const type = readString(row[cType]);
-    const lenKm = readNumber(row[cLen]);
-    if (!type) continue;
-    if (/^total/i.test(type)) break;
-    if (lenKm == null) {
+    if (!row) {
+      continue;
+    }
+    const decision = classifyLinearRow(row, baseCols);
+    if (decision.stop) {
+      break;
+    }
+    if (decision.skipBlankLen) {
       summary.skipped.push({ sheet: sheetName, row: r + 1, reason: "blank length" });
       continue;
     }
-    const entry = {
-      ref: ref ?? String(out.length + 1),
-      type,
-      lengthKm: lenKm,
-      lengthM: Math.round(lenKm * 1000),
-      distinctiveness: readString(row[cDist]),
-      condition: readString(row[cCond]),
-      strategicSignificance: cStrat >= 0 ? readString(row[cStrat]) : null,
-    };
-    if (withFate) {
-      const lenRetainedKm = cLenRetained >= 0 ? readNumber(row[cLenRetained]) ?? 0 : 0;
-      const lenEnhancedKm = cLenEnhanced >= 0 ? readNumber(row[cLenEnhanced]) ?? 0 : 0;
-      const lenLostKm = cLenLost >= 0 ? readNumber(row[cLenLost]) ?? 0 : 0;
-      entry.lengthRetainedKm = lenRetainedKm;
-      entry.lengthEnhancedKm = lenEnhancedKm;
-      entry.lengthLostKm = lenLostKm;
-      entry.lengthRetainedM = Math.round(lenRetainedKm * 1000);
-      entry.lengthEnhancedM = Math.round(lenEnhancedKm * 1000);
-      entry.lengthLostM = Math.round(lenLostKm * 1000);
+    if (decision.skip) {
+      continue;
     }
-    out.push(entry);
+    out.push(buildLinearEntry(row, decision, out.length, baseCols, fateCols, withFate));
   }
   return out;
+}
+
+function classifyLinearRow(row, { cType, cLen }) {
+  const type = readString(row[cType]);
+  const lenKm = readNumber(row[cLen]);
+  if (!type) {
+    return { skip: true };
+  }
+  if (/^total/i.test(type)) {
+    return { stop: true };
+  }
+  if (lenKm == null) {
+    return { skipBlankLen: true };
+  }
+  return { type, lenKm };
+}
+
+function buildLinearEntry(row, { type, lenKm }, outIndex, baseCols, fateCols, withFate) {
+  const { cRef, cDist, cCond, cStrat } = baseCols;
+  const ref = readString(row[cRef]);
+  const entry = {
+    ref: ref ?? String(outIndex + 1),
+    type,
+    lengthKm: lenKm,
+    lengthM: Math.round(lenKm * 1000),
+    distinctiveness: readString(row[cDist]),
+    condition: readString(row[cCond]),
+    strategicSignificance: cStrat >= 0 ? readString(row[cStrat]) : null,
+  };
+  if (withFate) {
+    const { cLenRetained, cLenEnhanced, cLenLost } = fateCols;
+    const lenRetainedKm = cLenRetained >= 0 ? readNumber(row[cLenRetained]) ?? 0 : 0;
+    const lenEnhancedKm = cLenEnhanced >= 0 ? readNumber(row[cLenEnhanced]) ?? 0 : 0;
+    const lenLostKm = cLenLost >= 0 ? readNumber(row[cLenLost]) ?? 0 : 0;
+    entry.lengthRetainedKm = lenRetainedKm;
+    entry.lengthEnhancedKm = lenEnhancedKm;
+    entry.lengthLostKm = lenLostKm;
+    entry.lengthRetainedM = Math.round(lenRetainedKm * 1000);
+    entry.lengthEnhancedM = Math.round(lenEnhancedKm * 1000);
+    entry.lengthLostM = Math.round(lenLostKm * 1000);
+  }
+  return entry;
 }
 
 /**
@@ -486,46 +611,70 @@ function readLinearFeatures(workbook, sheetName, kind, summary, { withFate = fal
  */
 function readLinearEnhancements(workbook, sheetName, summary) {
   const ws = workbook.Sheets[sheetName];
-  if (!ws) return [];
+  if (!ws) {
+    return [];
+  }
   const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
 
   // The merged header sits on row 10 in practice; anchor on "Baseline ref".
-  const { dataStart, header } = findHeader(aoa, ["Baseline ref", "Length (km)"]);
-  if (dataStart < 0) return [];
+  const { dataStart, header } = findHeader(aoa, [HDR_BASELINE_REF, HDR_LENGTH_KM]);
+  if (dataStart < 0) {
+    return [];
+  }
   const idx = buildColumnIndex(header);
-  const cBaseRef = col(idx, "Baseline ref");
+  const cBaseRef = col(idx, HDR_BASELINE_REF);
   // B-3 / C-3 lay out proposed columns to the right of a "Proposed habitat"
   // group label that doesn't appear in the data row. Anchor on Baseline ref
   // and locate proposed distinctiveness / condition / strategic significance
   // positionally — the same trick used for A-3.
-  const cPropType = col(idx, "Proposed habitat", "Proposed Habitat");
-  const cPropBroad = col(idx, "Proposed Broad Habitat");
+  const cPropType = col(idx, HDR_PROPOSED_HABITAT, "Proposed Habitat");
+  const cPropBroad = col(idx, HDR_PROPOSED_BROAD_HABITAT);
   const propAnchor = cPropType >= 0 ? cPropType : cBaseRef;
-  const cPropDist = findColAfter(header, ["Distinctiveness"], propAnchor);
-  const cPropCond = findColAfter(header, ["Condition"], propAnchor);
-  const cPropStrat = findColAfter(header, ["Strategic significance"], propAnchor);
+  const cPropDist = findColAfter(header, [HDR_DISTINCTIVENESS], propAnchor);
+  const cPropCond = findColAfter(header, [HDR_CONDITION], propAnchor);
+  const cPropStrat = findColAfter(header, [HDR_STRATEGIC_SIGNIFICANCE], propAnchor);
   const cAdvance = col(idx, "Habitat enhanced in advance (years)", "Habitat enhanced in advance");
   const cDelay = col(idx, "Delay in starting habitat enhancement (years)", "Delay in starting habitat enhancement");
 
+  const colMap = { cBaseRef, cPropBroad, cPropType, cPropDist, cPropCond, cPropStrat, cAdvance, cDelay };
   const out = [];
   for (let r = dataStart; r < aoa.length; r++) {
     const row = aoa[r];
-    if (!row) continue;
+    if (!row) {
+      continue;
+    }
     const baselineRef = readString(row[cBaseRef]);
-    if (!baselineRef) continue;
-    if (/^total/i.test(baselineRef)) break;
-    out.push({
-      baselineRef,
-      proposedBroad: cPropBroad >= 0 ? readString(row[cPropBroad]) : null,
-      proposedType: cPropType >= 0 ? readString(row[cPropType]) : null,
-      proposedDistinctiveness: cPropDist >= 0 ? readString(row[cPropDist]) : null,
-      proposedCondition: cPropCond >= 0 ? readString(row[cPropCond]) : null,
-      proposedStrategicSignificance: cPropStrat >= 0 ? readString(row[cPropStrat]) : null,
-      advanceYears: cAdvance >= 0 ? readNumber(row[cAdvance]) ?? 0 : 0,
-      delayYears: cDelay >= 0 ? readNumber(row[cDelay]) ?? 0 : 0,
-    });
+    if (!baselineRef) {
+      continue;
+    }
+    if (/^total/i.test(baselineRef)) {
+      break;
+    }
+    out.push(buildLinearEnhancementEntry(row, baselineRef, colMap));
   }
   return out;
+}
+
+/** Build one B-3 / C-3 enhancement record from a sheet row + column map. */
+function buildLinearEnhancementEntry(row, baselineRef, c) {
+  return {
+    baselineRef,
+    proposedBroad: optString(row, c.cPropBroad),
+    proposedType: optString(row, c.cPropType),
+    proposedDistinctiveness: optString(row, c.cPropDist),
+    proposedCondition: optString(row, c.cPropCond),
+    proposedStrategicSignificance: optString(row, c.cPropStrat),
+    advanceYears: optNumber(row, c.cAdvance),
+    delayYears: optNumber(row, c.cDelay),
+  };
+}
+
+function optString(row, colIdx) {
+  return colIdx >= 0 ? readString(row[colIdx]) : null;
+}
+
+function optNumber(row, colIdx) {
+  return colIdx >= 0 ? readNumber(row[colIdx]) ?? 0 : 0;
 }
 
 // ---------------------------------------------------------------------------

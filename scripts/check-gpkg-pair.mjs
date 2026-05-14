@@ -33,47 +33,55 @@ const { values: args, positionals } = parseArgs({
   allowPositionals: true,
 });
 
+// Column names duplicated across the four layer schemas — keep them as named
+// constants so any rename only happens in one place.
+const COL_PARCEL_REF = "Parcel Ref";
+const COL_TREE_REF = "Tree Ref";
+const COL_PROPOSED_CONDITION = "Proposed Condition";
+const COL_PROPOSED_STRATEGIC_SIG = "Proposed Strategic Significance";
+const COL_PROPOSED_DISTINCTIVENESS = "Proposed Distinctiveness";
+
 const LAYERS = [
   {
     table: "Habitats",
-    refCol: "Parcel Ref",
+    refCol: COL_PARCEL_REF,
     proposedCols: [
       "Proposed Broad Habitat Type",
       "Proposed Habitat Type",
-      "Proposed Condition",
-      "Proposed Strategic Significance",
-      "Proposed Distinctiveness",
+      COL_PROPOSED_CONDITION,
+      COL_PROPOSED_STRATEGIC_SIG,
+      COL_PROPOSED_DISTINCTIVENESS,
     ],
   },
   {
     table: "Hedgerows",
-    refCol: "Parcel Ref",
+    refCol: COL_PARCEL_REF,
     proposedCols: [
       "Proposed Hedge Type",
-      "Proposed Condition",
-      "Proposed Strategic Significance",
-      "Proposed Distinctiveness",
+      COL_PROPOSED_CONDITION,
+      COL_PROPOSED_STRATEGIC_SIG,
+      COL_PROPOSED_DISTINCTIVENESS,
     ],
   },
   {
     table: "Rivers",
-    refCol: "Parcel Ref",
+    refCol: COL_PARCEL_REF,
     proposedCols: [
       "Proposed River Type",
-      "Proposed Condition",
-      "Proposed Strategic Significance",
-      "Proposed Distinctiveness",
+      COL_PROPOSED_CONDITION,
+      COL_PROPOSED_STRATEGIC_SIG,
+      COL_PROPOSED_DISTINCTIVENESS,
       "Proposed Encroachment into Watercourse",
       "Proposed Encroachment into riparian zone",
     ],
   },
   {
     table: "Urban Trees",
-    refCol: "Tree Ref",
+    refCol: COL_TREE_REF,
     proposedCols: [
       "Proposed Tree Size",
-      "Proposed Condition",
-      "Proposed Strategic Significance",
+      COL_PROPOSED_CONDITION,
+      COL_PROPOSED_STRATEGIC_SIG,
       "Proposed Tree Type",
       "Proposed Rural or Urban Tree",
     ],
@@ -88,7 +96,9 @@ function checkBaselineNulls(db) {
       .concat([`"Retention Category" IS NOT NULL`])
       .join(" OR ");
     const r = db.prepare(`SELECT COUNT(*) AS n FROM "${layer.table}" WHERE ${where}`).get();
-    if (r.n > 0) failures.push(`${layer.table}: ${r.n} row(s) have populated Proposed/Retention columns`);
+    if (r.n > 0) {
+      failures.push(`${layer.table}: ${r.n} row(s) have populated Proposed/Retention columns`);
+    }
   }
   return failures;
 }
@@ -96,9 +106,15 @@ function checkBaselineNulls(db) {
 function checkRedlineMatches(baseDb, postDb) {
   const b = baseDb.prepare(`SELECT HEX(geometry) AS g, Area FROM "Red Line Boundary"`).get();
   const p = postDb.prepare(`SELECT HEX(geometry) AS g, Area FROM "Red Line Boundary"`).get();
-  if (!b || !p) return [`Red Line Boundary missing in one file`];
-  if (b.g !== p.g) return [`Red Line Boundary geometry differs between baseline and post-intervention`];
-  if (b.Area !== p.Area) return [`Red Line Boundary area differs: baseline=${b.Area} post=${p.Area}`];
+  if (!b || !p) {
+    return [`Red Line Boundary missing in one file`];
+  }
+  if (b.g !== p.g) {
+    return [`Red Line Boundary geometry differs between baseline and post-intervention`];
+  }
+  if (b.Area !== p.Area) {
+    return [`Red Line Boundary area differs: baseline=${b.Area} post=${p.Area}`];
+  }
   return [];
 }
 
@@ -118,7 +134,9 @@ function checkRefsTraceBack(baseDb, postDb) {
       .all();
     for (const row of postRows) {
       const ref = row.r;
-      if (!ref) continue;
+      if (!ref) {
+        continue;
+      }
       if (row.rc === "Created") continue; // fresh refs allowed
       const stripped = stripSuffix(ref);
       if (!baseRefs.has(stripped) && !baseRefs.has(ref)) {
@@ -150,7 +168,9 @@ function findPairs(dir) {
   const pairs = new Map();
   for (const f of files) {
     const m = f.match(/^(.+)-(baseline|post-intervention)-(\d{8}-\d{4}-\d{2})\.gpkg$/);
-    if (!m) continue;
+    if (!m) {
+      continue;
+    }
     const key = `${m[1]}|${m[3]}`;
     const slot = pairs.get(key) ?? {};
     slot[m[2]] = path.join(dir, f);
@@ -159,40 +179,52 @@ function findPairs(dir) {
   return [...pairs.values()].filter((p) => p.baseline && p["post-intervention"]);
 }
 
-function main() {
-  let pairs;
+function resolvePairsFromArgs() {
   if (args.dir) {
-    pairs = findPairs(args.dir).map((p) => [p.baseline, p["post-intervention"]]);
+    const pairs = findPairs(args.dir).map((p) => [p.baseline, p["post-intervention"]]);
     if (pairs.length === 0) {
       console.error(`No baseline / post-intervention pairs found in ${args.dir}`);
       process.exit(1);
     }
-  } else {
-    if (positionals.length !== 2) {
-      console.error("Usage: node scripts/check-gpkg-pair.mjs <baseline.gpkg> <post-intervention.gpkg>");
-      console.error("   or: node scripts/check-gpkg-pair.mjs --dir test-data/");
-      process.exit(1);
-    }
-    pairs = [positionals];
+    return pairs;
   }
+  if (positionals.length !== 2) {
+    console.error("Usage: node scripts/check-gpkg-pair.mjs <baseline.gpkg> <post-intervention.gpkg>");
+    console.error("   or: node scripts/check-gpkg-pair.mjs --dir test-data/");
+    process.exit(1);
+  }
+  return [positionals];
+}
 
+function runPair(baselinePath, postPath) {
+  if (!existsSync(baselinePath) || !existsSync(postPath)) {
+    console.error(`Missing file: ${baselinePath} / ${postPath}`);
+    return { counted: false, ok: false };
+  }
+  const failures = checkPair(baselinePath, postPath);
+  const label = `${path.basename(baselinePath)} ↔ ${path.basename(postPath)}`;
+  if (failures.length === 0) {
+    console.log(`✔ ${label}`);
+    return { counted: true, ok: true };
+  }
+  console.log(`✘ ${label}`);
+  for (const f of failures) {
+    console.log(`    ${f}`);
+  }
+  return { counted: true, ok: false };
+}
+
+function main() {
+  const pairs = resolvePairsFromArgs();
   let total = 0;
   let bad = 0;
   for (const [b, p] of pairs) {
-    if (!existsSync(b) || !existsSync(p)) {
-      console.error(`Missing file: ${b} / ${p}`);
-      bad++;
-      continue;
+    const result = runPair(b, p);
+    if (result.counted) {
+      total++;
     }
-    total++;
-    const failures = checkPair(b, p);
-    const label = `${path.basename(b)} ↔ ${path.basename(p)}`;
-    if (failures.length === 0) {
-      console.log(`✔ ${label}`);
-    } else {
+    if (!result.ok) {
       bad++;
-      console.log(`✘ ${label}`);
-      for (const f of failures) console.log(`    ${f}`);
     }
   }
   console.log(`\n${total - bad}/${total} pair(s) passed`);

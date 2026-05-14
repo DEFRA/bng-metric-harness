@@ -72,17 +72,25 @@ const HABITATS_BY_BROAD = {};
 
 for (const fullName of Object.keys(metricDistinctiveness)) {
   const sepIdx = fullName.indexOf(" - ");
-  if (sepIdx < 0) continue;
+  if (sepIdx < 0) {
+    continue;
+  }
   const broad = fullName.slice(0, sepIdx);
   const type = fullName.slice(sepIdx + 3);
-  if (!INLAND_BROAD_TYPES.has(broad)) continue;
+  if (!INLAND_BROAD_TYPES.has(broad)) {
+    continue;
+  }
 
   const conds = metricConditionScores[fullName];
-  if (!conds) continue;
+  if (!conds) {
+    continue;
+  }
   const validConditions = Object.entries(conds)
     .filter(([, v]) => typeof v === "number")
     .map(([k]) => k);
-  if (validConditions.length === 0) continue;
+  if (validConditions.length === 0) {
+    continue;
+  }
 
   const habitat = {
     fullName,
@@ -258,7 +266,9 @@ function generateLineFeatures(db, boundaryRing, count, { tableName, sql, buildRo
   while (produced < count && attempts < maxAttempts) {
     attempts++;
     const coords = generateLinestring(boundaryRing);
-    if (!coords || !lineInsideRing(coords, boundaryRing)) continue;
+    if (!coords || !lineInsideRing(coords, boundaryRing)) {
+      continue;
+    }
     expandEnvelope(allEnvelope, envelopeFromCoords(coords));
     stmt.run(...buildRow(coords, produced));
     produced++;
@@ -401,7 +411,9 @@ function generateUrbanTrees(db, boundaryRing, count) {
   let produced = 0;
   while (produced < count) {
     const point = pickInteriorPoint(boundaryRing);
-    if (!point) break;
+    if (!point) {
+      break;
+    }
     const [x, y] = point;
     expandEnvelope(allEnvelope, [x, x, y, y]);
 
