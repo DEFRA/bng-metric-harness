@@ -6,7 +6,7 @@
  */
 
 import Database from "better-sqlite3";
-import { color, header, info } from "../_lib.mjs";
+import { color, header, info } from "../../_lib.mjs";
 import { gpkgLineString, gpkgPoint, gpkgPolygon, placeholders } from "#gpkg-io";
 import {
   HABITATS_INSERT_COLUMNS,
@@ -17,17 +17,17 @@ import {
   createLayerStyles,
   openGeoPackage,
   registerLayer,
-} from "./bng-schema.mjs";
+} from "../bng-schema.mjs";
 import {
   envelopeFromCoords,
   expandEnvelope,
   linestringLength,
   polygonArea,
-} from "./geometry.mjs";
+} from "../geometry.mjs";
 import {
   FEATURE_REF_PAD,
   FEATURE_REF_PAD_CHAR,
-} from "./workbook-rows.mjs";
+} from "../workbook/workbook-rows.mjs";
 import {
   BAD_FIXTURE_SURVEY_DETAILS,
   BAD_REDLINE_HALF,

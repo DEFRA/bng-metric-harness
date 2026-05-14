@@ -5,13 +5,13 @@
  */
 
 import { gpkgPolygon } from "#gpkg-io";
-import { SRS_ID, registerLayer } from "./bng-schema.mjs";
+import { SRS_ID, registerLayer } from "../bng-schema.mjs";
 import {
   envelopeFromCoords,
   generateIrregularPolygon,
   polygonArea,
   scaleRingToArea,
-} from "./geometry.mjs";
+} from "../geometry.mjs";
 
 // ---------------------------------------------------------------------------
 // Site metadata defaults. Used identically for baseline and post-intervention

@@ -6,8 +6,8 @@
  * set.
  */
 
-import { error, warn } from "../_lib.mjs";
-import { bowtieRing, rectRing } from "./geometry.mjs";
+import { error, warn } from "../../_lib.mjs";
+import { bowtieRing, rectRing } from "../geometry.mjs";
 import {
   AREA_MISMATCH_PARCEL_DXY,
   BAD_PARCEL_HALF,

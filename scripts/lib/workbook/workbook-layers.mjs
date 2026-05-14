@@ -26,7 +26,7 @@ import {
   HABITATS_INSERT_COLUMNS,
   SRS_ID,
   registerLayer,
-} from "./bng-schema.mjs";
+} from "../bng-schema.mjs";
 import {
   carveTargetArea,
   envelopeFromCoords,
@@ -34,7 +34,7 @@ import {
   partitionPolygonByAreas,
   pick,
   polygonArea,
-} from "./geometry.mjs";
+} from "../geometry.mjs";
 import {
   BASE_MAP,
   HECTARES_TO_SQ_M,

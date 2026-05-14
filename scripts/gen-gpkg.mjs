@@ -57,17 +57,20 @@
  *
  * --flaw is repeatable; empty-layer and geometric flaws cannot be mixed.
  *
- * This file is the CLI + orchestration. Domain logic lives in:
+ * This file is the CLI + orchestration. Domain logic is grouped by concern:
  *   - lib/bng-schema.mjs      — BNG SRS, the 5 feature-table DDLs, BNG layer
  *                               styles. Wraps the generic #gpkg-io package
  *                               with BNG-specific defaults.
  *   - lib/geometry.mjs        — pure geometry helpers
- *   - lib/synthetic.mjs       — synthetic generator (regular + empty-layer)
- *   - lib/synthetic-bad.mjs   — --bad / --flaw fixture builder
- *   - lib/flaws.mjs           — flaw registry + CLI resolution
- *   - lib/workbook-rows.mjs   — row builders (pure data transformations)
- *   - lib/workbook-layers.mjs — workbook-mode writers + geometry derivation
- *   - lib/metric-workbook.mjs — xlsx parser
+ *   - lib/synthetic/          — synthetic generators
+ *       synthetic.mjs            random fixture (regular + empty-layer)
+ *       synthetic-bad.mjs        --bad / --flaw fixture builder
+ *       synthetic-constants.mjs  pick-lists + bad-fixture geometry tunables
+ *       flaws.mjs                flaw registry + CLI resolution
+ *   - lib/workbook/           — workbook-driven path
+ *       metric-workbook*.mjs     xlsx parsing
+ *       workbook-rows.mjs        row builders (pure data transformations)
+ *       workbook-layers*.mjs     row → gpkg writers + geometry derivation
  *
  * Generic GeoPackage I/O (WKB, gpkg_* tables, generic styles) lives in
  * packages/gpkg-io and is imported as `#gpkg-io`. The package has no
@@ -86,7 +89,7 @@ import path from "node:path";
 import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
 import { color, error, header, info, warn } from "./_lib.mjs";
-import { readMetricWorkbook } from "./lib/metric-workbook.mjs";
+import { readMetricWorkbook } from "./lib/workbook/metric-workbook.mjs";
 import { envelopeFromCoords, gpkgPolygon } from "#gpkg-io";
 import {
   SRS_ID,
@@ -96,14 +99,14 @@ import {
   registerLayer,
 } from "./lib/bng-schema.mjs";
 import { polygonArea } from "./lib/geometry.mjs";
-import { generateOne } from "./lib/synthetic.mjs";
-import { resolveFlawSelection } from "./lib/flaws.mjs";
+import { generateOne } from "./lib/synthetic/synthetic.mjs";
+import { resolveFlawSelection } from "./lib/synthetic/flaws.mjs";
 import {
   FEATURE_REF_PAD,
   FEATURE_REF_PAD_CHAR,
   buildBaselineRows,
   buildPostInterventionRows,
-} from "./lib/workbook-rows.mjs";
+} from "./lib/workbook/workbook-rows.mjs";
 import {
   MIN_GENERATED_AREA_SQ_M,
   computeWorkbookFixturePlan,
@@ -123,7 +126,7 @@ import {
   writeRiversPostIntervention,
   writeUrbanTreesBaseline,
   writeUrbanTreesPostIntervention,
-} from "./lib/workbook-layers.mjs";
+} from "./lib/workbook/workbook-layers.mjs";
 
 // ---------------------------------------------------------------------------
 // CLI

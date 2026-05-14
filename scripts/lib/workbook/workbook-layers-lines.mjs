@@ -17,7 +17,7 @@ import {
   RIVERS_INSERT_COLUMNS,
   SRS_ID,
   registerLayer,
-} from "./bng-schema.mjs";
+} from "../bng-schema.mjs";
 import {
   envelopeFromCoords,
   expandEnvelope,
@@ -27,7 +27,7 @@ import {
   randBetween,
   randInt,
   randomAngle,
-} from "./geometry.mjs";
+} from "../geometry.mjs";
 import {
   BASE_MAP,
   LOCATION_ON_SITE,

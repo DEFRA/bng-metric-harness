@@ -7,8 +7,8 @@
  * by broad type for proposed-habitat sampling.
  */
 
-import { conditionScores as metricConditionScores } from "../data/metric-values-habitat-condition.mjs";
-import { distinctivenessCategories as metricDistinctiveness } from "../data/metric-values-habitat-distinctiveness.mjs";
+import { conditionScores as metricConditionScores } from "../../data/metric-values-habitat-condition.mjs";
+import { distinctivenessCategories as metricDistinctiveness } from "../../data/metric-values-habitat-distinctiveness.mjs";
 
 export const SITE_NAME = "Oakwood Regional Development";
 export const SURVEY_DATE = "2025-06-15";
