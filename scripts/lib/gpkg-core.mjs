@@ -26,6 +26,20 @@ export const HEDGEROWS_INSERT_COLUMNS = 23;
 export const RIVERS_INSERT_COLUMNS = 28;
 export const URBAN_TREES_INSERT_COLUMNS = 26;
 
+/**
+ * Build a `(?, ?, ?, …)` placeholder fragment with `n` slots. Avoids the
+ * `Array(n).fill(...)` constructor pattern in favour of Array.from per
+ * SonarCloud's S1528 / S7723 rules.
+ */
+export function placeholders(n) {
+  return Array.from({ length: n }, () => "?").join(", ");
+}
+
+/** Allocate a `length`-sized array pre-filled with `value` (default null). */
+export function filledArray(length, value = null) {
+  return Array.from({ length }, () => value);
+}
+
 // ---------------------------------------------------------------------------
 // WKB encoding (little-endian)
 // ---------------------------------------------------------------------------
@@ -50,7 +64,8 @@ function writeUInt32(buf, offset, val) {
 export function encodeWkbPoint(x, y) {
   const buf = Buffer.alloc(1 + 4 + 16);
   let off = 0;
-  buf[off++] = 1;
+  buf[off] = 1;
+  off += 1;
   off = writeUInt32(buf, off, 1);
   off = writeDouble(buf, off, x);
   writeDouble(buf, off, y);
@@ -65,7 +80,8 @@ export function encodeWkbPoint(x, y) {
 export function encodeWkbLineString(coords) {
   const buf = Buffer.alloc(1 + 4 + 4 + coords.length * 16);
   let off = 0;
-  buf[off++] = 1;
+  buf[off] = 1;
+  off += 1;
   off = writeUInt32(buf, off, 2);
   off = writeUInt32(buf, off, coords.length);
   for (const [x, y] of coords) {
@@ -88,7 +104,8 @@ export function encodeWkbPolygon(rings) {
   }
   const buf = Buffer.alloc(size);
   let off = 0;
-  buf[off++] = 1;
+  buf[off] = 1;
+  off += 1;
   off = writeUInt32(buf, off, 3);
   off = writeUInt32(buf, off, rings.length);
   for (const ring of rings) {
@@ -123,10 +140,14 @@ export function encodeGpkgBinary(srsId, wkb, envelope) {
   const headerSize = 2 + 1 + 1 + 4 + envSize;
   const buf = Buffer.alloc(headerSize + wkb.length);
   let off = 0;
-  buf[off++] = 0x47; // 'G'
-  buf[off++] = 0x50; // 'P'
-  buf[off++] = 0;
-  buf[off++] = flags;
+  buf[off] = 0x47; // 'G'
+  off += 1;
+  buf[off] = 0x50; // 'P'
+  off += 1;
+  buf[off] = 0;
+  off += 1;
+  buf[off] = flags;
+  off += 1;
   off = writeUInt32(buf, off, srsId);
   if (envelope) {
     off = writeDouble(buf, off, envelope[0]);
@@ -389,10 +410,18 @@ function pointSld(name, fill, stroke, size = 8) {
   );
 }
 
-function hexToRgba(hex, alpha = 255) {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
+const HEX_RADIX = 16;
+const HEX_BYTE_LEN = 2;
+const HEX_R_START = 1;
+const HEX_G_START = HEX_R_START + HEX_BYTE_LEN;
+const HEX_B_START = HEX_G_START + HEX_BYTE_LEN;
+const HEX_END = HEX_B_START + HEX_BYTE_LEN;
+const ALPHA_OPAQUE = 255;
+
+function hexToRgba(hex, alpha = ALPHA_OPAQUE) {
+  const r = Number.parseInt(hex.slice(HEX_R_START, HEX_G_START), HEX_RADIX);
+  const g = Number.parseInt(hex.slice(HEX_G_START, HEX_B_START), HEX_RADIX);
+  const b = Number.parseInt(hex.slice(HEX_B_START, HEX_END), HEX_RADIX);
   return `${r},${g},${b},${alpha}`;
 }
 

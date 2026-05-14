@@ -110,7 +110,7 @@ const { values: args } = parseArgs({
     // development gpkg, --mode post-intervention writes only the proposed
     // end-state, --mode both (default) writes both side by side from the
     // same workbook.
-    mode: { type: "string", default: undefined },
+    mode: { type: "string" },
   },
   allowPositionals: false,
 });
@@ -224,7 +224,7 @@ async function resolveWorkbookSource(ref) {
  * picks linear feature routes and tree positions. Returns the geometry it
  * produced so the post-intervention pass can derive from it.
  */
-function generateBaselineFile(outPath, workbook, baselineRows, plan, centre) {
+function generateBaselineFile(outPath, _workbook, baselineRows, plan, centre) {
   const [cx, cy] = centre;
   const db = new Database(outPath);
   initGeoPackage(db);
@@ -607,8 +607,8 @@ async function main() {
     return;
   }
 
-  const numParcels = parseInt(args.size, 10) || 50;
-  const total = Math.max(1, parseInt(args.count, 10) || 1);
+  const numParcels = Number.parseInt(args.size, 10) || 50;
+  const total = Math.max(1, Number.parseInt(args.count, 10) || 1);
   const bad = args.bad;
 
   if (!existsSync(OUT_DIR)) {

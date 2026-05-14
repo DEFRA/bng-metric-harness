@@ -53,16 +53,127 @@ export function fateReconciles(total, retained, enhanced, lost) {
 
 export function isHabitatConditionValid(broad, type, condition) {
   const key = `${broad} - ${type}`;
-  if (!metricDistinctiveness[key]) return false;
+  if (!metricDistinctiveness[key]) {
+    return false;
+  }
   const conds = metricConditionScores[key];
-  if (!conds) return false;
+  if (!conds) {
+    return false;
+  }
   const v = conds[condition];
   return typeof v === "number";
 }
 
 // ---------------------------------------------------------------------------
+// Shared shape builders. The baseline + proposed sub-objects are constructed
+// many times across the row builders; centralising the shapes keeps the
+// builders short and the column-set obvious.
+// ---------------------------------------------------------------------------
+
+function habitatBaselineShape(b) {
+  return {
+    broad: b.broad,
+    type: b.type,
+    distinctiveness: b.distinctiveness,
+    condition: b.condition,
+    strategicSig: b.strategicSignificance,
+  };
+}
+
+function habitatProposedFromBaseline(b) {
+  return { ...habitatBaselineShape(b), advanceYears: 0, delayYears: 0 };
+}
+
+function habitatProposedFromCreated(c) {
+  return {
+    broad: c.broad,
+    type: c.type,
+    distinctiveness: c.distinctiveness,
+    condition: c.condition,
+    strategicSig: c.strategicSignificance,
+    advanceYears: c.advanceYears ?? 0,
+    delayYears: c.delayYears ?? 0,
+  };
+}
+
+function habitatProposedFromEnhancement(b, enh) {
+  return {
+    broad: enh?.proposedBroad ?? b.broad,
+    type: enh?.proposedType ?? b.type,
+    distinctiveness: enh?.proposedDistinctiveness ?? b.distinctiveness,
+    condition: enh?.proposedCondition ?? b.condition,
+    strategicSig: enh?.proposedStrategicSignificance ?? b.strategicSignificance,
+    advanceYears: enh?.advanceYears ?? 0,
+    delayYears: enh?.delayYears ?? 0,
+  };
+}
+
+function linearAttributeShape(b) {
+  return {
+    type: b.type,
+    distinctiveness: b.distinctiveness,
+    condition: b.condition,
+    strategicSig: b.strategicSignificance,
+  };
+}
+
+function linearProposedFromEnh(b, enh) {
+  return {
+    type: enh?.proposedType ?? b.type,
+    distinctiveness: enh?.proposedDistinctiveness ?? b.distinctiveness,
+    condition: enh?.proposedCondition ?? b.condition,
+    strategicSig: enh?.proposedStrategicSignificance ?? b.strategicSignificance,
+    advanceYears: enh?.advanceYears ?? 0,
+    delayYears: enh?.delayYears ?? 0,
+  };
+}
+
+function linearProposedFromCreated(c) {
+  return {
+    type: c.type,
+    distinctiveness: c.distinctiveness,
+    condition: c.condition,
+    strategicSig: c.strategicSignificance,
+    advanceYears: c.advanceYears ?? 0,
+    delayYears: c.delayYears ?? 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Baseline row builder
 // ---------------------------------------------------------------------------
+
+function mapBaselineHabitat(b) {
+  return {
+    ref: makeRef("H", b.ref),
+    baselineRef: String(b.ref),
+    area: b.area,
+    ...habitatBaselineShape(b),
+  };
+}
+
+function mapBaselineLinear(prefix, row) {
+  return {
+    ref: makeRef(prefix, row.ref),
+    baselineRef: String(row.ref),
+    type: row.type,
+    lengthM: row.lengthM,
+    distinctiveness: row.distinctiveness,
+    condition: row.condition,
+    strategicSig: row.strategicSignificance,
+  };
+}
+
+function mapBaselineTree(t) {
+  return {
+    ref: makeRef("T", t.ref),
+    baselineRef: String(t.ref),
+    type: t.type,
+    distinctiveness: t.distinctiveness,
+    condition: t.condition,
+    strategicSig: t.strategicSignificance,
+  };
+}
 
 /**
  * Build baseline rows from a workbook. Each layer's output is the raw A-1 /
@@ -71,60 +182,234 @@ export function isHabitatConditionValid(broad, type, condition) {
  */
 export function buildBaselineRows(wb, { strict = false } = {}) {
   const skipReasons = [];
-
   const habitats = [];
   for (const b of wb.habitats.baseline) {
     if (strict && !isHabitatConditionValid(b.broad, b.type, b.condition)) {
       skipReasons.push(`baseline habitat ref ${b.ref}: invalid (habitat, condition) under --strict-habitats`);
       continue;
     }
-    habitats.push({
-      ref: makeRef("H", b.ref),
-      baselineRef: String(b.ref),
-      area: b.area,
-      broad: b.broad,
-      type: b.type,
-      distinctiveness: b.distinctiveness,
-      condition: b.condition,
-      strategicSig: b.strategicSignificance,
-    });
+    habitats.push(mapBaselineHabitat(b));
   }
-
-  const hedgerows = wb.hedgerows.baseline.map((h) => ({
-    ref: makeRef("HG", h.ref),
-    baselineRef: String(h.ref),
-    type: h.type,
-    lengthM: h.lengthM,
-    distinctiveness: h.distinctiveness,
-    condition: h.condition,
-    strategicSig: h.strategicSignificance,
-  }));
-
-  const rivers = wb.watercourses.baseline.map((r) => ({
-    ref: makeRef("R", r.ref),
-    baselineRef: String(r.ref),
-    type: r.type,
-    lengthM: r.lengthM,
-    distinctiveness: r.distinctiveness,
-    condition: r.condition,
-    strategicSig: r.strategicSignificance,
-  }));
-
-  const trees = wb.trees.baseline.map((t) => ({
-    ref: makeRef("T", t.ref),
-    baselineRef: String(t.ref),
-    type: t.type,
-    distinctiveness: t.distinctiveness,
-    condition: t.condition,
-    strategicSig: t.strategicSignificance,
-  }));
-
-  return { habitats, hedgerows, rivers, trees, skipReasons };
+  return {
+    habitats,
+    hedgerows: wb.hedgerows.baseline.map((h) => mapBaselineLinear("HG", h)),
+    rivers: wb.watercourses.baseline.map((r) => mapBaselineLinear("R", r)),
+    trees: wb.trees.baseline.map(mapBaselineTree),
+    skipReasons,
+  };
 }
 
 // ---------------------------------------------------------------------------
-// Post-intervention row builder
+// Post-intervention row builder. Composed from small per-pass helpers; the
+// public entry point just wires them together for each layer.
 // ---------------------------------------------------------------------------
+
+const SUFFIX_LETTERS = "abcdefghijklmnopqrstuvwxyz";
+
+/**
+ * Filter A-1 baseline rows under --strict-habitats and accumulate skip /
+ * accounting warnings.
+ */
+function filterEligibleBaselines(baseline, strict, skipReasons, warnings) {
+  const out = [];
+  for (const b of baseline) {
+    if (strict && !isHabitatConditionValid(b.broad, b.type, b.condition)) {
+      skipReasons.push(`baseline habitat ref ${b.ref}: invalid (habitat, condition) under --strict-habitats`);
+      continue;
+    }
+    if (!fateReconciles(b.area, b.areaRetained, b.areaEnhanced, b.areaLost)) {
+      warnings.push(
+        `habitat ref ${b.ref}: area accounting off (total=${b.area} retained=${b.areaRetained} enhanced=${b.areaEnhanced} lost=${b.areaLost})`,
+      );
+    }
+    out.push(b);
+  }
+  return out;
+}
+
+/** Filter A-2 created rows under --strict-habitats. */
+function filterEligibleCreated(created, strict, skipReasons) {
+  const idxs = [];
+  for (let i = 0; i < created.length; i++) {
+    const c = created[i];
+    if (strict && !isHabitatConditionValid(c.broad, c.type, c.condition)) {
+      skipReasons.push(`created habitat ref ${c.ref}: invalid (habitat, condition) under --strict-habitats`);
+      continue;
+    }
+    idxs.push(i);
+  }
+  return idxs;
+}
+
+/**
+ * Greedy lost→created matching: for each created row (largest first), pick
+ * the baseline parcel whose remaining lost-area capacity is the largest
+ * sufficient match. Returns Map<createdIdx, baselineRef>.
+ */
+function assignCreatedToBaselines(eligibleBaselines, created, eligibleCreatedIdxs) {
+  const lostRemaining = new Map();
+  for (const b of eligibleBaselines) {
+    if (b.areaLost > 0) {
+      lostRemaining.set(String(b.ref), b.areaLost);
+    }
+  }
+  const assignment = new Map();
+  const sortedByAreaDesc = eligibleCreatedIdxs
+    .slice()
+    .sort((a, b) => (created[b].area ?? 0) - (created[a].area ?? 0));
+  for (const idx of sortedByAreaDesc) {
+    const needed = created[idx].area ?? 0;
+    if (needed <= 0) {
+      continue;
+    }
+    const best = findBestBaselineForCreated(lostRemaining, needed);
+    if (best != null) {
+      assignment.set(idx, best.ref);
+      lostRemaining.set(best.ref, best.remaining - needed);
+    }
+  }
+  return assignment;
+}
+
+function findBestBaselineForCreated(lostRemaining, needed) {
+  let bestRef = null;
+  let bestRemaining = -Infinity;
+  for (const [ref, remaining] of lostRemaining) {
+    if (remaining + FATE_AREA_ABSOLUTE_FLOOR_HA >= needed && remaining > bestRemaining) {
+      bestRef = ref;
+      bestRemaining = remaining;
+    }
+  }
+  return bestRef == null ? null : { ref: bestRef, remaining: bestRemaining };
+}
+
+/** Build the proposed-side payload for an A-3 enhancement, applying strict. */
+function planEnhancementProposed(b, baselineRef, habEnh, strict, skipReasons) {
+  if (b.areaEnhanced <= 0) {
+    return null;
+  }
+  const proposed = habitatProposedFromEnhancement(b, habEnh.get(baselineRef));
+  if (strict && !isHabitatConditionValid(proposed.broad, proposed.type, proposed.condition)) {
+    skipReasons.push(`enhanced habitat ref ${baselineRef}: invalid proposed (habitat, condition) under --strict-habitats`);
+    return null;
+  }
+  return proposed;
+}
+
+/** Emit a retained-slice row. */
+function emitRetainedRow(b, baselineRef, suffix) {
+  return {
+    ref: makeRef("H", baselineRef, suffix),
+    baselineRef,
+    retention: "Retained",
+    area: b.areaRetained,
+    baseline: habitatBaselineShape(b),
+    proposed: habitatProposedFromBaseline(b),
+  };
+}
+
+/** Emit an enhanced-slice row. */
+function emitEnhancedRow(b, baselineRef, suffix, proposed) {
+  return {
+    ref: makeRef("H", baselineRef, suffix),
+    baselineRef,
+    retention: "Enhanced",
+    area: b.areaEnhanced,
+    baseline: habitatBaselineShape(b),
+    proposed,
+  };
+}
+
+/** Emit a created-slice row (lineage-linked to a baseline parcel). */
+function emitLinkedCreatedRow(c, baselineRef, suffix) {
+  return {
+    ref: makeRef("H", baselineRef, suffix),
+    baselineRef,
+    retention: "Created",
+    area: c.area,
+    baseline: null,
+    proposed: habitatProposedFromCreated(c),
+  };
+}
+
+/** Emit a created-only row with a fresh sequential ref. */
+function emitUnassignedCreatedRow(c, freshRefIndex) {
+  return {
+    ref: makeRef("H", freshRefIndex),
+    baselineRef: null,
+    retention: "Created",
+    area: c.area,
+    baseline: null,
+    proposed: habitatProposedFromCreated(c),
+  };
+}
+
+/**
+ * Per-baseline emission: retained, enhanced, then any assigned-created in
+ * original A-2 order. Suffix letters allocated only when a baseline expands
+ * to more than one surviving row.
+ */
+function emitRowsForBaseline(b, baselineRef, assignedCreatedIdxs, created, habEnh, strict, skipReasons) {
+  const proposed = planEnhancementProposed(b, baselineRef, habEnh, strict, skipReasons);
+  const sliceCount =
+    (b.areaRetained > 0 ? 1 : 0) +
+    (proposed ? 1 : 0) +
+    assignedCreatedIdxs.length;
+  const useSuffix = sliceCount > 1;
+  let suffixIdx = 0;
+  const nextSuffix = () => {
+    if (!useSuffix) {
+      return "";
+    }
+    const s = SUFFIX_LETTERS[suffixIdx];
+    suffixIdx += 1;
+    return s;
+  };
+
+  const rows = [];
+  if (b.areaRetained > 0) {
+    rows.push(emitRetainedRow(b, baselineRef, nextSuffix()));
+  }
+  if (proposed) {
+    rows.push(emitEnhancedRow(b, baselineRef, nextSuffix(), proposed));
+  }
+  for (const idx of assignedCreatedIdxs) {
+    rows.push(emitLinkedCreatedRow(created[idx], baselineRef, nextSuffix()));
+  }
+  return rows;
+}
+
+function buildHabitatPostRows(wb, strict, skipReasons, warnings) {
+  const habEnh = new Map();
+  for (const e of wb.habitats.enhancements) {
+    habEnh.set(String(e.baselineRef), e);
+  }
+  const eligibleBaselines = filterEligibleBaselines(wb.habitats.baseline, strict, skipReasons, warnings);
+  const eligibleCreatedIdxs = filterEligibleCreated(wb.habitats.created, strict, skipReasons);
+  const createdAssignment = assignCreatedToBaselines(eligibleBaselines, wb.habitats.created, eligibleCreatedIdxs);
+
+  const habitats = [];
+  for (const b of eligibleBaselines) {
+    const baselineRef = String(b.ref);
+    const assignedCreatedIdxs = [...createdAssignment.entries()]
+      .filter(([, ref]) => ref === baselineRef)
+      .map(([idx]) => idx)
+      .sort((a, b2) => a - b2);
+    habitats.push(
+      ...emitRowsForBaseline(b, baselineRef, assignedCreatedIdxs, wb.habitats.created, habEnh, strict, skipReasons),
+    );
+  }
+
+  let createdSeq = wb.habitats.baseline.length + 1;
+  for (const idx of eligibleCreatedIdxs) {
+    if (createdAssignment.has(idx)) {
+      continue;
+    }
+    habitats.push(emitUnassignedCreatedRow(wb.habitats.created[idx], createdSeq));
+    createdSeq += 1;
+  }
+  return habitats;
+}
 
 /**
  * Build post-intervention rows from a workbook. Each baseline row may expand
@@ -149,180 +434,16 @@ export function buildPostInterventionRows(wb, { strict = false } = {}) {
   const skipReasons = [];
   const warnings = [];
 
-  const habEnh = new Map();
-  for (const e of wb.habitats.enhancements) habEnh.set(String(e.baselineRef), e);
   const hedgeEnh = new Map();
-  for (const e of wb.hedgerows.enhancements) hedgeEnh.set(String(e.baselineRef), e);
+  for (const e of wb.hedgerows.enhancements) {
+    hedgeEnh.set(String(e.baselineRef), e);
+  }
   const riverEnh = new Map();
-  for (const e of wb.watercourses.enhancements) riverEnh.set(String(e.baselineRef), e);
-
-  // --- Habitats --------------------------------------------------------------
-  //
-  // Pass 1 — filter & validate baseline rows; pre-compute strictness-skips
-  // for created rows so the matcher only considers eligible candidates.
-  const eligibleBaselines = [];
-  for (const b of wb.habitats.baseline) {
-    if (strict && !isHabitatConditionValid(b.broad, b.type, b.condition)) {
-      skipReasons.push(`baseline habitat ref ${b.ref}: invalid (habitat, condition) under --strict-habitats`);
-      continue;
-    }
-    if (!fateReconciles(b.area, b.areaRetained, b.areaEnhanced, b.areaLost)) {
-      warnings.push(
-        `habitat ref ${b.ref}: area accounting off (total=${b.area} retained=${b.areaRetained} enhanced=${b.areaEnhanced} lost=${b.areaLost})`,
-      );
-    }
-    eligibleBaselines.push(b);
+  for (const e of wb.watercourses.enhancements) {
+    riverEnh.set(String(e.baselineRef), e);
   }
 
-  const eligibleCreatedIdxs = [];
-  for (let i = 0; i < wb.habitats.created.length; i++) {
-    const c = wb.habitats.created[i];
-    if (strict && !isHabitatConditionValid(c.broad, c.type, c.condition)) {
-      skipReasons.push(`created habitat ref ${c.ref}: invalid (habitat, condition) under --strict-habitats`);
-      continue;
-    }
-    eligibleCreatedIdxs.push(i);
-  }
-
-  // Pass 2 — greedy lost→created assignment. For each created row (largest
-  // first), pick the baseline parcel with the largest remaining lost-area
-  // capacity that is still big enough to absorb it.
-  const lostRemainingHa = new Map();
-  for (const b of eligibleBaselines) {
-    if (b.areaLost > 0) lostRemainingHa.set(String(b.ref), b.areaLost);
-  }
-  const createdAssignment = new Map(); // workbook-created idx → baselineRef
-  const createdSortedByAreaDesc = eligibleCreatedIdxs
-    .slice()
-    .sort((a, b) => (wb.habitats.created[b].area ?? 0) - (wb.habitats.created[a].area ?? 0));
-  for (const idx of createdSortedByAreaDesc) {
-    const c = wb.habitats.created[idx];
-    const needed = c.area ?? 0;
-    if (needed <= 0) continue;
-    let bestRef = null;
-    let bestRemaining = -Infinity;
-    for (const [ref, remaining] of lostRemainingHa) {
-      if (remaining + FATE_AREA_ABSOLUTE_FLOOR_HA >= needed && remaining > bestRemaining) {
-        bestRef = ref;
-        bestRemaining = remaining;
-      }
-    }
-    if (bestRef != null) {
-      createdAssignment.set(idx, bestRef);
-      lostRemainingHa.set(bestRef, bestRemaining - needed);
-    }
-  }
-
-  // Pass 3 — emit rows. Per baseline: retained, enhanced, then any
-  // assigned-created in their original A-2 order. Suffix letters are
-  // allocated only when the baseline expands to more than one surviving row.
-  const habitats = [];
-  const SUFFIX_LETTERS = "abcdefghijklmnopqrstuvwxyz";
-  for (const b of eligibleBaselines) {
-    const baselineRef = String(b.ref);
-    const assignedCreatedIdxs = [...createdAssignment.entries()]
-      .filter(([, ref]) => ref === baselineRef)
-      .map(([idx]) => idx)
-      .sort((a, b2) => a - b2);
-
-    let enhancedRowPlanned = false;
-    const enhanced = (() => {
-      if (b.areaEnhanced <= 0) return null;
-      const enh = habEnh.get(baselineRef);
-      const proposed = {
-        broad: enh?.proposedBroad ?? b.broad,
-        type: enh?.proposedType ?? b.type,
-        distinctiveness: enh?.proposedDistinctiveness ?? b.distinctiveness,
-        condition: enh?.proposedCondition ?? b.condition,
-        strategicSig: enh?.proposedStrategicSignificance ?? b.strategicSignificance,
-        advanceYears: enh?.advanceYears ?? 0,
-        delayYears: enh?.delayYears ?? 0,
-      };
-      if (strict && !isHabitatConditionValid(proposed.broad, proposed.type, proposed.condition)) {
-        skipReasons.push(`enhanced habitat ref ${baselineRef}: invalid proposed (habitat, condition) under --strict-habitats`);
-        return null;
-      }
-      enhancedRowPlanned = true;
-      return proposed;
-    })();
-
-    const sliceCount =
-      (b.areaRetained > 0 ? 1 : 0) +
-      (enhancedRowPlanned ? 1 : 0) +
-      assignedCreatedIdxs.length;
-    const useSuffix = sliceCount > 1;
-    let suffixIdx = 0;
-    const nextSuffix = () => (useSuffix ? SUFFIX_LETTERS[suffixIdx++] : "");
-
-    if (b.areaRetained > 0) {
-      habitats.push({
-        ref: makeRef("H", baselineRef, nextSuffix()),
-        baselineRef,
-        retention: "Retained",
-        area: b.areaRetained,
-        baseline: { broad: b.broad, type: b.type, distinctiveness: b.distinctiveness, condition: b.condition, strategicSig: b.strategicSignificance },
-        proposed: { broad: b.broad, type: b.type, distinctiveness: b.distinctiveness, condition: b.condition, strategicSig: b.strategicSignificance, advanceYears: 0, delayYears: 0 },
-      });
-    }
-
-    if (enhanced) {
-      habitats.push({
-        ref: makeRef("H", baselineRef, nextSuffix()),
-        baselineRef,
-        retention: "Enhanced",
-        area: b.areaEnhanced,
-        baseline: { broad: b.broad, type: b.type, distinctiveness: b.distinctiveness, condition: b.condition, strategicSig: b.strategicSignificance },
-        proposed: enhanced,
-      });
-    }
-
-    for (const idx of assignedCreatedIdxs) {
-      const c = wb.habitats.created[idx];
-      habitats.push({
-        ref: makeRef("H", baselineRef, nextSuffix()),
-        baselineRef,
-        retention: "Created",
-        area: c.area,
-        baseline: null,
-        proposed: {
-          broad: c.broad,
-          type: c.type,
-          distinctiveness: c.distinctiveness,
-          condition: c.condition,
-          strategicSig: c.strategicSignificance,
-          advanceYears: c.advanceYears ?? 0,
-          delayYears: c.delayYears ?? 0,
-        },
-      });
-    }
-  }
-
-  // Unassigned created rows fall back to fresh refs (numbered after the
-  // highest baseline ref). They'll carve from the orphaned lost-area pool
-  // in the geometry pass.
-  let createdSeq = wb.habitats.baseline.length + 1;
-  for (const idx of eligibleCreatedIdxs) {
-    if (createdAssignment.has(idx)) continue;
-    const c = wb.habitats.created[idx];
-    habitats.push({
-      ref: makeRef("H", createdSeq++),
-      baselineRef: null,
-      retention: "Created",
-      area: c.area,
-      baseline: null,
-      proposed: {
-        broad: c.broad,
-        type: c.type,
-        distinctiveness: c.distinctiveness,
-        condition: c.condition,
-        strategicSig: c.strategicSignificance,
-        advanceYears: c.advanceYears ?? 0,
-        delayYears: c.delayYears ?? 0,
-      },
-    });
-  }
-
-  // --- Hedgerows / Rivers — same shape ---------------------------------------
+  const habitats = buildHabitatPostRows(wb, strict, skipReasons, warnings);
   const hedgerows = buildLinearPostIntervention({
     baseline: wb.hedgerows.baseline,
     created: wb.hedgerows.created,
@@ -330,7 +451,6 @@ export function buildPostInterventionRows(wb, { strict = false } = {}) {
     refPrefix: "HG",
     warnings,
   });
-
   const rivers = buildLinearPostIntervention({
     baseline: wb.watercourses.baseline,
     created: wb.watercourses.created,
@@ -338,83 +458,14 @@ export function buildPostInterventionRows(wb, { strict = false } = {}) {
     refPrefix: "R",
     warnings,
   });
-
-  // --- Trees — points, classify by dominant fate -----------------------------
-  // A tree row may span multiple individual trees with a mix of fates; v1
-  // uses the dominant-fate heuristic and emits a single point per surviving
-  // row. Fully-lost rows drop out entirely.
-  const trees = [];
-  for (const t of wb.trees.baseline) {
-    const retained = t.areaRetained ?? 0;
-    const enhanced = t.areaEnhanced ?? 0;
-    const lost = t.areaLost ?? 0;
-    if (retained === 0 && enhanced === 0 && lost > 0) continue; // fully lost
-    const retention = enhanced > retained ? "Enhanced" : "Retained";
-    trees.push({
-      ref: makeRef("T", t.ref),
-      baselineRef: String(t.ref),
-      retention,
-      baseline: { type: t.type, distinctiveness: t.distinctiveness, condition: t.condition, strategicSig: t.strategicSignificance },
-      proposed: { type: t.type, distinctiveness: t.distinctiveness, condition: t.condition, strategicSig: t.strategicSignificance, advanceYears: 0, delayYears: 0 },
-    });
-  }
-  let treeCreatedSeq = wb.trees.baseline.length + 1;
-  for (const c of wb.trees.created) {
-    trees.push({
-      ref: makeRef("T", treeCreatedSeq++),
-      baselineRef: null,
-      retention: "Created",
-      baseline: null,
-      proposed: { type: c.type, distinctiveness: c.distinctiveness, condition: c.condition, strategicSig: c.strategicSignificance, advanceYears: c.advanceYears ?? 0, delayYears: c.delayYears ?? 0 },
-    });
-  }
+  const trees = buildTreePostRows(wb);
 
   return { habitats, hedgerows, rivers, trees, skipReasons, warnings };
 }
 
-function buildLinearPostIntervention({ baseline, created, enhMap, refPrefix, warnings }) {
-  const rows = [];
-  for (const b of baseline) {
-    const retainedM = b.lengthRetainedM ?? 0;
-    const enhancedM = b.lengthEnhancedM ?? 0;
-    const lostM = b.lengthLostM ?? 0;
-    if (retainedM === 0 && enhancedM === 0 && lostM === 0 && b.lengthM > 0) {
-      // No fate columns populated — treat the whole length as retained so
-      // the linear feature still appears post-intervention.
-      rows.push(makeLinearRow(b, b.lengthM, "Retained", refPrefix));
-      continue;
-    }
-    const totalReconciled = retainedM + enhancedM + lostM;
-    if (totalReconciled > 0 && Math.abs(totalReconciled - b.lengthM) > Math.max(b.lengthM * FATE_AREA_RELATIVE_TOLERANCE, 1)) {
-      warnings.push(`${refPrefix} ref ${b.ref}: length accounting off (total=${b.lengthM}m retained=${retainedM} enhanced=${enhancedM} lost=${lostM})`);
-    }
-    const fates = [];
-    if (retainedM > 0) fates.push("Retained");
-    if (enhancedM > 0) fates.push("Enhanced");
-    const split = fates.length > 1;
-    const suffixFor = (fate) => (split ? (fate === "Retained" ? "a" : "b") : "");
-
-    if (retainedM > 0) {
-      rows.push(makeLinearRow(b, retainedM, "Retained", refPrefix, suffixFor("Retained")));
-    }
-    if (enhancedM > 0) {
-      const enh = enhMap.get(String(b.ref));
-      rows.push(makeLinearRow(b, enhancedM, "Enhanced", refPrefix, suffixFor("Enhanced"), enh));
-    }
-  }
-  let seq = baseline.length + 1;
-  for (const c of created) {
-    rows.push({
-      ref: makeRef(refPrefix, seq++),
-      baselineRef: null,
-      retention: "Created",
-      lengthM: c.lengthM,
-      baseline: null,
-      proposed: { type: c.type, distinctiveness: c.distinctiveness, condition: c.condition, strategicSig: c.strategicSignificance, advanceYears: c.advanceYears ?? 0, delayYears: c.delayYears ?? 0 },
-    });
-  }
-  return rows;
-}
+// ---------------------------------------------------------------------------
+// Linear features (hedgerows, rivers)
+// ---------------------------------------------------------------------------
 
 function makeLinearRow(b, lengthM, retention, refPrefix, suffix = "", enh = null) {
   return {
@@ -422,14 +473,126 @@ function makeLinearRow(b, lengthM, retention, refPrefix, suffix = "", enh = null
     baselineRef: String(b.ref),
     retention,
     lengthM,
-    baseline: { type: b.type, distinctiveness: b.distinctiveness, condition: b.condition, strategicSig: b.strategicSignificance },
-    proposed: {
-      type: enh?.proposedType ?? b.type,
-      distinctiveness: enh?.proposedDistinctiveness ?? b.distinctiveness,
-      condition: enh?.proposedCondition ?? b.condition,
-      strategicSig: enh?.proposedStrategicSignificance ?? b.strategicSignificance,
-      advanceYears: enh?.advanceYears ?? 0,
-      delayYears: enh?.delayYears ?? 0,
-    },
+    baseline: linearAttributeShape(b),
+    proposed: linearProposedFromEnh(b, enh),
   };
+}
+
+function makeCreatedLinearRow(c, refPrefix, freshRefIndex) {
+  return {
+    ref: makeRef(refPrefix, freshRefIndex),
+    baselineRef: null,
+    retention: "Created",
+    lengthM: c.lengthM,
+    baseline: null,
+    proposed: linearProposedFromCreated(c),
+  };
+}
+
+function warnIfLinearAccountingOff(b, retainedM, enhancedM, lostM, refPrefix, warnings) {
+  const totalReconciled = retainedM + enhancedM + lostM;
+  if (totalReconciled <= 0) {
+    return;
+  }
+  const tol = Math.max(b.lengthM * FATE_AREA_RELATIVE_TOLERANCE, 1);
+  if (Math.abs(totalReconciled - b.lengthM) > tol) {
+    warnings.push(
+      `${refPrefix} ref ${b.ref}: length accounting off (total=${b.lengthM}m retained=${retainedM} enhanced=${enhancedM} lost=${lostM})`,
+    );
+  }
+}
+
+function linearSuffix(retainedM, enhancedM, fate) {
+  const split = retainedM > 0 && enhancedM > 0;
+  if (!split) {
+    return "";
+  }
+  return fate === "Retained" ? "a" : "b";
+}
+
+function expandBaselineLinearRow(b, enhMap, refPrefix, warnings) {
+  const retainedM = b.lengthRetainedM ?? 0;
+  const enhancedM = b.lengthEnhancedM ?? 0;
+  const lostM = b.lengthLostM ?? 0;
+  // No fate columns populated — treat the whole length as retained so
+  // the linear feature still appears post-intervention.
+  if (retainedM === 0 && enhancedM === 0 && lostM === 0 && b.lengthM > 0) {
+    return [makeLinearRow(b, b.lengthM, "Retained", refPrefix)];
+  }
+  warnIfLinearAccountingOff(b, retainedM, enhancedM, lostM, refPrefix, warnings);
+  const rows = [];
+  if (retainedM > 0) {
+    rows.push(makeLinearRow(b, retainedM, "Retained", refPrefix, linearSuffix(retainedM, enhancedM, "Retained")));
+  }
+  if (enhancedM > 0) {
+    rows.push(
+      makeLinearRow(b, enhancedM, "Enhanced", refPrefix, linearSuffix(retainedM, enhancedM, "Enhanced"), enhMap.get(String(b.ref))),
+    );
+  }
+  return rows;
+}
+
+function buildLinearPostIntervention({ baseline, created, enhMap, refPrefix, warnings }) {
+  const rows = [];
+  for (const b of baseline) {
+    rows.push(...expandBaselineLinearRow(b, enhMap, refPrefix, warnings));
+  }
+  let seq = baseline.length + 1;
+  for (const c of created) {
+    rows.push(makeCreatedLinearRow(c, refPrefix, seq));
+    seq += 1;
+  }
+  return rows;
+}
+
+// ---------------------------------------------------------------------------
+// Trees (point features)
+// ---------------------------------------------------------------------------
+
+function treeRetentionForRow(t) {
+  const retained = t.areaRetained ?? 0;
+  const enhanced = t.areaEnhanced ?? 0;
+  const lost = t.areaLost ?? 0;
+  // Fully-lost row: emit nothing post-intervention.
+  if (retained === 0 && enhanced === 0 && lost > 0) {
+    return null;
+  }
+  return enhanced > retained ? "Enhanced" : "Retained";
+}
+
+function makeRetainedTreeRow(t, retention) {
+  const attrs = linearAttributeShape(t);
+  return {
+    ref: makeRef("T", t.ref),
+    baselineRef: String(t.ref),
+    retention,
+    baseline: attrs,
+    proposed: { ...attrs, advanceYears: 0, delayYears: 0 },
+  };
+}
+
+function makeCreatedTreeRow(c, freshRefIndex) {
+  return {
+    ref: makeRef("T", freshRefIndex),
+    baselineRef: null,
+    retention: "Created",
+    baseline: null,
+    proposed: linearProposedFromCreated(c),
+  };
+}
+
+function buildTreePostRows(wb) {
+  const trees = [];
+  for (const t of wb.trees.baseline) {
+    const retention = treeRetentionForRow(t);
+    if (retention) {
+      trees.push(makeRetainedTreeRow(t, retention));
+    }
+  }
+  let treeCreatedSeq = wb.trees.baseline.length + 1;
+  for (const c of wb.trees.created) {
+    trees.push(makeCreatedTreeRow(c, treeCreatedSeq));
+    treeCreatedSeq += 1;
+  }
+  return trees;
 }

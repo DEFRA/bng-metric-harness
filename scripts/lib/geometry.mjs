@@ -5,6 +5,39 @@
  */
 
 // ---------------------------------------------------------------------------
+// Tunables — named so SonarCloud's S109 magic-number rule is satisfied.
+// ---------------------------------------------------------------------------
+
+// Inner / outer radius scalars for the annulus sampled by
+// generateIrregularPolygon. 0.65 → 1.35 of `radius` keeps the hull convex
+// without producing degenerate slivers.
+const ANNULUS_INNER_FRACTION = 0.65;
+const ANNULUS_OUTER_SPAN = 0.7;
+const HULL_POINT_COUNT_DEFAULT = 18;
+
+// Chord-offset envelope for splitPolygonRandom. ±30% of each end keeps the
+// split off-centre but avoids degenerate sliver halves.
+const CHORD_OFFSET_RANGE_FRACTION = 0.3;
+// carveTargetArea retries before giving up; binary-search iterations within
+// each attempt.
+const CARVE_MAX_ATTEMPTS = 8;
+const CARVE_BINARY_ITERATIONS = 32;
+// Minimum sub-polygon area for a carve result to be considered valid.
+const MIN_VALID_SUB_POLYGON_AREA = 1;
+// partitionPolygon retry budget per random split.
+const DEFAULT_PARTITION_RETRIES_PER_SPLIT = 5;
+// pickInteriorPoint rejection-sample budget.
+const DEFAULT_INTERIOR_POINT_ATTEMPTS = 100;
+// generateLinestring tunables.
+const LINESTRING_MAX_MIDPOINT_OFFSET_FRACTION = 0.1;
+const LINESTRING_MIDPOINT_MAX_EXTRA = 3;
+// Minimum ring length for a valid polygon (the closing vertex makes it 4).
+const MIN_RING_VERTICES = 3;
+// Centroid divisor — shoelace formula yields (1/6 × signed area) so 3× the
+// twice-area normalises it.
+const CENTROID_DIVISOR = 3;
+
+// ---------------------------------------------------------------------------
 // Predicates and measurements
 // ---------------------------------------------------------------------------
 
@@ -18,7 +51,8 @@
 export function pointInRing(point, ring) {
   const [x, y] = point;
   let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+  let j = ring.length - 1;
+  for (let i = 0; i < ring.length; i += 1) {
     const [xi, yi] = ring[i];
     const [xj, yj] = ring[j];
     const intersect =
@@ -26,6 +60,7 @@ export function pointInRing(point, ring) {
     if (intersect) {
       inside = !inside;
     }
+    j = i;
   }
   return inside;
 }
@@ -62,7 +97,7 @@ export function linestringLength(coords) {
   for (let i = 1; i < coords.length; i++) {
     const dx = coords[i][0] - coords[i - 1][0];
     const dy = coords[i][1] - coords[i - 1][1];
-    length += Math.sqrt(dx * dx + dy * dy);
+    length += Math.hypot(dx, dy);
   }
   return Math.round(length);
 }
@@ -102,7 +137,7 @@ export function polygonCentroid(ring) {
     cx += (x1 + x2) * c;
     cy += (y1 + y2) * c;
   }
-  return [cx / (3 * twiceArea), cy / (3 * twiceArea)];
+  return [cx / (CENTROID_DIVISOR * twiceArea), cy / (CENTROID_DIVISOR * twiceArea)];
 }
 
 // ---------------------------------------------------------------------------
@@ -166,11 +201,11 @@ export function convexHull(points) {
  * random points in an annulus around (cx, cy). The output is always convex,
  * which is required for the recursive habitat partitioning to tile cleanly.
  */
-export function generateIrregularPolygon(cx, cy, radius, numPoints = 18) {
+export function generateIrregularPolygon(cx, cy, radius, numPoints = HULL_POINT_COUNT_DEFAULT) {
   const pts = [];
   for (let i = 0; i < numPoints; i++) {
     const angle = Math.random() * 2 * Math.PI;
-    const r = radius * (0.65 + Math.random() * 0.7);
+    const r = radius * (ANNULUS_INNER_FRACTION + Math.random() * ANNULUS_OUTER_SPAN);
     pts.push([cx + r * Math.cos(angle), cy + r * Math.sin(angle)]);
   }
   return convexHull(pts);
@@ -234,9 +269,11 @@ function clipPolygonByHalfPlane(ring, point, normal) {
     } else if (d2 >= 0) {
       const t = d1 / (d1 - d2);
       out.push([p1[0] + t * (p2[0] - p1[0]), p1[1] + t * (p2[1] - p1[1])]);
+    } else {
+      // both vertices outside the half-plane — segment fully clipped, no output
     }
   }
-  if (out.length < 3) {
+  if (out.length < MIN_RING_VERTICES) {
     return null;
   }
   out.push([...out[0]]);
@@ -269,7 +306,7 @@ function splitPolygonRandom(ring) {
       maxSd = s;
     }
   }
-  const offset = randBetween(minSd * 0.3, maxSd * 0.3);
+  const offset = randBetween(minSd * CHORD_OFFSET_RANGE_FRACTION, maxSd * CHORD_OFFSET_RANGE_FRACTION);
   const chordPoint = [c[0] + normal[0] * offset, c[1] + normal[1] * offset];
 
   const a = clipPolygonByHalfPlane(ring, chordPoint, normal);
@@ -329,7 +366,7 @@ function tryCarveTargetArea(ring, targetArea) {
   const offset = searchChordOffsetForArea(ring, normal, minSd, maxSd, targetArea);
   const piece = clipPolygonByOffset(ring, normal, offset);
   const rest = clipPolygonByOffset(ring, [-normal[0], -normal[1]], -offset);
-  if (piece && rest && polygonArea(piece) > 1 && polygonArea(rest) > 1) {
+  if (piece && rest && polygonArea(piece) > MIN_VALID_SUB_POLYGON_AREA && polygonArea(rest) > MIN_VALID_SUB_POLYGON_AREA) {
     return { piece, rest, pieceArea: polygonArea(piece) };
   }
   return null;
@@ -343,7 +380,7 @@ function tryCarveTargetArea(ring, targetArea) {
  * polygon is convex (Sutherland-Hodgman on a convex input is convex).
  */
 export function carveTargetArea(ring, targetArea) {
-  for (let attempt = 0; attempt < 8; attempt++) {
+  for (let attempt = 0; attempt < CARVE_MAX_ATTEMPTS; attempt++) {
     const result = tryCarveTargetArea(ring, targetArea);
     if (result) {
       return result;
@@ -375,7 +412,7 @@ export function partitionPolygonByAreas(ring, targetAreas) {
   // accumulated rounding error.
   indexed.sort((x, y) => y.area - x.area);
 
-  const cells = new Array(targetAreas.length);
+  const cells = Array.from({ length: targetAreas.length });
   let remaining = ring;
 
   for (let i = 0; i < indexed.length - 1; i++) {
@@ -384,7 +421,7 @@ export function partitionPolygonByAreas(ring, targetAreas) {
     if (!carved) {
       // Geometry refused to cooperate — give up cleanly. Caller will see a
       // shorter array.
-      return cells.filter((c) => c);
+      return cells.filter(Boolean);
     }
     cells[idx] = carved.piece;
     remaining = carved.rest;
@@ -412,7 +449,7 @@ export function scaleRingToArea(ring, targetArea) {
  * piece by a random chord. Stops short if no valid split is found after
  * a few retries (the returned array may then be smaller than `n`).
  */
-export function partitionPolygon(ring, n, maxRetriesPerSplit = 5) {
+export function partitionPolygon(ring, n, maxRetriesPerSplit = DEFAULT_PARTITION_RETRIES_PER_SPLIT) {
   const parcels = [ring];
   while (parcels.length < n) {
     parcels.sort((a, b) => polygonArea(b) - polygonArea(a));
@@ -420,7 +457,7 @@ export function partitionPolygon(ring, n, maxRetriesPerSplit = 5) {
     let split = null;
     for (let r = 0; r < maxRetriesPerSplit; r++) {
       const [a, b] = splitPolygonRandom(big);
-      if (a && b && polygonArea(a) > 1 && polygonArea(b) > 1) {
+      if (a && b && polygonArea(a) > MIN_VALID_SUB_POLYGON_AREA && polygonArea(b) > MIN_VALID_SUB_POLYGON_AREA) {
         split = [a, b];
         break;
       }
@@ -444,7 +481,7 @@ export function partitionPolygon(ring, n, maxRetriesPerSplit = 5) {
  *
  * Returns null if no inside point is found within `maxAttempts` tries.
  */
-export function pickInteriorPoint(boundaryRing, maxAttempts = 100) {
+export function pickInteriorPoint(boundaryRing, maxAttempts = DEFAULT_INTERIOR_POINT_ATTEMPTS) {
   const bbox = envelopeFromCoords(boundaryRing);
   for (let i = 0; i < maxAttempts; i++) {
     const p = randomPointInBBox(bbox);
@@ -470,14 +507,14 @@ export function generateLinestring(boundaryRing) {
   }
   const dx = end[0] - start[0];
   const dy = end[1] - start[1];
-  const len = Math.sqrt(dx * dx + dy * dy);
+  const len = Math.hypot(dx, dy);
   if (len === 0) {
     return null;
   }
   const px = -dy / len;
   const py = dx / len;
-  const numMid = 1 + randInt(0, 3);
-  const maxOffset = len * 0.1;
+  const numMid = 1 + randInt(0, LINESTRING_MIDPOINT_MAX_EXTRA);
+  const maxOffset = len * LINESTRING_MAX_MIDPOINT_OFFSET_FRACTION;
   const points = [start];
   for (let i = 1; i <= numMid; i++) {
     const t = i / (numMid + 1);

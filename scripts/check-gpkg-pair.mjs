@@ -171,9 +171,10 @@ function findPairs(dir) {
     if (!m) {
       continue;
     }
-    const key = `${m[1]}|${m[3]}`;
+    const [, workbookBase, side, timestamp] = m;
+    const key = `${workbookBase}|${timestamp}`;
     const slot = pairs.get(key) ?? {};
-    slot[m[2]] = path.join(dir, f);
+    slot[side] = path.join(dir, f);
     pairs.set(key, slot);
   }
   return [...pairs.values()].filter((p) => p.baseline && p["post-intervention"]);

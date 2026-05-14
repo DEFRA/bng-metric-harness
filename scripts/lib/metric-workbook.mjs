@@ -76,7 +76,7 @@ function findHeader(aoa, requiredTokens) {
 
 function mergeHeaderRows(top, bottom) {
   const len = Math.max(top?.length ?? 0, bottom?.length ?? 0);
-  const out = new Array(len);
+  const out = Array.from({ length: len });
   for (let i = 0; i < len; i++) {
     const b = bottom?.[i];
     const t = top?.[i];
@@ -142,14 +142,14 @@ function findColAfter(header, candidates, startCol) {
   if (startCol < 0) {
     return -1;
   }
-  const wanted = candidates.map((c) => c.trim().toLowerCase());
+  const wanted = new Set(candidates.map((c) => c.trim().toLowerCase()));
   for (let c = startCol + 1; c < header.length; c++) {
     const v = header[c];
     if (v == null) {
       continue;
     }
     const key = String(v).trim().toLowerCase();
-    if (wanted.includes(key)) {
+    if (wanted.has(key)) {
       return c;
     }
   }
@@ -609,7 +609,7 @@ function buildLinearEntry(row, { type, lenKm }, outIndex, baseCols, fateCols, wi
  * proposed post-intervention state. Mirrors readEnhancementMappings for
  * habitats, but column names differ.
  */
-function readLinearEnhancements(workbook, sheetName, summary) {
+function readLinearEnhancements(workbook, sheetName, _summary) {
   const ws = workbook.Sheets[sheetName];
   if (!ws) {
     return [];
