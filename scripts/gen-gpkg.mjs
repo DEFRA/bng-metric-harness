@@ -140,6 +140,11 @@ const BNG_MAX_NORTHING = 1300000;
 const DEFAULT_CENTRE_E = 530000;
 const DEFAULT_CENTRE_N = 180000;
 
+// CLI defaults when --size / --count are missing or non-numeric.
+const DEFAULT_SYNTHETIC_SIZE = 50;
+const DEFAULT_RUN_COUNT = 1;
+const PARSE_INT_BASE_10 = 10;
+
 // ---------------------------------------------------------------------------
 // Workbook source resolution: turn a path-or-URL into a local file path,
 // downloading and caching as needed.
@@ -607,8 +612,8 @@ async function main() {
     return;
   }
 
-  const numParcels = Number.parseInt(args.size, 10) || 50;
-  const total = Math.max(1, Number.parseInt(args.count, 10) || 1);
+  const numParcels = Number.parseInt(args.size, PARSE_INT_BASE_10) || DEFAULT_SYNTHETIC_SIZE;
+  const total = Math.max(1, Number.parseInt(args.count, PARSE_INT_BASE_10) || DEFAULT_RUN_COUNT);
   const bad = args.bad;
 
   if (!existsSync(OUT_DIR)) {

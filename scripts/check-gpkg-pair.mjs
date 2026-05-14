@@ -123,6 +123,21 @@ function stripSuffix(ref) {
   return ref.replace(/([a-z])$/i, "");
 }
 
+/**
+ * Decide whether a single post-intervention ref traces back to a baseline.
+ * Used inside checkRefsTraceBack to keep the inner loop linear-flow only.
+ */
+function checkPostRowRef(row, baseRefs, table, failures) {
+  const ref = row.r;
+  if (!ref || row.rc === "Created") {
+    return;
+  }
+  const stripped = stripSuffix(ref);
+  if (!baseRefs.has(stripped) && !baseRefs.has(ref)) {
+    failures.push(`${table}: post-intervention ref "${ref}" has no matching baseline ref`);
+  }
+}
+
 function checkRefsTraceBack(baseDb, postDb) {
   const failures = [];
   for (const layer of LAYERS) {
@@ -133,15 +148,7 @@ function checkRefsTraceBack(baseDb, postDb) {
       .prepare(`SELECT "${layer.refCol}" AS r, "Retention Category" AS rc FROM "${layer.table}"`)
       .all();
     for (const row of postRows) {
-      const ref = row.r;
-      if (!ref) {
-        continue;
-      }
-      if (row.rc === "Created") continue; // fresh refs allowed
-      const stripped = stripSuffix(ref);
-      if (!baseRefs.has(stripped) && !baseRefs.has(ref)) {
-        failures.push(`${layer.table}: post-intervention ref "${ref}" has no matching baseline ref`);
-      }
+      checkPostRowRef(row, baseRefs, layer.table, failures);
     }
   }
   return failures;

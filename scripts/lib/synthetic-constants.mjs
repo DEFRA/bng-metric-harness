@@ -52,38 +52,44 @@ const TYPE_NAME_SEP_LENGTH = TYPE_NAME_SEPARATOR.length;
 export const HABITATS = [];
 export const HABITATS_BY_BROAD = {};
 
-for (const fullName of Object.keys(metricDistinctiveness)) {
+function tryParseInlandHabitat(fullName) {
   const sepIdx = fullName.indexOf(TYPE_NAME_SEPARATOR);
   if (sepIdx < 0) {
-    continue;
+    return null;
   }
   const broad = fullName.slice(0, sepIdx);
-  const type = fullName.slice(sepIdx + TYPE_NAME_SEP_LENGTH);
   if (!INLAND_BROAD_TYPES.has(broad)) {
-    continue;
+    return null;
   }
   const conds = metricConditionScores[fullName];
   if (!conds) {
-    continue;
+    return null;
   }
   const validConditions = Object.entries(conds)
     .filter(([, v]) => typeof v === "number")
     .map(([k]) => k);
   if (validConditions.length === 0) {
-    continue;
+    return null;
   }
-  const habitat = {
+  return {
     fullName,
     broad,
-    type,
+    type: fullName.slice(sepIdx + TYPE_NAME_SEP_LENGTH),
     validConditions,
     distinctiveness: metricDistinctiveness[fullName],
   };
-  HABITATS.push(habitat);
-  if (!HABITATS_BY_BROAD[broad]) {
-    HABITATS_BY_BROAD[broad] = [];
+}
+
+for (const fullName of Object.keys(metricDistinctiveness)) {
+  const habitat = tryParseInlandHabitat(fullName);
+  if (!habitat) {
+    continue;
   }
-  HABITATS_BY_BROAD[broad].push(habitat);
+  HABITATS.push(habitat);
+  if (!HABITATS_BY_BROAD[habitat.broad]) {
+    HABITATS_BY_BROAD[habitat.broad] = [];
+  }
+  HABITATS_BY_BROAD[habitat.broad].push(habitat);
 }
 
 export const BROAD_HABITAT_TYPES = Object.keys(HABITATS_BY_BROAD);

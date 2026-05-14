@@ -154,6 +154,8 @@ export function derivePostInterventionTreePoints(boundaryRing, baselinePointsByR
       out[i] = pickInteriorPoint(boundaryRing);
     } else if (r.baselineRef && baselinePointsByRef.has(r.baselineRef)) {
       out[i] = baselinePointsByRef.get(r.baselineRef);
+    } else {
+      // baseline ref not present in geometry — leave point null (writer skips)
     }
   }
   return out;

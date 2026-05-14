@@ -40,6 +40,17 @@ export function filledArray(length, value = null) {
   return Array.from({ length }, () => value);
 }
 
+// WKB geometry type tags (OGC Simple Features).
+const WKB_TYPE_POINT = 1;
+const WKB_TYPE_LINESTRING = 2;
+const WKB_TYPE_POLYGON = 3;
+
+// Envelope array layout: [minX, maxX, minY, maxY].
+const ENV_MIN_X = 0;
+const ENV_MAX_X = 1;
+const ENV_MIN_Y = 2;
+const ENV_MAX_Y = 3;
+
 // ---------------------------------------------------------------------------
 // WKB encoding (little-endian)
 // ---------------------------------------------------------------------------
@@ -66,7 +77,7 @@ export function encodeWkbPoint(x, y) {
   let off = 0;
   buf[off] = 1;
   off += 1;
-  off = writeUInt32(buf, off, 1);
+  off = writeUInt32(buf, off, WKB_TYPE_POINT);
   off = writeDouble(buf, off, x);
   writeDouble(buf, off, y);
   return buf;
@@ -82,7 +93,7 @@ export function encodeWkbLineString(coords) {
   let off = 0;
   buf[off] = 1;
   off += 1;
-  off = writeUInt32(buf, off, 2);
+  off = writeUInt32(buf, off, WKB_TYPE_LINESTRING);
   off = writeUInt32(buf, off, coords.length);
   for (const [x, y] of coords) {
     off = writeDouble(buf, off, x);
@@ -106,7 +117,7 @@ export function encodeWkbPolygon(rings) {
   let off = 0;
   buf[off] = 1;
   off += 1;
-  off = writeUInt32(buf, off, 3);
+  off = writeUInt32(buf, off, WKB_TYPE_POLYGON);
   off = writeUInt32(buf, off, rings.length);
   for (const ring of rings) {
     off = writeUInt32(buf, off, ring.length);
@@ -150,10 +161,10 @@ export function encodeGpkgBinary(srsId, wkb, envelope) {
   off += 1;
   off = writeUInt32(buf, off, srsId);
   if (envelope) {
-    off = writeDouble(buf, off, envelope[0]);
-    off = writeDouble(buf, off, envelope[1]);
-    off = writeDouble(buf, off, envelope[2]);
-    off = writeDouble(buf, off, envelope[3]);
+    off = writeDouble(buf, off, envelope[ENV_MIN_X]);
+    off = writeDouble(buf, off, envelope[ENV_MAX_X]);
+    off = writeDouble(buf, off, envelope[ENV_MIN_Y]);
+    off = writeDouble(buf, off, envelope[ENV_MAX_Y]);
   }
   wkb.copy(buf, off);
   return buf;
@@ -426,7 +437,7 @@ function hexToRgba(hex, alpha = ALPHA_OPAQUE) {
 }
 
 function polygonQml(fill, stroke, fillOpacity = 0.5, strokeWidth = 1.5) {
-  const fillAlpha = Math.round(fillOpacity * 255);
+  const fillAlpha = Math.round(fillOpacity * ALPHA_OPAQUE);
   return `<!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>
 <qgis version="3.34" styleCategories="Symbology">
   <renderer-v2 type="singleSymbol" symbollevels="0">

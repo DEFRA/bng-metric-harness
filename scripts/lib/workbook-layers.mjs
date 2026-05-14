@@ -361,15 +361,13 @@ function allocateAcrossPool(pool, targets) {
   const out = filledArray(targets.length);
   const live = pool.slice();
   for (let i = 0; i < targets.length; i += 1) {
-    const target = targets[i];
-    if (target <= 0) {
-      continue;
-    }
-    live.sort((a, b) => polygonArea(b) - polygonArea(a));
     if (live.length === 0) {
       break;
     }
-    allocateOneTarget(live, target, out, i);
+    if (targets[i] > 0) {
+      live.sort((a, b) => polygonArea(b) - polygonArea(a));
+      allocateOneTarget(live, targets[i], out, i);
+    }
   }
   return out;
 }

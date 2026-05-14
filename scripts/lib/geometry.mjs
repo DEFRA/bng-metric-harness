@@ -78,11 +78,18 @@ export function lineInsideRing(coords, boundary) {
   return true;
 }
 
+// Envelope layout: [minX, maxX, minY, maxY] — matches the GeoPackage Binary
+// envelope-type-1 byte order.
+const ENV_IDX_MIN_X = 0;
+const ENV_IDX_MAX_X = 1;
+const ENV_IDX_MIN_Y = 2;
+const ENV_IDX_MAX_Y = 3;
+
 export function expandEnvelope(envelope, env) {
-  envelope[0] = Math.min(envelope[0], env[0]);
-  envelope[1] = Math.max(envelope[1], env[1]);
-  envelope[2] = Math.min(envelope[2], env[2]);
-  envelope[3] = Math.max(envelope[3], env[3]);
+  envelope[ENV_IDX_MIN_X] = Math.min(envelope[ENV_IDX_MIN_X], env[ENV_IDX_MIN_X]);
+  envelope[ENV_IDX_MAX_X] = Math.max(envelope[ENV_IDX_MAX_X], env[ENV_IDX_MAX_X]);
+  envelope[ENV_IDX_MIN_Y] = Math.min(envelope[ENV_IDX_MIN_Y], env[ENV_IDX_MIN_Y]);
+  envelope[ENV_IDX_MAX_Y] = Math.max(envelope[ENV_IDX_MAX_Y], env[ENV_IDX_MAX_Y]);
 }
 
 export function envelopeFromCoords(coords) {
@@ -157,8 +164,17 @@ export function randInt(min, max) {
 }
 
 function randomPointInBBox(bbox) {
-  return [randBetween(bbox[0], bbox[1]), randBetween(bbox[2], bbox[3])];
+  return [
+    randBetween(bbox[ENV_IDX_MIN_X], bbox[ENV_IDX_MAX_X]),
+    randBetween(bbox[ENV_IDX_MIN_Y], bbox[ENV_IDX_MAX_Y]),
+  ];
 }
+
+// Andrew's monotone-chain hull peeks at the most-recent and second-most-
+// recent points on each chain; `Array.prototype.at(-1)` / `at(-2)` are
+// negative-index lookups, named here so the magic-number rule is satisfied.
+const HULL_LAST = -1;
+const HULL_SECOND_LAST = -2;
 
 // ---------------------------------------------------------------------------
 // Ring constructors
@@ -176,7 +192,7 @@ export function convexHull(points) {
     (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
   const lower = [];
   for (const p of pts) {
-    while (lower.length >= 2 && cross(lower.at(-2), lower.at(-1), p) <= 0) {
+    while (lower.length >= 2 && cross(lower.at(HULL_SECOND_LAST), lower.at(HULL_LAST), p) <= 0) {
       lower.pop();
     }
     lower.push(p);
@@ -184,7 +200,7 @@ export function convexHull(points) {
   const upper = [];
   for (let i = pts.length - 1; i >= 0; i--) {
     const p = pts[i];
-    while (upper.length >= 2 && cross(upper.at(-2), upper.at(-1), p) <= 0) {
+    while (upper.length >= 2 && cross(upper.at(HULL_SECOND_LAST), upper.at(HULL_LAST), p) <= 0) {
       upper.pop();
     }
     upper.push(p);

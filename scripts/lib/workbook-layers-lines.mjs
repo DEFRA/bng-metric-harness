@@ -121,6 +121,8 @@ function bucketLinearPostRowsForDerivation(postRows, boundaryRing, out) {
         groupsByBaseline.set(r.baselineRef, []);
       }
       groupsByBaseline.get(r.baselineRef).push({ row: r, postIndex: i });
+    } else {
+      // baseline-less, non-Created rows can't carry geometry — defensive no-op
     }
   }
   return groupsByBaseline;
@@ -181,35 +183,59 @@ function sliceLinestringSegment(coords, startM, endM) {
   return walkLinestringSlice(coords, sStart, sEnd);
 }
 
+/** Interpolate the point at distance `target` along segment a→b. */
+function interpOnSegment(a, dx, dy, seg, target, segStart) {
+  const t = seg === 0 ? 0 : (target - segStart) / seg;
+  return [a[0] + dx * t, a[1] + dy * t];
+}
+
 function walkLinestringSlice(coords, sStart, sEnd) {
   const out = [];
   let acc = 0;
   for (let i = 1; i < coords.length; i += 1) {
-    const [ax, ay] = coords[i - 1];
-    const [bx, by] = coords[i];
-    const dx = bx - ax;
-    const dy = by - ay;
+    const a = coords[i - 1];
+    const b = coords[i];
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
     const seg = Math.hypot(dx, dy);
-    const segStart = acc;
-    const segEnd = acc + seg;
-    if (segEnd >= sStart) {
-      if (segStart > sEnd) {
-        break;
-      }
-      if (out.length === 0) {
-        const t = seg === 0 ? 0 : (sStart - segStart) / seg;
-        out.push([ax + dx * t, ay + dy * t]);
-      }
-      if (segEnd >= sEnd) {
-        const t = seg === 0 ? 0 : (sEnd - segStart) / seg;
-        out.push([ax + dx * t, ay + dy * t]);
-        return out;
-      }
-      out.push([bx, by]);
+    const result = appendSliceSegment(out, a, b, dx, dy, seg, acc, sStart, sEnd);
+    if (result === SLICE_DONE) {
+      return out;
     }
-    acc = segEnd;
+    if (result === SLICE_BREAK) {
+      break;
+    }
+    acc += seg;
   }
   return out.length >= 2 ? out : null;
+}
+
+const SLICE_CONTINUE = 0;
+const SLICE_DONE = 1;
+const SLICE_BREAK = 2;
+
+/**
+ * One iteration of walkLinestringSlice: emits the start interpolation, any
+ * pass-through vertex, and the end interpolation. Returns a marker telling
+ * the caller whether to keep walking, stop with the result, or break out.
+ */
+function appendSliceSegment(out, a, b, dx, dy, seg, acc, sStart, sEnd) {
+  const segEnd = acc + seg;
+  if (segEnd < sStart) {
+    return SLICE_CONTINUE;
+  }
+  if (acc > sEnd) {
+    return SLICE_BREAK;
+  }
+  if (out.length === 0) {
+    out.push(interpOnSegment(a, dx, dy, seg, sStart, acc));
+  }
+  if (segEnd >= sEnd) {
+    out.push(interpOnSegment(a, dx, dy, seg, sEnd, acc));
+    return SLICE_DONE;
+  }
+  out.push([b[0], b[1]]);
+  return SLICE_CONTINUE;
 }
 
 // ---------------------------------------------------------------------------
