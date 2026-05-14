@@ -4,7 +4,8 @@
  * and the RLB generator (which is layer-agnostic).
  */
 
-import { SRS_ID, gpkgPolygon, registerLayer } from "./gpkg-core.mjs";
+import { gpkgPolygon } from "#gpkg-io";
+import { SRS_ID, registerLayer } from "./bng-schema.mjs";
 import {
   envelopeFromCoords,
   generateIrregularPolygon,

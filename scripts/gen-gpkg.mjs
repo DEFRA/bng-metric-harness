@@ -57,8 +57,10 @@
  *
  * --flaw is repeatable; empty-layer and geometric flaws cannot be mixed.
  *
- * This file is the CLI + orchestration. Domain logic lives in lib/:
- *   - lib/gpkg-core.mjs       — GeoPackage protocol (WKB, init, schema, styles)
+ * This file is the CLI + orchestration. Domain logic lives in:
+ *   - lib/bng-schema.mjs      — BNG SRS, the 5 feature-table DDLs, BNG layer
+ *                               styles. Wraps the generic #gpkg-io package
+ *                               with BNG-specific defaults.
  *   - lib/geometry.mjs        — pure geometry helpers
  *   - lib/synthetic.mjs       — synthetic generator (regular + empty-layer)
  *   - lib/synthetic-bad.mjs   — --bad / --flaw fixture builder
@@ -66,6 +68,10 @@
  *   - lib/workbook-rows.mjs   — row builders (pure data transformations)
  *   - lib/workbook-layers.mjs — workbook-mode writers + geometry derivation
  *   - lib/metric-workbook.mjs — xlsx parser
+ *
+ * Generic GeoPackage I/O (WKB, gpkg_* tables, generic styles) lives in
+ * packages/gpkg-io and is imported as `#gpkg-io`. The package has no
+ * BNG knowledge; it could be moved to its own repo unchanged.
  */
 
 import Database from "better-sqlite3";
@@ -82,15 +88,15 @@ import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
 import { color, error, header, info, warn } from "./_lib.mjs";
 import { readMetricWorkbook } from "./lib/metric-workbook.mjs";
+import { envelopeFromCoords, gpkgPolygon } from "#gpkg-io";
 import {
   SRS_ID,
   createAllTables,
   createLayerStyles,
-  gpkgPolygon,
   initGeoPackage,
   registerLayer,
-} from "./lib/gpkg-core.mjs";
-import { envelopeFromCoords, polygonArea } from "./lib/geometry.mjs";
+} from "./lib/bng-schema.mjs";
+import { polygonArea } from "./lib/geometry.mjs";
 import { generateOne } from "./lib/synthetic.mjs";
 import { resolveFlawSelection } from "./lib/flaws.mjs";
 import {

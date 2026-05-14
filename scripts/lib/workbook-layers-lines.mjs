@@ -11,15 +11,13 @@
  * because the loop is shared.
  */
 
+import { filledArray, gpkgLineString, placeholders } from "#gpkg-io";
 import {
   HEDGEROWS_INSERT_COLUMNS,
   RIVERS_INSERT_COLUMNS,
   SRS_ID,
-  filledArray,
-  gpkgLineString,
-  placeholders,
   registerLayer,
-} from "./gpkg-core.mjs";
+} from "./bng-schema.mjs";
 import {
   envelopeFromCoords,
   expandEnvelope,

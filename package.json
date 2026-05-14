@@ -4,6 +4,9 @@
   "private": true,
   "description": "Meta-repo that orchestrates bng-metric-frontend and bng-metric-backend",
   "type": "module",
+  "imports": {
+    "#gpkg-io": "./packages/gpkg-io/index.mjs"
+  },
   "engines": {
     "node": ">=24"
   },

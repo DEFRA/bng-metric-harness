@@ -7,6 +7,7 @@
 
 import Database from "better-sqlite3";
 import { color, header, info } from "../_lib.mjs";
+import { gpkgLineString, gpkgPoint, gpkgPolygon, placeholders } from "#gpkg-io";
 import {
   HABITATS_INSERT_COLUMNS,
   HEDGEROWS_INSERT_COLUMNS,
@@ -15,13 +16,9 @@ import {
   URBAN_TREES_INSERT_COLUMNS,
   createAllTables,
   createLayerStyles,
-  gpkgLineString,
-  gpkgPoint,
-  gpkgPolygon,
   initGeoPackage,
-  placeholders,
   registerLayer,
-} from "./gpkg-core.mjs";
+} from "./bng-schema.mjs";
 import {
   envelopeFromCoords,
   expandEnvelope,

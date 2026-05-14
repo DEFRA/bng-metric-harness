@@ -21,14 +21,12 @@
  *                ancestor exists to reuse.
  */
 
+import { filledArray, gpkgPolygon, placeholders } from "#gpkg-io";
 import {
   HABITATS_INSERT_COLUMNS,
   SRS_ID,
-  filledArray,
-  gpkgPolygon,
-  placeholders,
   registerLayer,
-} from "./gpkg-core.mjs";
+} from "./bng-schema.mjs";
 import {
   carveTargetArea,
   envelopeFromCoords,
