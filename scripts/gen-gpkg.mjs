@@ -83,13 +83,44 @@
  *                   Must be inside England for the prototype to accept the
  *                   uploaded GeoPackage.
  *   --bad           Generate an intentionally invalid GeoPackage for testing
- *                   upload validation. Builds a small fixture with deliberate
- *                   geometry flaws covering most validator checks: a bowtie
- *                   redline, a bowtie habitat parcel, two overlapping parcels,
- *                   a parcel placed outside the redline, a hedgerow that
- *                   crosses outside, a tree placed outside, and habitat areas
- *                   that don't tile the redline. Ignores --size and any
- *                   --from / --from-list inputs.
+ *                   upload validation. Shorthand for applying every flaw in
+ *                   the registry that composes with a single small redline
+ *                   (everything except `redline-not-in-england` and
+ *                   `redline-too-large`, which are tested in isolation).
+ *                   Ignores --size and any --from / --from-list inputs.
+ *   --flaw <name>   Inject a single named flaw. Repeatable. Two families:
+ *
+ *                   Geometric flaws — each maps to a backend validation error
+ *                   code; output is a tiny bad-fixture file:
+ *                     self-intersecting-redline   REDLINE_INVALID_GEOMETRY
+ *                     bowtie-parcel               AREA_PARCELS_INVALID_GEOMETRY
+ *                     overlapping-parcels         PARCEL_OVERLAPS
+ *                     parcel-outside-redline      AREA_PARCELS_OUTSIDE_REDLINE
+ *                     sliver                      SLIVERS_INSIDE_REDLINE
+ *                     hedgerow-outside            HEDGEROWS_OUTSIDE_REDLINE
+ *                     watercourse-outside         WATERCOURSES_OUTSIDE_REDLINE
+ *                     tree-outside                TREES_OUTSIDE_REDLINE
+ *                     iggi-outside                IGGIS_OUTSIDE_REDLINE
+ *                     area-sum-mismatch           AREA_SUM_MISMATCH
+ *                     redline-not-in-england      REDLINE_OUTSIDE_ENGLAND
+ *                     redline-too-large           REDLINE_AREA_TOO_LARGE
+ *                   The last two are mutually exclusive with each other and
+ *                   with the geometric flaws — they're standalone tests.
+ *                   A single geometric --flaw implies bad-mode output
+ *                   (filename: bng-test-data-bad-<flaw>.gpkg) even without
+ *                   --bad; combine with --bad to add a flaw to the default
+ *                   set.
+ *
+ *                   Empty-layer flaws — output is a structurally valid full-
+ *                   size fixture with the named feature layer present but
+ *                   containing zero rows:
+ *                     no-habitats                 NO_HABITAT_AREAS
+ *                     no-hedgerows                (no specific backend error)
+ *                     no-rivers                   (no specific backend error)
+ *                     no-trees                    (no specific backend error)
+ *                   May be combined with each other but not with the
+ *                   geometric flaws above or with --bad. Filename embeds the
+ *                   flaw names (e.g. bng-test-data-no-habitats.gpkg).
  */
 
 import Database from "better-sqlite3";
@@ -119,6 +150,7 @@ const { values: args } = parseArgs({
     count: { type: "string", default: "1" },
     outdir: { type: "string", default: "" },
     bad: { type: "boolean", default: false },
+    flaw: { type: "string", multiple: true, default: [] },
     from: { type: "string", default: "" },
     "from-list": { type: "string", default: "" },
     "strict-habitats": { type: "boolean", default: false },
@@ -2206,36 +2238,86 @@ function parseCentre(value) {
   return [e, n];
 }
 
-function generateOne(outPath, bad, numParcels, centre) {
-  if (bad) {
-    generateOneBad(outPath, centre);
-    return;
-  }
+const SYNTHETIC_RLB_RADIUS = 400;
 
-  const numHedgerows = Math.max(3, Math.floor(numParcels / 3));
-  const numRivers = Math.max(1, Math.floor(numParcels / 15));
-  const numTrees = Math.max(5, Math.floor(numParcels / 2));
+function computeLayerCounts(numParcels, emptyLayers) {
+  const ifEmpty = (key, value) => (emptyLayers.has(key) ? 0 : value);
+  return {
+    numHabitats: ifEmpty("habitats", numParcels),
+    numHedgerows: ifEmpty(
+      "hedgerows",
+      Math.max(HEDGEROWS_MIN, Math.floor(numParcels / HEDGEROWS_PER_PARCEL)),
+    ),
+    numRivers: ifEmpty(
+      "rivers",
+      Math.max(RIVERS_MIN, Math.floor(numParcels / RIVERS_PER_PARCEL)),
+    ),
+    numTrees: ifEmpty(
+      "trees",
+      Math.max(TREES_MIN, Math.floor(numParcels / TREES_PER_PARCEL)),
+    ),
+  };
+}
 
+function logSyntheticBanner(outPath, centre, counts, emptyLayers) {
+  const { numHabitats, numHedgerows, numRivers, numTrees } = counts;
   header(`Generating BNG test GeoPackage`, "cyan");
   info(`  ${SITE_NAME}`);
   info(
-    `  ${numParcels} habitat parcels, ${numHedgerows} hedgerows, ${numRivers} rivers, ${numTrees} urban trees`,
+    `  ${numHabitats} habitat parcels, ${numHedgerows} hedgerows, ${numRivers} rivers, ${numTrees} urban trees`,
   );
+  if (emptyLayers.size > 0) {
+    info(
+      `  empty layers: ${[...emptyLayers].sort((a, b) => a.localeCompare(b)).join(", ")}`,
+    );
+  }
   info(`  centre: ${centre[0]},${centre[1]} (BNG)`);
   info(`  → ${outPath}`);
+}
+
+// For an "empty" layer we want the table to exist with zero rows. We can't
+// just call generateHabitats(0) — it would still emit one parcel covering the
+// whole boundary. Instead, register the layer here with a null envelope and
+// skip the matching generator in runLayerGenerators.
+function registerEmptyLayers(db, emptyLayers) {
+  for (const [key, { table, geom }] of Object.entries(EMPTYABLE_LAYERS)) {
+    if (emptyLayers.has(key)) {
+      registerLayer(db, table, geom, null);
+    }
+  }
+}
+
+function runLayerGenerators(db, ring, counts, emptyLayers) {
+  const generators = {
+    habitats: () => generateHabitats(db, ring, counts.numHabitats),
+    hedgerows: () => generateHedgerows(db, ring, counts.numHedgerows),
+    rivers: () => generateRivers(db, ring, counts.numRivers),
+    trees: () => generateUrbanTrees(db, ring, counts.numTrees),
+  };
+  for (const [key, generate] of Object.entries(generators)) {
+    if (!emptyLayers.has(key)) {
+      generate();
+    }
+  }
+}
+
+function generateOne(outPath, badFlawNames, numParcels, centre, emptyLayers = new Set()) {
+  if (badFlawNames && badFlawNames.length > 0) {
+    generateOneBad(outPath, centre, badFlawNames);
+    return;
+  }
+
+  const counts = computeLayerCounts(numParcels, emptyLayers);
+  logSyntheticBanner(outPath, centre, counts, emptyLayers);
 
   const [cx, cy] = centre;
-  const radius = 400;
-
   const db = new Database(outPath);
   initGeoPackage(db);
   createAllTables(db);
 
-  const ring = generateRedLineBoundary(db, cx, cy, radius);
-  generateHabitats(db, ring, numParcels);
-  generateHedgerows(db, ring, numHedgerows);
-  generateRivers(db, ring, numRivers);
-  generateUrbanTrees(db, ring, numTrees);
+  const ring = generateRedLineBoundary(db, cx, cy, SYNTHETIC_RLB_RADIUS);
+  registerEmptyLayers(db, emptyLayers);
+  runLayerGenerators(db, ring, counts, emptyLayers);
   createLayerStyles(db);
 
   db.close();
@@ -2244,74 +2326,342 @@ function generateOne(outPath, bad, numParcels, centre) {
   console.log(color("green", `✔ Done. ${outPath}`));
 }
 
-/**
- * --bad fixture: deliberately invalid GeoPackage that exercises the backend's
- * geometry validation checks. Each flaw maps to a specific error code so the
- * dropout page can render every category.
- */
-/**
- * Layout for the --bad fixture. All distances in BNG metres. Each local is
- * named so the bad-fixture geometry has no bare numeric literals.
- */
-function buildBadFixtureGeometry(cx, cy) {
-  const REDLINE_HALF = 200;
-  const PARCEL_HALF = 50;
-  const VALID_PARCEL_OFFSET_X = -100;
-  const VALID_PARCEL_OFFSET_Y = -100;
-  const OVERLAP_A_OFFSET_X = 80;
-  const OVERLAP_A_OFFSET_Y = -100;
-  const OVERLAP_B_OFFSET_X = 130;
-  const OVERLAP_B_OFFSET_Y = -80;
-  const BOWTIE_PARCEL_HALF = 30;
-  const BOWTIE_PARCEL_OFFSET_Y = 60;
-  const OUTSIDE_PARCEL_OFFSET = 450;
-  const HEDGEROW_INSIDE_OFFSET = 100;
-  const HEDGEROW_OUTSIDE_OFFSET = 600;
-  const TREE_INSIDE_OFFSET_Y = -80;
-  const TREE_OUTSIDE_OFFSET = 700;
+// ---------------------------------------------------------------------------
+// --bad fixture: deliberately invalid GeoPackage that exercises the backend's
+// geometry validation checks.
+//
+// The fixture is composed from a registry of named *flaws*. Each flaw is a
+// small mutation of a base fixture state (one valid redline, no other
+// content). `--bad` is a shorthand for "apply every composable flaw"; a
+// single `--flaw <name>` produces a minimal fixture that triggers just one
+// validator code (subject to a few unavoidable side effects, e.g. adding
+// only a bad parcel also produces an area-sum mismatch).
+// ---------------------------------------------------------------------------
 
-  const square = (offsetX, offsetY) =>
-    rectRing(
-      cx + offsetX - PARCEL_HALF,
-      cy + offsetY - PARCEL_HALF,
-      cx + offsetX + PARCEL_HALF,
-      cy + offsetY + PARCEL_HALF,
+const BAD_REDLINE_HALF = 200; // base bad-fixture redline is a 400m × 400m square
+const BAD_PARCEL_HALF = 50;
+
+// Per-flaw layout offsets, in BNG metres from the fixture centre. Each pair
+// places a feature far enough from the redline (or from sibling features) for
+// the targeted validator to fire deterministically.
+const BOWTIE_PARCEL_DY = 60;
+const BOWTIE_PARCEL_HALF = 30;
+const OVERLAP_A_DX = 80;
+const OVERLAP_A_DY = -100;
+const OVERLAP_B_DX = 130;
+const OVERLAP_B_DY = -80;
+const OUTSIDE_PARCEL_DXY = 450;
+const HEDGEROW_INSIDE_OFFSET = 100;
+const HEDGEROW_OUTSIDE_OFFSET = 600;
+const WATERCOURSE_INSIDE_OFFSET = 100;
+const WATERCOURSE_OUTSIDE_OFFSET = 700;
+const TREE_OUTSIDE_OFFSET = 700;
+const IGGI_OUTSIDE_OFFSET = 500;
+const IGGI_HALF = 40;
+const AREA_MISMATCH_PARCEL_DXY = -100;
+const SLIVER_GAP = 0.002; // 2mm — under 1m² sliver area threshold, above GEOS grid
+
+// Wales (Snowdonia) centre — inside BNG envelope but outside England.
+const SNOWDONIA_E = 262000;
+const SNOWDONIA_N = 354000;
+const TOO_LARGE_HALF = 6000; // 12 km × 12 km = 144 sq km, over the 100 sq km cap
+
+// Layer-count ratios for the synthetic fixture, derived from parcel count.
+const HEDGEROWS_MIN = 3;
+const HEDGEROWS_PER_PARCEL = 3;
+const RIVERS_MIN = 1;
+const RIVERS_PER_PARCEL = 15;
+const TREES_MIN = 5;
+const TREES_PER_PARCEL = 2;
+
+// Banner formatting: width reserved for the error-code column so flaw lines
+// align under "Applied flaws".
+const FLAW_BANNER_ERRCODE_WIDTH = 34;
+
+// Number of columns in the Rivers INSERT statement — matches the schema.
+const RIVERS_COLUMN_COUNT = 28;
+
+// Banner text for empty-layer flaws — no validation error is triggered, the
+// fixture is just useful for exercising downstream null/empty handling.
+const NO_SPECIFIC_ERROR = "(no specific backend error)";
+
+/** Square ring of half-size `half` centred at (cx, cy). */
+function badSquareRing(cx, cy, half = BAD_PARCEL_HALF) {
+  return rectRing(cx - half, cy - half, cx + half, cy + half);
+}
+
+/**
+ * Registry of named flaws. Each entry has:
+ *   description  short human-readable label, used in the banner
+ *   errorCode    backend validation error this flaw is intended to trigger
+ *   standalone   true → cannot be combined with any other flaw
+ *   apply(state) mutates the bad-fixture state in place (geometric flaws only)
+ *   emptyLayer   key into EMPTYABLE_LAYERS; if present, the flaw routes through
+ *                the regular generator with that layer skipped and registered
+ *                as an empty table — not through the bad-fixture builder
+ */
+const FLAWS = {
+  "self-intersecting-redline": {
+    description: "redline drawn as a bowtie (self-intersecting)",
+    errorCode: "REDLINE_INVALID_GEOMETRY",
+    apply(s) {
+      s.redline = bowtieRing(s.cx, s.cy, BAD_REDLINE_HALF);
+    },
+  },
+  "bowtie-parcel": {
+    description: "one habitat parcel drawn as a bowtie",
+    errorCode: "AREA_PARCELS_INVALID_GEOMETRY",
+    apply(s) {
+      s.parcels.push(bowtieRing(s.cx, s.cy + BOWTIE_PARCEL_DY, BOWTIE_PARCEL_HALF));
+    },
+  },
+  "overlapping-parcels": {
+    description: "two habitat parcels overlap each other",
+    errorCode: "PARCEL_OVERLAPS",
+    apply(s) {
+      s.parcels.push(
+        badSquareRing(s.cx + OVERLAP_A_DX, s.cy + OVERLAP_A_DY),
+        badSquareRing(s.cx + OVERLAP_B_DX, s.cy + OVERLAP_B_DY),
+      );
+    },
+  },
+  "parcel-outside-redline": {
+    description: "a habitat parcel placed entirely outside the redline",
+    errorCode: "AREA_PARCELS_OUTSIDE_REDLINE",
+    apply(s) {
+      s.parcels.push(badSquareRing(s.cx + OUTSIDE_PARCEL_DXY, s.cy + OUTSIDE_PARCEL_DXY));
+    },
+  },
+  sliver: {
+    description: "two parcels almost tile the redline, leaving a hairline gap",
+    errorCode: "SLIVERS_INSIDE_REDLINE",
+    // SLIVERS_INSIDE_REDLINE only fires when parcels nearly tile the redline,
+    // so this flaw fully occupies the parcel layer and can't coexist with the
+    // other parcel-adding flaws.
+    conflictsWith: [
+      "bowtie-parcel",
+      "overlapping-parcels",
+      "parcel-outside-redline",
+      "area-sum-mismatch",
+    ],
+    apply(s) {
+      // Two parcels stacked vertically with a 2mm gap between them; the
+      // resulting sliver area is 0.002m × 400m = 0.8 sq m, under the 1 sq m
+      // sliver threshold and above the 1mm GEOS overlay grid.
+      const r = BAD_REDLINE_HALF;
+      s.parcels.push(
+        rectRing(s.cx - r, s.cy - r, s.cx + r, s.cy),
+        rectRing(s.cx - r, s.cy + SLIVER_GAP, s.cx + r, s.cy + r),
+      );
+    },
+  },
+  "hedgerow-outside": {
+    description: "a hedgerow runs from inside to outside the redline",
+    errorCode: "HEDGEROWS_OUTSIDE_REDLINE",
+    apply(s) {
+      s.hedgerows.push([
+        [s.cx - HEDGEROW_INSIDE_OFFSET, s.cy + HEDGEROW_INSIDE_OFFSET],
+        [s.cx + HEDGEROW_OUTSIDE_OFFSET, s.cy + HEDGEROW_OUTSIDE_OFFSET],
+      ]);
+    },
+  },
+  "watercourse-outside": {
+    description: "a watercourse runs from inside to outside the redline",
+    errorCode: "WATERCOURSES_OUTSIDE_REDLINE",
+    apply(s) {
+      s.rivers.push([
+        [s.cx + WATERCOURSE_INSIDE_OFFSET, s.cy - WATERCOURSE_INSIDE_OFFSET],
+        [s.cx + WATERCOURSE_OUTSIDE_OFFSET, s.cy - WATERCOURSE_OUTSIDE_OFFSET],
+      ]);
+    },
+  },
+  "tree-outside": {
+    description: "a tree is placed outside the redline",
+    errorCode: "TREES_OUTSIDE_REDLINE",
+    apply(s) {
+      s.trees.push([s.cx + TREE_OUTSIDE_OFFSET, s.cy + TREE_OUTSIDE_OFFSET]);
+    },
+  },
+  "iggi-outside": {
+    description: "an IGGI polygon is placed outside the redline",
+    errorCode: "IGGIS_OUTSIDE_REDLINE",
+    apply(s) {
+      s.iggis.push(badSquareRing(s.cx - IGGI_OUTSIDE_OFFSET, s.cy - IGGI_OUTSIDE_OFFSET, IGGI_HALF));
+    },
+  },
+  "area-sum-mismatch": {
+    description: "habitat parcels do not tile the redline",
+    errorCode: "AREA_SUM_MISMATCH",
+    apply(s) {
+      s.parcels.push(badSquareRing(s.cx + AREA_MISMATCH_PARCEL_DXY, s.cy + AREA_MISMATCH_PARCEL_DXY));
+    },
+  },
+  "redline-not-in-england": {
+    description: "redline placed outside England (Snowdonia, Wales)",
+    errorCode: "REDLINE_OUTSIDE_ENGLAND",
+    standalone: true,
+    apply(s) {
+      s.cx = SNOWDONIA_E;
+      s.cy = SNOWDONIA_N;
+      s.centre = [s.cx, s.cy];
+      s.redline = badSquareRing(s.cx, s.cy, BAD_REDLINE_HALF);
+    },
+  },
+  "redline-too-large": {
+    description: "redline area exceeds the 100 sq km limit",
+    errorCode: "REDLINE_AREA_TOO_LARGE",
+    standalone: true,
+    apply(s) {
+      s.redline = badSquareRing(s.cx, s.cy, TOO_LARGE_HALF);
+    },
+  },
+  "no-habitats": {
+    description: "Habitats layer present with zero rows",
+    errorCode: "NO_HABITAT_AREAS",
+    emptyLayer: "habitats",
+  },
+  "no-hedgerows": {
+    description: "Hedgerows layer present with zero rows",
+    errorCode: NO_SPECIFIC_ERROR,
+    emptyLayer: "hedgerows",
+  },
+  "no-rivers": {
+    description: "Rivers layer present with zero rows",
+    errorCode: NO_SPECIFIC_ERROR,
+    emptyLayer: "rivers",
+  },
+  "no-trees": {
+    description: "Urban Trees layer present with zero rows",
+    errorCode: NO_SPECIFIC_ERROR,
+    emptyLayer: "trees",
+  },
+};
+
+// Lookup for the four feature layers that can be emitted with zero rows via an
+// `emptyLayer` flaw. Each maps to the (gpkg_contents) table name and geometry
+// type the generator must still register so the layer exists in the file.
+const EMPTYABLE_LAYERS = {
+  habitats: { table: "Habitats", geom: "POLYGON" },
+  hedgerows: { table: "Hedgerows", geom: "LINESTRING" },
+  rivers: { table: "Rivers", geom: "LINESTRING" },
+  trees: { table: "Urban Trees", geom: "POINT" },
+};
+
+const ALL_FLAW_NAMES = Object.keys(FLAWS);
+
+/** Flaws that `--bad` expands to. Excludes standalone-only flaws, empty-layer
+ *  flaws (different generation path), and `sliver` (which conflicts with the
+ *  parcel-modifying flaws). */
+const BAD_DEFAULT_FLAWS = ALL_FLAW_NAMES.filter((n) => {
+  const f = FLAWS[n];
+  if (f.standalone) {
+    return false;
+  }
+  if (f.emptyLayer) {
+    return false;
+  }
+  if (n === "sliver") {
+    return false;
+  }
+  return true;
+});
+
+function collectRequestedFlaws(bad, flaws) {
+  const requested = new Set(bad ? BAD_DEFAULT_FLAWS : []);
+  for (const name of flaws) {
+    if (!FLAWS[name]) {
+      error(`Unknown flaw: ${name}. Valid: ${ALL_FLAW_NAMES.join(", ")}`);
+      process.exit(1);
+    }
+    requested.add(name);
+  }
+  return [...requested];
+}
+
+function assertEmptyAndGeometricNotMixed(emptyLayerNames, geometricNames, bad) {
+  if (emptyLayerNames.length && geometricNames.length) {
+    error(
+      `Empty-layer flaws (${emptyLayerNames.join(", ")}) cannot be combined ` +
+        `with geometric flaws (${geometricNames.join(", ")}).`,
     );
+    process.exit(1);
+  }
+  if (emptyLayerNames.length && bad) {
+    error("--bad cannot be combined with empty-layer flaws.");
+    process.exit(1);
+  }
+  if (emptyLayerNames.length === Object.keys(EMPTYABLE_LAYERS).length) {
+    warn(
+      "every feature layer is being emptied; the output will contain only the Red Line Boundary",
+    );
+  }
+}
+
+function assertNoStandaloneCombination(geometricNames) {
+  const standalone = geometricNames.filter((n) => FLAWS[n].standalone);
+  if (standalone.length && geometricNames.length > 1) {
+    error(
+      `Flaw "${standalone[0]}" is standalone and cannot be combined with other flaws. Got: ${geometricNames.join(", ")}`,
+    );
+    process.exit(1);
+  }
+}
+
+function assertNoPairwiseConflicts(geometricNames) {
+  for (const name of geometricNames) {
+    const conflicts = FLAWS[name].conflictsWith ?? [];
+    const clash = conflicts.find((other) => geometricNames.includes(other));
+    if (clash) {
+      error(`Flaws "${name}" and "${clash}" conflict and cannot be combined.`);
+      process.exit(1);
+    }
+  }
+}
+
+function resolveFlawSelection({ bad, flaws }) {
+  const names = collectRequestedFlaws(bad, flaws);
+
+  // Empty-layer flaws use the regular generator (a valid fixture with one
+  // layer emptied); geometric flaws use the bad-fixture builder (a tiny
+  // deliberately-broken fixture). They can't coexist in a single output.
+  const emptyLayerNames = names.filter((n) => FLAWS[n].emptyLayer);
+  const geometricNames = names.filter((n) => !FLAWS[n].emptyLayer);
+
+  assertEmptyAndGeometricNotMixed(emptyLayerNames, geometricNames, bad);
+  assertNoStandaloneCombination(geometricNames);
+  assertNoPairwiseConflicts(geometricNames);
 
   return {
-    redline: bowtieRing(cx, cy, REDLINE_HALF),
-    parcels: [
-      square(VALID_PARCEL_OFFSET_X, VALID_PARCEL_OFFSET_Y), // valid
-      square(OVERLAP_A_OFFSET_X, OVERLAP_A_OFFSET_Y), // overlaps next
-      square(OVERLAP_B_OFFSET_X, OVERLAP_B_OFFSET_Y), // overlaps prev
-      bowtieRing(cx, cy + BOWTIE_PARCEL_OFFSET_Y, BOWTIE_PARCEL_HALF),
-      square(OUTSIDE_PARCEL_OFFSET, OUTSIDE_PARCEL_OFFSET), // outside redline
-    ],
-    hedgerow: [
-      [cx - HEDGEROW_INSIDE_OFFSET, cy + HEDGEROW_INSIDE_OFFSET],
-      [cx + HEDGEROW_OUTSIDE_OFFSET, cy + HEDGEROW_OUTSIDE_OFFSET],
-    ],
-    trees: [
-      [cx, cy + TREE_INSIDE_OFFSET_Y],
-      [cx + TREE_OUTSIDE_OFFSET, cy + TREE_OUTSIDE_OFFSET],
-    ],
+    geometric: geometricNames,
+    emptyLayers: new Set(emptyLayerNames.map((n) => FLAWS[n].emptyLayer)),
+    emptyFlawNames: emptyLayerNames,
   };
 }
 
-function logBadFixtureBanner(cx, cy, outPath) {
+function createBadFixtureState(centre) {
+  const [cx, cy] = centre;
+  return {
+    cx,
+    cy,
+    centre,
+    redline: badSquareRing(cx, cy, BAD_REDLINE_HALF),
+    parcels: [],
+    hedgerows: [],
+    rivers: [],
+    trees: [],
+    iggis: [],
+  };
+}
+
+function logBadFixtureBanner(state, outPath, flawNames) {
   header(`Generating BAD BNG test GeoPackage`, "cyan");
-  info(
-    `  ⚠ Bad mode: deliberately invalid geometry to exercise validation checks`,
-  );
-  info(`  Expected validation errors:`);
-  info(`    REDLINE_SELF_INTERSECTING       (bowtie redline polygon)`);
-  info(`    AREA_PARCELS_SELF_INTERSECTING  (one bowtie habitat parcel)`);
-  info(`    PARCEL_OVERLAPS                 (two habitat parcels overlap)`);
-  info(`    AREA_PARCELS_OUTSIDE_REDLINE    (parcel placed outside redline)`);
-  info(`    HEDGEROWS_OUTSIDE_REDLINE       (hedgerow runs outside redline)`);
-  info(`    TREES_OUTSIDE_REDLINE           (tree placed outside redline)`);
-  info(`    AREA_SUM_MISMATCH               (parcels do not tile redline)`);
-  info(`  centre: ${cx},${cy} (BNG)`);
+  info(`  ⚠ Bad mode: deliberately invalid geometry`);
+  info(`  Applied flaws (${flawNames.length}):`);
+  for (const name of flawNames) {
+    const flaw = FLAWS[name];
+    info(`    ${flaw.errorCode.padEnd(FLAW_BANNER_ERRCODE_WIDTH)} ${name} — ${flaw.description}`);
+  }
+  info(`  centre: ${state.cx},${state.cy} (BNG)`);
   info(`  → ${outPath}`);
 }
 
@@ -2320,25 +2670,42 @@ function insertBadRedline(db, ring) {
     `INSERT INTO "Red Line Boundary" (geometry, "Area", "Site Name") VALUES (?, ?, ?)`,
   ).run(
     gpkgPolygon(SRS_ID, ring),
-    Math.round(polygonArea(ring)),
+    Math.round(Math.abs(polygonArea(ring))),
     `${SITE_NAME} (BAD)`,
   );
   registerLayer(db, "Red Line Boundary", "POLYGON", envelopeFromCoords(ring));
 }
 
-function generateOneBad(outPath, centre) {
-  const [cx, cy] = centre;
-  logBadFixtureBanner(cx, cy, outPath);
+function generateOneBad(outPath, centre, flawNames) {
+  const state = createBadFixtureState(centre);
+  for (const name of flawNames) {
+    FLAWS[name].apply(state);
+  }
+  logBadFixtureBanner(state, outPath, flawNames);
 
   const db = new Database(outPath);
   initGeoPackage(db);
   createAllTables(db);
+  if (state.iggis.length) {
+    createIggisTable(db);
+  }
 
-  const fixture = buildBadFixtureGeometry(cx, cy);
-  insertBadRedline(db, fixture.redline);
-  insertBadHabitats(db, fixture.parcels);
-  insertBadHedgerow(db, fixture.hedgerow);
-  insertBadTrees(db, fixture.trees);
+  insertBadRedline(db, state.redline);
+  if (state.parcels.length) {
+    insertBadHabitats(db, state.parcels);
+  }
+  if (state.hedgerows.length) {
+    insertBadHedgerows(db, state.hedgerows);
+  }
+  if (state.rivers.length) {
+    insertBadRivers(db, state.rivers);
+  }
+  if (state.trees.length) {
+    insertBadTrees(db, state.trees);
+  }
+  if (state.iggis.length) {
+    insertBadIggis(db, state.iggis);
+  }
 
   createLayerStyles(db);
   db.close();
@@ -2411,9 +2778,8 @@ function insertBadHabitats(db, parcels) {
   registerLayer(db, "Habitats", "POLYGON", env);
 }
 
-function insertBadHedgerow(db, coords) {
-  db.prepare(
-    `
+function insertBadHedgerows(db, hedgerows) {
+  const stmt = db.prepare(`
     INSERT INTO "Hedgerows" (
       geometry, "Parcel Ref", "Baseline Hedge Type", "Baseline Condition",
       "Baseline Strategic Significance", "Retention Category",
@@ -2424,33 +2790,119 @@ function insertBadHedgerow(db, coords) {
       "Mapped by", "Company", "Base Map",
       "Baseline Distinctiveness", "Proposed Distinctiveness"
     ) VALUES (${Array.from({ length: HEDGEROWS_INSERT_COLUMNS }, () => "?").join(", ")})
-  `,
-  ).run(
-    gpkgLineString(SRS_ID, coords),
-    "HG001",
-    HEDGE_TYPES[0],
-    HEDGE_CONDITIONS[0],
-    STRATEGIC_SIGNIFICANCE[0],
-    "Retained",
-    HEDGE_TYPES[0],
-    HEDGE_CONDITIONS[0],
-    STRATEGIC_SIGNIFICANCE[0],
-    Math.round(linestringLength(coords)),
-    "0",
-    "0",
-    SPATIAL_RISK_HABITAT[0],
-    "On-site",
-    `${SITE_NAME} (BAD)`,
-    SURVEY_DATE,
-    BAD_FIXTURE_SURVEY_DETAILS,
-    null,
-    MAPPED_BY,
-    SURVEY_COMPANY,
-    BASE_MAP,
-    DISTINCTIVENESS[0],
-    DISTINCTIVENESS[0],
+  `);
+  const env = [Infinity, -Infinity, Infinity, -Infinity];
+  hedgerows.forEach((coords, i) => {
+    expandEnvelope(env, envelopeFromCoords(coords));
+    stmt.run(
+      gpkgLineString(SRS_ID, coords),
+      `HG${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
+      HEDGE_TYPES[0],
+      HEDGE_CONDITIONS[0],
+      STRATEGIC_SIGNIFICANCE[0],
+      "Retained",
+      HEDGE_TYPES[0],
+      HEDGE_CONDITIONS[0],
+      STRATEGIC_SIGNIFICANCE[0],
+      Math.round(linestringLength(coords)),
+      "0",
+      "0",
+      SPATIAL_RISK_HABITAT[0],
+      "On-site",
+      `${SITE_NAME} (BAD)`,
+      SURVEY_DATE,
+      BAD_FIXTURE_SURVEY_DETAILS,
+      null,
+      MAPPED_BY,
+      SURVEY_COMPANY,
+      BASE_MAP,
+      DISTINCTIVENESS[0],
+      DISTINCTIVENESS[0],
+    );
+  });
+  registerLayer(db, "Hedgerows", "LINESTRING", env);
+}
+
+function insertBadRivers(db, rivers) {
+  const stmt = db.prepare(`
+    INSERT INTO "Rivers" (
+      geometry, "Parcel Ref", "Baseline River Type", "Baseline Condition",
+      "Baseline Strategic Significance",
+      "Baseline Encroachment into Watercourse",
+      "Baseline Encroachment into riparian zone",
+      "Retention Category", "Proposed River Type", "Proposed Condition",
+      "Proposed Strategic Significance", "Length",
+      "Habitat created in advance/years",
+      "Delay in starting habitat creation/years",
+      "Spatial risk category", "Location",
+      "Proposed Encroachment into Watercourse",
+      "Proposed Encroachment into riparian zone",
+      "Site Name", "Survey Date", "Survey Details", "Comments",
+      "Mapped by", "Company", "Base Map",
+      "Enhancement Type", "Baseline Distinctiveness", "Proposed Distinctiveness"
+    ) VALUES (${Array.from({ length: RIVERS_COLUMN_COUNT }, () => "?").join(", ")})
+  `);
+  const env = [Infinity, -Infinity, Infinity, -Infinity];
+  rivers.forEach((coords, i) => {
+    expandEnvelope(env, envelopeFromCoords(coords));
+    stmt.run(
+      gpkgLineString(SRS_ID, coords),
+      `R${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
+      RIVER_TYPES[0],
+      CONDITIONS[0],
+      STRATEGIC_SIGNIFICANCE[0],
+      ENCROACHMENT_WATERCOURSE[0],
+      ENCROACHMENT_RIPARIAN[0],
+      "Retained",
+      RIVER_TYPES[0],
+      CONDITIONS[0],
+      STRATEGIC_SIGNIFICANCE[0],
+      Math.round(linestringLength(coords)),
+      "0",
+      "0",
+      SPATIAL_RISK_RIVER[0],
+      "On-site",
+      ENCROACHMENT_WATERCOURSE[0],
+      ENCROACHMENT_RIPARIAN[0],
+      `${SITE_NAME} (BAD)`,
+      SURVEY_DATE,
+      BAD_FIXTURE_SURVEY_DETAILS,
+      null,
+      MAPPED_BY,
+      SURVEY_COMPANY,
+      BASE_MAP,
+      null,
+      DISTINCTIVENESS[0],
+      DISTINCTIVENESS[0],
+    );
+  });
+  registerLayer(db, "Rivers", "LINESTRING", env);
+}
+
+function createIggisTable(db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS "iggis" (
+      fid INTEGER PRIMARY KEY AUTOINCREMENT, geometry POLYGON,
+      "IGGI Ref" TEXT(99), "Area" MEDIUMINT, "Site Name" TEXT(999)
+    );
+  `);
+}
+
+function insertBadIggis(db, iggis) {
+  const stmt = db.prepare(
+    `INSERT INTO "iggis" (geometry, "IGGI Ref", "Area", "Site Name") VALUES (?, ?, ?, ?)`,
   );
-  registerLayer(db, "Hedgerows", "LINESTRING", envelopeFromCoords(coords));
+  const env = [Infinity, -Infinity, Infinity, -Infinity];
+  iggis.forEach((ring, i) => {
+    expandEnvelope(env, envelopeFromCoords(ring));
+    stmt.run(
+      gpkgPolygon(SRS_ID, ring),
+      `I${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
+      Math.round(Math.abs(polygonArea(ring))),
+      `${SITE_NAME} (BAD)`,
+    );
+  });
+  registerLayer(db, "iggis", "POLYGON", env);
 }
 
 function insertBadTrees(db, points) {
@@ -2705,38 +3157,89 @@ async function runFromWorkbook(source, { strict, inspect, centre }) {
   generateOneFromWorkbook(outPath, workbook, source, { strict, centre });
 }
 
+const DEFAULT_NUM_PARCELS = 50;
+
+async function runFromListBatch(listPath, centre) {
+  if (!existsSync(listPath)) {
+    error(`--from-list file not found: ${listPath}`);
+    process.exit(1);
+  }
+  const entries = readFileSync(listPath, "utf8")
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter((s) => s && !s.startsWith("#"));
+  for (const entry of entries) {
+    try {
+      await runFromWorkbook(entry, {
+        strict: args["strict-habitats"],
+        inspect: false,
+        centre,
+      });
+    } catch (e) {
+      error(`Failed for ${entry}: ${e.message}`);
+    }
+  }
+}
+
+async function ensureWritable(outPath, total) {
+  if (!existsSync(outPath)) {
+    return;
+  }
+  if (total > 1) {
+    unlinkSync(outPath);
+    return;
+  }
+  const overwrite = await confirm(`${outPath} already exists. Overwrite? (y/N) `);
+  if (!overwrite) {
+    console.log("Aborted.");
+    process.exit(0);
+  }
+  unlinkSync(outPath);
+}
+
+async function runSyntheticBatch(centre) {
+  const numParcels = Number.parseInt(args.size, 10) || DEFAULT_NUM_PARCELS;
+  const total = Math.max(1, Number.parseInt(args.count, 10) || 1);
+  const { geometric, emptyLayers, emptyFlawNames } = resolveFlawSelection({
+    bad: args.bad,
+    flaws: args.flaw,
+  });
+  const baseSuffix = buildFlawFilenameSuffix({
+    bad: geometric.length > 0,
+    flagBad: args.bad,
+    geometric,
+    emptyFlawNames,
+  });
+
+  if (!existsSync(OUT_DIR)) {
+    mkdirSync(OUT_DIR, { recursive: true });
+  }
+
+  for (let i = 1; i <= total; i++) {
+    const countSuffix =
+      total > 1
+        ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`
+        : "";
+    const stamp = timestampSuffix();
+    const outPath = path.join(
+      OUT_DIR,
+      `bng-test-data${baseSuffix}${countSuffix}-${stamp}.gpkg`,
+    );
+    await ensureWritable(outPath, total);
+    generateOne(outPath, geometric, numParcels, centre, emptyLayers);
+  }
+}
+
 async function main() {
   if (args.inspect && !args.from) {
     error("--inspect requires --from <path-or-url>");
     process.exit(1);
   }
 
-  const centre = parseCentre(args.centre) ?? [
-    DEFAULT_CENTRE_E,
-    DEFAULT_CENTRE_N,
-  ];
+  const centre = parseCentre(args.centre) ?? [DEFAULT_CENTRE_E, DEFAULT_CENTRE_N];
 
   if (args["from-list"]) {
-    const listPath = path.resolve(args["from-list"]);
-    if (!existsSync(listPath)) {
-      error(`--from-list file not found: ${listPath}`);
-      process.exit(1);
-    }
-    const entries = readFileSync(listPath, "utf8")
-      .split(/\r?\n/)
-      .map((s) => s.trim())
-      .filter((s) => s && !s.startsWith("#"));
-    for (const entry of entries) {
-      try {
-        await runFromWorkbook(entry, {
-          strict: args["strict-habitats"],
-          inspect: false,
-          centre,
-        });
-      } catch (e) {
-        error(`Failed for ${entry}: ${e.message}`);
-      }
-    }
+    await runFromListBatch(path.resolve(args["from-list"]), centre);
     return;
   }
 
@@ -2749,40 +3252,30 @@ async function main() {
     return;
   }
 
-  const numParcels = parseInt(args.size, 10) || 50;
-  const total = Math.max(1, parseInt(args.count, 10) || 1);
-  const bad = args.bad;
+  await runSyntheticBatch(centre);
+}
 
-  if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
-
-  for (let i = 1; i <= total; i++) {
-    const suffix =
-      total > 1
-        ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`
-        : "";
-    const stamp = timestampSuffix();
-    const filename = bad
-      ? `bng-test-data-bad${suffix}-${stamp}.gpkg`
-      : `bng-test-data${suffix}-${stamp}.gpkg`;
-    const outPath = path.join(OUT_DIR, filename);
-
-    if (existsSync(outPath)) {
-      if (total > 1) {
-        unlinkSync(outPath);
-      } else {
-        const overwrite = await confirm(
-          `${outPath} already exists. Overwrite? (y/N) `,
-        );
-        if (!overwrite) {
-          console.log("Aborted.");
-          process.exit(0);
-        }
-        unlinkSync(outPath);
-      }
-    }
-
-    generateOne(outPath, bad, numParcels, centre);
+// Output basename suffix following `bng-test-data`. Examples:
+//   --bad                          → "-bad"
+//   --flaw sliver (no --bad)       → "-bad-sliver"
+//   --bad --flaw sliver            → "-bad"
+//   --flaw no-habitats             → "-no-habitats"
+//   --flaw no-habitats no-rivers   → "-no-habitats-no-rivers"
+//   (no flaws)                     → ""
+// Empty-layer flaws don't get the "bad-" prefix because the file is
+// structurally valid — it just has zero rows in one or more layers.
+function buildFlawFilenameSuffix({ bad, flagBad, geometric, emptyFlawNames }) {
+  if (emptyFlawNames.length > 0) {
+    const sorted = [...emptyFlawNames].sort((a, b) => a.localeCompare(b));
+    return `-${sorted.join("-")}`;
   }
+  if (!bad) {
+    return "";
+  }
+  if (!flagBad && geometric.length === 1) {
+    return `-bad-${geometric[0]}`;
+  }
+  return "-bad";
 }
 
 main().catch((err) => {
