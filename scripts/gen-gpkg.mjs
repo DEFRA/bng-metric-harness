@@ -637,10 +637,13 @@ function syntheticFilename(flawSuffix, suffix, stamp) {
 //   (no flaws)                     → ""
 // Empty-layer flaws don't get the "bad-" prefix because the file is
 // structurally valid — it just has zero rows in one or more layers.
+function sortFlawNames(names) {
+  return [...names].sort((a, b) => a.localeCompare(b));
+}
+
 function buildFlawFilenameSuffix({ bad, flagBad, geometric, emptyFlawNames }) {
   if (emptyFlawNames.length > 0) {
-    const sorted = [...emptyFlawNames].sort((a, b) => a.localeCompare(b));
-    return `-${sorted.join("-")}`;
+    return `-${sortFlawNames(emptyFlawNames).join("-")}`;
   }
   if (!bad) {
     return "";
@@ -648,8 +651,7 @@ function buildFlawFilenameSuffix({ bad, flagBad, geometric, emptyFlawNames }) {
   if (flagBad) {
     return "-bad";
   }
-  const sorted = [...geometric].sort((a, b) => a.localeCompare(b));
-  return `-bad-${sorted.join("-")}`;
+  return `-bad-${sortFlawNames(geometric).join("-")}`;
 }
 
 async function clearExistingSyntheticOutput(outPath, isBatch) {
