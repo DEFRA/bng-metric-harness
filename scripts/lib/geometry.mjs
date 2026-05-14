@@ -20,10 +20,8 @@ const HULL_POINT_COUNT_DEFAULT = 18;
 // Chord-offset envelope for splitPolygonRandom. ±30% of each end keeps the
 // split off-centre but avoids degenerate sliver halves.
 const CHORD_OFFSET_RANGE_FRACTION = 0.3;
-// carveTargetArea retries before giving up; binary-search iterations within
-// each attempt.
+// carveTargetArea retries before giving up.
 const CARVE_MAX_ATTEMPTS = 8;
-const CARVE_BINARY_ITERATIONS = 32;
 // Minimum sub-polygon area for a carve result to be considered valid.
 const MIN_VALID_SUB_POLYGON_AREA = 1;
 // partitionPolygon retry budget per random split.
@@ -156,10 +154,15 @@ export function polygonCentroid(ring) {
 // call site.
 // ---------------------------------------------------------------------------
 
-// 53-bit float layout: 20 high bits + 32 low bits = 52 mantissa bits.
+// We assemble a uniform float in [0, 1) from 8 random bytes: the high 20
+// bits of the first 4-byte word + all 32 bits of the second 4-byte word
+// together give us 52 mantissa bits, the same precision Math.random()
+// produces.
+const UINT32_BIT_WIDTH = 32;
+const FLOAT64_MANTISSA_BITS = 52;
 const HIGH_MASK_20_BITS = 0x000fffff;
-const SCALE_2_POW_32 = 2 ** 32;
-const SCALE_2_POW_52 = 2 ** 52;
+const SCALE_LOW_WORD = 2 ** UINT32_BIT_WIDTH;
+const SCALE_MANTISSA = 2 ** FLOAT64_MANTISSA_BITS;
 const RNG_BYTES = 8;
 const HIGH_OFFSET = 0;
 const LOW_OFFSET = 4;
@@ -174,7 +177,7 @@ export function randomFraction() {
   const buf = randomBytes(RNG_BYTES);
   const high = buf.readUInt32BE(HIGH_OFFSET) & HIGH_MASK_20_BITS;
   const low = buf.readUInt32BE(LOW_OFFSET);
-  return (high * SCALE_2_POW_32 + low) / SCALE_2_POW_52;
+  return (high * SCALE_LOW_WORD + low) / SCALE_MANTISSA;
 }
 
 export function pick(arr) {

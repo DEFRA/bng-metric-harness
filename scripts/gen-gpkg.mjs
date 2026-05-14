@@ -566,42 +566,82 @@ function confirm(question) {
 // Main
 // ---------------------------------------------------------------------------
 
+function readWorkbookList(listPath) {
+  return readFileSync(listPath, "utf8")
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter((s) => s && !s.startsWith("#"));
+}
+
+async function runFromList(listPathArg, centre) {
+  const listPath = path.resolve(listPathArg);
+  if (!existsSync(listPath)) {
+    error(`--from-list file not found: ${listPath}`);
+    process.exit(1);
+  }
+  const opts = {
+    strict: args["strict-habitats"],
+    inspect: false,
+    centre,
+    mode: selectedMode,
+  };
+  for (const entry of readWorkbookList(listPath)) {
+    try {
+      await runFromWorkbook(entry, opts);
+    } catch (e) {
+      error(`Failed for ${entry}: ${e.message ?? e}`);
+    }
+  }
+}
+
+function syntheticFilename(bad, suffix, stamp) {
+  const base = bad ? "bng-test-data-bad" : "bng-test-data";
+  return `${base}${suffix}-${stamp}.gpkg`;
+}
+
+async function clearExistingSyntheticOutput(outPath, isBatch) {
+  if (!existsSync(outPath)) {
+    return true;
+  }
+  if (isBatch) {
+    unlinkSync(outPath);
+    return true;
+  }
+  const overwrite = await confirm(`${outPath} already exists. Overwrite? (y/N) `);
+  if (!overwrite) {
+    console.log("Aborted.");
+    process.exit(0);
+  }
+  unlinkSync(outPath);
+  return true;
+}
+
+async function runSynthetic(centre) {
+  const numParcels = Number.parseInt(args.size, PARSE_INT_BASE_10) || DEFAULT_SYNTHETIC_SIZE;
+  const total = Math.max(1, Number.parseInt(args.count, PARSE_INT_BASE_10) || DEFAULT_RUN_COUNT);
+  const bad = args.bad;
+  if (!existsSync(OUT_DIR)) {
+    mkdirSync(OUT_DIR, { recursive: true });
+  }
+  for (let i = 1; i <= total; i++) {
+    const suffix = total > 1 ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}` : "";
+    const outPath = path.join(OUT_DIR, syntheticFilename(bad, suffix, timestampSuffix()));
+    await clearExistingSyntheticOutput(outPath, total > 1);
+    generateOne(outPath, bad, numParcels, centre);
+  }
+}
+
 async function main() {
   if (args.inspect && !args.from) {
     error("--inspect requires --from <path-or-url>");
     process.exit(1);
   }
-
-  const centre = parseCentre(args.centre) ?? [
-    DEFAULT_CENTRE_E,
-    DEFAULT_CENTRE_N,
-  ];
+  const centre = parseCentre(args.centre) ?? [DEFAULT_CENTRE_E, DEFAULT_CENTRE_N];
 
   if (args["from-list"]) {
-    const listPath = path.resolve(args["from-list"]);
-    if (!existsSync(listPath)) {
-      error(`--from-list file not found: ${listPath}`);
-      process.exit(1);
-    }
-    const entries = readFileSync(listPath, "utf8")
-      .split(/\r?\n/)
-      .map((s) => s.trim())
-      .filter((s) => s && !s.startsWith("#"));
-    for (const entry of entries) {
-      try {
-        await runFromWorkbook(entry, {
-          strict: args["strict-habitats"],
-          inspect: false,
-          centre,
-          mode: selectedMode,
-        });
-      } catch (e) {
-        error(`Failed for ${entry}: ${e.message ?? e}`);
-      }
-    }
+    await runFromList(args["from-list"], centre);
     return;
   }
-
   if (args.from) {
     await runFromWorkbook(args.from, {
       strict: args["strict-habitats"],
@@ -611,43 +651,7 @@ async function main() {
     });
     return;
   }
-
-  const numParcels = Number.parseInt(args.size, PARSE_INT_BASE_10) || DEFAULT_SYNTHETIC_SIZE;
-  const total = Math.max(1, Number.parseInt(args.count, PARSE_INT_BASE_10) || DEFAULT_RUN_COUNT);
-  const bad = args.bad;
-
-  if (!existsSync(OUT_DIR)) {
-    mkdirSync(OUT_DIR, { recursive: true });
-  }
-
-  for (let i = 1; i <= total; i++) {
-    const suffix =
-      total > 1
-        ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`
-        : "";
-    const stamp = timestampSuffix();
-    const filename = bad
-      ? `bng-test-data-bad${suffix}-${stamp}.gpkg`
-      : `bng-test-data${suffix}-${stamp}.gpkg`;
-    const outPath = path.join(OUT_DIR, filename);
-
-    if (existsSync(outPath)) {
-      if (total > 1) {
-        unlinkSync(outPath);
-      } else {
-        const overwrite = await confirm(
-          `${outPath} already exists. Overwrite? (y/N) `,
-        );
-        if (!overwrite) {
-          console.log("Aborted.");
-          process.exit(0);
-        }
-        unlinkSync(outPath);
-      }
-    }
-
-    generateOne(outPath, bad, numParcels, centre);
-  }
+  await runSynthetic(centre);
 }
 
 main().catch((err) => {
