@@ -40,6 +40,7 @@ import {
   FEATURE_REF_PAD_CHAR,
 } from "./workbook-rows.mjs";
 import { generateOneBad } from "./synthetic-bad.mjs";
+import { EMPTYABLE_LAYERS } from "./flaws.mjs";
 import {
   BASE_MAP,
   BROAD_HABITAT_TYPES,
@@ -378,23 +379,75 @@ function reportContents(outPath) {
  * Generate one synthetic GeoPackage (default mode). Pass `bad=true` to emit
  * the intentionally-invalid fixture instead.
  */
-export function generateOne(outPath, bad, numParcels, centre) {
-  if (bad) {
-    generateOneBad(outPath, centre);
-    return;
-  }
+function computeLayerCounts(numParcels, emptyLayers) {
+  const ifEmpty = (key, value) => (emptyLayers.has(key) ? 0 : value);
+  return {
+    numHabitats: ifEmpty("habitats", numParcels),
+    numHedgerows: ifEmpty(
+      "hedgerows",
+      Math.max(MIN_HEDGEROW_COUNT, Math.floor(numParcels / HEDGEROW_PER_PARCEL_RATIO)),
+    ),
+    numRivers: ifEmpty(
+      "rivers",
+      Math.max(MIN_RIVER_COUNT, Math.floor(numParcels / RIVER_PER_PARCEL_RATIO)),
+    ),
+    numTrees: ifEmpty(
+      "trees",
+      Math.max(MIN_TREE_COUNT, Math.floor(numParcels / TREE_PER_PARCEL_RATIO)),
+    ),
+  };
+}
 
-  const numHedgerows = Math.max(MIN_HEDGEROW_COUNT, Math.floor(numParcels / HEDGEROW_PER_PARCEL_RATIO));
-  const numRivers = Math.max(MIN_RIVER_COUNT, Math.floor(numParcels / RIVER_PER_PARCEL_RATIO));
-  const numTrees = Math.max(MIN_TREE_COUNT, Math.floor(numParcels / TREE_PER_PARCEL_RATIO));
-
+function logSyntheticBanner(outPath, centre, counts, emptyLayers) {
+  const { numHabitats, numHedgerows, numRivers, numTrees } = counts;
   header(`Generating BNG test GeoPackage`, "cyan");
   info(`  ${SITE_NAME}`);
   info(
-    `  ${numParcels} habitat parcels, ${numHedgerows} hedgerows, ${numRivers} rivers, ${numTrees} urban trees`,
+    `  ${numHabitats} habitat parcels, ${numHedgerows} hedgerows, ${numRivers} rivers, ${numTrees} urban trees`,
   );
+  if (emptyLayers.size > 0) {
+    info(
+      `  empty layers: ${[...emptyLayers].sort((a, b) => a.localeCompare(b)).join(", ")}`,
+    );
+  }
   info(`  centre: ${centre[0]},${centre[1]} (BNG)`);
   info(`  → ${outPath}`);
+}
+
+// For an "empty" layer we want the table to exist with zero rows. We can't
+// just call generateHabitats(0) — it would still emit one parcel covering the
+// whole boundary. Instead, register the layer here with a null envelope and
+// skip the matching generator in runLayerGenerators.
+function registerEmptyLayers(db, emptyLayers) {
+  for (const [key, { table, geom }] of Object.entries(EMPTYABLE_LAYERS)) {
+    if (emptyLayers.has(key)) {
+      registerLayer(db, table, geom, null);
+    }
+  }
+}
+
+function runLayerGenerators(db, ring, counts, emptyLayers) {
+  const generators = {
+    habitats: () => generateHabitats(db, ring, counts.numHabitats),
+    hedgerows: () => generateHedgerows(db, ring, counts.numHedgerows),
+    rivers: () => generateRivers(db, ring, counts.numRivers),
+    trees: () => generateUrbanTrees(db, ring, counts.numTrees),
+  };
+  for (const [key, generate] of Object.entries(generators)) {
+    if (!emptyLayers.has(key)) {
+      generate();
+    }
+  }
+}
+
+export function generateOne(outPath, badFlawNames, numParcels, centre, emptyLayers = new Set()) {
+  if (badFlawNames && badFlawNames.length > 0) {
+    generateOneBad(outPath, centre, badFlawNames);
+    return;
+  }
+
+  const counts = computeLayerCounts(numParcels, emptyLayers);
+  logSyntheticBanner(outPath, centre, counts, emptyLayers);
 
   const [cx, cy] = centre;
   const db = new Database(outPath);
@@ -402,10 +455,8 @@ export function generateOne(outPath, bad, numParcels, centre) {
   createAllTables(db);
 
   const ring = generateRedLineBoundary(db, cx, cy, SYNTHETIC_RLB_RADIUS_M);
-  generateHabitats(db, ring, numParcels);
-  generateHedgerows(db, ring, numHedgerows);
-  generateRivers(db, ring, numRivers);
-  generateUrbanTrees(db, ring, numTrees);
+  registerEmptyLayers(db, emptyLayers);
+  runLayerGenerators(db, ring, counts, emptyLayers);
   createLayerStyles(db);
 
   db.close();

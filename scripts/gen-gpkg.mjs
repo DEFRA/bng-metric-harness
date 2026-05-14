@@ -31,10 +31,38 @@
  * Output goes to test-data/ unless --outdir is set. See the harness README
  * "Test data generation" section for end-user docs and worked examples.
  *
+ * --bad / --flaw deliberately produce invalid fixtures used to exercise the
+ * backend's geometry validation. --bad is a shorthand for "apply every
+ * composable geometric flaw"; a single --flaw <name> produces a minimal
+ * fixture targeting one validator. Two families:
+ *
+ *   Geometric flaws — each maps to a backend validation error code:
+ *     self-intersecting-redline   REDLINE_INVALID_GEOMETRY
+ *     bowtie-parcel               AREA_PARCELS_INVALID_GEOMETRY
+ *     overlapping-parcels         PARCEL_OVERLAPS
+ *     parcel-outside-redline      AREA_PARCELS_OUTSIDE_REDLINE
+ *     sliver                      SLIVERS_INSIDE_REDLINE
+ *     hedgerow-outside            HEDGEROWS_OUTSIDE_REDLINE
+ *     watercourse-outside         WATERCOURSES_OUTSIDE_REDLINE
+ *     tree-outside                TREES_OUTSIDE_REDLINE
+ *     iggi-outside                IGGIS_OUTSIDE_REDLINE
+ *     area-sum-mismatch           AREA_SUM_MISMATCH
+ *     redline-not-in-england      REDLINE_OUTSIDE_ENGLAND   (standalone)
+ *     redline-too-large           REDLINE_AREA_TOO_LARGE    (standalone)
+ *
+ *   Empty-layer flaws — structurally valid full-size fixture with one
+ *   feature layer present but containing zero rows:
+ *     no-habitats                 NO_HABITAT_AREAS
+ *     no-hedgerows / no-rivers / no-trees   (no specific backend error)
+ *
+ * --flaw is repeatable; empty-layer and geometric flaws cannot be mixed.
+ *
  * This file is the CLI + orchestration. Domain logic lives in lib/:
  *   - lib/gpkg-core.mjs       — GeoPackage protocol (WKB, init, schema, styles)
  *   - lib/geometry.mjs        — pure geometry helpers
- *   - lib/synthetic.mjs       — synthetic + --bad fixture generators
+ *   - lib/synthetic.mjs       — synthetic generator (regular + empty-layer)
+ *   - lib/synthetic-bad.mjs   — --bad / --flaw fixture builder
+ *   - lib/flaws.mjs           — flaw registry + CLI resolution
  *   - lib/workbook-rows.mjs   — row builders (pure data transformations)
  *   - lib/workbook-layers.mjs — workbook-mode writers + geometry derivation
  *   - lib/metric-workbook.mjs — xlsx parser
@@ -64,6 +92,7 @@ import {
 } from "./lib/gpkg-core.mjs";
 import { envelopeFromCoords, polygonArea } from "./lib/geometry.mjs";
 import { generateOne } from "./lib/synthetic.mjs";
+import { resolveFlawSelection } from "./lib/flaws.mjs";
 import {
   FEATURE_REF_PAD,
   FEATURE_REF_PAD_CHAR,
@@ -101,6 +130,7 @@ const { values: args } = parseArgs({
     count: { type: "string", default: "1" },
     outdir: { type: "string", default: "" },
     bad: { type: "boolean", default: false },
+    flaw: { type: "string", multiple: true, default: [] },
     from: { type: "string", default: "" },
     "from-list": { type: "string", default: "" },
     "strict-habitats": { type: "boolean", default: false },
@@ -594,9 +624,32 @@ async function runFromList(listPathArg, centre) {
   }
 }
 
-function syntheticFilename(bad, suffix, stamp) {
-  const base = bad ? "bng-test-data-bad" : "bng-test-data";
-  return `${base}${suffix}-${stamp}.gpkg`;
+function syntheticFilename(flawSuffix, suffix, stamp) {
+  return `bng-test-data${flawSuffix}${suffix}-${stamp}.gpkg`;
+}
+
+// Output basename suffix following `bng-test-data`. Examples:
+//   --bad                          → "-bad"
+//   --flaw sliver (no --bad)       → "-bad-sliver"
+//   --bad --flaw sliver            → "-bad"
+//   --flaw no-habitats             → "-no-habitats"
+//   --flaw no-habitats no-rivers   → "-no-habitats-no-rivers"
+//   (no flaws)                     → ""
+// Empty-layer flaws don't get the "bad-" prefix because the file is
+// structurally valid — it just has zero rows in one or more layers.
+function buildFlawFilenameSuffix({ bad, flagBad, geometric, emptyFlawNames }) {
+  if (emptyFlawNames.length > 0) {
+    const sorted = [...emptyFlawNames].sort((a, b) => a.localeCompare(b));
+    return `-${sorted.join("-")}`;
+  }
+  if (!bad) {
+    return "";
+  }
+  if (flagBad) {
+    return "-bad";
+  }
+  const sorted = [...geometric].sort((a, b) => a.localeCompare(b));
+  return `-bad-${sorted.join("-")}`;
 }
 
 async function clearExistingSyntheticOutput(outPath, isBatch) {
@@ -618,15 +671,24 @@ async function clearExistingSyntheticOutput(outPath, isBatch) {
 async function runSynthetic(centre) {
   const numParcels = Number.parseInt(args.size, PARSE_INT_BASE_10) || DEFAULT_SYNTHETIC_SIZE;
   const total = Math.max(1, Number.parseInt(args.count, PARSE_INT_BASE_10) || DEFAULT_RUN_COUNT);
-  const bad = args.bad;
+  const { geometric, emptyLayers, emptyFlawNames } = resolveFlawSelection({
+    bad: args.bad,
+    flaws: args.flaw,
+  });
+  const flawSuffix = buildFlawFilenameSuffix({
+    bad: geometric.length > 0,
+    flagBad: args.bad,
+    geometric,
+    emptyFlawNames,
+  });
   if (!existsSync(OUT_DIR)) {
     mkdirSync(OUT_DIR, { recursive: true });
   }
   for (let i = 1; i <= total; i++) {
     const suffix = total > 1 ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}` : "";
-    const outPath = path.join(OUT_DIR, syntheticFilename(bad, suffix, timestampSuffix()));
+    const outPath = path.join(OUT_DIR, syntheticFilename(flawSuffix, suffix, timestampSuffix()));
     await clearExistingSyntheticOutput(outPath, total > 1);
-    generateOne(outPath, bad, numParcels, centre);
+    generateOne(outPath, geometric, numParcels, centre, emptyLayers);
   }
 }
 

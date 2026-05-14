@@ -30,6 +30,40 @@ export const TREE_PER_PARCEL_RATIO = 2;
 export const SYNTHETIC_RLB_RADIUS_M = 400;
 export const LINE_FEATURE_REJECTION_BUDGET_FACTOR = 20;
 
+// Bad-fixture geometry tunables (BNG metres). Each pair places a feature far
+// enough from the redline (or from sibling features) for the targeted
+// validator to fire deterministically.
+export const BAD_REDLINE_HALF = 200; // base bad-fixture redline is a 400m × 400m square
+export const BAD_PARCEL_HALF = 50;
+export const BOWTIE_PARCEL_DY = 60;
+export const BOWTIE_PARCEL_HALF = 30;
+export const OVERLAP_A_DX = 80;
+export const OVERLAP_A_DY = -100;
+export const OVERLAP_B_DX = 130;
+export const OVERLAP_B_DY = -80;
+export const OUTSIDE_PARCEL_DXY = 450;
+export const HEDGEROW_INSIDE_OFFSET = 100;
+export const HEDGEROW_OUTSIDE_OFFSET = 600;
+export const WATERCOURSE_INSIDE_OFFSET = 100;
+export const WATERCOURSE_OUTSIDE_OFFSET = 700;
+export const TREE_OUTSIDE_OFFSET = 700;
+export const IGGI_OUTSIDE_OFFSET = 500;
+export const IGGI_HALF = 40;
+export const AREA_MISMATCH_PARCEL_DXY = -100;
+export const SLIVER_GAP = 0.002; // 2mm — under 1m² sliver area threshold, above GEOS grid
+
+// Wales (Snowdonia) centre — inside BNG envelope but outside England.
+export const SNOWDONIA_E = 262000;
+export const SNOWDONIA_N = 354000;
+export const TOO_LARGE_HALF = 6000; // 12 km × 12 km = 144 sq km, over the 100 sq km cap
+
+// Banner formatting: width reserved for the error-code column so flaw lines
+// align under "Applied flaws".
+export const FLAW_BANNER_ERRCODE_WIDTH = 34;
+
+// Number of columns in the Rivers INSERT statement — matches the schema.
+export const RIVERS_COLUMN_COUNT = 28;
+
 // Restrict to inland broad types — fixture site is land-based, so coastal,
 // intertidal, rocky-shore etc. are out of scope. Also skips any habitat the
 // metric defines as non-area (e.g. "Individual trees", "Watercourse footprint",
