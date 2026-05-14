@@ -57,9 +57,7 @@ export function findHeader(aoa, requiredTokens) {
   for (let r = 0; r < lim; r++) {
     const merged = mergeHeaderRows(aoa[r], aoa[r + 1]);
     const cells = merged.map((v) => (v == null ? "" : String(v).trim().toLowerCase()));
-    const matched = requiredTokens.filter((t) =>
-      cells.some((c) => c === t.toLowerCase()),
-    );
+    const matched = requiredTokens.filter((t) => cells.includes(t.toLowerCase()));
     if (matched.length > best.score) {
       best = { score: matched.length, dataStart: r + 2, header: merged };
     }
@@ -81,21 +79,23 @@ function mergeHeaderRows(top, bottom) {
   return out;
 }
 
+/** Trim a header cell to a non-empty key, or return null if it has no content. */
+function headerKey(cell) {
+  if (cell == null) {
+    return null;
+  }
+  const trimmed = String(cell).trim();
+  return trimmed || null;
+}
+
 // Header keys are trimmed here so callers don't need to list whitespace
 // variants (the real workbook templates have inconsistent trailing/leading
 // spaces in cells like "Condition " and " Habitat Type"). Case is preserved.
 export function buildColumnIndex(headerRow) {
   const idx = {};
   for (let c = 0; c < headerRow.length; c++) {
-    const v = headerRow[c];
-    if (v == null) {
-      continue;
-    }
-    const key = String(v).trim();
-    if (!key) {
-      continue;
-    }
-    if (!(key in idx)) {
+    const key = headerKey(headerRow[c]);
+    if (key && !(key in idx)) {
       idx[key] = c;
     }
   }

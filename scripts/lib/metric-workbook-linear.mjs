@@ -144,6 +144,8 @@ export function readLinearFeatures(workbook, sheetName, kind, summary, { withFat
       summary.skipped.push({ sheet: sheetName, row: r + 1, reason: "blank length" });
     } else if (action.decision) {
       out.push(buildLinearEntry(aoa[r], action.decision, out.length, baseCols, fateCols, withFate));
+    } else {
+      // row classified as skip (missing type) — silent drop
     }
   }
   return out;

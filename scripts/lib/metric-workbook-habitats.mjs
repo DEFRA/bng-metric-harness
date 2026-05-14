@@ -204,6 +204,8 @@ export function readBaselineHabitats(workbook, summary) {
       summary.skipped.push({ sheet: SHEETS.habitatsBaseline, row: r + 1, reason: "blank area" });
     } else if (action.decision) {
       out.push(buildBaselineHabitatEntry(aoa[r], action.decision, out.length, cols));
+    } else {
+      // row classified as skip (missing required fields) — silent drop
     }
   }
   return out;
@@ -303,6 +305,8 @@ export function readCreatedHabitats(workbook, summary) {
       summary.skipped.push({ sheet: SHEETS.habitatsCreation, row: r + 1, reason: "blank area" });
     } else if (action.area != null) {
       out.push(buildCreatedHabitatEntry(aoa[r], action, out.length, cols));
+    } else {
+      // row classified as skip (missing broad/type) — silent drop
     }
   }
   return out;
