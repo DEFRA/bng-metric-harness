@@ -28,6 +28,7 @@ import {
   pointInRing,
   randBetween,
   randInt,
+  randomAngle,
 } from "./geometry.mjs";
 import {
   BASE_MAP,
@@ -47,7 +48,6 @@ const LINESTRING_DEFAULT_MAX_ATTEMPTS = 20;
 const LINESTRING_MIDPOINT_OFFSET_FRACTION = 0.05;
 const LINESTRING_MIDPOINT_EXTRA = 2;
 const MIN_SEGMENT_LENGTH_M = 0.5;
-const TWO_PI = 2 * Math.PI;
 
 /**
  * Generate a linestring with vertices inside `boundaryRing` whose total
@@ -71,7 +71,7 @@ function generateLinestringOfLength(boundaryRing, targetLengthM, maxAttempts = L
 }
 
 function tryLinestringFromStart(start, targetLengthM, boundaryRing) {
-  const angle = Math.random() * TWO_PI;
+  const angle = randomAngle();
   const end = [
     start[0] + targetLengthM * Math.cos(angle),
     start[1] + targetLengthM * Math.sin(angle),
