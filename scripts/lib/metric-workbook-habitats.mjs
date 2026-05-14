@@ -263,7 +263,7 @@ function decideCreatedRow(row, cols) {
   if (area == null) {
     return { skipBlankArea: true };
   }
-  return { area, broad, type };
+  return { keep: true, area, broad, type };
 }
 
 function buildCreatedHabitatEntry(row, decision, outIndex, cols) {
@@ -303,7 +303,9 @@ export function readCreatedHabitats(workbook, summary) {
     }
     if (action.skipBlankArea) {
       summary.skipped.push({ sheet: SHEETS.habitatsCreation, row: r + 1, reason: "blank area" });
-    } else if (action.area != null) {
+      continue;
+    }
+    if (action.keep) {
       out.push(buildCreatedHabitatEntry(aoa[r], action, out.length, cols));
     }
   }
