@@ -601,11 +601,11 @@ function syntheticFilename(bad, suffix, stamp) {
 
 async function clearExistingSyntheticOutput(outPath, isBatch) {
   if (!existsSync(outPath)) {
-    return true;
+    return;
   }
   if (isBatch) {
     unlinkSync(outPath);
-    return true;
+    return;
   }
   const overwrite = await confirm(`${outPath} already exists. Overwrite? (y/N) `);
   if (!overwrite) {
@@ -613,7 +613,6 @@ async function clearExistingSyntheticOutput(outPath, isBatch) {
     process.exit(0);
   }
   unlinkSync(outPath);
-  return true;
 }
 
 async function runSynthetic(centre) {

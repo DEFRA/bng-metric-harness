@@ -56,8 +56,10 @@ export function findHeader(aoa, requiredTokens) {
   const lim = Math.min(aoa.length - 1, MAX_HEADER_SCAN_ROWS);
   for (let r = 0; r < lim; r++) {
     const merged = mergeHeaderRows(aoa[r], aoa[r + 1]);
-    const cells = merged.map((v) => (v == null ? "" : String(v).trim().toLowerCase()));
-    const matched = requiredTokens.filter((t) => cells.includes(t.toLowerCase()));
+    const cells = new Set(
+      merged.map((v) => (v == null ? "" : String(v).trim().toLowerCase())),
+    );
+    const matched = requiredTokens.filter((t) => cells.has(t.toLowerCase()));
     if (matched.length > best.score) {
       best = { score: matched.length, dataStart: r + 2, header: merged };
     }

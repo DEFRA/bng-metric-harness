@@ -305,8 +305,6 @@ export function readCreatedHabitats(workbook, summary) {
       summary.skipped.push({ sheet: SHEETS.habitatsCreation, row: r + 1, reason: "blank area" });
     } else if (action.area != null) {
       out.push(buildCreatedHabitatEntry(aoa[r], action, out.length, cols));
-    } else {
-      // row classified as skip (missing broad/type) — silent drop
     }
   }
   return out;
