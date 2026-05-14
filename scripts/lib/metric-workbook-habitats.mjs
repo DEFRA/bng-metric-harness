@@ -266,6 +266,16 @@ function decideCreatedRow(row, cols) {
   return { keep: true, area, broad, type };
 }
 
+function applyCreatedRowAction(action, row, rowIndex, cols, out, summary) {
+  if (action.skipBlankArea) {
+    summary.skipped.push({ sheet: SHEETS.habitatsCreation, row: rowIndex + 1, reason: "blank area" });
+    return;
+  }
+  if (action.keep) {
+    out.push(buildCreatedHabitatEntry(row, action, out.length, cols));
+  }
+}
+
 function buildCreatedHabitatEntry(row, decision, outIndex, cols) {
   const { area, broad, type } = decision;
   return {
@@ -301,13 +311,7 @@ export function readCreatedHabitats(workbook, summary) {
     if (action.stop) {
       break;
     }
-    if (action.skipBlankArea) {
-      summary.skipped.push({ sheet: SHEETS.habitatsCreation, row: r + 1, reason: "blank area" });
-      continue;
-    }
-    if (action.keep) {
-      out.push(buildCreatedHabitatEntry(aoa[r], action, out.length, cols));
-    }
+    applyCreatedRowAction(action, aoa[r], r, cols, out, summary);
   }
   return out;
 }
