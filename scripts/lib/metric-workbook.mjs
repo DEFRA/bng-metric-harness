@@ -83,6 +83,9 @@ function mergeHeaderRows(top, bottom) {
   return out;
 }
 
+// Header keys are trimmed here so callers don't need to list whitespace
+// variants (the real workbook templates have inconsistent trailing/leading
+// spaces in cells like "Condition " and " Habitat Type"). Case is preserved.
 function buildColumnIndex(headerRow) {
   const idx = {};
   for (let c = 0; c < headerRow.length; c++) {
@@ -95,10 +98,30 @@ function buildColumnIndex(headerRow) {
   return idx;
 }
 
-// Pick a column by trying several candidate header strings.
+// Pick a column by trying several candidate header strings. The index is
+// already trimmed, so candidates only need to vary by spelling/case, not
+// whitespace.
 function col(idx, ...candidates) {
   for (const c of candidates) {
     if (c in idx) return idx[c];
+  }
+  return -1;
+}
+
+// Find the first column whose header matches any of `candidates`, considering
+// only columns strictly to the right of `startCol`. Used on sheets where the
+// same header text (e.g. "Distinctiveness", "Condition") appears once on the
+// baseline side and again on the proposed side. Both sides of the comparison
+// are trimmed and lower-cased — candidates don't need whitespace or case
+// variants.
+function findColAfter(header, candidates, startCol) {
+  if (startCol < 0) return -1;
+  const wanted = candidates.map((c) => c.trim().toLowerCase());
+  for (let c = startCol + 1; c < header.length; c++) {
+    const v = header[c];
+    if (v == null) continue;
+    const key = String(v).trim().toLowerCase();
+    if (wanted.includes(key)) return c;
   }
   return -1;
 }
@@ -182,11 +205,10 @@ function readSiteInfo(workbook) {
 
 /**
  * A-1 On-Site Habitat Baseline — one row per existing habitat parcel.
- * Columns of interest (header text after the empty banner rows):
- *   "Ref", "Broad Habitat", " Habitat Type", "Area (hectares)",
- *   "Distinctiveness", "Condition ", "Strategic significance" (×2)
- * The habitat-type header has a leading space in the template, hence the
- * lenient candidate list.
+ * Columns of interest (header text after the empty banner rows; some carry
+ * leading/trailing spaces in the real template — buildColumnIndex trims):
+ *   "Ref", "Broad Habitat", "Habitat Type", "Area (hectares)",
+ *   "Distinctiveness", "Condition", "Strategic significance" (×2)
  */
 function readBaselineHabitats(workbook, summary) {
   const ws = workbook.Sheets[SHEETS.habitatsBaseline];
@@ -201,12 +223,16 @@ function readBaselineHabitats(workbook, summary) {
   const idx = buildColumnIndex(header);
   const cRef = col(idx, "Ref");
   const cBroad = col(idx, "Broad Habitat");
-  const cType = col(idx, "Habitat Type", " Habitat Type", "Habitat type");
+  const cType = col(idx, "Habitat Type", "Habitat type");
   const cArea = col(idx, "Area (hectares)");
   const cDist = col(idx, "Distinctiveness");
-  const cCond = col(idx, "Condition", "Condition ");
+  const cCond = col(idx, "Condition");
   const cStrat = findStrategicSignificanceCol(header);
   const cIrrep = col(idx, "Irreplaceable habitat");
+  // A-1 carries the per-row fate split that drives post-intervention generation.
+  const cAreaRetained = col(idx, "Area retained");
+  const cAreaEnhanced = col(idx, "Area enhanced");
+  const cAreaLost = col(idx, "Area habitat lost", "Area Habitat Lost");
 
   const out = [];
   for (let r = dataStart; r < aoa.length; r++) {
@@ -232,6 +258,9 @@ function readBaselineHabitats(workbook, summary) {
       strategicSignificance: cStrat >= 0 ? readString(row[cStrat]) : null,
       irreplaceable: readString(row[cIrrep]) === "Yes",
       isIndividualTree: broad === INDIVIDUAL_TREES_BROAD,
+      areaRetained: cAreaRetained >= 0 ? readNumber(row[cAreaRetained]) ?? 0 : 0,
+      areaEnhanced: cAreaEnhanced >= 0 ? readNumber(row[cAreaEnhanced]) ?? 0 : 0,
+      areaLost: cAreaLost >= 0 ? readNumber(row[cAreaLost]) ?? 0 : 0,
     });
   }
   return out;
@@ -274,7 +303,7 @@ function readCreatedHabitats(workbook, summary) {
   const cRef = col(idx, "Ref");
   const cArea = col(idx, "Area (hectares)");
   const cDist = col(idx, "Distinctiveness");
-  const cCond = col(idx, "Condition", "Condition ");
+  const cCond = col(idx, "Condition");
   const cStrat = findStrategicSignificanceCol(header);
   const cAdvance = col(idx, "Habitat created in advance (years)", "Habitat created in advance");
   const cDelay = col(idx, "Delay in starting habitat creation (years)", "Delay in starting habitat creation");
@@ -342,12 +371,20 @@ function readEnhancementMappings(workbook, summary) {
   const cBaseRef = col(idx, "Baseline ref");
   const cPropBroad = col(idx, "Proposed Broad Habitat");
   const cPropType = col(idx, "Proposed habitat");
+  // Two "Area (hectares)" columns exist — the first is the baseline parcel
+  // total (col 6 in real workbooks), the second is the enhanced sub-area
+  // (col 21). The fate columns on A-1 are authoritative for area, so this
+  // value is informational only.
   const cArea = col(idx, "Total habitat area (hectares)", "Area (hectares)");
-  const cPropDist = col(idx, "Proposed distinctiveness category", "Proposed distinctiveness");
-  const cPropCond = col(idx, "Proposed condition category", "Proposed condition");
-  const cPropStrat = col(idx, "Proposed strategic significance category");
+  // The proposed Distinctiveness/Condition/Strategic significance headers sit
+  // after the "Proposed habitat" group in the merged row and don't carry the
+  // "Proposed" prefix in real workbooks. Locate them positionally — anything
+  // to the right of cPropType is the proposed side.
+  const cPropDist = findColAfter(header, ["Distinctiveness"], cPropType);
+  const cPropCond = findColAfter(header, ["Condition"], cPropType);
+  const cPropStrat = findColAfter(header, ["Strategic significance"], cPropType);
   const cAdvance = col(idx, "Habitat enhanced in advance (years)", "Habitat enhanced in advance");
-  const cDelay = col(idx, "Delay in starting enhancement (years)", "Delay in starting habitat enhancement");
+  const cDelay = col(idx, "Delay in starting enhancement (years)", "Delay in starting habitat enhancement", "Delay in starting habitat enhancement (years)");
 
   const out = [];
   for (let r = dataStart; r < aoa.length; r++) {
@@ -379,7 +416,7 @@ function readEnhancementMappings(workbook, summary) {
 // length-in-km, condition, distinctiveness, strategic significance.
 // ---------------------------------------------------------------------------
 
-function readLinearFeatures(workbook, sheetName, kind, summary) {
+function readLinearFeatures(workbook, sheetName, kind, summary, { withFate = false } = {}) {
   const ws = workbook.Sheets[sheetName];
   if (!ws) return [];
   const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
@@ -394,8 +431,15 @@ function readLinearFeatures(workbook, sheetName, kind, summary) {
   const cType = col(idx, typeHeader);
   const cLen = col(idx, "Length (km)");
   const cDist = col(idx, "Distinctiveness");
-  const cCond = col(idx, "Condition", "Condition ");
+  const cCond = col(idx, "Condition");
   const cStrat = findStrategicSignificanceCol(header);
+  // B-1 / C-1 carry the same per-row fate split as A-1, in length units (km).
+  // C-1 uses "Length Lost" (title-case) while B-1 uses "Length lost" — col()
+  // is case-sensitive so list both. Whitespace variants are handled by
+  // buildColumnIndex's trim.
+  const cLenRetained = withFate ? col(idx, "Length retained", "Length Retained") : -1;
+  const cLenEnhanced = withFate ? col(idx, "Length enhanced", "Length Enhanced") : -1;
+  const cLenLost = withFate ? col(idx, "Length lost", "Length Lost") : -1;
 
   const out = [];
   for (let r = dataStart; r < aoa.length; r++) {
@@ -410,7 +454,7 @@ function readLinearFeatures(workbook, sheetName, kind, summary) {
       summary.skipped.push({ sheet: sheetName, row: r + 1, reason: "blank length" });
       continue;
     }
-    out.push({
+    const entry = {
       ref: ref ?? String(out.length + 1),
       type,
       lengthKm: lenKm,
@@ -418,6 +462,67 @@ function readLinearFeatures(workbook, sheetName, kind, summary) {
       distinctiveness: readString(row[cDist]),
       condition: readString(row[cCond]),
       strategicSignificance: cStrat >= 0 ? readString(row[cStrat]) : null,
+    };
+    if (withFate) {
+      const lenRetainedKm = cLenRetained >= 0 ? readNumber(row[cLenRetained]) ?? 0 : 0;
+      const lenEnhancedKm = cLenEnhanced >= 0 ? readNumber(row[cLenEnhanced]) ?? 0 : 0;
+      const lenLostKm = cLenLost >= 0 ? readNumber(row[cLenLost]) ?? 0 : 0;
+      entry.lengthRetainedKm = lenRetainedKm;
+      entry.lengthEnhancedKm = lenEnhancedKm;
+      entry.lengthLostKm = lenLostKm;
+      entry.lengthRetainedM = Math.round(lenRetainedKm * 1000);
+      entry.lengthEnhancedM = Math.round(lenEnhancedKm * 1000);
+      entry.lengthLostM = Math.round(lenLostKm * 1000);
+    }
+    out.push(entry);
+  }
+  return out;
+}
+
+/**
+ * B-3 / C-3 enhancement sheets — map a baseline linear feature ref to its
+ * proposed post-intervention state. Mirrors readEnhancementMappings for
+ * habitats, but column names differ.
+ */
+function readLinearEnhancements(workbook, sheetName, summary) {
+  const ws = workbook.Sheets[sheetName];
+  if (!ws) return [];
+  const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
+
+  // The merged header sits on row 10 in practice; anchor on "Baseline ref".
+  const { dataStart, header } = findHeader(aoa, ["Baseline ref", "Length (km)"]);
+  if (dataStart < 0) return [];
+  const idx = buildColumnIndex(header);
+  const cBaseRef = col(idx, "Baseline ref");
+  // B-3 / C-3 lay out proposed columns to the right of a "Proposed habitat"
+  // group label that doesn't appear in the data row. Anchor on Baseline ref
+  // and locate proposed distinctiveness / condition / strategic significance
+  // positionally — the same trick used for A-3.
+  const cPropType = col(idx, "Proposed habitat", "Proposed Habitat");
+  const cPropBroad = col(idx, "Proposed Broad Habitat");
+  const propAnchor = cPropType >= 0 ? cPropType : cBaseRef;
+  const cPropDist = findColAfter(header, ["Distinctiveness"], propAnchor);
+  const cPropCond = findColAfter(header, ["Condition"], propAnchor);
+  const cPropStrat = findColAfter(header, ["Strategic significance"], propAnchor);
+  const cAdvance = col(idx, "Habitat enhanced in advance (years)", "Habitat enhanced in advance");
+  const cDelay = col(idx, "Delay in starting habitat enhancement (years)", "Delay in starting habitat enhancement");
+
+  const out = [];
+  for (let r = dataStart; r < aoa.length; r++) {
+    const row = aoa[r];
+    if (!row) continue;
+    const baselineRef = readString(row[cBaseRef]);
+    if (!baselineRef) continue;
+    if (/^total/i.test(baselineRef)) break;
+    out.push({
+      baselineRef,
+      proposedBroad: cPropBroad >= 0 ? readString(row[cPropBroad]) : null,
+      proposedType: cPropType >= 0 ? readString(row[cPropType]) : null,
+      proposedDistinctiveness: cPropDist >= 0 ? readString(row[cPropDist]) : null,
+      proposedCondition: cPropCond >= 0 ? readString(row[cPropCond]) : null,
+      proposedStrategicSignificance: cPropStrat >= 0 ? readString(row[cPropStrat]) : null,
+      advanceYears: cAdvance >= 0 ? readNumber(row[cAdvance]) ?? 0 : 0,
+      delayYears: cDelay >= 0 ? readNumber(row[cDelay]) ?? 0 : 0,
     });
   }
   return out;
@@ -474,12 +579,14 @@ export function readMetricWorkbook(filePath) {
   };
 
   const hedgerows = {
-    baseline: readLinearFeatures(workbook, SHEETS.hedgesBaseline, "hedge", summary),
+    baseline: readLinearFeatures(workbook, SHEETS.hedgesBaseline, "hedge", summary, { withFate: true }),
     created: readLinearFeatures(workbook, SHEETS.hedgesCreation, "hedge", summary),
+    enhancements: readLinearEnhancements(workbook, SHEETS.hedgesEnhancement, summary),
   };
   const watercourses = {
-    baseline: readLinearFeatures(workbook, SHEETS.watercoursesBaseline, "river", summary),
+    baseline: readLinearFeatures(workbook, SHEETS.watercoursesBaseline, "river", summary, { withFate: true }),
     created: readLinearFeatures(workbook, SHEETS.watercoursesCreation, "river", summary),
+    enhancements: readLinearEnhancements(workbook, SHEETS.watercoursesEnhancement, summary),
   };
 
   return { siteInfo, version, habitats, hedgerows, watercourses, trees, summary };
@@ -509,10 +616,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       hedgerows: {
         baseline: wb.hedgerows.baseline.length,
         created: wb.hedgerows.created.length,
+        enhancements: wb.hedgerows.enhancements.length,
       },
       watercourses: {
         baseline: wb.watercourses.baseline.length,
         created: wb.watercourses.created.length,
+        enhancements: wb.watercourses.enhancements.length,
       },
       trees: {
         baseline: wb.trees.baseline.length,

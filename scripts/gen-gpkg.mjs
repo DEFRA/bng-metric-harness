@@ -1,27 +1,29 @@
 #!/usr/bin/env node
 
 /**
- * Generates a realistic BNG GeoPackage matching the Natural England
- * statutory biodiversity metric QGIS template schema.
- *
- * Produces a single file with all 5 feature layers:
- *   Red Line Boundary, Habitats, Hedgerows, Rivers, Urban Trees
+ * Generates realistic BNG GeoPackages matching the Natural England
+ * statutory biodiversity metric QGIS template schema. All 5 feature
+ * layers per file: Red Line Boundary, Habitats, Hedgerows, Rivers,
+ * Urban Trees.
  *
  * Two modes:
  *
  *   1. Synthetic (default).
  *      Both geometry AND attributes are randomised on each run, so repeat
  *      runs produce different files. Use --size to scale the fixture and
- *      --count to produce N varied files at once.
+ *      --count to produce N varied files at once. Emits one file per run.
  *
  *   2. Workbook-driven (--from / --from-list).
  *      Attributes are read from a real Defra Statutory Biodiversity Metric
- *      workbook (xlsx/xlsm) — habitat type, condition, distinctiveness,
- *      strategic significance, retention category, lengths, areas. Geometry
- *      (RLB outline, parcel partition, hedge/river routes, tree positions)
- *      is still randomised, but its sizes match the workbook's areas and
- *      lengths. Repeat runs over the same workbook give identical attribute
- *      content with different layouts.
+ *      workbook (xlsx/xlsm). Emits TWO files per workbook by default:
+ *      a baseline gpkg (pre-development state, A-1 / B-1 / C-1 only, no
+ *      proposed columns) and a post-intervention gpkg (proposed end-state,
+ *      with retained / enhanced / created rows derived from the A-1 /
+ *      B-1 / C-1 per-fate columns and the A-2 / A-3 / B-2 / B-3 / C-2 /
+ *      C-3 sheets). The two files share an identical Red Line Boundary,
+ *      so they can be uploaded sequentially to model the two-stage BNG
+ *      service workflow. Use --mode baseline or --mode post-intervention
+ *      to emit only one of the pair.
  *
  * In either mode --centre <easting,northing> positions the RLB anywhere in
  * Britain (BNG, EPSG:27700). Defaults to Maidenhead (530000,180000).
@@ -66,6 +68,10 @@
  *                   workbook (e.g. CAMBRIDGE_24_02948_FUL.gpkg).
  *   --from-list <f> Newline-delimited file of paths/URLs; runs --from for
  *                   each entry. Existing files are overwritten without prompt.
+ *   --mode <m>      With --from / --from-list: which gpkg(s) to emit.
+ *                     baseline           — pre-development state only
+ *                     post-intervention  — proposed end-state only
+ *                     both (default)     — both files, sharing one RLB
  *   --strict-habitats
  *                   Skip workbook habitat rows whose (habitat, condition)
  *                   pair the prototype's metric tables would reject.
@@ -156,9 +162,20 @@ const { values: args } = parseArgs({
     "strict-habitats": { type: "boolean", default: false },
     inspect: { type: "boolean", default: false },
     centre: { type: "string", default: "" },
+    // Two-stage upload modelling: --mode baseline writes only the pre-
+    // development gpkg, --mode post-intervention writes only the proposed
+    // end-state, --mode both (default) writes both side by side from the
+    // same workbook.
+    mode: { type: "string", default: "both" },
   },
   allowPositionals: false,
 });
+
+const VALID_MODES = new Set(["baseline", "post-intervention", "both"]);
+if (!VALID_MODES.has(args.mode)) {
+  console.error(`--mode must be one of: baseline, post-intervention, both (got: ${args.mode})`);
+  process.exit(1);
+}
 
 const HARNESS_ROOT = path.resolve(import.meta.dirname, "..");
 const OUT_DIR = args.outdir
@@ -1721,23 +1738,17 @@ async function resolveWorkbookSource(ref) {
 }
 
 // ---------------------------------------------------------------------------
-// Workbook → habitat rows: combine baseline / enhancement / creation entries
-// from a metric workbook into the rows our Habitats layer needs (one row per
-// physical land parcel, with both baseline and proposed columns populated).
+// Workbook → row builders. Two flavours:
+//   - buildBaselineRows(wb)        — what an ecologist would upload at the
+//                                    baseline stage. Only A-1 / B-1 / C-1
+//                                    rows, no proposed data, no retention.
+//   - buildPostInterventionRows(wb) — the proposed end-state, derived row by
+//                                    row from A-1/B-1/C-1 per-fate columns
+//                                    (areaRetained / areaEnhanced / areaLost
+//                                    and the length equivalents) plus A-2/B-2
+//                                    /C-2 created entries and A-3/B-3/C-3
+//                                    enhancement attributes.
 // ---------------------------------------------------------------------------
-
-// Synthetic "before" attributes used for workbook rows in retention="Created".
-// The metric workbook's A-2 sheet records only what's *being created*; the
-// pre-development state isn't captured. We use a generic "developed land"
-// baseline, which is what most created parcels in real planning applications
-// genuinely succeed.
-const CREATED_BASELINE = {
-  broad: "Urban",
-  type: "Developed land; sealed surface",
-  distinctiveness: "V.Low",
-  condition: "N/A - Other",
-  strategicSig: "Area/compensation not in local strategy/ no local strategy",
-};
 
 function isHabitatConditionValid(broad, type, condition) {
   const key = `${broad} - ${type}`;
@@ -1748,97 +1759,387 @@ function isHabitatConditionValid(broad, type, condition) {
   return typeof v === "number";
 }
 
-function buildHabitatRowsFromWorkbook(wb, { strict = false } = {}) {
-  const enhMap = new Map();
-  for (const e of wb.habitats.enhancements) {
-    enhMap.set(String(e.baselineRef), e);
-  }
+// Tolerance for the per-row fate-area reconciliation. 0.5% relative, with a
+// 1 m² absolute floor (0.0001 ha). See BMD-439-plan.md resolved decision 4.
+const FATE_AREA_RELATIVE_TOLERANCE = 0.005;
+const FATE_AREA_ABSOLUTE_FLOOR_HA = 0.0001;
 
-  const rows = [];
-  let nextRef = 1;
+function fateReconciles(total, retained, enhanced, lost) {
+  const sum = (retained ?? 0) + (enhanced ?? 0) + (lost ?? 0);
+  const tol = Math.max(total * FATE_AREA_RELATIVE_TOLERANCE, FATE_AREA_ABSOLUTE_FLOOR_HA);
+  return Math.abs(total - sum) <= tol;
+}
+
+// Pad helper for letter-suffix derived refs (e.g. H001 → H001a / H001b).
+function makeRef(prefix, baselineRef, suffix) {
+  const num = String(baselineRef).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR);
+  return `${prefix}${num}${suffix ?? ""}`;
+}
+
+/**
+ * Build baseline rows from a workbook. Each layer's output is the raw A-1 /
+ * B-1 / C-1 / individual-trees-baseline content with no post-intervention
+ * data attached.
+ */
+function buildBaselineRows(wb, { strict = false } = {}) {
   const skipReasons = [];
 
+  const habitats = [];
   for (const b of wb.habitats.baseline) {
-    const enh = enhMap.get(String(b.ref));
-    const proposed = enh
-      ? {
-          broad: enh.proposedBroad,
-          type: enh.proposedType,
-          distinctiveness: enh.proposedDistinctiveness,
-          condition: enh.proposedCondition,
-          strategicSig: enh.proposedStrategicSignificance,
-          advanceYears: enh.advanceYears,
-          delayYears: enh.delayYears,
-        }
-      : {
-          broad: b.broad,
-          type: b.type,
-          distinctiveness: b.distinctiveness,
-          condition: b.condition,
-          strategicSig: b.strategicSignificance,
-          advanceYears: 0,
-          delayYears: 0,
-        };
-
-    if (
-      strict &&
-      (!isHabitatConditionValid(b.broad, b.type, b.condition) ||
-        !isHabitatConditionValid(
-          proposed.broad,
-          proposed.type,
-          proposed.condition,
-        ))
-    ) {
-      skipReasons.push(
-        `baseline ref ${b.ref}: invalid (habitat, condition) under --strict-habitats`,
-      );
+    if (strict && !isHabitatConditionValid(b.broad, b.type, b.condition)) {
+      skipReasons.push(`baseline habitat ref ${b.ref}: invalid (habitat, condition) under --strict-habitats`);
       continue;
     }
-
-    const refIndex = nextRef;
-    nextRef += 1;
-    rows.push({
-      ref: `H${String(refIndex).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
-      retention: enh ? "Enhanced" : "Retained",
+    habitats.push({
+      ref: makeRef("H", b.ref),
+      baselineRef: String(b.ref),
       area: b.area,
-      baseline: {
-        broad: b.broad,
-        type: b.type,
-        distinctiveness: b.distinctiveness,
-        condition: b.condition,
-        strategicSig: b.strategicSignificance,
-      },
-      proposed,
+      broad: b.broad,
+      type: b.type,
+      distinctiveness: b.distinctiveness,
+      condition: b.condition,
+      strategicSig: b.strategicSignificance,
     });
   }
 
-  for (const c of wb.habitats.created) {
-    if (strict && !isHabitatConditionValid(c.broad, c.type, c.condition)) {
-      skipReasons.push(
-        `created ref ${c.ref}: invalid (habitat, condition) under --strict-habitats`,
-      );
+  const hedgerows = wb.hedgerows.baseline.map((h) => ({
+    ref: makeRef("HG", h.ref),
+    baselineRef: String(h.ref),
+    type: h.type,
+    lengthM: h.lengthM,
+    distinctiveness: h.distinctiveness,
+    condition: h.condition,
+    strategicSig: h.strategicSignificance,
+  }));
+
+  const rivers = wb.watercourses.baseline.map((r) => ({
+    ref: makeRef("R", r.ref),
+    baselineRef: String(r.ref),
+    type: r.type,
+    lengthM: r.lengthM,
+    distinctiveness: r.distinctiveness,
+    condition: r.condition,
+    strategicSig: r.strategicSignificance,
+  }));
+
+  const trees = wb.trees.baseline.map((t) => ({
+    ref: makeRef("T", t.ref),
+    baselineRef: String(t.ref),
+    type: t.type,
+    distinctiveness: t.distinctiveness,
+    condition: t.condition,
+    strategicSig: t.strategicSignificance,
+  }));
+
+  return { habitats, hedgerows, rivers, trees, skipReasons };
+}
+
+/**
+ * Build post-intervention rows from a workbook. Each baseline row may expand
+ * into multiple rows: a retained slice, an enhanced slice, plus any A-2
+ * created parcels matched against that baseline's lost-area budget.
+ *
+ * Suffix scheme:
+ *   - A baseline parcel with a single surviving slice keeps its ref unchanged
+ *     (`H001`).
+ *   - Multiple slices get suffix letters in order: retained → `H001a`,
+ *     enhanced → `H001b`, then any assigned-created → `H001c`, `H001d`, …
+ *   - Unassigned created parcels (workbook A-2 rows that didn't fit any
+ *     baseline's lost-area budget) get fresh refs continuing the numeric
+ *     sequence after the highest baseline ref.
+ *
+ * Lost→created matching is greedy: sort created rows largest-first, then
+ * for each pick the baseline parcel whose remaining lost capacity is the
+ * largest sufficient match. Capacity is tracked in hectares and decremented
+ * per assignment.
+ */
+function buildPostInterventionRows(wb, { strict = false } = {}) {
+  const skipReasons = [];
+  const warnings = [];
+
+  const habEnh = new Map();
+  for (const e of wb.habitats.enhancements) habEnh.set(String(e.baselineRef), e);
+  const hedgeEnh = new Map();
+  for (const e of wb.hedgerows.enhancements) hedgeEnh.set(String(e.baselineRef), e);
+  const riverEnh = new Map();
+  for (const e of wb.watercourses.enhancements) riverEnh.set(String(e.baselineRef), e);
+
+  // --- Habitats --------------------------------------------------------------
+  //
+  // Pass 1 — filter & validate baseline rows; pre-compute strictness-skips
+  // for created rows so the matcher only considers eligible candidates.
+  const eligibleBaselines = [];
+  for (const b of wb.habitats.baseline) {
+    if (strict && !isHabitatConditionValid(b.broad, b.type, b.condition)) {
+      skipReasons.push(`baseline habitat ref ${b.ref}: invalid (habitat, condition) under --strict-habitats`);
       continue;
     }
-    const refIndex = nextRef;
-    nextRef += 1;
-    rows.push({
-      ref: `H${String(refIndex).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
+    if (!fateReconciles(b.area, b.areaRetained, b.areaEnhanced, b.areaLost)) {
+      warnings.push(
+        `habitat ref ${b.ref}: area accounting off (total=${b.area} retained=${b.areaRetained} enhanced=${b.areaEnhanced} lost=${b.areaLost})`,
+      );
+    }
+    eligibleBaselines.push(b);
+  }
+
+  const eligibleCreatedIdxs = [];
+  for (let i = 0; i < wb.habitats.created.length; i++) {
+    const c = wb.habitats.created[i];
+    if (strict && !isHabitatConditionValid(c.broad, c.type, c.condition)) {
+      skipReasons.push(`created habitat ref ${c.ref}: invalid (habitat, condition) under --strict-habitats`);
+      continue;
+    }
+    eligibleCreatedIdxs.push(i);
+  }
+
+  // Pass 2 — greedy lost→created assignment. For each created row (largest
+  // first), pick the baseline parcel with the largest remaining lost-area
+  // capacity that is still big enough to absorb it.
+  const lostRemainingHa = new Map();
+  for (const b of eligibleBaselines) {
+    if (b.areaLost > 0) lostRemainingHa.set(String(b.ref), b.areaLost);
+  }
+  const createdAssignment = new Map(); // workbook-created idx → baselineRef
+  const createdSortedByAreaDesc = eligibleCreatedIdxs
+    .slice()
+    .sort((a, b) => (wb.habitats.created[b].area ?? 0) - (wb.habitats.created[a].area ?? 0));
+  for (const idx of createdSortedByAreaDesc) {
+    const c = wb.habitats.created[idx];
+    const needed = c.area ?? 0;
+    if (needed <= 0) continue;
+    let bestRef = null;
+    let bestRemaining = -Infinity;
+    for (const [ref, remaining] of lostRemainingHa) {
+      if (remaining + FATE_AREA_ABSOLUTE_FLOOR_HA >= needed && remaining > bestRemaining) {
+        bestRef = ref;
+        bestRemaining = remaining;
+      }
+    }
+    if (bestRef != null) {
+      createdAssignment.set(idx, bestRef);
+      lostRemainingHa.set(bestRef, bestRemaining - needed);
+    }
+  }
+
+  // Pass 3 — emit rows. Per baseline: retained, enhanced, then any
+  // assigned-created in their original A-2 order. Suffix letters are
+  // allocated only when the baseline expands to more than one surviving row.
+  const habitats = [];
+  const SUFFIX_LETTERS = "abcdefghijklmnopqrstuvwxyz";
+  for (const b of eligibleBaselines) {
+    const baselineRef = String(b.ref);
+    const assignedCreatedIdxs = [...createdAssignment.entries()]
+      .filter(([, ref]) => ref === baselineRef)
+      .map(([idx]) => idx)
+      .sort((a, b2) => a - b2);
+
+    let enhancedRowPlanned = false;
+    const enhanced = (() => {
+      if (b.areaEnhanced <= 0) return null;
+      const enh = habEnh.get(baselineRef);
+      const proposed = {
+        broad: enh?.proposedBroad ?? b.broad,
+        type: enh?.proposedType ?? b.type,
+        distinctiveness: enh?.proposedDistinctiveness ?? b.distinctiveness,
+        condition: enh?.proposedCondition ?? b.condition,
+        strategicSig: enh?.proposedStrategicSignificance ?? b.strategicSignificance,
+        advanceYears: enh?.advanceYears ?? 0,
+        delayYears: enh?.delayYears ?? 0,
+      };
+      if (strict && !isHabitatConditionValid(proposed.broad, proposed.type, proposed.condition)) {
+        skipReasons.push(`enhanced habitat ref ${baselineRef}: invalid proposed (habitat, condition) under --strict-habitats`);
+        return null;
+      }
+      enhancedRowPlanned = true;
+      return proposed;
+    })();
+
+    const sliceCount =
+      (b.areaRetained > 0 ? 1 : 0) +
+      (enhancedRowPlanned ? 1 : 0) +
+      assignedCreatedIdxs.length;
+    const useSuffix = sliceCount > 1;
+    let suffixIdx = 0;
+    const nextSuffix = () => (useSuffix ? SUFFIX_LETTERS[suffixIdx++] : "");
+
+    if (b.areaRetained > 0) {
+      habitats.push({
+        ref: makeRef("H", baselineRef, nextSuffix()),
+        baselineRef,
+        retention: "Retained",
+        area: b.areaRetained,
+        baseline: { broad: b.broad, type: b.type, distinctiveness: b.distinctiveness, condition: b.condition, strategicSig: b.strategicSignificance },
+        proposed: { broad: b.broad, type: b.type, distinctiveness: b.distinctiveness, condition: b.condition, strategicSig: b.strategicSignificance, advanceYears: 0, delayYears: 0 },
+      });
+    }
+
+    if (enhanced) {
+      habitats.push({
+        ref: makeRef("H", baselineRef, nextSuffix()),
+        baselineRef,
+        retention: "Enhanced",
+        area: b.areaEnhanced,
+        baseline: { broad: b.broad, type: b.type, distinctiveness: b.distinctiveness, condition: b.condition, strategicSig: b.strategicSignificance },
+        proposed: enhanced,
+      });
+    }
+
+    for (const idx of assignedCreatedIdxs) {
+      const c = wb.habitats.created[idx];
+      habitats.push({
+        ref: makeRef("H", baselineRef, nextSuffix()),
+        baselineRef,
+        retention: "Created",
+        area: c.area,
+        baseline: null,
+        proposed: {
+          broad: c.broad,
+          type: c.type,
+          distinctiveness: c.distinctiveness,
+          condition: c.condition,
+          strategicSig: c.strategicSignificance,
+          advanceYears: c.advanceYears ?? 0,
+          delayYears: c.delayYears ?? 0,
+        },
+      });
+    }
+  }
+
+  // Unassigned created rows fall back to fresh refs (numbered after the
+  // highest baseline ref). They'll carve from the orphaned lost-area pool
+  // in the geometry pass.
+  let createdSeq = wb.habitats.baseline.length + 1;
+  for (const idx of eligibleCreatedIdxs) {
+    if (createdAssignment.has(idx)) continue;
+    const c = wb.habitats.created[idx];
+    habitats.push({
+      ref: makeRef("H", createdSeq++),
+      baselineRef: null,
       retention: "Created",
       area: c.area,
-      baseline: { ...CREATED_BASELINE },
+      baseline: null,
       proposed: {
         broad: c.broad,
         type: c.type,
         distinctiveness: c.distinctiveness,
         condition: c.condition,
         strategicSig: c.strategicSignificance,
-        advanceYears: c.advanceYears,
-        delayYears: c.delayYears,
+        advanceYears: c.advanceYears ?? 0,
+        delayYears: c.delayYears ?? 0,
       },
     });
   }
 
-  return { rows, skipReasons };
+  // --- Hedgerows / Rivers — same shape ---------------------------------------
+  const hedgerows = buildLinearPostIntervention({
+    baseline: wb.hedgerows.baseline,
+    created: wb.hedgerows.created,
+    enhMap: hedgeEnh,
+    refPrefix: "HG",
+    warnings,
+  });
+
+  const rivers = buildLinearPostIntervention({
+    baseline: wb.watercourses.baseline,
+    created: wb.watercourses.created,
+    enhMap: riverEnh,
+    refPrefix: "R",
+    warnings,
+  });
+
+  // --- Trees — points, classify by dominant fate -----------------------------
+  // A tree row may span multiple individual trees with a mix of fates; v1
+  // uses the dominant-fate heuristic and emits a single point per surviving
+  // row. Fully-lost rows drop out entirely.
+  const trees = [];
+  for (const t of wb.trees.baseline) {
+    const retained = t.areaRetained ?? 0;
+    const enhanced = t.areaEnhanced ?? 0;
+    const lost = t.areaLost ?? 0;
+    if (retained === 0 && enhanced === 0 && lost > 0) continue; // fully lost
+    const retention = enhanced > retained ? "Enhanced" : "Retained";
+    trees.push({
+      ref: makeRef("T", t.ref),
+      baselineRef: String(t.ref),
+      retention,
+      baseline: { type: t.type, distinctiveness: t.distinctiveness, condition: t.condition, strategicSig: t.strategicSignificance },
+      proposed: { type: t.type, distinctiveness: t.distinctiveness, condition: t.condition, strategicSig: t.strategicSignificance, advanceYears: 0, delayYears: 0 },
+    });
+  }
+  let treeCreatedSeq = wb.trees.baseline.length + 1;
+  for (const c of wb.trees.created) {
+    trees.push({
+      ref: makeRef("T", treeCreatedSeq++),
+      baselineRef: null,
+      retention: "Created",
+      baseline: null,
+      proposed: { type: c.type, distinctiveness: c.distinctiveness, condition: c.condition, strategicSig: c.strategicSignificance, advanceYears: c.advanceYears ?? 0, delayYears: c.delayYears ?? 0 },
+    });
+  }
+
+  return { habitats, hedgerows, rivers, trees, skipReasons, warnings };
+}
+
+function buildLinearPostIntervention({ baseline, created, enhMap, refPrefix, warnings }) {
+  const rows = [];
+  for (const b of baseline) {
+    const retainedM = b.lengthRetainedM ?? 0;
+    const enhancedM = b.lengthEnhancedM ?? 0;
+    const lostM = b.lengthLostM ?? 0;
+    if (retainedM === 0 && enhancedM === 0 && lostM === 0 && b.lengthM > 0) {
+      // No fate columns populated — treat the whole length as retained so
+      // the linear feature still appears post-intervention.
+      rows.push(makeLinearRow(b, b.lengthM, "Retained", refPrefix));
+      continue;
+    }
+    const totalReconciled = retainedM + enhancedM + lostM;
+    if (totalReconciled > 0 && Math.abs(totalReconciled - b.lengthM) > Math.max(b.lengthM * FATE_AREA_RELATIVE_TOLERANCE, 1)) {
+      warnings.push(`${refPrefix} ref ${b.ref}: length accounting off (total=${b.lengthM}m retained=${retainedM} enhanced=${enhancedM} lost=${lostM})`);
+    }
+    const fates = [];
+    if (retainedM > 0) fates.push("Retained");
+    if (enhancedM > 0) fates.push("Enhanced");
+    const split = fates.length > 1;
+    const suffixFor = (fate) => (split ? (fate === "Retained" ? "a" : "b") : "");
+
+    if (retainedM > 0) {
+      rows.push(makeLinearRow(b, retainedM, "Retained", refPrefix, suffixFor("Retained")));
+    }
+    if (enhancedM > 0) {
+      const enh = enhMap.get(String(b.ref));
+      rows.push(makeLinearRow(b, enhancedM, "Enhanced", refPrefix, suffixFor("Enhanced"), enh));
+    }
+  }
+  let seq = baseline.length + 1;
+  for (const c of created) {
+    rows.push({
+      ref: makeRef(refPrefix, seq++),
+      baselineRef: null,
+      retention: "Created",
+      lengthM: c.lengthM,
+      baseline: null,
+      proposed: { type: c.type, distinctiveness: c.distinctiveness, condition: c.condition, strategicSig: c.strategicSignificance, advanceYears: c.advanceYears ?? 0, delayYears: c.delayYears ?? 0 },
+    });
+  }
+  return rows;
+}
+
+function makeLinearRow(b, lengthM, retention, refPrefix, suffix = "", enh = null) {
+  return {
+    ref: makeRef(refPrefix, b.ref, suffix),
+    baselineRef: String(b.ref),
+    retention,
+    lengthM,
+    baseline: { type: b.type, distinctiveness: b.distinctiveness, condition: b.condition, strategicSig: b.strategicSignificance },
+    proposed: {
+      type: enh?.proposedType ?? b.type,
+      distinctiveness: enh?.proposedDistinctiveness ?? b.distinctiveness,
+      condition: enh?.proposedCondition ?? b.condition,
+      strategicSig: enh?.proposedStrategicSignificance ?? b.strategicSignificance,
+      advanceYears: enh?.advanceYears ?? 0,
+      delayYears: enh?.delayYears ?? 0,
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1865,29 +2166,44 @@ function generateRedLineBoundaryFromArea(db, cx, cy, totalAreaM2) {
   return ring;
 }
 
-function generateHabitatsFromWorkbook(db, boundaryRing, rows) {
-  const stmt = db.prepare(`
-    INSERT INTO "Habitats" (
-      geometry, "Parcel Ref", "Baseline Broad Habitat Type", "Baseline Habitat Type",
-      "Area", "Baseline Condition", "Baseline Strategic Significance",
-      "Retention Category", "Proposed Broad Habitat Type", "Proposed Habitat Type",
-      "Proposed Condition", "Proposed Strategic Significance",
-      "Habitat created in advance/years", "Delay in starting habitat creation/years",
-      "Spatial risk category", "Location", "Site Name", "Survey Date",
-      "Survey Details", "Comment", "Mapped by", "Company", "Base Map",
-      "Baseline Distinctiveness", "Proposed Distinctiveness"
-    ) VALUES (${Array(25).fill("?").join(", ")})
-  `);
+// ---------------------------------------------------------------------------
+// Habitats — baseline / post-intervention split
+// ---------------------------------------------------------------------------
 
+/**
+ * Partition the boundary ring into baseline habitat cells, one per row. The
+ * returned `byRef` map lets the post-intervention pass slice and reuse the
+ * same cells.
+ */
+function partitionBaselineHabitats(boundaryRing, baselineRows) {
+  const targets = baselineRows.map((r) => r.area * HECTARES_TO_SQ_M);
+  const cells = partitionPolygonByAreas(boundaryRing, targets);
+  const byRef = new Map();
+  cells.forEach((cell, i) => {
+    if (cell && baselineRows[i]) byRef.set(baselineRows[i].baselineRef, cell);
+  });
+  return { cells, byRef };
+}
+
+const HABITATS_BASELINE_SQL = `
+  INSERT INTO "Habitats" (
+    geometry, "Parcel Ref", "Baseline Broad Habitat Type", "Baseline Habitat Type",
+    "Area", "Baseline Condition", "Baseline Strategic Significance",
+    "Retention Category", "Proposed Broad Habitat Type", "Proposed Habitat Type",
+    "Proposed Condition", "Proposed Strategic Significance",
+    "Habitat created in advance/years", "Delay in starting habitat creation/years",
+    "Spatial risk category", "Location", "Site Name", "Survey Date",
+    "Survey Details", "Comment", "Mapped by", "Company", "Base Map",
+    "Baseline Distinctiveness", "Proposed Distinctiveness"
+  ) VALUES (${Array(HABITATS_INSERT_COLUMNS).fill("?").join(", ")})
+`;
+
+function writeHabitatsBaseline(db, cells, rows) {
   if (rows.length === 0) {
     registerLayer(db, "Habitats", "POLYGON", null);
     return 0;
   }
-
-  // Excel areas are in hectares; convert to m² to match the polygon area unit.
-  const targetAreasM2 = rows.map((r) => r.area * 10000);
-  const cells = partitionPolygonByAreas(boundaryRing, targetAreasM2);
-
+  const stmt = db.prepare(HABITATS_BASELINE_SQL);
   const allEnvelope = [Infinity, -Infinity, Infinity, -Infinity];
   let written = 0;
   for (let i = 0; i < rows.length; i++) {
@@ -1899,16 +2215,235 @@ function generateHabitatsFromWorkbook(db, boundaryRing, rows) {
     stmt.run(
       geom,
       r.ref,
-      r.baseline.broad,
-      r.baseline.type,
-      Math.round(polygonArea(cell)),
-      r.baseline.condition,
-      r.baseline.strategicSig,
-      r.retention,
-      r.proposed.broad,
-      r.proposed.type,
-      r.proposed.condition,
-      r.proposed.strategicSig,
+      r.broad,                       // Baseline Broad Habitat Type
+      r.type,                        // Baseline Habitat Type
+      Math.round(polygonArea(cell)), // Area
+      r.condition,                   // Baseline Condition
+      r.strategicSig,                // Baseline Strategic Significance
+      null,                          // Retention Category
+      null,                          // Proposed Broad Habitat Type
+      null,                          // Proposed Habitat Type
+      null,                          // Proposed Condition
+      null,                          // Proposed Strategic Significance
+      null,                          // Habitat created in advance/years
+      null,                          // Delay in starting habitat creation/years
+      null,                          // Spatial risk category
+      null,                          // Location
+      SITE_NAME,
+      SURVEY_DATE,
+      WORKBOOK_SURVEY_DETAILS,
+      null,                          // Comment
+      WORKBOOK_IMPORT_LABEL,
+      WORKBOOK_IMPORT_LABEL,
+      BASE_MAP,
+      r.distinctiveness,             // Baseline Distinctiveness
+      null,                          // Proposed Distinctiveness
+    );
+    written++;
+  }
+  registerLayer(db, "Habitats", "POLYGON", written > 0 ? allEnvelope : null);
+  return written;
+}
+
+/**
+ * Derive post-intervention habitat geometry from the baseline cells.
+ *
+ * For each baseline parcel, the cell is partitioned in a single pass into:
+ *   retained slice + enhanced slice + 0..N assigned-created slices + lost
+ *   residual.
+ *
+ * Because the row builder has already matched A-2 created rows to baseline
+ * parcels with sufficient lost-area capacity (issue #3), assigned-created
+ * cells come straight out of the same partition as their parent baseline
+ * — no fragmentation risk and the geometry honours the baseline → created
+ * lineage in the same way the refs do (H001a / H001b / H001c …).
+ *
+ * The lost residual (anything not claimed by an assigned-created row) feeds
+ * an orphan pool that catches the remaining unmatched created rows. When
+ * a fallback create comes back significantly undersized — because the pool
+ * is fragmented and we don't union polygons — a warning is emitted so the
+ * user can spot it (issue #2).
+ *
+ * @param {Map} baselineCellsByRef
+ * @param {Array} baselineRowsRaw  Workbook A-1 rows in original order.
+ * @param {Array} postRows         Output of buildPostInterventionRows.
+ * @param {string[]} warnings      Mutable warning sink.
+ */
+function derivePostInterventionHabitatCells(baselineCellsByRef, baselineRowsRaw, postRows, warnings = []) {
+  const cellsForPost = new Array(postRows.length).fill(null);
+  const orphanedLostPool = [];
+
+  // Group post rows by baselineRef. Assigned-created rows (issue #3
+  // linkage) carry a baselineRef so they land in the right group.
+  const groupedByBaseline = new Map();
+  const unassignedCreated = [];
+  for (let i = 0; i < postRows.length; i++) {
+    const r = postRows[i];
+    if (r.baselineRef != null) {
+      if (!groupedByBaseline.has(r.baselineRef)) groupedByBaseline.set(r.baselineRef, []);
+      groupedByBaseline.get(r.baselineRef).push({ row: r, postIndex: i });
+    } else if (r.retention === "Created") {
+      unassignedCreated.push({ row: r, postIndex: i });
+    }
+  }
+
+  for (const b of baselineRowsRaw) {
+    const baselineRef = String(b.ref);
+    const cell = baselineCellsByRef.get(baselineRef);
+    if (!cell) continue;
+    const total = b.area;
+    if (total <= 0) continue;
+    const cellArea = polygonArea(cell);
+    const group = groupedByBaseline.get(baselineRef) ?? [];
+
+    // Build sub-targets in row-emission order: retained, enhanced, then
+    // each assigned-created in the order the row builder emitted them.
+    // The lost residual (anything not absorbed by an assigned-created)
+    // becomes the last sub-target and goes to the orphan pool.
+    const subTargets = [];
+    const subAssignments = []; // postIndex | "lostPool"
+
+    const retainedRow = group.find((g) => g.row.retention === "Retained");
+    if (b.areaRetained > 0 && retainedRow) {
+      subTargets.push((b.areaRetained / total) * cellArea);
+      subAssignments.push(retainedRow.postIndex);
+    }
+
+    const enhancedRow = group.find((g) => g.row.retention === "Enhanced");
+    if (b.areaEnhanced > 0 && enhancedRow) {
+      subTargets.push((b.areaEnhanced / total) * cellArea);
+      subAssignments.push(enhancedRow.postIndex);
+    }
+
+    let assignedCreatedM2 = 0;
+    const assignedCreatedRows = group.filter((g) => g.row.retention === "Created");
+    for (const g of assignedCreatedRows) {
+      const target = g.row.area * HECTARES_TO_SQ_M;
+      subTargets.push(target);
+      subAssignments.push(g.postIndex);
+      assignedCreatedM2 += target;
+    }
+
+    const totalLostM2 = (b.areaLost / total) * cellArea;
+    const residualLostM2 = totalLostM2 - assignedCreatedM2;
+    if (residualLostM2 > MIN_GENERATED_AREA_SQ_M) {
+      subTargets.push(residualLostM2);
+      subAssignments.push("lostPool");
+    }
+
+    if (subTargets.length === 0) continue;
+
+    const subCells = subTargets.length === 1 ? [cell] : partitionPolygonByAreas(cell, subTargets);
+
+    for (let i = 0; i < subAssignments.length; i++) {
+      const assignment = subAssignments[i];
+      const sub = subCells[i];
+      if (!sub) continue;
+      if (assignment === "lostPool") {
+        orphanedLostPool.push(sub);
+      } else {
+        cellsForPost[assignment] = sub;
+      }
+    }
+  }
+
+  // Fallback: any A-2 created rows that didn't get matched to a baseline's
+  // lost-area budget carve from the orphan pool. Because we don't union the
+  // pool polygons (a real polygon-union dependency is intentionally avoided),
+  // a single create can only carve from one orphan polygon at a time —
+  // surface a warning when that produces a significantly undersized cell.
+  if (unassignedCreated.length > 0) {
+    if (orphanedLostPool.length === 0) {
+      for (const u of unassignedCreated) {
+        warnings.push(`created habitat ${u.row.ref}: no lost-area pool available — geometry omitted`);
+      }
+    } else {
+      const targets = unassignedCreated.map((u) => u.row.area * HECTARES_TO_SQ_M);
+      const allocated = allocateAcrossPool(orphanedLostPool, targets);
+      const UNDERSIZE_WARN_RATIO = 0.7;
+      for (let i = 0; i < unassignedCreated.length; i++) {
+        const cell = allocated[i];
+        const u = unassignedCreated[i];
+        if (!cell) {
+          warnings.push(`created habitat ${u.row.ref}: orphan lost-area pool exhausted — geometry omitted`);
+          continue;
+        }
+        cellsForPost[u.postIndex] = cell;
+        const actualM2 = polygonArea(cell);
+        if (actualM2 < targets[i] * UNDERSIZE_WARN_RATIO) {
+          warnings.push(
+            `created habitat ${u.row.ref}: orphan-pool carve produced ${(actualM2 / HECTARES_TO_SQ_M).toFixed(4)} ha, requested ${(targets[i] / HECTARES_TO_SQ_M).toFixed(4)} ha (lost-area pool is fragmented)`,
+          );
+        }
+      }
+    }
+  }
+
+  return cellsForPost;
+}
+
+/**
+ * Distribute carve targets across a pool of polygons. For each target,
+ * picks the largest available pool polygon, carves the target out, and
+ * pushes the remainder back into the pool. Returns one cell per target,
+ * or null if a target couldn't be satisfied.
+ */
+function allocateAcrossPool(pool, targets) {
+  const out = new Array(targets.length).fill(null);
+  const live = pool.slice();
+  for (let i = 0; i < targets.length; i++) {
+    const target = targets[i];
+    if (target <= 0) continue;
+    live.sort((a, b) => polygonArea(b) - polygonArea(a));
+    if (live.length === 0) break;
+    const big = live[0];
+    if (polygonArea(big) <= target + 1) {
+      // Use the whole polygon — close enough.
+      out[i] = big;
+      live.shift();
+      continue;
+    }
+    const carved = carveTargetArea(big, target);
+    if (!carved) {
+      out[i] = big;
+      live.shift();
+      continue;
+    }
+    out[i] = carved.piece;
+    live[0] = carved.rest;
+  }
+  return out;
+}
+
+const HABITATS_POSTINT_SQL = HABITATS_BASELINE_SQL;
+
+function writeHabitatsPostIntervention(db, cells, rows) {
+  if (rows.length === 0) {
+    registerLayer(db, "Habitats", "POLYGON", null);
+    return 0;
+  }
+  const stmt = db.prepare(HABITATS_POSTINT_SQL);
+  const allEnvelope = [Infinity, -Infinity, Infinity, -Infinity];
+  let written = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const cell = cells[i];
+    if (!cell) continue;
+    const geom = gpkgPolygon(SRS_ID, cell);
+    expandEnvelope(allEnvelope, envelopeFromCoords(cell));
+    stmt.run(
+      geom,
+      r.ref,
+      r.baseline?.broad ?? null,                       // Baseline Broad Habitat Type
+      r.baseline?.type ?? null,                        // Baseline Habitat Type
+      Math.round(polygonArea(cell)),                   // Area
+      r.baseline?.condition ?? null,                   // Baseline Condition
+      r.baseline?.strategicSig ?? null,                // Baseline Strategic Significance
+      r.retention,                                     // Retention Category
+      r.proposed.broad,                                // Proposed Broad Habitat Type
+      r.proposed.type,                                 // Proposed Habitat Type
+      r.proposed.condition,                            // Proposed Condition
+      r.proposed.strategicSig,                         // Proposed Strategic Significance
       String(r.proposed.advanceYears ?? 0),
       String(r.proposed.delayYears ?? 0),
       pick(SPATIAL_RISK_HABITAT),
@@ -1920,8 +2455,8 @@ function generateHabitatsFromWorkbook(db, boundaryRing, rows) {
       WORKBOOK_IMPORT_LABEL,
       WORKBOOK_IMPORT_LABEL,
       BASE_MAP,
-      r.baseline.distinctiveness,
-      r.proposed.distinctiveness,
+      r.baseline?.distinctiveness ?? null,             // Baseline Distinctiveness
+      r.proposed.distinctiveness,                      // Proposed Distinctiveness
     );
     written++;
   }
@@ -1978,55 +2513,195 @@ function generateLinestringOfLength(
   return null;
 }
 
-function generateHedgerowsFromWorkbook(db, boundaryRing, baseline, created) {
-  const stmt = db.prepare(`
-    INSERT INTO "Hedgerows" (
-      geometry, "Parcel Ref", "Baseline Hedge Type", "Baseline Condition",
-      "Baseline Strategic Significance", "Retention Category",
-      "Proposed Hedge Type", "Proposed Condition", "Proposed Strategic Significance",
-      "Length", "Habitat created in advance/years",
-      "Delay in starting habitat creation/years", "Spatial risk category",
-      "Location", "Site Name", "Survey Date", "Survey Details", "Comments",
-      "Mapped by", "Company", "Base Map",
-      "Baseline Distinctiveness", "Proposed Distinctiveness"
-    ) VALUES (${Array(23).fill("?").join(", ")})
-  `);
+// ---------------------------------------------------------------------------
+// Hedgerows — baseline / post-intervention split
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate one linestring per baseline hedge row. Returns ordered coords
+ * array (aligned to baselineRows) and a Map<baselineRef, coords>.
+ */
+function generateBaselineHedgerowGeometry(boundaryRing, baselineRows) {
+  const coordsList = [];
+  const byRef = new Map();
+  for (const row of baselineRows) {
+    const coords = generateLinestringOfLength(boundaryRing, row.lengthM);
+    coordsList.push(coords);
+    if (coords) byRef.set(row.baselineRef, coords);
+  }
+  return { coordsList, byRef };
+}
+
+const HEDGEROWS_BASELINE_SQL = `
+  INSERT INTO "Hedgerows" (
+    geometry, "Parcel Ref", "Baseline Hedge Type", "Baseline Condition",
+    "Baseline Strategic Significance", "Retention Category",
+    "Proposed Hedge Type", "Proposed Condition", "Proposed Strategic Significance",
+    "Length", "Habitat created in advance/years",
+    "Delay in starting habitat creation/years", "Spatial risk category",
+    "Location", "Site Name", "Survey Date", "Survey Details", "Comments",
+    "Mapped by", "Company", "Base Map",
+    "Baseline Distinctiveness", "Proposed Distinctiveness"
+  ) VALUES (${Array(HEDGEROWS_INSERT_COLUMNS).fill("?").join(", ")})
+`;
+
+function writeHedgerowsBaseline(db, coordsList, rows) {
+  const stmt = db.prepare(HEDGEROWS_BASELINE_SQL);
   const allEnvelope = [Infinity, -Infinity, Infinity, -Infinity];
   let written = 0;
-
-  const records = [
-    ...baseline.map((h) => ({
-      retention: "Retained",
-      hedge: h,
-      isCreated: false,
-    })),
-    ...created.map((h) => ({
-      retention: "Created",
-      hedge: h,
-      isCreated: true,
-    })),
-  ];
-  for (let i = 0; i < records.length; i++) {
-    const { retention, hedge, isCreated } = records[i];
-    const coords = generateLinestringOfLength(boundaryRing, hedge.lengthM);
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const coords = coordsList[i];
     if (!coords) continue;
-    const geom = gpkgLineString(SRS_ID, coords);
     expandEnvelope(allEnvelope, envelopeFromCoords(coords));
     stmt.run(
-      geom,
-      `HG${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
-      isCreated ? "(Created)" : hedge.type,
-      hedge.condition ?? "Moderate",
-      hedge.strategicSignificance ??
-        "Area/compensation not in local strategy/ no local strategy",
-      retention,
-      hedge.type,
-      hedge.condition ?? "Moderate",
-      hedge.strategicSignificance ??
-        "Area/compensation not in local strategy/ no local strategy",
-      hedge.lengthM,
-      "0",
-      "0",
+      gpkgLineString(SRS_ID, coords),
+      r.ref,
+      r.type,                                // Baseline Hedge Type
+      r.condition,                           // Baseline Condition
+      r.strategicSig,                        // Baseline Strategic Significance
+      null,                                  // Retention Category
+      null,                                  // Proposed Hedge Type
+      null,                                  // Proposed Condition
+      null,                                  // Proposed Strategic Significance
+      r.lengthM,                             // Length
+      null,                                  // Habitat created in advance/years
+      null,                                  // Delay in starting habitat creation/years
+      null,                                  // Spatial risk category
+      null,                                  // Location
+      SITE_NAME,
+      SURVEY_DATE,
+      WORKBOOK_SURVEY_DETAILS,
+      null,
+      WORKBOOK_IMPORT_LABEL,
+      WORKBOOK_IMPORT_LABEL,
+      BASE_MAP,
+      r.distinctiveness,                     // Baseline Distinctiveness
+      null,                                  // Proposed Distinctiveness
+    );
+    written++;
+  }
+  registerLayer(db, "Hedgerows", "LINESTRING", written > 0 ? allEnvelope : null);
+  return written;
+}
+
+/**
+ * Derive post-intervention linear coords (hedgerows / rivers).
+ *
+ * Retained / Enhanced rows are carved from the baseline linestring as
+ * consecutive, non-overlapping segments — for a baseline of 100 m with
+ * 70 m retained + 30 m enhanced, the retained slice covers [0, 70 m] and
+ * the enhanced slice covers [70 m, 100 m]. This fixes issue #1 (prior
+ * implementation took a prefix for each slice from the same baseline line,
+ * producing overlapping geometry).
+ *
+ * Created rows generate fresh linestrings inside the boundary.
+ */
+function derivePostInterventionLinearCoords(boundaryRing, baselineCoordsByRef, postRows) {
+  const out = new Array(postRows.length).fill(null);
+
+  // Group baseline-derived rows by baselineRef so a single cursor can walk
+  // along the baseline allocating consecutive segments.
+  const groupsByBaseline = new Map();
+  for (let i = 0; i < postRows.length; i++) {
+    const r = postRows[i];
+    if (r.retention === "Created") {
+      out[i] = generateLinestringOfLength(boundaryRing, r.lengthM);
+      continue;
+    }
+    if (!r.baselineRef) continue;
+    if (!groupsByBaseline.has(r.baselineRef)) groupsByBaseline.set(r.baselineRef, []);
+    groupsByBaseline.get(r.baselineRef).push({ row: r, postIndex: i });
+  }
+
+  for (const [baselineRef, group] of groupsByBaseline) {
+    const baseCoords = baselineCoordsByRef.get(baselineRef);
+    if (!baseCoords) continue;
+    const totalLen = linestringLength(baseCoords);
+    let cursor = 0;
+    for (const { row, postIndex } of group) {
+      if (totalLen === 0 || cursor >= totalLen) {
+        // Baseline exhausted — fall back to the full line so the row at
+        // least carries something. Length will read shorter than the
+        // workbook value, but the geometry is non-overlapping.
+        out[postIndex] = baseCoords;
+        continue;
+      }
+      const segment = sliceLinestringSegment(baseCoords, cursor, cursor + row.lengthM);
+      out[postIndex] = segment ?? baseCoords;
+      cursor += row.lengthM;
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Return the sub-linestring between distances `startM` and `endM` along
+ * `coords`. Walks vertex-to-vertex, interpolating on the segments that the
+ * start and end points fall on.
+ */
+function sliceLinestringSegment(coords, startM, endM) {
+  if (!coords || coords.length < 2 || endM <= startM) return null;
+  const totalLen = linestringLength(coords);
+  const sStart = Math.max(0, Math.min(startM, totalLen));
+  const sEnd = Math.max(sStart, Math.min(endM, totalLen));
+  if (sEnd - sStart < 0.5) return null;
+
+  const out = [];
+  let acc = 0;
+  for (let i = 1; i < coords.length; i++) {
+    const a = coords[i - 1];
+    const b = coords[i];
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const seg = Math.sqrt(dx * dx + dy * dy);
+    const segStart = acc;
+    const segEnd = acc + seg;
+    if (segEnd < sStart) {
+      acc = segEnd;
+      continue;
+    }
+    if (segStart > sEnd) break;
+    if (out.length === 0) {
+      const t = seg === 0 ? 0 : (sStart - segStart) / seg;
+      out.push([a[0] + dx * t, a[1] + dy * t]);
+    }
+    if (segEnd >= sEnd) {
+      const t = seg === 0 ? 0 : (sEnd - segStart) / seg;
+      out.push([a[0] + dx * t, a[1] + dy * t]);
+      return out;
+    }
+    out.push(b);
+    acc = segEnd;
+  }
+  return out.length >= 2 ? out : null;
+}
+
+const HEDGEROWS_POSTINT_SQL = HEDGEROWS_BASELINE_SQL;
+
+function writeHedgerowsPostIntervention(db, coordsList, rows) {
+  const stmt = db.prepare(HEDGEROWS_POSTINT_SQL);
+  const allEnvelope = [Infinity, -Infinity, Infinity, -Infinity];
+  let written = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const coords = coordsList[i];
+    if (!coords) continue;
+    expandEnvelope(allEnvelope, envelopeFromCoords(coords));
+    stmt.run(
+      gpkgLineString(SRS_ID, coords),
+      r.ref,
+      r.baseline?.type ?? null,
+      r.baseline?.condition ?? null,
+      r.baseline?.strategicSig ?? null,
+      r.retention,
+      r.proposed.type,
+      r.proposed.condition,
+      r.proposed.strategicSig,
+      Math.round(linestringLength(coords)),
+      String(r.proposed.advanceYears ?? 0),
+      String(r.proposed.delayYears ?? 0),
       "Compensation inside LPA boundary or NCA of impact site",
       "On-site",
       SITE_NAME,
@@ -2036,67 +2711,120 @@ function generateHedgerowsFromWorkbook(db, boundaryRing, baseline, created) {
       WORKBOOK_IMPORT_LABEL,
       WORKBOOK_IMPORT_LABEL,
       BASE_MAP,
-      hedge.distinctiveness ?? "Medium",
-      hedge.distinctiveness ?? "Medium",
+      r.baseline?.distinctiveness ?? null,
+      r.proposed.distinctiveness,
     );
     written++;
   }
-  registerLayer(
-    db,
-    "Hedgerows",
-    "LINESTRING",
-    written > 0 ? allEnvelope : null,
-  );
+  registerLayer(db, "Hedgerows", "LINESTRING", written > 0 ? allEnvelope : null);
   return written;
 }
 
-function generateRiversFromWorkbook(db, boundaryRing, baseline, created) {
-  const stmt = db.prepare(`
-    INSERT INTO "Rivers" (
-      geometry, "Parcel Ref", "Baseline River Type", "Baseline Condition",
-      "Baseline Strategic Significance",
-      "Baseline Encroachment into Watercourse",
-      "Baseline Encroachment into riparian zone",
-      "Retention Category", "Proposed River Type", "Proposed Condition",
-      "Proposed Strategic Significance", "Length",
-      "Habitat created in advance/years",
-      "Delay in starting habitat creation/years",
-      "Spatial risk category", "Location",
-      "Proposed Encroachment into Watercourse",
-      "Proposed Encroachment into riparian zone",
-      "Site Name", "Survey Date", "Survey Details", "Comments",
-      "Mapped by", "Company", "Base Map",
-      "Enhancement Type", "Baseline Distinctiveness", "Proposed Distinctiveness"
-    ) VALUES (${Array(28).fill("?").join(", ")})
-  `);
+// ---------------------------------------------------------------------------
+// Rivers — baseline / post-intervention split
+// ---------------------------------------------------------------------------
+
+const RIVERS_INSERT_COLUMNS = 28;
+
+const RIVERS_BASELINE_SQL = `
+  INSERT INTO "Rivers" (
+    geometry, "Parcel Ref", "Baseline River Type", "Baseline Condition",
+    "Baseline Strategic Significance",
+    "Baseline Encroachment into Watercourse",
+    "Baseline Encroachment into riparian zone",
+    "Retention Category", "Proposed River Type", "Proposed Condition",
+    "Proposed Strategic Significance", "Length",
+    "Habitat created in advance/years",
+    "Delay in starting habitat creation/years",
+    "Spatial risk category", "Location",
+    "Proposed Encroachment into Watercourse",
+    "Proposed Encroachment into riparian zone",
+    "Site Name", "Survey Date", "Survey Details", "Comments",
+    "Mapped by", "Company", "Base Map",
+    "Enhancement Type", "Baseline Distinctiveness", "Proposed Distinctiveness"
+  ) VALUES (${Array(RIVERS_INSERT_COLUMNS).fill("?").join(", ")})
+`;
+
+function generateBaselineRiverGeometry(boundaryRing, baselineRows) {
+  const coordsList = [];
+  const byRef = new Map();
+  for (const row of baselineRows) {
+    const coords = generateLinestringOfLength(boundaryRing, row.lengthM);
+    coordsList.push(coords);
+    if (coords) byRef.set(row.baselineRef, coords);
+  }
+  return { coordsList, byRef };
+}
+
+function writeRiversBaseline(db, coordsList, rows) {
+  const stmt = db.prepare(RIVERS_BASELINE_SQL);
   const allEnvelope = [Infinity, -Infinity, Infinity, -Infinity];
   let written = 0;
-
-  const records = [
-    ...baseline.map((r) => ({ retention: "Retained", river: r })),
-    ...created.map((r) => ({ retention: "Created", river: r })),
-  ];
-  for (let i = 0; i < records.length; i++) {
-    const { retention, river } = records[i];
-    const coords = generateLinestringOfLength(boundaryRing, river.lengthM);
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const coords = coordsList[i];
     if (!coords) continue;
-    const geom = gpkgLineString(SRS_ID, coords);
     expandEnvelope(allEnvelope, envelopeFromCoords(coords));
     stmt.run(
-      geom,
-      `R${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
-      river.type,
-      river.condition ?? "Moderate",
-      river.strategicSignificance ?? "Within waterbody catchment",
+      gpkgLineString(SRS_ID, coords),
+      r.ref,
+      r.type,                                // Baseline River Type
+      r.condition,                           // Baseline Condition
+      r.strategicSig,                        // Baseline Strategic Significance
+      null,                                  // Baseline Encroachment into Watercourse
+      null,                                  // Baseline Encroachment into riparian zone
+      null,                                  // Retention Category
+      null,                                  // Proposed River Type
+      null,                                  // Proposed Condition
+      null,                                  // Proposed Strategic Significance
+      r.lengthM,                             // Length
+      null,                                  // Habitat created in advance/years
+      null,                                  // Delay in starting habitat creation/years
+      null,                                  // Spatial risk category
+      null,                                  // Location
+      null,                                  // Proposed Encroachment into Watercourse
+      null,                                  // Proposed Encroachment into riparian zone
+      SITE_NAME,
+      SURVEY_DATE,
+      WORKBOOK_SURVEY_DETAILS,
+      null,
+      WORKBOOK_IMPORT_LABEL,
+      WORKBOOK_IMPORT_LABEL,
+      BASE_MAP,
+      null,                                  // Enhancement Type
+      r.distinctiveness,                     // Baseline Distinctiveness
+      null,                                  // Proposed Distinctiveness
+    );
+    written++;
+  }
+  registerLayer(db, "Rivers", "LINESTRING", written > 0 ? allEnvelope : null);
+  return written;
+}
+
+function writeRiversPostIntervention(db, coordsList, rows) {
+  const stmt = db.prepare(RIVERS_BASELINE_SQL);
+  const allEnvelope = [Infinity, -Infinity, Infinity, -Infinity];
+  let written = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const coords = coordsList[i];
+    if (!coords) continue;
+    expandEnvelope(allEnvelope, envelopeFromCoords(coords));
+    stmt.run(
+      gpkgLineString(SRS_ID, coords),
+      r.ref,
+      r.baseline?.type ?? null,
+      r.baseline?.condition ?? null,
+      r.baseline?.strategicSig ?? null,
       "No Encroachment",
       "No Encroachment/No Encroachment",
-      retention,
-      river.type,
-      river.condition ?? "Moderate",
-      river.strategicSignificance ?? "Within waterbody catchment",
-      river.lengthM,
-      "0",
-      "0",
+      r.retention,
+      r.proposed.type,
+      r.proposed.condition,
+      r.proposed.strategicSig,
+      Math.round(linestringLength(coords)),
+      String(r.proposed.advanceYears ?? 0),
+      String(r.proposed.delayYears ?? 0),
       "Within waterbody catchment",
       "On-site",
       "No Encroachment",
@@ -2109,8 +2837,8 @@ function generateRiversFromWorkbook(db, boundaryRing, baseline, created) {
       WORKBOOK_IMPORT_LABEL,
       BASE_MAP,
       null,
-      river.distinctiveness ?? "Medium",
-      river.distinctiveness ?? "Medium",
+      r.baseline?.distinctiveness ?? null,
+      r.proposed.distinctiveness,
     );
     written++;
   }
@@ -2118,52 +2846,121 @@ function generateRiversFromWorkbook(db, boundaryRing, baseline, created) {
   return written;
 }
 
-function generateUrbanTreesFromWorkbook(db, boundaryRing, baseline, created) {
-  const stmt = db.prepare(`
-    INSERT INTO "Urban Trees" (
-      geometry, "Tree Ref", "Baseline Tree Size", "Baseline Condition",
-      "Baseline Strategic Significance", "Baseline Tree Type",
-      "Retention Category", "Category",
-      "Proposed Tree Size", "Proposed Condition",
-      "Proposed Strategic Significance", "Proposed Tree Type",
-      "Location", "Habitat Created/Enhanced in advance/years",
-      "Delay in starting habitat creation/enhancement in years",
-      "Spatial risk category", "Site Name", "Survey Date",
-      "Survey Details", "Comment", "Mapped by", "Company", "Base Map",
-      "Count", "Baseline Rural or Urban Tree", "Proposed Rural or Urban Tree"
-    ) VALUES (${Array(26).fill("?").join(", ")})
-  `);
+// ---------------------------------------------------------------------------
+// Urban Trees — baseline / post-intervention split
+// ---------------------------------------------------------------------------
+
+const URBAN_TREES_BASELINE_SQL = `
+  INSERT INTO "Urban Trees" (
+    geometry, "Tree Ref", "Baseline Tree Size", "Baseline Condition",
+    "Baseline Strategic Significance", "Baseline Tree Type",
+    "Retention Category", "Category",
+    "Proposed Tree Size", "Proposed Condition",
+    "Proposed Strategic Significance", "Proposed Tree Type",
+    "Location", "Habitat Created/Enhanced in advance/years",
+    "Delay in starting habitat creation/enhancement in years",
+    "Spatial risk category", "Site Name", "Survey Date",
+    "Survey Details", "Comment", "Mapped by", "Company", "Base Map",
+    "Count", "Baseline Rural or Urban Tree", "Proposed Rural or Urban Tree"
+  ) VALUES (${Array(URBAN_TREES_INSERT_COLUMNS).fill("?").join(", ")})
+`;
+
+function generateBaselineTreePoints(boundaryRing, baselineRows) {
+  const points = [];
+  const byRef = new Map();
+  for (const row of baselineRows) {
+    const point = pickInteriorPoint(boundaryRing);
+    points.push(point);
+    if (point) byRef.set(row.baselineRef, point);
+  }
+  return { points, byRef };
+}
+
+function writeUrbanTreesBaseline(db, points, rows) {
+  const stmt = db.prepare(URBAN_TREES_BASELINE_SQL);
   const allEnvelope = [Infinity, -Infinity, Infinity, -Infinity];
   let written = 0;
-
-  const records = [
-    ...baseline.map((t) => ({ retention: "Retained", tree: t })),
-    ...created.map((t) => ({ retention: "Created", tree: t })),
-  ];
-  for (let i = 0; i < records.length; i++) {
-    const { retention, tree } = records[i];
-    const point = pickInteriorPoint(boundaryRing);
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const point = points[i];
     if (!point) continue;
     const [x, y] = point;
     expandEnvelope(allEnvelope, [x, x, y, y]);
     stmt.run(
       gpkgPoint(SRS_ID, x, y),
-      `T${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
+      r.ref,
+      "Medium",                              // Baseline Tree Size (workbook doesn't carry this)
+      r.condition,                           // Baseline Condition
+      r.strategicSig,                        // Baseline Strategic Significance
+      r.type,                                // Baseline Tree Type
+      null,                                  // Retention Category
+      null,                                  // Category
+      null,                                  // Proposed Tree Size
+      null,                                  // Proposed Condition
+      null,                                  // Proposed Strategic Significance
+      null,                                  // Proposed Tree Type
+      null,                                  // Location
+      null,                                  // advance/years
+      null,                                  // delay/years
+      null,                                  // Spatial risk category
+      SITE_NAME,
+      SURVEY_DATE,
+      WORKBOOK_SURVEY_DETAILS,
+      null,
+      WORKBOOK_IMPORT_LABEL,
+      WORKBOOK_IMPORT_LABEL,
+      BASE_MAP,
+      1,                                     // Count
+      "Urban",                               // Baseline Rural or Urban Tree
+      null,                                  // Proposed Rural or Urban Tree
+    );
+    written++;
+  }
+  registerLayer(db, "Urban Trees", "POINT", written > 0 ? allEnvelope : null);
+  return written;
+}
+
+function derivePostInterventionTreePoints(boundaryRing, baselinePointsByRef, postRows) {
+  const out = new Array(postRows.length).fill(null);
+  for (let i = 0; i < postRows.length; i++) {
+    const r = postRows[i];
+    if (r.retention === "Created") {
+      out[i] = pickInteriorPoint(boundaryRing);
+      continue;
+    }
+    if (r.baselineRef && baselinePointsByRef.has(r.baselineRef)) {
+      out[i] = baselinePointsByRef.get(r.baselineRef);
+    }
+  }
+  return out;
+}
+
+function writeUrbanTreesPostIntervention(db, points, rows) {
+  const stmt = db.prepare(URBAN_TREES_BASELINE_SQL);
+  const allEnvelope = [Infinity, -Infinity, Infinity, -Infinity];
+  let written = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const point = points[i];
+    if (!point) continue;
+    const [x, y] = point;
+    expandEnvelope(allEnvelope, [x, x, y, y]);
+    stmt.run(
+      gpkgPoint(SRS_ID, x, y),
+      r.ref,
       "Medium",
-      tree.condition ?? "Moderate",
-      tree.strategicSignificance ??
-        "Area/compensation not in local strategy/ no local strategy",
-      tree.type,
-      retention,
-      retention === "Lost" ? "Lost" : "Retained",
+      r.baseline?.condition ?? null,
+      r.baseline?.strategicSig ?? null,
+      r.baseline?.type ?? null,
+      r.retention,
+      r.retention === "Lost" ? "Lost" : "Retained",
       "Medium",
-      tree.condition ?? "Moderate",
-      tree.strategicSignificance ??
-        "Area/compensation not in local strategy/ no local strategy",
-      tree.type,
+      r.proposed.condition,
+      r.proposed.strategicSig,
+      r.proposed.type,
       "On-site",
-      "0",
-      "0",
+      String(r.proposed.advanceYears ?? 0),
+      String(r.proposed.delayYears ?? 0),
       "Compensation inside LPA boundary or NCA of impact site",
       SITE_NAME,
       SURVEY_DATE,
@@ -2173,7 +2970,7 @@ function generateUrbanTreesFromWorkbook(db, boundaryRing, baseline, created) {
       WORKBOOK_IMPORT_LABEL,
       BASE_MAP,
       1,
-      "Urban",
+      r.baseline ? "Urban" : null,
       "Urban",
     );
     written++;
@@ -2995,12 +3792,14 @@ function logWorkbookFixtureBanner({
   outPath,
   habitatRows,
   plan,
+  mode,
 }) {
   header(`Generating BNG GeoPackage from workbook`, "cyan");
   info(`  source: ${sourceLabel}`);
   info(
     `  site: ${plan.siteName} (${workbook.siteInfo.planningAuthority ?? "unknown LPA"})`,
   );
+  info(`  mode: ${mode ?? "both"}`);
   info(
     `  total area: ${plan.totalAreaHa.toFixed(4)} ha (${Math.round(plan.totalAreaM2)} m²)`,
   );
@@ -3021,66 +3820,130 @@ function logWorkbookFixtureBanner({
   info(`  → ${outPath}`);
 }
 
-function writeWorkbookLayers(db, ring, workbook, habitatRows) {
+/**
+ * Generate the baseline GeoPackage. Lays out the RLB, partitions habitats,
+ * picks linear feature routes and tree positions. Returns the geometry it
+ * produced so the post-intervention pass can derive from it.
+ */
+function generateBaselineFile(outPath, workbook, baselineRows, plan, centre) {
+  const [cx, cy] = centre;
+  const db = new Database(outPath);
+  initGeoPackage(db);
+  createAllTables(db);
+
+  const ring = generateRedLineBoundaryFromArea(db, cx, cy, plan.totalAreaM2);
+
+  const { cells: habitatCells, byRef: habitatCellsByRef } =
+    partitionBaselineHabitats(ring, baselineRows.habitats);
+  const habitatsWritten = writeHabitatsBaseline(db, habitatCells, baselineRows.habitats);
+
+  const { coordsList: hedgeCoords, byRef: hedgeCoordsByRef } =
+    generateBaselineHedgerowGeometry(ring, baselineRows.hedgerows);
+  const hedgesWritten = writeHedgerowsBaseline(db, hedgeCoords, baselineRows.hedgerows);
+
+  const { coordsList: riverCoords, byRef: riverCoordsByRef } =
+    generateBaselineRiverGeometry(ring, baselineRows.rivers);
+  const riversWritten = writeRiversBaseline(db, riverCoords, baselineRows.rivers);
+
+  const { points: treePoints, byRef: treePointsByRef } =
+    generateBaselineTreePoints(ring, baselineRows.trees);
+  const treesWritten = writeUrbanTreesBaseline(db, treePoints, baselineRows.trees);
+
+  createLayerStyles(db);
+  db.close();
+
   return {
-    habitats: generateHabitatsFromWorkbook(db, ring, habitatRows),
-    hedgerows: generateHedgerowsFromWorkbook(
-      db,
-      ring,
-      workbook.hedgerows.baseline,
-      workbook.hedgerows.created,
-    ),
-    rivers: generateRiversFromWorkbook(
-      db,
-      ring,
-      workbook.watercourses.baseline,
-      workbook.watercourses.created,
-    ),
-    trees: generateUrbanTreesFromWorkbook(
-      db,
-      ring,
-      workbook.trees.baseline,
-      workbook.trees.created,
-    ),
+    ring,
+    habitatCellsByRef,
+    hedgeCoordsByRef,
+    riverCoordsByRef,
+    treePointsByRef,
+    written: {
+      habitats: habitatsWritten,
+      hedgerows: hedgesWritten,
+      rivers: riversWritten,
+      trees: treesWritten,
+    },
   };
 }
 
-function logWorkbookPostWrite(workbook, skipReasons, written, outPath) {
-  info(
-    `  written: ${written.habitats} habitats, ${written.hedgerows} hedgerows, ` +
-      `${written.rivers} rivers, ${written.trees} trees`,
+/**
+ * Generate the post-intervention GeoPackage, reusing the baseline RLB and
+ * deriving each layer's geometry from the baseline's. The baseline file has
+ * already been written; this is a separate file.
+ */
+function generatePostInterventionFile(outPath, workbook, baselineRows, postRows, baselineGeom, plan, centre) {
+  const [cx, cy] = centre;
+  const db = new Database(outPath);
+  initGeoPackage(db);
+  createAllTables(db);
+
+  // Reuse the exact baseline ring rather than regenerating, so the two files
+  // share an identical RLB (story acceptance criterion).
+  const ring = baselineGeom.ring;
+  const geom = gpkgPolygon(SRS_ID, ring);
+  db.prepare(`INSERT INTO "Red Line Boundary" (geometry, "Area", "Site Name") VALUES (?, ?, ?)`)
+    .run(geom, Math.round(polygonArea(ring)), plan.siteName ?? SITE_NAME);
+  registerLayer(db, "Red Line Boundary", "POLYGON", envelopeFromCoords(ring));
+
+  const habitatCells = derivePostInterventionHabitatCells(
+    baselineGeom.habitatCellsByRef,
+    workbook.habitats.baseline,
+    postRows.habitats,
+    postRows.warnings,
   );
-  for (const w of workbook.summary.warnings) {
-    warn(`  ${w}`);
-  }
-  for (const s of workbook.summary.skipped) {
-    warn(`  skipped ${s.sheet}:${s.row} (${s.reason})`);
-  }
-  for (const r of skipReasons) {
-    warn(`  ${r}`);
-  }
-  console.log(color("green", `✔ Done. ${outPath}`));
+  const habitatsWritten = writeHabitatsPostIntervention(db, habitatCells, postRows.habitats);
+
+  const hedgeCoords = derivePostInterventionLinearCoords(ring, baselineGeom.hedgeCoordsByRef, postRows.hedgerows);
+  const hedgesWritten = writeHedgerowsPostIntervention(db, hedgeCoords, postRows.hedgerows);
+
+  const riverCoords = derivePostInterventionLinearCoords(ring, baselineGeom.riverCoordsByRef, postRows.rivers);
+  const riversWritten = writeRiversPostIntervention(db, riverCoords, postRows.rivers);
+
+  const treePoints = derivePostInterventionTreePoints(ring, baselineGeom.treePointsByRef, postRows.trees);
+  const treesWritten = writeUrbanTreesPostIntervention(db, treePoints, postRows.trees);
+
+  createLayerStyles(db);
+  db.close();
+
+  return {
+    written: {
+      habitats: habitatsWritten,
+      hedgerows: hedgesWritten,
+      rivers: riversWritten,
+      trees: treesWritten,
+    },
+  };
 }
 
-function generateOneFromWorkbook(
-  outPath,
+function logWorkbookFileSummary(label, written, outPath) {
+  info(
+    `  ${label}: ${written.habitats} habitats, ${written.hedgerows} hedgerows, ${written.rivers} rivers, ${written.trees} trees → ${outPath}`,
+  );
+}
+
+function generateFromWorkbook(
+  outPaths,
   workbook,
   sourceLabel,
-  { strict = false, centre } = {},
+  { strict = false, centre, mode = "both" } = {},
 ) {
-  const { rows: habitatRows, skipReasons } = buildHabitatRowsFromWorkbook(
-    workbook,
-    { strict },
-  );
-  const plan = computeWorkbookFixturePlan(workbook, habitatRows);
+  const baselineRows = buildBaselineRows(workbook, { strict });
+  const postRows = mode === "baseline" ? null : buildPostInterventionRows(workbook, { strict });
+
+  // Use the baseline habitat areas (not the post-intervention sub-areas) to
+  // size the RLB so it can hold the full pre-development site.
+  const habitatRowsForSizing = baselineRows.habitats.map((r) => ({ area: r.area }));
+  const plan = computeWorkbookFixturePlan(workbook, habitatRowsForSizing);
 
   logWorkbookFixtureBanner({
     workbook,
     sourceLabel,
     centre,
-    outPath,
-    habitatRows,
+    outPath: mode === "both" ? `${outPaths.baseline} + ${outPaths.postIntervention}` : (outPaths.baseline ?? outPaths.postIntervention),
+    habitatRows: baselineRows.habitats,
     plan,
+    mode,
   });
 
   if (plan.totalAreaM2 < MIN_GENERATED_AREA_SQ_M) {
@@ -3090,17 +3953,44 @@ function generateOneFromWorkbook(
     return false;
   }
 
-  const [cx, cy] = centre;
-  const db = new Database(outPath);
-  initGeoPackage(db);
-  createAllTables(db);
+  const writeBaseline = mode !== "post-intervention";
+  const writePostInt = mode !== "baseline";
 
-  const ring = generateRedLineBoundaryFromArea(db, cx, cy, plan.totalAreaM2);
-  const written = writeWorkbookLayers(db, ring, workbook, habitatRows);
-  createLayerStyles(db);
-  db.close();
+  // We always need to compute baseline geometry — it's the input to post-int
+  // geometry derivation. If the user only asked for post-intervention, we
+  // run the baseline pipeline into a throwaway in-memory db.
+  let baselineGeom;
+  if (writeBaseline) {
+    baselineGeom = generateBaselineFile(outPaths.baseline, workbook, baselineRows, plan, centre);
+    logWorkbookFileSummary("baseline", baselineGeom.written, outPaths.baseline);
+  } else {
+    // Throwaway DB just to compute the baseline geometry.
+    const tmpPath = ":memory:";
+    baselineGeom = generateBaselineFile(tmpPath, workbook, baselineRows, plan, centre);
+  }
 
-  logWorkbookPostWrite(workbook, skipReasons, written, outPath);
+  if (writePostInt) {
+    const postWritten = generatePostInterventionFile(
+      outPaths.postIntervention,
+      workbook,
+      baselineRows,
+      postRows,
+      baselineGeom,
+      plan,
+      centre,
+    );
+    logWorkbookFileSummary("post-intervention", postWritten.written, outPaths.postIntervention);
+  }
+
+  // Surface warnings and skips.
+  for (const w of workbook.summary.warnings) warn(`  ${w}`);
+  for (const s of workbook.summary.skipped) warn(`  skipped ${s.sheet}:${s.row} (${s.reason})`);
+  for (const r of baselineRows.skipReasons) warn(`  ${r}`);
+  if (postRows) {
+    for (const r of postRows.skipReasons) warn(`  ${r}`);
+    for (const r of postRows.warnings) warn(`  ${r}`);
+  }
+  console.log(color("green", `✔ Done.`));
   return true;
 }
 
@@ -3109,14 +3999,18 @@ function timestampSuffix(d = new Date()) {
   return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
 }
 
-function workbookOutputName(source) {
+function workbookOutputNames(source) {
   // Strip trailing query/hash, keep last path segment, replace extension.
   const url = source.replace(/[?#].*$/, "");
-  const base = path.basename(url).replace(/\.(xlsx|xlsm|xls)$/i, "");
-  return `${base || "bng-from-workbook"}-${timestampSuffix()}.gpkg`;
+  const base = path.basename(url).replace(/\.(xlsx|xlsm|xls)$/i, "") || "bng-from-workbook";
+  const ts = timestampSuffix();
+  return {
+    baseline: `${base}-baseline-${ts}.gpkg`,
+    postIntervention: `${base}-post-intervention-${ts}.gpkg`,
+  };
 }
 
-async function runFromWorkbook(source, { strict, inspect, centre }) {
+async function runFromWorkbook(source, { strict, inspect, centre, mode }) {
   if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
   const localPath = await resolveWorkbookSource(source);
   const workbook = readMetricWorkbook(localPath);
@@ -3136,10 +4030,12 @@ async function runFromWorkbook(source, { strict, inspect, centre }) {
         hedgerows: {
           baseline: workbook.hedgerows.baseline.length,
           created: workbook.hedgerows.created.length,
+          enhancements: workbook.hedgerows.enhancements.length,
         },
         watercourses: {
           baseline: workbook.watercourses.baseline.length,
           created: workbook.watercourses.created.length,
+          enhancements: workbook.watercourses.enhancements.length,
         },
         trees: {
           baseline: workbook.trees.baseline.length,
@@ -3152,14 +4048,20 @@ async function runFromWorkbook(source, { strict, inspect, centre }) {
     return;
   }
 
-  const outPath = path.join(OUT_DIR, workbookOutputName(source));
-  if (existsSync(outPath)) unlinkSync(outPath);
-  generateOneFromWorkbook(outPath, workbook, source, { strict, centre });
+  const names = workbookOutputNames(source);
+  const outPaths = {
+    baseline: path.join(OUT_DIR, names.baseline),
+    postIntervention: path.join(OUT_DIR, names.postIntervention),
+  };
+  if (mode !== "post-intervention" && existsSync(outPaths.baseline)) unlinkSync(outPaths.baseline);
+  if (mode !== "baseline" && existsSync(outPaths.postIntervention)) unlinkSync(outPaths.postIntervention);
+
+  generateFromWorkbook(outPaths, workbook, source, { strict, centre, mode });
 }
 
 const DEFAULT_NUM_PARCELS = 50;
 
-async function runFromListBatch(listPath, centre) {
+async function runFromListBatch(listPath, centre, mode) {
   if (!existsSync(listPath)) {
     error(`--from-list file not found: ${listPath}`);
     process.exit(1);
@@ -3174,6 +4076,7 @@ async function runFromListBatch(listPath, centre) {
         strict: args["strict-habitats"],
         inspect: false,
         centre,
+        mode,
       });
     } catch (e) {
       error(`Failed for ${entry}: ${e.message}`);
@@ -3239,7 +4142,7 @@ async function main() {
   const centre = parseCentre(args.centre) ?? [DEFAULT_CENTRE_E, DEFAULT_CENTRE_N];
 
   if (args["from-list"]) {
-    await runFromListBatch(path.resolve(args["from-list"]), centre);
+    await runFromListBatch(path.resolve(args["from-list"]), centre, args.mode);
     return;
   }
 
@@ -3248,6 +4151,7 @@ async function main() {
       strict: args["strict-habitats"],
       inspect: args.inspect,
       centre,
+      mode: args.mode,
     });
     return;
   }
