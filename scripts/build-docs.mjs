@@ -371,12 +371,11 @@ async function readGitSha(repoDir) {
     return null;
   }
   try {
-    const head = await readFile(path.join(gitDir, "HEAD"), "utf8");
-    const refMatch = head.match(/^ref:\s*(.+?)\s*$/);
-    if (!refMatch) {
-      return head.trim();
+    const head = (await readFile(path.join(gitDir, "HEAD"), "utf8")).trim();
+    if (!head.startsWith("ref: ")) {
+      return head;
     }
-    return await resolveRef(gitDir, refMatch[1]);
+    return await resolveRef(gitDir, head.slice("ref: ".length).trim());
   } catch {
     return null;
   }
