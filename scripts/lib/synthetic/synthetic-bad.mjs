@@ -5,7 +5,6 @@
  * the state into the file.
  */
 
-import Database from "better-sqlite3";
 import { color, header, info } from "../../_lib.mjs";
 import { gpkgLineString, gpkgPoint, gpkgPolygon, placeholders } from "#gpkg-io";
 import {
@@ -16,6 +15,7 @@ import {
   createAllTables,
   createLayerStyles,
   openGeoPackage,
+  openGeoPackageReadonly,
   registerLayer,
 } from "../bng-schema.mjs";
 import {
@@ -329,7 +329,7 @@ function insertBadIggis(db, iggis) {
 }
 
 function reportContents(outPath) {
-  const verify = new Database(outPath, { readonly: true });
+  const verify = openGeoPackageReadonly(outPath);
   const layers = verify
     .prepare("SELECT table_name FROM gpkg_contents WHERE data_type = 'features'")
     .all();

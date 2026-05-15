@@ -17,7 +17,13 @@ export {
   gpkgPolygon,
 } from "./src/wkb.mjs";
 
-export { REQUIRED_SRS, initGeoPackage, openGeoPackage, registerLayer } from "./src/init.mjs";
+export {
+  REQUIRED_SRS,
+  initGeoPackage,
+  openGeoPackage,
+  openGeoPackageReadonly,
+  registerLayer,
+} from "./src/init.mjs";
 
 export {
   createLayerStylesTable,

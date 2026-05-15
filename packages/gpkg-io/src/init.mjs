@@ -152,9 +152,8 @@ export function registerLayer(db, tableName, geomType, envelope, srsId) {
  * for `db.close()`.
  *
  * For read-only access to an existing GeoPackage, use
- * `new Database(filename, { readonly: true })` directly — there is no
- * metadata work to do, and the readonly flag conflicts with the writes
- * that initGeoPackage performs.
+ * `openGeoPackageReadonly` instead — it skips the metadata-init writes
+ * that would otherwise conflict with the readonly flag.
  *
  * @param {string} filename
  * @param {object} [opts]
@@ -166,4 +165,15 @@ export function openGeoPackage(filename, { srs = [] } = {}) {
   const db = new Database(filename);
   initGeoPackage(db, srs);
   return db;
+}
+
+/**
+ * Open an existing GeoPackage read-only for querying. No metadata-table
+ * writes are performed. Caller is responsible for `db.close()`.
+ *
+ * @param {string} filename
+ * @returns {import('better-sqlite3').Database}
+ */
+export function openGeoPackageReadonly(filename) {
+  return new Database(filename, { readonly: true });
 }

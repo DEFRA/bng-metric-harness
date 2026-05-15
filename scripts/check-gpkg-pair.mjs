@@ -21,10 +21,10 @@
  * Exits 0 on success, 1 on any failure. Prints one summary line per pair.
  */
 
-import Database from "better-sqlite3";
 import { readdirSync, existsSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
+import { openGeoPackageReadonly } from "#gpkg-io";
 
 const { values: args, positionals } = parseArgs({
   options: {
@@ -155,8 +155,8 @@ function checkRefsTraceBack(baseDb, postDb) {
 }
 
 function checkPair(baselinePath, postPath) {
-  const base = new Database(baselinePath, { readonly: true });
-  const post = new Database(postPath, { readonly: true });
+  const base = openGeoPackageReadonly(baselinePath);
+  const post = openGeoPackageReadonly(postPath);
   try {
     const failures = [
       ...checkBaselineNulls(base),
