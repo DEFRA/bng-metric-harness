@@ -6,7 +6,13 @@
  */
 
 import { color, header, info } from "../../_lib.mjs";
-import { gpkgLineString, gpkgPoint, gpkgPolygon, placeholders } from "#gpkg-io";
+import {
+  gpkgLineString,
+  gpkgPoint,
+  gpkgPolygon,
+  openGeoPackageReadonly,
+  placeholders,
+} from "#gpkg-io";
 import {
   HABITATS_INSERT_COLUMNS,
   HEDGEROWS_INSERT_COLUMNS,
@@ -16,7 +22,6 @@ import {
   createAllTables,
   createLayerStyles,
   openGeoPackage,
-  openGeoPackageReadonly,
   registerLayer,
 } from "../bng-schema.mjs";
 import {

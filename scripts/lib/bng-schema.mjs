@@ -18,15 +18,12 @@ import {
   lineQml,
   lineSld,
   openGeoPackage as openGeoPackageGeneric,
-  openGeoPackageReadonly,
   pointQml,
   pointSld,
   polygonQml,
   polygonSld,
   registerLayer as registerLayerGeneric,
 } from "#gpkg-io";
-
-export { openGeoPackageReadonly };
 
 // SRS — British National Grid (OSGB 1936).
 export const SRS_ID = 27700;
