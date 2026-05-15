@@ -25,6 +25,7 @@ const REPOS = [
 ];
 
 const GITHUB_ORG = "DEFRA";
+const SHORT_SHA_LEN = 12;
 const IMAGE_EXTENSIONS = new Set([
   ".png",
   ".jpg",
@@ -48,13 +49,17 @@ function blobGithubUrl(repoName, repoRelPath) {
 
 async function walkMarkdown(dir) {
   const out = [];
-  if (!existsSync(dir)) return out;
+  if (!existsSync(dir)) {
+    return out;
+  }
   const entries = await readdir(dir, { withFileTypes: true });
   for (const entry of entries) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       out.push(...(await walkMarkdown(full)));
-    } else if (entry.isFile() && entry.name.toLowerCase().endsWith(".md")) {
+      continue;
+    }
+    if (entry.isFile() && entry.name.toLowerCase().endsWith(".md")) {
       out.push(full);
     }
   }
@@ -132,23 +137,37 @@ function titleFromSlug(slug) {
 
 function splitFragment(url) {
   const hashIdx = url.indexOf("#");
-  if (hashIdx === -1) return { base: url, fragment: "" };
+  if (hashIdx === -1) {
+    return { base: url, fragment: "" };
+  }
   return { base: url.slice(0, hashIdx), fragment: url.slice(hashIdx) };
 }
 
 function shouldRewriteUrl(url) {
-  if (!url) return false;
-  if (url.startsWith("#")) return false;
-  if (/^[a-z][a-z0-9+.-]*:/i.test(url)) return false;
-  if (url.startsWith("//")) return false;
+  if (!url) {
+    return false;
+  }
+  if (url.startsWith("#")) {
+    return false;
+  }
+  if (/^[a-z][a-z0-9+.-]*:/i.test(url)) {
+    return false;
+  }
+  if (url.startsWith("//")) {
+    return false;
+  }
   return true;
 }
 
 function rewriteUrl(url, { sourceFile, destFile, repo, manifest }) {
-  if (!shouldRewriteUrl(url)) return url;
+  if (!shouldRewriteUrl(url)) {
+    return url;
+  }
 
   const { base, fragment } = splitFragment(url);
-  if (!base) return url; // pure fragment
+  if (!base) {
+    return url;
+  }
 
   const absSource = path.resolve(path.dirname(sourceFile), base);
 
@@ -177,25 +196,29 @@ function rewriteUrl(url, { sourceFile, destFile, repo, manifest }) {
   return `${url2}${fragment}`;
 }
 
-function makeLinkRewriter({ sourceFile, destFile, repo, manifest }) {
+// Conservatively rewrite src="..." and href="..." in raw HTML embedded in markdown.
+function rewriteHtmlAttrs(html, ctx) {
+  return html.replace(
+    /\b(src|href)=("([^"]*)"|'([^']*)')/g,
+    (_m, attr, _q, dq, sq) => {
+      const orig = dq ?? sq ?? "";
+      const next = rewriteUrl(orig, ctx);
+      return `${attr}="${next}"`;
+    },
+  );
+}
+
+const URL_NODE_TYPES = new Set(["link", "image", "definition"]);
+
+function makeLinkRewriter(ctx) {
   return () => (tree) => {
     visit(tree, (node) => {
-      if (node.type === "link" || node.type === "image") {
-        node.url = rewriteUrl(node.url, { sourceFile, destFile, repo, manifest });
-      }
-      if (node.type === "definition") {
-        node.url = rewriteUrl(node.url, { sourceFile, destFile, repo, manifest });
+      if (URL_NODE_TYPES.has(node.type)) {
+        node.url = rewriteUrl(node.url, ctx);
+        return;
       }
       if (node.type === "html" && typeof node.value === "string") {
-        // Conservatively rewrite src="..." and href="..." in raw HTML.
-        node.value = node.value.replace(
-          /\b(src|href)=("([^"]*)"|'([^']*)')/g,
-          (_m, attr, _q, dq, sq) => {
-            const orig = dq ?? sq ?? "";
-            const next = rewriteUrl(orig, { sourceFile, destFile, repo, manifest });
-            return `${attr}="${next}"`;
-          },
-        );
+        node.value = rewriteHtmlAttrs(node.value, ctx);
       }
     });
   };
@@ -225,7 +248,9 @@ function navForSection(repo, entries) {
     .sort((a, b) => a.relInSection.localeCompare(b.relInSection));
 
   const items = [];
-  if (readme) items.push({ Overview: `${repo.slug}/index.md` });
+  if (readme) {
+    items.push({ Overview: `${repo.slug}/index.md` });
+  }
   for (const d of docs) {
     items.push({ [d.title]: `${repo.slug}/${d.relInSection}` });
   }
@@ -256,8 +281,8 @@ function yamlStringifyNav(nav) {
 
 function quote(s) {
   // Quote titles that contain YAML-significant characters.
-  if (/[:#&*!|>%@`,?\-{}\[\]]/.test(s) || /^\s|\s$/.test(s)) {
-    return `"${s.replace(/"/g, '\\"')}"`;
+  if (/[:#&*!|>%@`,?\-{}[\]]/.test(s) || /^\s|\s$/.test(s)) {
+    return `"${s.replaceAll('"', String.raw`\"`)}"`;
   }
   return s;
 }
@@ -323,26 +348,33 @@ repository.
   await writeFile(dest, body, "utf8");
 }
 
+async function resolveRef(gitDir, ref) {
+  const refPath = path.join(gitDir, ref);
+  if (existsSync(refPath)) {
+    return (await readFile(refPath, "utf8")).trim();
+  }
+  // Packed refs fallback.
+  const packed = path.join(gitDir, "packed-refs");
+  if (!existsSync(packed)) {
+    return null;
+  }
+  const lines = (await readFile(packed, "utf8")).split("\n");
+  const hit = lines.find((l) => l.endsWith(` ${ref}`));
+  return hit ? hit.split(" ")[0] : null;
+}
+
 async function readGitSha(repoDir) {
-  if (!existsSync(path.join(repoDir, ".git"))) return null;
+  const gitDir = path.join(repoDir, ".git");
+  if (!existsSync(gitDir)) {
+    return null;
+  }
   try {
-    const head = await readFile(path.join(repoDir, ".git", "HEAD"), "utf8");
+    const head = await readFile(path.join(gitDir, "HEAD"), "utf8");
     const refMatch = head.match(/^ref:\s*(.+?)\s*$/);
-    if (refMatch) {
-      const refPath = path.join(repoDir, ".git", refMatch[1]);
-      if (existsSync(refPath)) {
-        return (await readFile(refPath, "utf8")).trim();
-      }
-      // Packed refs fallback.
-      const packed = path.join(repoDir, ".git", "packed-refs");
-      if (existsSync(packed)) {
-        const lines = (await readFile(packed, "utf8")).split("\n");
-        const hit = lines.find((l) => l.endsWith(" " + refMatch[1]));
-        if (hit) return hit.split(" ")[0];
-      }
-      return null;
+    if (!refMatch) {
+      return head.trim();
     }
-    return head.trim();
+    return await resolveRef(gitDir, refMatch[1]);
   } catch {
     return null;
   }
@@ -355,9 +387,9 @@ async function writeBuildInfo() {
     const root = repoRoot(repo);
     const present = existsSync(root);
     const sha = present ? await readGitSha(root) : null;
-    rows.push(
-      `| ${repo.name} | ${present ? "yes" : "missing"} | ${sha ? `\`${sha.slice(0, 12)}\`` : "—"} |`,
-    );
+    const presentCell = present ? "yes" : "missing";
+    const shaCell = sha ? `\`${sha.slice(0, SHORT_SHA_LEN)}\`` : "—";
+    rows.push(`| ${repo.name} | ${presentCell} | ${shaCell} |`);
   }
   const body = `---
 title: Build info
@@ -383,16 +415,20 @@ async function writeMkdocsGenerated(bySection) {
   const nav = [{ Home: "index.md" }];
   for (const repo of REPOS) {
     const entries = bySection.get(repo.slug);
-    if (!entries || entries.length === 0) continue;
+    if (!entries || entries.length === 0) {
+      continue;
+    }
     nav.push({ [repo.title]: navForSection(repo, entries) });
   }
-  nav.push({ Architecture: "architecture/index.md" });
-  nav.push({ "Build info": "_build-info.md" });
+  nav.push(
+    { Architecture: "architecture/index.md" },
+    { "Build info": "_build-info.md" },
+  );
 
   const preamble = `# Generated by scripts/build-docs.mjs — DO NOT EDIT.
 # This file is included via INHERIT: from mkdocs.yml.
 `;
-  await writeFile(GENERATED_YAML, preamble + "\n" + yamlStringifyNav(nav), "utf8");
+  await writeFile(GENERATED_YAML, `${preamble}\n${yamlStringifyNav(nav)}`, "utf8");
 }
 
 async function main() {
@@ -430,7 +466,9 @@ async function main() {
   console.log(color("dim", `Nav:    ${path.relative(HARNESS_ROOT, GENERATED_YAML)}`));
 }
 
-main().catch((err) => {
+try {
+  await main();
+} catch (err) {
   console.error(err);
   process.exit(1);
-});
+}

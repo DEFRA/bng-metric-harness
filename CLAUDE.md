@@ -70,12 +70,13 @@ Then `npm run dev` in this harness starts the two Node apps against those servic
 - Propagate exit codes. Use `process.exit(1)` for expected-failure paths, not thrown errors.
 - If a sibling repo is missing, print a message pointing the user at `npm run bootstrap` and exit 1.
 - Log what the script is doing as it does it.
+- Code is scanned by SonarCloud (project key in `sonar-project.properties`). After pushing, run `/check-sonar-pr` to see PR-scoped issues. First-draft rules most likely to be flagged: brace every single-line `if` body (S121), extract magic numbers to constants (S109), keep nesting ≤ 3 levels (S134), prefer `replaceAll` and template literals over `replace`/concat.
 
 ## Not in scope for this repo
 
 - ❌ Docker/compose files (siblings own theirs)
 - ❌ Shared source code, types, or application logic
-- ❌ CI/CD config (each repo has its own pipeline)
+- ❌ CI/CD for the sibling apps (each sibling owns its own pipeline; the harness's only workflow is `pages.yml`, which builds the docs site)
 - ❌ git hooks / husky that reach into siblings
 - ❌ npm workspaces, submodules, subtrees
 - ❌ `CLAUDE.md` files in the sibling repos — they are responsible for their own
