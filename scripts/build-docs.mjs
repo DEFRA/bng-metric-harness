@@ -309,6 +309,8 @@ async function writeStaticAssets() {
 
 async function writeArchitecturePage() {
   const dest = path.join(SITE_SRC, "architecture", "index.md");
+  // Explicit `index.html` (rather than `./app/`) so MkDocs' link validator
+  // resolves the target — directories aren't indexed as link targets.
   const body = `---
 title: Architecture
 hide:
@@ -320,10 +322,10 @@ hide:
 Interactive diagram explorer built from the LikeC4 sources in the harness repo.
 
 <div class="md-content--full-bleed" markdown>
-<iframe class="architecture-frame" src="./app/" title="LikeC4 architecture explorer"></iframe>
+<iframe class="architecture-frame" src="./app/index.html" title="LikeC4 architecture explorer"></iframe>
 </div>
 
-[Open in a new tab](./app/){:target="_blank"}
+[Open in a new tab](./app/index.html){:target="_blank"}
 `;
   await mkdir(path.dirname(dest), { recursive: true });
   await writeFile(dest, body, "utf8");
