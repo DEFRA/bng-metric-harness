@@ -1,0 +1,94 @@
+name: Build & deploy GitHub Pages
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Nightly at 05:00 UTC — picks up doc changes from sibling repos.
+    - cron: '0 5 * * *'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Don't cancel a deploy mid-flight if a manual run starts during the nightly job.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout harness
+        uses: actions/checkout@v4
+        with:
+          path: bng-metric-harness
+
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+        with:
+          repository: DEFRA/bng-metric-frontend
+          path: bng-metric-frontend
+
+      - name: Checkout backend
+        uses: actions/checkout@v4
+        with:
+          repository: DEFRA/bng-metric-backend
+          path: bng-metric-backend
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: bng-metric-harness/package-lock.json
+
+      - name: Install Node dependencies
+        run: npm ci
+        working-directory: bng-metric-harness
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install MkDocs Material
+        run: pip install 'mkdocs-material>=9.5'
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Aggregate docs from sibling repos
+        env:
+          SIBLING_ROOT: ${{ github.workspace }}
+        run: node scripts/build-docs.mjs
+        working-directory: bng-metric-harness
+
+      - name: Build LikeC4 SPA
+        # --base ./  : relative asset paths so the SPA works at any mount point.
+        # --use-hash-history : route via URL hash (./app/#/view/foo) so the
+        # static host never has to resolve deep paths — avoids 404s on view
+        # navigation and on reload.
+        run: npx likec4 build --base ./ --use-hash-history -o site_src/docs/architecture/app likec4
+        working-directory: bng-metric-harness
+
+      - name: Build MkDocs site
+        run: mkdocs build --strict
+        working-directory: bng-metric-harness
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: bng-metric-harness/_site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v5

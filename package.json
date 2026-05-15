@@ -24,7 +24,11 @@
     "generate:gpkg": "node scripts/gen-gpkg.mjs",
     "generate:gpkg:docker": "docker compose -f compose.gen-gpkg.yml run --rm --build gen-gpkg",
     "likec4": "npx likec4 start likec4",
-    "likec4:export": "docker run --rm -v \"$PWD:/data\" -w /data likec4/likec4 export png -o ./arch-diagrams likec4"
+    "likec4:export": "docker run --rm -v \"$PWD:/data\" -w /data likec4/likec4 export png -o ./arch-diagrams likec4",
+    "docs:aggregate": "node scripts/build-docs.mjs",
+    "docs:likec4": "npx likec4 build --base ./ --use-hash-history -o site_src/docs/architecture/app likec4",
+    "docs:build": "npm run docs:aggregate && npm run docs:likec4 && mkdocs build",
+    "docs:serve": "npm run docs:aggregate && npm run docs:likec4 && mkdocs serve"
   },
   "dependencies": {
     "concurrently": "^9.1.0"
@@ -32,6 +36,10 @@
   "devDependencies": {
     "better-sqlite3": "^12.9.0",
     "likec4": "^1.56.0",
+    "remark-parse": "^11.0.0",
+    "remark-stringify": "^11.0.0",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.0.0",
     "xlsx": "^0.18.5"
   }
 }
