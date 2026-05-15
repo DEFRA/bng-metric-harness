@@ -279,10 +279,12 @@ function yamlStringifyNav(nav) {
   return lines.join("\n") + "\n";
 }
 
+const ESCAPED_DQUOTE = String.raw`\"`;
+
 function quote(s) {
   // Quote titles that contain YAML-significant characters.
   if (/[:#&*!|>%@`,?\-{}[\]]/.test(s) || /^\s|\s$/.test(s)) {
-    return `"${s.replaceAll('"', String.raw`\"`)}"`;
+    return `"${s.replaceAll('"', ESCAPED_DQUOTE)}"`;
   }
   return s;
 }
