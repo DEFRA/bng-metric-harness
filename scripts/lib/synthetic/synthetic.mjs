@@ -7,7 +7,6 @@
 
 import { color, header, info } from "../../_lib.mjs";
 import {
-  closeGeoPackage,
   envelopeFromCoords,
   expandEnvelope,
   gpkgLineString,
@@ -461,7 +460,7 @@ export function generateOne(outPath, badFlawNames, numParcels, centre, emptyLaye
   runLayerGenerators(db, ring, counts, emptyLayers);
   createLayerStyles(db);
 
-  closeGeoPackage(db);
+  db.close();
 
   reportContents(outPath);
   console.log(color("green", `✔ Done. ${outPath}`));

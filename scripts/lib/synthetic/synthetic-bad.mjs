@@ -7,7 +7,6 @@
 
 import { color, header, info } from "../../_lib.mjs";
 import {
-  closeGeoPackage,
   envelopeFromCoords,
   expandEnvelope,
   gpkgLineString,
@@ -377,7 +376,7 @@ export function generateOneBad(outPath, centre, flawNames) {
   }
 
   createLayerStyles(db);
-  closeGeoPackage(db);
+  db.close();
 
   reportContents(outPath);
   console.log(color("green", `✔ Done (bad fixture). ${outPath}`));

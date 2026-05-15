@@ -19,7 +19,6 @@ export {
 
 export {
   REQUIRED_SRS,
-  closeGeoPackage,
   initGeoPackage,
   openGeoPackage,
   openGeoPackageReadonly,

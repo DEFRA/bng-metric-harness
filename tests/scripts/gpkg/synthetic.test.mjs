@@ -28,8 +28,8 @@ describe("synthetic generateOne", () => {
 
   it("produces a single .gpkg file with no WAL / SHM sidecars", () => {
     expect(existsSync(outPath)).toBe(true);
-    // closeGeoPackage should checkpoint + switch journal mode so consumers
-    // that copy only the .gpkg file get the complete contents.
+    // The default DELETE journal mode means the .gpkg is always a single file
+    // — consumers that copy only the .gpkg get the complete contents.
     expect(existsSync(`${outPath}-wal`)).toBe(false);
     expect(existsSync(`${outPath}-shm`)).toBe(false);
   });
