@@ -21,7 +21,13 @@
  *                ancestor exists to reuse.
  */
 
-import { filledArray, gpkgPolygon, placeholders } from "#gpkg-io";
+import {
+  envelopeFromCoords,
+  expandEnvelope,
+  filledArray,
+  gpkgPolygon,
+  placeholders,
+} from "#gpkg-io";
 import {
   HABITATS_INSERT_COLUMNS,
   SRS_ID,
@@ -29,8 +35,6 @@ import {
 } from "../bng-schema.mjs";
 import {
   carveTargetArea,
-  envelopeFromCoords,
-  expandEnvelope,
   partitionPolygonByAreas,
   pick,
   polygonArea,

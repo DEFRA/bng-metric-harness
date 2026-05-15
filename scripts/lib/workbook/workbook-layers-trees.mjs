@@ -3,13 +3,18 @@
  * post-intervention paths share the writer loop helper.
  */
 
-import { filledArray, gpkgPoint, placeholders } from "#gpkg-io";
+import {
+  expandEnvelope,
+  filledArray,
+  gpkgPoint,
+  placeholders,
+} from "#gpkg-io";
 import {
   SRS_ID,
   URBAN_TREES_INSERT_COLUMNS,
   registerLayer,
 } from "../bng-schema.mjs";
-import { expandEnvelope, pickInteriorPoint } from "../geometry.mjs";
+import { pickInteriorPoint } from "../geometry.mjs";
 import {
   BASE_MAP,
   LOCATION_ON_SITE,

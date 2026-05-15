@@ -90,7 +90,7 @@ import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
 import { color, error, header, info, warn } from "./_lib.mjs";
 import { readMetricWorkbook } from "./lib/workbook/metric-workbook.mjs";
-import { envelopeFromCoords, gpkgPolygon } from "#gpkg-io";
+import { closeGeoPackage, envelopeFromCoords, gpkgPolygon } from "#gpkg-io";
 import {
   SRS_ID,
   createAllTables,
@@ -291,7 +291,7 @@ function generateBaselineFile(outPath, _workbook, baselineRows, plan, centre) {
   const treesWritten = writeUrbanTreesBaseline(db, treePoints, baselineRows.trees);
 
   createLayerStyles(db);
-  db.close();
+  closeGeoPackage(db);
 
   return {
     ring,
@@ -342,7 +342,7 @@ function generatePostInterventionFile(outPath, workbook, postRows, baselineGeom,
   const treesWritten = writeUrbanTreesPostIntervention(db, treePoints, postRows.trees);
 
   createLayerStyles(db);
-  db.close();
+  closeGeoPackage(db);
 
   return {
     written: {

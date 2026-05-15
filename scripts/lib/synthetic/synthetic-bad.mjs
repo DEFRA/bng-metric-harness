@@ -7,6 +7,9 @@
 
 import { color, header, info } from "../../_lib.mjs";
 import {
+  closeGeoPackage,
+  envelopeFromCoords,
+  expandEnvelope,
   gpkgLineString,
   gpkgPoint,
   gpkgPolygon,
@@ -24,8 +27,6 @@ import {
   registerLayer,
 } from "../bng-schema.mjs";
 import {
-  envelopeFromCoords,
-  expandEnvelope,
   linestringLength,
   polygonArea,
 } from "../geometry.mjs";
@@ -376,7 +377,7 @@ export function generateOneBad(outPath, centre, flawNames) {
   }
 
   createLayerStyles(db);
-  db.close();
+  closeGeoPackage(db);
 
   reportContents(outPath);
   console.log(color("green", `✔ Done (bad fixture). ${outPath}`));

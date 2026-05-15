@@ -5,6 +5,7 @@
  */
 
 import { randomBytes } from "node:crypto";
+import { envelopeFromCoords } from "#gpkg-io";
 
 // ---------------------------------------------------------------------------
 // Tunables — named so SonarCloud's S109 magic-number rule is satisfied.
@@ -79,25 +80,13 @@ export function lineInsideRing(coords, boundary) {
 }
 
 // Envelope layout: [minX, maxX, minY, maxY] — matches the GeoPackage Binary
-// envelope-type-1 byte order.
+// envelope-type-1 byte order. `envelopeFromCoords` and `expandEnvelope` live
+// in the `#gpkg-io` package; the index constants stay here because they're
+// used by interior-point sampling further down.
 const ENV_IDX_MIN_X = 0;
 const ENV_IDX_MAX_X = 1;
 const ENV_IDX_MIN_Y = 2;
 const ENV_IDX_MAX_Y = 3;
-
-export function expandEnvelope(envelope, env) {
-  envelope[ENV_IDX_MIN_X] = Math.min(envelope[ENV_IDX_MIN_X], env[ENV_IDX_MIN_X]);
-  envelope[ENV_IDX_MAX_X] = Math.max(envelope[ENV_IDX_MAX_X], env[ENV_IDX_MAX_X]);
-  envelope[ENV_IDX_MIN_Y] = Math.min(envelope[ENV_IDX_MIN_Y], env[ENV_IDX_MIN_Y]);
-  envelope[ENV_IDX_MAX_Y] = Math.max(envelope[ENV_IDX_MAX_Y], env[ENV_IDX_MAX_Y]);
-}
-
-export function envelopeFromCoords(coords) {
-  const flat = Array.isArray(coords[0]?.[0]) ? coords.flat() : coords;
-  const xs = flat.map((p) => p[0]);
-  const ys = flat.map((p) => p[1]);
-  return [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-}
 
 export function linestringLength(coords) {
   let length = 0;

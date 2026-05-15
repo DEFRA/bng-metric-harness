@@ -11,7 +11,13 @@
  * because the loop is shared.
  */
 
-import { filledArray, gpkgLineString, placeholders } from "#gpkg-io";
+import {
+  envelopeFromCoords,
+  expandEnvelope,
+  filledArray,
+  gpkgLineString,
+  placeholders,
+} from "#gpkg-io";
 import {
   HEDGEROWS_INSERT_COLUMNS,
   RIVERS_INSERT_COLUMNS,
@@ -19,8 +25,6 @@ import {
   registerLayer,
 } from "../bng-schema.mjs";
 import {
-  envelopeFromCoords,
-  expandEnvelope,
   linestringLength,
   pickInteriorPoint,
   pointInRing,

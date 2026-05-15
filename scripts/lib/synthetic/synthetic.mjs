@@ -7,6 +7,9 @@
 
 import { color, header, info } from "../../_lib.mjs";
 import {
+  closeGeoPackage,
+  envelopeFromCoords,
+  expandEnvelope,
   gpkgLineString,
   gpkgPoint,
   gpkgPolygon,
@@ -25,8 +28,6 @@ import {
   registerLayer,
 } from "../bng-schema.mjs";
 import {
-  envelopeFromCoords,
-  expandEnvelope,
   generateIrregularPolygon,
   generateLinestring,
   lineInsideRing,
@@ -460,7 +461,7 @@ export function generateOne(outPath, badFlawNames, numParcels, centre, emptyLaye
   runLayerGenerators(db, ring, counts, emptyLayers);
   createLayerStyles(db);
 
-  db.close();
+  closeGeoPackage(db);
 
   reportContents(outPath);
   console.log(color("green", `✔ Done. ${outPath}`));

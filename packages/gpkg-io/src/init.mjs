@@ -177,3 +177,21 @@ export function openGeoPackage(filename, { srs = [] } = {}) {
 export function openGeoPackageReadonly(filename) {
   return new Database(filename, { readonly: true });
 }
+
+/**
+ * Close a GeoPackage opened for writing, collapsing the WAL back into the
+ * main file so no `-wal` / `-shm` sidecars remain next to it. Always use
+ * this instead of `db.close()` for handles obtained from `openGeoPackage`,
+ * otherwise consumers that copy or read only the `.gpkg` file will see
+ * stale state.
+ *
+ * Read-only handles from `openGeoPackageReadonly` never enabled WAL, so
+ * `db.close()` is fine for those.
+ *
+ * @param {import('better-sqlite3').Database} db
+ */
+export function closeGeoPackage(db) {
+  db.pragma("wal_checkpoint(TRUNCATE)");
+  db.pragma("journal_mode = DELETE");
+  db.close();
+}

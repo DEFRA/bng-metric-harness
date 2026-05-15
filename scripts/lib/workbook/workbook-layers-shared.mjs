@@ -4,10 +4,9 @@
  * and the RLB generator (which is layer-agnostic).
  */
 
-import { gpkgPolygon } from "#gpkg-io";
+import { envelopeFromCoords, gpkgPolygon } from "#gpkg-io";
 import { SRS_ID, registerLayer } from "../bng-schema.mjs";
 import {
-  envelopeFromCoords,
   generateIrregularPolygon,
   polygonArea,
   scaleRingToArea,
