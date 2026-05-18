@@ -386,6 +386,30 @@ function seedBaselineContent(state, ownedLayers) {
   }
 }
 
+function writeBadLayers(db, state) {
+  createAllTables(db);
+  if (state.iggis.length) {
+    createIggisTable(db);
+  }
+  insertBadRedline(db, state.redline);
+  if (state.parcels.length) {
+    insertBadHabitats(db, state.parcels);
+  }
+  if (state.hedgerows.length) {
+    insertBadHedgerows(db, state.hedgerows);
+  }
+  if (state.rivers.length) {
+    insertBadRivers(db, state.rivers);
+  }
+  if (state.trees.length) {
+    insertBadTrees(db, state.trees);
+  }
+  if (state.iggis.length) {
+    insertBadIggis(db, state.iggis);
+  }
+  createLayerStyles(db);
+}
+
 export function generateOneBad(outPath, centre, flawNames) {
   const state = createBadFixtureState(centre);
 
@@ -414,29 +438,7 @@ export function generateOneBad(outPath, centre, flawNames) {
   logBadFixtureBanner(state, outPath, flawNames);
 
   const db = openGeoPackage(outPath);
-  createAllTables(db);
-  if (state.iggis.length) {
-    createIggisTable(db);
-  }
-
-  insertBadRedline(db, state.redline);
-  if (state.parcels.length) {
-    insertBadHabitats(db, state.parcels);
-  }
-  if (state.hedgerows.length) {
-    insertBadHedgerows(db, state.hedgerows);
-  }
-  if (state.rivers.length) {
-    insertBadRivers(db, state.rivers);
-  }
-  if (state.trees.length) {
-    insertBadTrees(db, state.trees);
-  }
-  if (state.iggis.length) {
-    insertBadIggis(db, state.iggis);
-  }
-
-  createLayerStyles(db);
+  writeBadLayers(db, state);
   db.close();
 
   reportContents(outPath);
