@@ -39,7 +39,8 @@ To run in workbook-driven mode, drop the `.xlsx` / `.xlsm` into `./workbooks/` a
 ```sh
 cp ~/Downloads/MyMetric.xlsx workbooks/
 npm run generate:gpkg:docker -- --from /app/workbooks/MyMetric.xlsx
-# → test-data/MyMetric.gpkg
+# → test-data/MyMetric-baseline-<YYYYMMDD-HHMM-SS>.gpkg
+# → test-data/MyMetric-post-intervention-<YYYYMMDD-HHMM-SS>.gpkg
 ```
 
 **Known limits of the Docker approach.**
@@ -57,14 +58,16 @@ The script reads the workbook's habitat / hedgerow / watercourse / tree data and
 
 ```sh
 npm run generate:gpkg -- --from path/to/MyMetric.xlsx
-# → test-data/MyMetric.gpkg
+# → test-data/MyMetric-baseline-<YYYYMMDD-HHMM-SS>.gpkg
+# → test-data/MyMetric-post-intervention-<YYYYMMDD-HHMM-SS>.gpkg
 ```
 
 **From a GitHub URL** (auto-handles Git LFS — the BNG500 corpus uses LFS):
 
 ```sh
 npm run generate:gpkg -- --from "https://github.com/abitatdotdev/bng-metrics/blob/main/metrics/CAMBRIDGE_24_02948_FUL.xlsx"
-# → test-data/CAMBRIDGE_24_02948_FUL.gpkg
+# → test-data/CAMBRIDGE_24_02948_FUL-baseline-<YYYYMMDD-HHMM-SS>.gpkg
+# → test-data/CAMBRIDGE_24_02948_FUL-post-intervention-<YYYYMMDD-HHMM-SS>.gpkg
 ```
 
 The blob URL is rewritten to the LFS-aware media URL automatically. Downloaded workbooks are cached in `.cache/bng500/` (gitignored) so re-runs are instant and offline-friendly.
@@ -83,7 +86,21 @@ EOF
 npm run generate:gpkg -- --from-list /tmp/wbs.txt
 ```
 
-Each workbook produces one `.gpkg` named after the input file. Failures on individual entries are logged but don't stop the batch.
+Each workbook produces a baseline / post-intervention pair (see below) named after the input file. Failures on individual entries are logged but don't stop the batch.
+
+### Baseline and post-intervention pair
+
+Each workbook run emits two GeoPackages by default, modelling the two-stage BNG service workflow:
+
+- **`<name>-baseline-<timestamp>.gpkg`** — pre-development state. Habitats / hedgerows / rivers / trees use the A-1 / B-1 / C-1 sheets only; no proposed columns.
+- **`<name>-post-intervention-<timestamp>.gpkg`** — proposed end-state. Retained / Enhanced / Created rows are derived from the A-1 / B-1 / C-1 per-fate columns together with the A-2 / A-3 / B-2 / B-3 / C-2 / C-3 sheets.
+
+The two files share an identical Red Line Boundary, so they can be uploaded sequentially against the same site. Use `--mode` to emit only one half of the pair:
+
+```sh
+npm run generate:gpkg -- --from path/to/MyMetric.xlsx --mode baseline
+npm run generate:gpkg -- --from path/to/MyMetric.xlsx --mode post-intervention
+```
 
 **Just inspect a workbook** without writing anything:
 
@@ -147,4 +164,5 @@ Combines with `--count` for multiple bad files at once.
 | `--from-list <f>`   | —                  | Newline-delimited list of paths/URLs (one per line, `#` comments)  |
 | `--inspect`         | off                | With `--from`, print parsed workbook summary instead of generating |
 | `--strict-habitats` | off                | Drop workbook rows the prototype's validator would reject          |
+| `--mode <m>`        | `both`             | Workbook mode: `baseline`, `post-intervention`, or `both`          |
 | `--bad`             | off                | Emit an intentionally invalid GeoPackage                           |

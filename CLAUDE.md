@@ -26,6 +26,8 @@ The orchestration scripts (`scripts/*.mjs`) resolve sibling paths by name (`bng-
 
 ## Running the apps
 
+This project pins Node to **24** (see `.nvmrc` and `package.json` `engines`). Run `nvm use` (or your equivalent) before invoking any script — using a different Node version will break the better-sqlite3 native binary.
+
 Everything here is pure npm + Node — no submodules, no workspaces, no shared lockfiles.
 
 | Command                             | What it does                                                                                         |

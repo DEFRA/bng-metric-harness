@@ -4,6 +4,9 @@
   "private": true,
   "description": "Meta-repo that orchestrates bng-metric-frontend and bng-metric-backend",
   "type": "module",
+  "imports": {
+    "#gpkg-io": "./packages/gpkg-io/index.mjs"
+  },
   "engines": {
     "node": ">=24"
   },
@@ -21,6 +24,8 @@
     "fe": "node scripts/proxy.mjs fe",
     "be": "node scripts/proxy.mjs be",
     "lint": "node scripts/lint.mjs",
+    "test:scripts": "vitest run tests/scripts/gpkg",
+    "test:scripts:watch": "vitest tests/scripts/gpkg",
     "generate:gpkg": "node scripts/gen-gpkg.mjs",
     "generate:gpkg:docker": "docker compose -f compose.gen-gpkg.yml run --rm --build gen-gpkg",
     "likec4": "npx likec4 start likec4",
@@ -40,6 +45,7 @@
     "remark-stringify": "^11.0.0",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.0.0",
+    "vitest": "^3.0.0",
     "xlsx": "^0.18.5"
   }
 }

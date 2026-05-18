@@ -1,27 +1,29 @@
 #!/usr/bin/env node
 
 /**
- * Generates a realistic BNG GeoPackage matching the Natural England
- * statutory biodiversity metric QGIS template schema.
- *
- * Produces a single file with all 5 feature layers:
- *   Red Line Boundary, Habitats, Hedgerows, Rivers, Urban Trees
+ * Generates realistic BNG GeoPackages matching the Natural England
+ * statutory biodiversity metric QGIS template schema. All 5 feature
+ * layers per file: Red Line Boundary, Habitats, Hedgerows, Rivers,
+ * Urban Trees.
  *
  * Two modes:
  *
  *   1. Synthetic (default).
  *      Both geometry AND attributes are randomised on each run, so repeat
  *      runs produce different files. Use --size to scale the fixture and
- *      --count to produce N varied files at once.
+ *      --count to produce N varied files at once. Emits one file per run.
  *
  *   2. Workbook-driven (--from / --from-list).
  *      Attributes are read from a real Defra Statutory Biodiversity Metric
- *      workbook (xlsx/xlsm) — habitat type, condition, distinctiveness,
- *      strategic significance, retention category, lengths, areas. Geometry
- *      (RLB outline, parcel partition, hedge/river routes, tree positions)
- *      is still randomised, but its sizes match the workbook's areas and
- *      lengths. Repeat runs over the same workbook give identical attribute
- *      content with different layouts.
+ *      workbook (xlsx/xlsm). Emits TWO files per workbook by default:
+ *      a baseline gpkg (pre-development state, A-1 / B-1 / C-1 only, no
+ *      proposed columns) and a post-intervention gpkg (proposed end-state,
+ *      with retained / enhanced / created rows derived from the A-1 /
+ *      B-1 / C-1 per-fate columns and the A-2 / A-3 / B-2 / B-3 / C-2 /
+ *      C-3 sheets). The two files share an identical Red Line Boundary,
+ *      so they can be uploaded sequentially to model the two-stage BNG
+ *      service workflow. Use --mode baseline or --mode post-intervention
+ *      to emit only one of the pair.
  *
  * In either mode --centre <easting,northing> positions the RLB anywhere in
  * Britain (BNG, EPSG:27700). Defaults to Maidenhead (530000,180000).
@@ -29,101 +31,52 @@
  * Output goes to test-data/ unless --outdir is set. See the harness README
  * "Test data generation" section for end-user docs and worked examples.
  *
- * Usage:
- *   # Synthetic
- *   node scripts/gen-gpkg.mjs
- *   node scripts/gen-gpkg.mjs --size 20
- *   node scripts/gen-gpkg.mjs --count 10
- *   node scripts/gen-gpkg.mjs --bad
+ * --bad / --flaw deliberately produce invalid fixtures used to exercise the
+ * backend's geometry validation. --bad is a shorthand for "apply every
+ * composable geometric flaw"; a single --flaw <name> produces a minimal
+ * fixture targeting one validator. Two families:
  *
- *   # From a real BNG metric workbook
- *   node scripts/gen-gpkg.mjs --from path/to/MetricWorkbook.xlsx
- *   node scripts/gen-gpkg.mjs --from "https://github.com/abitatdotdev/bng-metrics/blob/main/metrics/CAMBRIDGE_24_02948_FUL.xlsx"
- *   node scripts/gen-gpkg.mjs --from-list workbook-urls.txt
- *   node scripts/gen-gpkg.mjs --from path/to/MetricWorkbook.xlsx --inspect
+ *   Geometric flaws — each maps to a backend validation error code:
+ *     self-intersecting-redline   REDLINE_INVALID_GEOMETRY
+ *     bowtie-parcel               AREA_PARCELS_INVALID_GEOMETRY
+ *     overlapping-parcels         PARCEL_OVERLAPS
+ *     parcel-outside-redline      AREA_PARCELS_OUTSIDE_REDLINE
+ *     sliver                      SLIVERS_INSIDE_REDLINE
+ *     hedgerow-outside            HEDGEROWS_OUTSIDE_REDLINE
+ *     watercourse-outside         WATERCOURSES_OUTSIDE_REDLINE
+ *     tree-outside                TREES_OUTSIDE_REDLINE
+ *     iggi-outside                IGGIS_OUTSIDE_REDLINE
+ *     area-sum-mismatch           AREA_SUM_MISMATCH
+ *     redline-not-in-england      REDLINE_OUTSIDE_ENGLAND   (standalone)
+ *     redline-too-large           REDLINE_AREA_TOO_LARGE    (standalone)
  *
- *   # Common to both modes
- *   node scripts/gen-gpkg.mjs --outdir /tmp/test-data
- *   node scripts/gen-gpkg.mjs --centre 545000,258000   # central Cambridge
+ *   Empty-layer flaws — structurally valid full-size fixture with one
+ *   feature layer present but containing zero rows:
+ *     no-habitats                 NO_HABITAT_AREAS
+ *     no-hedgerows / no-rivers / no-trees   (no specific backend error)
  *
- * Options:
- *   --size <n>      Overall fixture size — sets habitat parcel count and
- *                   scales hedgerow, river, and urban tree counts from it.
- *                   Ignored when --from / --from-list is set (parcel counts
- *                   come from the workbook). (default: 50)
- *   --count <n>     Generate n different GeoPackages in one run, each with
- *                   its own randomised RLB shape, habitat partition, and
- *                   attribute values. Files are numbered
- *                   bng-test-data-001.gpkg, bng-test-data-002.gpkg, ...
- *                   When >1, existing files are overwritten without prompt.
- *                   (default: 1)
- *   --outdir <dir>  Output directory (default: test-data/)
- *   --from <ref>    Drive generation from a Defra Statutory Biodiversity
- *                   Metric workbook (xlsx/xlsm). Accepts a local file path or
- *                   an HTTPS URL. GitHub blob URLs are auto-rewritten to the
- *                   LFS-aware media URL. Downloaded files are cached in
- *                   .cache/bng500/. The output filename is derived from the
- *                   workbook (e.g. CAMBRIDGE_24_02948_FUL.gpkg).
- *   --from-list <f> Newline-delimited file of paths/URLs; runs --from for
- *                   each entry. Existing files are overwritten without prompt.
- *   --strict-habitats
- *                   Skip workbook habitat rows whose (habitat, condition)
- *                   pair the prototype's metric tables would reject.
- *                   Without this flag, all rows are emitted as-is — useful
- *                   for testing the prototype's error handling against
- *                   real-world data.
- *   --inspect       Print a JSON summary of the workbook (--from required)
- *                   without writing any GeoPackage. Use to debug parsing.
- *   --centre <e,n>  Easting,Northing of the Red Line Boundary centre, in
- *                   British National Grid (EPSG:27700). Defaults to
- *                   530000,180000 (Maidenhead). Examples:
- *                     --centre 545000,258000   (central Cambridge)
- *                     --centre 393000,93000    (central Bournemouth)
- *                     --centre 528000,357000   (central Nottingham)
- *                   Must be inside England for the prototype to accept the
- *                   uploaded GeoPackage.
- *   --bad           Generate an intentionally invalid GeoPackage for testing
- *                   upload validation. Shorthand for applying every flaw in
- *                   the registry that composes with a single small redline
- *                   (everything except `redline-not-in-england` and
- *                   `redline-too-large`, which are tested in isolation).
- *                   Ignores --size and any --from / --from-list inputs.
- *   --flaw <name>   Inject a single named flaw. Repeatable. Two families:
+ * --flaw is repeatable; empty-layer and geometric flaws cannot be mixed.
  *
- *                   Geometric flaws — each maps to a backend validation error
- *                   code; output is a tiny bad-fixture file:
- *                     self-intersecting-redline   REDLINE_INVALID_GEOMETRY
- *                     bowtie-parcel               AREA_PARCELS_INVALID_GEOMETRY
- *                     overlapping-parcels         PARCEL_OVERLAPS
- *                     parcel-outside-redline      AREA_PARCELS_OUTSIDE_REDLINE
- *                     sliver                      SLIVERS_INSIDE_REDLINE
- *                     hedgerow-outside            HEDGEROWS_OUTSIDE_REDLINE
- *                     watercourse-outside         WATERCOURSES_OUTSIDE_REDLINE
- *                     tree-outside                TREES_OUTSIDE_REDLINE
- *                     iggi-outside                IGGIS_OUTSIDE_REDLINE
- *                     area-sum-mismatch           AREA_SUM_MISMATCH
- *                     redline-not-in-england      REDLINE_OUTSIDE_ENGLAND
- *                     redline-too-large           REDLINE_AREA_TOO_LARGE
- *                   The last two are mutually exclusive with each other and
- *                   with the geometric flaws — they're standalone tests.
- *                   A single geometric --flaw implies bad-mode output
- *                   (filename: bng-test-data-bad-<flaw>.gpkg) even without
- *                   --bad; combine with --bad to add a flaw to the default
- *                   set.
+ * This file is the CLI + orchestration. Domain logic is grouped by concern:
+ *   - lib/bng-schema.mjs      — BNG SRS, the 5 feature-table DDLs, BNG layer
+ *                               styles. Wraps the generic #gpkg-io package
+ *                               with BNG-specific defaults.
+ *   - lib/geometry.mjs        — pure geometry helpers
+ *   - lib/synthetic/          — synthetic generators
+ *       synthetic.mjs            random fixture (regular + empty-layer)
+ *       synthetic-bad.mjs        --bad / --flaw fixture builder
+ *       synthetic-constants.mjs  pick-lists + bad-fixture geometry tunables
+ *       flaws.mjs                flaw registry + CLI resolution
+ *   - lib/workbook/           — workbook-driven path
+ *       metric-workbook*.mjs     xlsx parsing
+ *       workbook-rows.mjs        row builders (pure data transformations)
+ *       workbook-layers*.mjs     row → gpkg writers + geometry derivation
  *
- *                   Empty-layer flaws — output is a structurally valid full-
- *                   size fixture with the named feature layer present but
- *                   containing zero rows:
- *                     no-habitats                 NO_HABITAT_AREAS
- *                     no-hedgerows                (no specific backend error)
- *                     no-rivers                   (no specific backend error)
- *                     no-trees                    (no specific backend error)
- *                   May be combined with each other but not with the
- *                   geometric flaws above or with --bad. Filename embeds the
- *                   flaw names (e.g. bng-test-data-no-habitats.gpkg).
+ * Generic GeoPackage I/O (WKB, gpkg_* tables, generic styles) lives in
+ * packages/gpkg-io and is imported as `#gpkg-io`. The package has no
+ * BNG knowledge; it could be moved to its own repo unchanged.
  */
 
-import Database from "better-sqlite3";
 import { createHash } from "node:crypto";
 import {
   existsSync,
@@ -136,9 +89,44 @@ import path from "node:path";
 import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
 import { color, error, header, info, warn } from "./_lib.mjs";
-import { conditionScores as metricConditionScores } from "./data/metric-values-habitat-condition.mjs";
-import { distinctivenessCategories as metricDistinctiveness } from "./data/metric-values-habitat-distinctiveness.mjs";
-import { readMetricWorkbook } from "./lib/metric-workbook.mjs";
+import { readMetricWorkbook } from "./lib/workbook/metric-workbook.mjs";
+import { envelopeFromCoords, gpkgPolygon } from "#gpkg-io";
+import {
+  SRS_ID,
+  createAllTables,
+  createLayerStyles,
+  openGeoPackage,
+  registerLayer,
+} from "./lib/bng-schema.mjs";
+import { polygonArea } from "./lib/geometry.mjs";
+import { generateOne } from "./lib/synthetic/synthetic.mjs";
+import { resolveFlawSelection } from "./lib/synthetic/flaws.mjs";
+import {
+  FEATURE_REF_PAD,
+  FEATURE_REF_PAD_CHAR,
+  buildBaselineRows,
+  buildPostInterventionRows,
+} from "./lib/workbook/workbook-rows.mjs";
+import {
+  MIN_GENERATED_AREA_SQ_M,
+  computeWorkbookFixturePlan,
+  derivePostInterventionHabitatCells,
+  derivePostInterventionLinearCoords,
+  derivePostInterventionTreePoints,
+  generateBaselineHedgerowGeometry,
+  generateBaselineRiverGeometry,
+  generateBaselineTreePoints,
+  generateRedLineBoundaryFromArea,
+  partitionBaselineHabitats,
+  writeHabitatsBaseline,
+  writeHabitatsPostIntervention,
+  writeHedgerowsBaseline,
+  writeHedgerowsPostIntervention,
+  writeRiversBaseline,
+  writeRiversPostIntervention,
+  writeUrbanTreesBaseline,
+  writeUrbanTreesPostIntervention,
+} from "./lib/workbook/workbook-layers.mjs";
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -156,1499 +144,44 @@ const { values: args } = parseArgs({
     "strict-habitats": { type: "boolean", default: false },
     inspect: { type: "boolean", default: false },
     centre: { type: "string", default: "" },
+    // Two-stage upload modelling: --mode baseline writes only the pre-
+    // development gpkg, --mode post-intervention writes only the proposed
+    // end-state, --mode both (default) writes both side by side from the
+    // same workbook.
+    mode: { type: "string" },
   },
   allowPositionals: false,
 });
+
+const MODE_BASELINE = "baseline";
+const MODE_POST_INTERVENTION = "post-intervention";
+const MODE_BOTH = "both";
+const VALID_MODES = new Set([MODE_BASELINE, MODE_POST_INTERVENTION, MODE_BOTH]);
+const selectedMode = args.mode ?? MODE_BOTH;
+if (!VALID_MODES.has(selectedMode)) {
+  console.error(`--mode must be one of: ${[...VALID_MODES].join(", ")} (got: ${args.mode})`);
+  process.exit(1);
+}
 
 const HARNESS_ROOT = path.resolve(import.meta.dirname, "..");
 const OUT_DIR = args.outdir
   ? path.resolve(args.outdir)
   : path.resolve(HARNESS_ROOT, "test-data");
 
-// Restrict to inland broad types — fixture site is land-based, so coastal,
-// intertidal, rocky-shore etc. are out of scope. Also skips any habitat the
-// metric defines as non-area (e.g. "Individual trees", "Watercourse footprint",
-// "Infrastructure (IGGI)"), which belong on other layers or aren't applicable.
-const INLAND_BROAD_TYPES = new Set([
-  "Cropland",
-  "Grassland",
-  "Heathland and shrub",
-  "Lakes",
-  "Sparsely vegetated land",
-  "Urban",
-  "Wetland",
-  "Woodland and forest",
-]);
-
-/** @type {{ fullName: string, broad: string, type: string, validConditions: string[], distinctiveness: string }[]} */
-const HABITATS = [];
-const HABITATS_BY_BROAD = {};
-
-for (const fullName of Object.keys(metricDistinctiveness)) {
-  const sepIdx = fullName.indexOf(" - ");
-  if (sepIdx < 0) continue;
-  const broad = fullName.slice(0, sepIdx);
-  const type = fullName.slice(sepIdx + 3);
-  if (!INLAND_BROAD_TYPES.has(broad)) continue;
-
-  const conds = metricConditionScores[fullName];
-  if (!conds) continue;
-  const validConditions = Object.entries(conds)
-    .filter(([, v]) => typeof v === "number")
-    .map(([k]) => k);
-  if (validConditions.length === 0) continue;
-
-  const habitat = {
-    fullName,
-    broad,
-    type,
-    validConditions,
-    distinctiveness: metricDistinctiveness[fullName],
-  };
-  HABITATS.push(habitat);
-  (HABITATS_BY_BROAD[broad] = HABITATS_BY_BROAD[broad] || []).push(habitat);
-}
-
-const BROAD_HABITAT_TYPES = Object.keys(HABITATS_BY_BROAD);
-
-// Hedgerows / Rivers / Urban Trees use their own metric tables; the prototype
-// validates them separately. Until the same wiring is added for those layers,
-// keep the generic enum lists used previously.
-const CONDITIONS = ["Good", "Fairly Good", "Moderate", "Fairly Poor", "Poor"];
-const DISTINCTIVENESS = ["V.High", "High", "Medium", "Low", "V.Low"];
-
-const STRATEGIC_SIGNIFICANCE = [
-  "Formally identified in local strategy",
-  "Location ecologically desirable but not in local strategy",
-  "Area/compensation not in local strategy/ no local strategy",
-];
-
-const RETENTION_CATEGORIES = ["Retained", "Enhanced", "Lost", "Created"];
-
-const LOCATIONS = ["On-site", "Off-site"];
-
-const SPATIAL_RISK_HABITAT = [
-  "Compensation inside LPA boundary or NCA of impact site",
-  "Compensation outside LPA or NCA of impact site, but in neighbouring LPA or NCA",
-];
-
-const HEDGE_TYPES = [
-  "Species-rich native hedgerow with trees",
-  "Species-rich native hedgerow",
-  "Native hedgerow with trees",
-  "Native hedgerow",
-  "Native hedgerow - associated with bank or ditch",
-  "Line of trees",
-  "Non-native and ornamental hedgerow",
-];
-
-const HEDGE_CONDITIONS = ["Good", "Moderate", "Poor"];
-
-const RIVER_TYPES = [
-  "Priority habitat",
-  "Other rivers and streams",
-  "Ditches",
-  "Canals",
-  "Culvert",
-];
-
-const ENCROACHMENT_WATERCOURSE = ["No Encroachment", "Minor", "Major"];
-
-const ENCROACHMENT_RIPARIAN = [
-  "Major/Major",
-  "Major/Moderate",
-  "Moderate/Moderate",
-  "Minor/Minor",
-  "Minor/No Encroachment",
-  "No Encroachment/No Encroachment",
-];
-
-const SPATIAL_RISK_RIVER = [
-  "Within waterbody catchment",
-  "Outside waterbody catchment, but within operational catchment",
-];
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Ray-casting point-in-polygon test for a single ring.
- *
- * @param {number[]} point - [x, y]
- * @param {number[][]} ring - Closed ring of [x, y] pairs (first === last)
- * @returns {boolean} True if the point is strictly inside the ring
- */
-function pointInRing(point, ring) {
-  const [x, y] = point;
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const [xi, yi] = ring[i];
-    const [xj, yj] = ring[j];
-    const intersect =
-      yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
-    if (intersect) inside = !inside;
-  }
-  return inside;
-}
-
-/**
- * Test whether every vertex of a linestring lies strictly inside the
- * boundary ring.
- */
-function lineInsideRing(coords, boundary) {
-  for (const p of coords) {
-    if (!pointInRing(p, boundary)) return false;
-  }
-  return true;
-}
-
-function expandEnvelope(envelope, env) {
-  envelope[0] = Math.min(envelope[0], env[0]);
-  envelope[1] = Math.max(envelope[1], env[1]);
-  envelope[2] = Math.min(envelope[2], env[2]);
-  envelope[3] = Math.max(envelope[3], env[3]);
-}
-
-function linestringLength(coords) {
-  let length = 0;
-  for (let i = 1; i < coords.length; i++) {
-    const dx = coords[i][0] - coords[i - 1][0];
-    const dy = coords[i][1] - coords[i - 1][1];
-    length += Math.sqrt(dx * dx + dy * dy);
-  }
-  return Math.round(length);
-}
-
-/**
- * Signed area of a closed polygon ring via the shoelace formula.
- * Sign indicates orientation; we take the absolute value.
- *
- * @param {number[][]} ring - Closed ring of [x, y] pairs (first === last)
- * @returns {number} Polygon area in the ring's coordinate units
- */
-function polygonArea(ring) {
-  let sum = 0;
-  for (let i = 0; i < ring.length - 1; i++) {
-    const [x1, y1] = ring[i];
-    const [x2, y2] = ring[i + 1];
-    sum += x1 * y2 - x2 * y1;
-  }
-  return Math.abs(sum) / 2;
-}
-
-function pick(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function randBetween(min, max) {
-  return min + Math.random() * (max - min);
-}
-
-function randInt(min, max) {
-  return Math.floor(randBetween(min, max));
-}
-
-// ---------------------------------------------------------------------------
-// Geometry generators (EPSG:27700 — British National Grid)
-// ---------------------------------------------------------------------------
-
-/**
- * Andrew's monotone-chain convex hull of a 2D point set.
- *
- * @param {number[][]} points - Array of [x, y] pairs (>=3 distinct points)
- * @returns {number[][]} Closed CCW ring of the hull (first === last)
- */
-function convexHull(points) {
-  const pts = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-  const cross = (o, a, b) =>
-    (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
-  const lower = [];
-  for (const p of pts) {
-    while (lower.length >= 2 && cross(lower.at(-2), lower.at(-1), p) <= 0) {
-      lower.pop();
-    }
-    lower.push(p);
-  }
-  const upper = [];
-  for (let i = pts.length - 1; i >= 0; i--) {
-    const p = pts[i];
-    while (upper.length >= 2 && cross(upper.at(-2), upper.at(-1), p) <= 0) {
-      upper.pop();
-    }
-    upper.push(p);
-  }
-  upper.pop();
-  lower.pop();
-  const hull = lower.concat(upper);
-  hull.push([...hull[0]]);
-  return hull;
-}
-
-/**
- * Generate a convex, irregular boundary polygon as the convex hull of
- * random points in an annulus around (cx, cy). The output is always convex,
- * which is required for the recursive habitat partitioning to tile cleanly.
- */
-function generateIrregularPolygon(cx, cy, radius, numPoints = 18) {
-  const pts = [];
-  for (let i = 0; i < numPoints; i++) {
-    const angle = Math.random() * 2 * Math.PI;
-    const r = radius * (0.65 + Math.random() * 0.7);
-    pts.push([cx + r * Math.cos(angle), cy + r * Math.sin(angle)]);
-  }
-  return convexHull(pts);
-}
-
-/**
- * Closed axis-aligned rectangle ring built from two opposite corners.
- * Used by the --bad fixture generator for fast, predictable parcel shapes.
- */
-function rectRing(x1, y1, x2, y2) {
-  return [
-    [x1, y1],
-    [x2, y1],
-    [x2, y2],
-    [x1, y2],
-    [x1, y1],
-  ];
-}
-
-/**
- * Bowtie (self-intersecting) polygon centred on (cx, cy) with the given
- * half-width. The opposite-corner edges cross, producing a topologically
- * invalid ring — used to deliberately trigger the SELF_INTERSECTING checks
- * in --bad mode.
- */
-function bowtieRing(cx, cy, half) {
-  return [
-    [cx - half, cy - half],
-    [cx + half, cy + half],
-    [cx + half, cy - half],
-    [cx - half, cy + half],
-    [cx - half, cy - half],
-  ];
-}
-
-/**
- * Area-weighted centroid of a closed polygon ring (signed-area formula).
- *
- * @param {number[][]} ring - Closed ring (first === last)
- * @returns {[number, number]} Centroid [x, y]
- */
-function polygonCentroid(ring) {
-  let cx = 0;
-  let cy = 0;
-  let twiceArea = 0;
-  for (let i = 0; i < ring.length - 1; i++) {
-    const [x1, y1] = ring[i];
-    const [x2, y2] = ring[i + 1];
-    const c = x1 * y2 - x2 * y1;
-    twiceArea += c;
-    cx += (x1 + x2) * c;
-    cy += (y1 + y2) * c;
-  }
-  return [cx / (3 * twiceArea), cy / (3 * twiceArea)];
-}
-
-/**
- * Sutherland–Hodgman clip of a polygon ring against a half-plane.
- *
- * Keeps the side where (p - point) · normal >= 0. For a convex input, the
- * result is itself convex. Returns null if fewer than 3 vertices remain.
- */
-function clipPolygonByHalfPlane(ring, point, normal) {
-  const sd = (p) =>
-    (p[0] - point[0]) * normal[0] + (p[1] - point[1]) * normal[1];
-  const out = [];
-  for (let i = 0; i < ring.length - 1; i++) {
-    const p1 = ring[i];
-    const p2 = ring[i + 1];
-    const d1 = sd(p1);
-    const d2 = sd(p2);
-    if (d1 >= 0) {
-      out.push(p1);
-      if (d2 < 0) {
-        const t = d1 / (d1 - d2);
-        out.push([p1[0] + t * (p2[0] - p1[0]), p1[1] + t * (p2[1] - p1[1])]);
-      }
-    } else if (d2 >= 0) {
-      const t = d1 / (d1 - d2);
-      out.push([p1[0] + t * (p2[0] - p1[0]), p1[1] + t * (p2[1] - p1[1])]);
-    }
-  }
-  if (out.length < 3) return null;
-  out.push([...out[0]]);
-  return out;
-}
-
-/**
- * Split a convex polygon along a random chord that passes near (but not
- * exactly through) its centroid. The chord direction is uniform-random; its
- * offset from the centroid is sampled from the middle 60% of the polygon's
- * extent in the perpendicular direction, which avoids degenerate sliver
- * splits while still giving size variation between the two halves.
- *
- * Returns [a, b] where each is a closed ring; either may be null if the
- * resulting half is degenerate.
- */
-function splitPolygonRandom(ring) {
-  const c = polygonCentroid(ring);
-  const angle = Math.random() * Math.PI;
-  const normal = [Math.cos(angle), Math.sin(angle)];
-
-  let minSd = Infinity;
-  let maxSd = -Infinity;
-  for (let i = 0; i < ring.length - 1; i++) {
-    const s = (ring[i][0] - c[0]) * normal[0] + (ring[i][1] - c[1]) * normal[1];
-    if (s < minSd) minSd = s;
-    if (s > maxSd) maxSd = s;
-  }
-  const offset = randBetween(minSd * 0.3, maxSd * 0.3);
-  const chordPoint = [c[0] + normal[0] * offset, c[1] + normal[1] * offset];
-
-  const a = clipPolygonByHalfPlane(ring, chordPoint, normal);
-  const b = clipPolygonByHalfPlane(ring, chordPoint, [-normal[0], -normal[1]]);
-  return [a, b];
-}
-
-/**
- * Clip a polygon by a half-plane parameterised as `p · normal >= offset`.
- * Thin wrapper over `clipPolygonByHalfPlane` that lets us search by scalar
- * offset (used by area-aware partitioning).
- */
-function clipPolygonByOffset(ring, normal, offset) {
-  const point = [normal[0] * offset, normal[1] * offset];
-  return clipPolygonByHalfPlane(ring, point, normal);
-}
-
-/**
- * Carve a piece of approximately `targetArea` off a convex polygon. Returns
- * { piece, rest, pieceArea } or null if no chord direction could produce a
- * valid split. Picks a random chord direction, then binary-searches the
- * chord offset so the kept-side area matches the target. The remaining
- * polygon is convex (Sutherland-Hodgman on a convex input is convex).
- */
-function carveTargetArea(ring, targetArea) {
-  for (let attempt = 0; attempt < 8; attempt++) {
-    const angle = Math.random() * Math.PI;
-    const normal = [Math.cos(angle), Math.sin(angle)];
-
-    let minSd = Infinity;
-    let maxSd = -Infinity;
-    for (let i = 0; i < ring.length - 1; i++) {
-      const s = ring[i][0] * normal[0] + ring[i][1] * normal[1];
-      if (s < minSd) minSd = s;
-      if (s > maxSd) maxSd = s;
-    }
-    // Binary search the chord offset for which the kept-side area === target.
-    // Larger offset → smaller kept area (kept side is `p · normal >= offset`).
-    let lo = minSd;
-    let hi = maxSd;
-    for (let iter = 0; iter < 32; iter++) {
-      const mid = (lo + hi) / 2;
-      const piece = clipPolygonByOffset(ring, normal, mid);
-      const a = piece ? polygonArea(piece) : 0;
-      if (a > targetArea) lo = mid;
-      else hi = mid;
-    }
-    const piece = clipPolygonByOffset(ring, normal, hi);
-    const rest = clipPolygonByOffset(ring, [-normal[0], -normal[1]], -hi);
-    if (piece && rest && polygonArea(piece) > 1 && polygonArea(rest) > 1) {
-      return { piece, rest, pieceArea: polygonArea(piece) };
-    }
-  }
-  return null;
-}
-
-/**
- * Partition a convex polygon into pieces whose areas approximate the input
- * `targetAreas` array (in the same units as `polygonArea(ring)`). Returns
- * cells in the same order as `targetAreas`.
- *
- * Algorithm: process targets largest-first, each iteration carving one piece
- * of that size off the remaining polygon. The last target gets whatever is
- * left over (its actual area may differ slightly from the request, since we
- * scale the boundary up front to make the numbers work).
- */
-function partitionPolygonByAreas(ring, targetAreas) {
-  if (targetAreas.length === 0) return [];
-  if (targetAreas.length === 1) return [ring];
-
-  const indexed = targetAreas.map((a, i) => ({ area: a, idx: i }));
-  // Carve largest first so the last (smallest) carve is least sensitive to
-  // accumulated rounding error.
-  indexed.sort((x, y) => y.area - x.area);
-
-  const cells = new Array(targetAreas.length);
-  let remaining = ring;
-
-  for (let i = 0; i < indexed.length - 1; i++) {
-    const { area, idx } = indexed[i];
-    const carved = carveTargetArea(remaining, area);
-    if (!carved) {
-      // Geometry refused to cooperate — give up cleanly. Caller will see a
-      // shorter array.
-      return cells.filter((c) => c);
-    }
-    cells[idx] = carved.piece;
-    remaining = carved.rest;
-  }
-  cells[indexed[indexed.length - 1].idx] = remaining;
-  return cells;
-}
-
-/**
- * Scale a ring uniformly around its centroid so its area matches `targetArea`.
- */
-function scaleRingToArea(ring, targetArea) {
-  const currentArea = polygonArea(ring);
-  if (currentArea <= 0) return ring;
-  const k = Math.sqrt(targetArea / currentArea);
-  const [cx, cy] = polygonCentroid(ring);
-  return ring.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k]);
-}
-
-/**
- * Recursively partition a convex polygon into `n` non-overlapping pieces
- * that exactly tile the input. On each step, splits the largest current
- * piece by a random chord. Stops short if no valid split is found after
- * a few retries (the returned array may then be smaller than `n`).
- */
-function partitionPolygon(ring, n, maxRetriesPerSplit = 5) {
-  const parcels = [ring];
-  while (parcels.length < n) {
-    parcels.sort((a, b) => polygonArea(b) - polygonArea(a));
-    const big = parcels[0];
-    let split = null;
-    for (let r = 0; r < maxRetriesPerSplit; r++) {
-      const [a, b] = splitPolygonRandom(big);
-      if (a && b && polygonArea(a) > 1 && polygonArea(b) > 1) {
-        split = [a, b];
-        break;
-      }
-    }
-    if (!split) break;
-    parcels.shift();
-    parcels.push(split[0], split[1]);
-  }
-  return parcels;
-}
-
-/**
- * Rejection-sample a point that lies inside the boundary ring. The boundary's
- * bounding box is computed once up front and reused across attempts.
- *
- * Returns null if no inside point is found within `maxAttempts` tries.
- */
-function pickInteriorPoint(boundaryRing, maxAttempts = 100) {
-  const bbox = envelopeFromCoords(boundaryRing);
-  for (let i = 0; i < maxAttempts; i++) {
-    const p = randomPointInBBox(bbox);
-    if (pointInRing(p, boundaryRing)) return p;
-  }
-  return null;
-}
-
-/**
- * Generate a linestring that cuts across the interior of the boundary,
- * not along its edge. Picks two random interior endpoints, then inserts
- * 1–3 midpoints with a small perpendicular offset so the line bends
- * slightly. May still produce vertices outside the boundary on concave
- * regions — the caller is expected to validate and reject.
- */
-function generateLinestring(boundaryRing) {
-  const start = pickInteriorPoint(boundaryRing);
-  const end = pickInteriorPoint(boundaryRing);
-  if (!start || !end) return null;
-  const dx = end[0] - start[0];
-  const dy = end[1] - start[1];
-  const len = Math.sqrt(dx * dx + dy * dy);
-  if (len === 0) return null;
-  const px = -dy / len;
-  const py = dx / len;
-  const numMid = 1 + randInt(0, 3);
-  const maxOffset = len * 0.1;
-  const points = [start];
-  for (let i = 1; i <= numMid; i++) {
-    const t = i / (numMid + 1);
-    const offset = randBetween(-maxOffset, maxOffset);
-    points.push([
-      start[0] + dx * t + px * offset,
-      start[1] + dy * t + py * offset,
-    ]);
-  }
-  points.push(end);
-  return points;
-}
-
-function randomPointInBBox(bbox) {
-  return [randBetween(bbox[0], bbox[1]), randBetween(bbox[2], bbox[3])];
-}
-
-// ---------------------------------------------------------------------------
-// WKB encoding (little-endian)
-// ---------------------------------------------------------------------------
-
-function writeDouble(buf, offset, val) {
-  buf.writeDoubleLE(val, offset);
-  return offset + 8;
-}
-
-function writeUInt32(buf, offset, val) {
-  buf.writeUInt32LE(val, offset);
-  return offset + 4;
-}
-
-/**
- * Encode a point as WKB (Well-Known Binary), little-endian.
- *
- * Layout: byteOrder (1) | wkbType (uint32 = 1) | x (float64) | y (float64)
- *
- * @param {number} x - X coordinate
- * @param {number} y - Y coordinate
- * @returns {Buffer} WKB-encoded point
- * @see https://www.ogc.org/standard/sfa/ - OGC Simple Features (WKB encoding)
- */
-function encodeWkbPoint(x, y) {
-  const buf = Buffer.alloc(1 + 4 + 16);
-  let off = 0;
-  buf[off++] = 1;
-  off = writeUInt32(buf, off, 1);
-  off = writeDouble(buf, off, x);
-  writeDouble(buf, off, y);
-  return buf;
-}
-
-/**
- * Encode a linestring as WKB (Well-Known Binary), little-endian.
- *
- * Layout: byteOrder (1) | wkbType (uint32 = 2) | numPoints (uint32) | points (x,y float64 pairs)
- *
- * @param {number[][]} coords - Array of [x, y] coordinate pairs
- * @returns {Buffer} WKB-encoded linestring
- * @see https://www.ogc.org/standard/sfa/ - OGC Simple Features (WKB encoding)
- */
-function encodeWkbLineString(coords) {
-  const buf = Buffer.alloc(1 + 4 + 4 + coords.length * 16);
-  let off = 0;
-  buf[off++] = 1;
-  off = writeUInt32(buf, off, 2);
-  off = writeUInt32(buf, off, coords.length);
-  for (const [x, y] of coords) {
-    off = writeDouble(buf, off, x);
-    off = writeDouble(buf, off, y);
-  }
-  return buf;
-}
-
-/**
- * Encode a polygon as WKB (Well-Known Binary), little-endian.
- *
- * Layout: byteOrder (1) | wkbType (uint32 = 3) | numRings (uint32) |
- *         for each ring: numPoints (uint32) | points (x,y float64 pairs)
- *
- * The first ring is the exterior boundary; any subsequent rings are interior
- * holes (not currently used by this script).
- *
- * @param {number[][][]} rings - Array of rings, each an array of [x, y] coordinate pairs
- * @returns {Buffer} WKB-encoded polygon
- * @see https://www.ogc.org/standard/sfa/ - OGC Simple Features (WKB encoding)
- */
-function encodeWkbPolygon(rings) {
-  let size = 1 + 4 + 4;
-  for (const ring of rings) {
-    size += 4 + ring.length * 16;
-  }
-  const buf = Buffer.alloc(size);
-  let off = 0;
-  buf[off++] = 1;
-  off = writeUInt32(buf, off, 3);
-  off = writeUInt32(buf, off, rings.length);
-  for (const ring of rings) {
-    off = writeUInt32(buf, off, ring.length);
-    for (const [x, y] of ring) {
-      off = writeDouble(buf, off, x);
-      off = writeDouble(buf, off, y);
-    }
-  }
-  return buf;
-}
-
-// ---------------------------------------------------------------------------
-// GeoPackage Binary encoding (header + WKB)
-// ---------------------------------------------------------------------------
-
-/**
- * Wraps a WKB geometry in a GeoPackage Binary header.
- *
- * Layout: magic ("GP") | version (0) | flags | srsId (uint32) | [envelope] | wkb
- *
- * The flags byte encodes byte order (bit 0, always 1 = little-endian) and
- * envelope type (bits 1-3). When an envelope is provided, type 1 is used
- * which stores [minX, maxX, minY, maxY] as four doubles (32 bytes).
- *
- * @param {number} srsId - Spatial reference system ID (e.g. 27700)
- * @param {Buffer} wkb - Well-Known Binary encoded geometry
- * @param {number[]|null} envelope - Bounding box [minX, maxX, minY, maxY], or null for no envelope
- * @returns {Buffer} GeoPackage Binary blob ready to store in a geometry column
- * @see https://www.geopackage.org/spec/#gpb_format - GeoPackage Binary format spec
- * @see https://www.ogc.org/standard/sfa/ - OGC Simple Features (WKB encoding)
- */
-function encodeGpkgBinary(srsId, wkb, envelope) {
-  const envType = envelope ? 1 : 0;
-  const flags = 0x01 | (envType << 1);
-  const envSize = envelope ? 32 : 0;
-  const headerSize = 2 + 1 + 1 + 4 + envSize;
-  const buf = Buffer.alloc(headerSize + wkb.length);
-  let off = 0;
-  buf[off++] = 0x47; // 'G'
-  buf[off++] = 0x50; // 'P'
-  buf[off++] = 0;
-  buf[off++] = flags;
-  off = writeUInt32(buf, off, srsId);
-  if (envelope) {
-    off = writeDouble(buf, off, envelope[0]);
-    off = writeDouble(buf, off, envelope[1]);
-    off = writeDouble(buf, off, envelope[2]);
-    off = writeDouble(buf, off, envelope[3]);
-  }
-  wkb.copy(buf, off);
-  return buf;
-}
-
-function envelopeFromCoords(coords) {
-  const flat = Array.isArray(coords[0]?.[0]) ? coords.flat() : coords;
-  const xs = flat.map((p) => p[0]);
-  const ys = flat.map((p) => p[1]);
-  return [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-}
-
-function gpkgPolygon(srsId, ring) {
-  return encodeGpkgBinary(
-    srsId,
-    encodeWkbPolygon([ring]),
-    envelopeFromCoords(ring),
-  );
-}
-
-function gpkgLineString(srsId, coords) {
-  return encodeGpkgBinary(
-    srsId,
-    encodeWkbLineString(coords),
-    envelopeFromCoords(coords),
-  );
-}
-
-function gpkgPoint(srsId, x, y) {
-  return encodeGpkgBinary(srsId, encodeWkbPoint(x, y), [x, x, y, y]);
-}
-
-// ---------------------------------------------------------------------------
-// GeoPackage schema creation
-// ---------------------------------------------------------------------------
-
-const SRS_ID = 27700;
-
-const SRS_27700_DEF = `PROJCS["OSGB 1936 / British National Grid",GEOGCS["OSGB 1936",DATUM["OSGB_1936",SPHEROID["Airy 1830",6377563.396,299.3249646]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",49],PARAMETER["central_meridian",-2],PARAMETER["scale_factor",0.9996012717],PARAMETER["false_easting",400000],PARAMETER["false_northing",-100000],UNIT["metre",1]]`;
-
-/**
- * Initialise a SQLite database as a valid GeoPackage by setting the required
- * pragmas and creating the three mandatory metadata tables:
- *
- * - `gpkg_spatial_ref_sys` — spatial reference system definitions
- * - `gpkg_contents` — registry of feature/tile tables in the file
- * - `gpkg_geometry_columns` — geometry column metadata per feature table
- *
- * Pre-populates the SRS table with WGS 84 (4326) and British National Grid (27700).
- *
- * @param {import("better-sqlite3").Database} db - An open better-sqlite3 database
- * @see https://www.geopackage.org/spec/#_requirement-1 - GeoPackage required tables
- */
-function initGeoPackage(db) {
-  db.pragma("journal_mode = WAL");
-  db.pragma("application_id = 0x47504B47");
-  db.pragma("user_version = 10301");
-
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS gpkg_spatial_ref_sys (
-      srs_name TEXT NOT NULL, srs_id INTEGER NOT NULL PRIMARY KEY,
-      organization TEXT NOT NULL, organization_coordsys_id INTEGER NOT NULL,
-      definition TEXT NOT NULL, description TEXT
-    );
-    INSERT OR IGNORE INTO gpkg_spatial_ref_sys VALUES
-      ('Undefined cartesian SRS', -1, 'NONE', -1, 'undefined', 'undefined cartesian coordinate reference system'),
-      ('Undefined geographic SRS', 0, 'NONE', 0, 'undefined', 'undefined geographic coordinate reference system'),
-      ('WGS 84 geodetic', 4326, 'EPSG', 4326,
-        'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]]',
-        'longitude/latitude coordinates in decimal degrees on the WGS 84 spheroid'),
-      ('OSGB 1936 / British National Grid', ${SRS_ID}, 'EPSG', ${SRS_ID},
-        '${SRS_27700_DEF}', 'British National Grid');
-
-    CREATE TABLE IF NOT EXISTS gpkg_contents (
-      table_name TEXT NOT NULL PRIMARY KEY, data_type TEXT NOT NULL DEFAULT 'features',
-      identifier TEXT UNIQUE, description TEXT DEFAULT '',
-      last_change DATETIME NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-      min_x DOUBLE, min_y DOUBLE, max_x DOUBLE, max_y DOUBLE,
-      srs_id INTEGER REFERENCES gpkg_spatial_ref_sys(srs_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS gpkg_geometry_columns (
-      table_name TEXT NOT NULL, column_name TEXT NOT NULL DEFAULT 'geometry',
-      geometry_type_name TEXT NOT NULL, srs_id INTEGER NOT NULL,
-      z TINYINT NOT NULL DEFAULT 0, m TINYINT NOT NULL DEFAULT 0,
-      CONSTRAINT pk_geom_cols PRIMARY KEY (table_name, column_name),
-      CONSTRAINT fk_gc_tn FOREIGN KEY (table_name) REFERENCES gpkg_contents(table_name)
-    );
-  `);
-}
-
-/**
- * Register a feature layer in the GeoPackage metadata tables.
- *
- * Inserts (or replaces) rows in `gpkg_contents` and `gpkg_geometry_columns`
- * so that GIS tools recognise the table as a spatial layer.
- *
- * @param {import("better-sqlite3").Database} db - An open better-sqlite3 database
- * @param {string} tableName - Name of the feature table (e.g. "Habitats")
- * @param {string} geomType - Geometry type name (e.g. "POLYGON", "LINESTRING", "POINT")
- * @param {number[]|null} envelope - Bounding box [minX, maxX, minY, maxY], or null
- */
-function registerLayer(db, tableName, geomType, envelope) {
-  // Envelopes flow through this code as [minX, maxX, minY, maxY] (the order
-  // emitted by envelopeFromCoords / expandEnvelope). Destructure into named
-  // locals so the gpkg_contents bind order stays self-documenting.
-  const [minX = null, maxX = null, minY = null, maxY = null] = envelope ?? [];
-
-  db.prepare(
-    `
-    INSERT OR REPLACE INTO gpkg_contents
-      (table_name, data_type, identifier, description, min_x, min_y, max_x, max_y, srs_id)
-    VALUES (?, 'features', ?, '', ?, ?, ?, ?, ?)
-  `,
-  ).run(tableName, tableName, minX, minY, maxX, maxY, SRS_ID);
-
-  db.prepare(
-    `
-    INSERT OR REPLACE INTO gpkg_geometry_columns
-      (table_name, column_name, geometry_type_name, srs_id, z, m)
-    VALUES (?, 'geometry', ?, ?, 0, 0)
-  `,
-  ).run(tableName, geomType, SRS_ID);
-}
-
-// ---------------------------------------------------------------------------
-// Layer table DDL — matches the NE QGIS template exactly
-// ---------------------------------------------------------------------------
-
-function createAllTables(db) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS "Red Line Boundary" (
-      fid INTEGER PRIMARY KEY AUTOINCREMENT, geometry POLYGON,
-      "Area" REAL, "Site Name" TEXT(99)
-    );
-
-    CREATE TABLE IF NOT EXISTS "Habitats" (
-      fid INTEGER PRIMARY KEY AUTOINCREMENT, geometry POLYGON,
-      "Parcel Ref" TEXT(99), "Baseline Broad Habitat Type" TEXT(99),
-      "Baseline Habitat Type" TEXT(99), "Area" MEDIUMINT,
-      "Baseline Condition" TEXT(99), "Baseline Strategic Significance" TEXT(99),
-      "Retention Category" TEXT(99), "Proposed Broad Habitat Type" TEXT(99),
-      "Proposed Habitat Type" TEXT(99), "Proposed Condition" TEXT(99),
-      "Proposed Strategic Significance" TEXT(99),
-      "Habitat created in advance/years" TEXT(99),
-      "Delay in starting habitat creation/years" TEXT(99),
-      "Spatial risk category" TEXT(99), "Location" TEXT(99),
-      "Site Name" TEXT(999), "Survey Date" DATE, "Survey Details" TEXT(999),
-      "Comment" TEXT(999), "Mapped by" TEXT(999), "Company" TEXT(999),
-      "Base Map" TEXT(999), "Baseline Distinctiveness" TEXT(999),
-      "Proposed Distinctiveness" TEXT(999)
-    );
-
-    CREATE TABLE IF NOT EXISTS "Hedgerows" (
-      fid INTEGER PRIMARY KEY AUTOINCREMENT, geometry LINESTRING,
-      "Parcel Ref" TEXT(99), "Baseline Hedge Type" TEXT(99),
-      "Baseline Condition" TEXT(99), "Baseline Strategic Significance" TEXT(99),
-      "Retention Category" TEXT(99), "Proposed Hedge Type" TEXT(99),
-      "Proposed Condition" TEXT(99), "Proposed Strategic Significance" TEXT(99),
-      "Length" MEDIUMINT, "Habitat created in advance/years" TEXT(99),
-      "Delay in starting habitat creation/years" TEXT(99),
-      "Spatial risk category" TEXT(99), "Location" TEXT(99),
-      "Site Name" TEXT(999), "Survey Date" DATE, "Survey Details" TEXT(999),
-      "Comments" TEXT(999), "Mapped by" TEXT(999), "Company" TEXT(999),
-      "Base Map" TEXT(999), "Baseline Distinctiveness" TEXT(999),
-      "Proposed Distinctiveness" TEXT(999)
-    );
-
-    CREATE TABLE IF NOT EXISTS "Rivers" (
-      fid INTEGER PRIMARY KEY AUTOINCREMENT, geometry LINESTRING,
-      "Parcel Ref" TEXT(99), "Baseline River Type" TEXT(99),
-      "Baseline Condition" TEXT(99), "Baseline Strategic Significance" TEXT(99),
-      "Baseline Encroachment into Watercourse" TEXT(99),
-      "Baseline Encroachment into riparian zone" TEXT(99),
-      "Retention Category" TEXT(99), "Proposed River Type" TEXT(99),
-      "Proposed Condition" TEXT(99), "Proposed Strategic Significance" TEXT(99),
-      "Length" MEDIUMINT, "Habitat created in advance/years" TEXT(99),
-      "Delay in starting habitat creation/years" TEXT(99),
-      "Spatial risk category" TEXT(99), "Location" TEXT(99),
-      "Proposed Encroachment into Watercourse" TEXT(99),
-      "Proposed Encroachment into riparian zone" TEXT(99),
-      "Site Name" TEXT(999), "Survey Date" DATE, "Survey Details" TEXT(999),
-      "Comments" TEXT(999), "Mapped by" TEXT(999), "Company" TEXT(999),
-      "Base Map" TEXT(999), "Enhancement Type" TEXT(999),
-      "Baseline Distinctiveness" TEXT(999), "Proposed Distinctiveness" TEXT(999)
-    );
-
-    CREATE TABLE IF NOT EXISTS "Urban Trees" (
-      fid INTEGER PRIMARY KEY AUTOINCREMENT, geometry POINT,
-      "Tree Ref" TEXT(99), "Baseline Tree Size" TEXT(99),
-      "Baseline Condition" TEXT(99), "Baseline Strategic Significance" TEXT(99),
-      "Baseline Tree Type" TEXT(99), "Retention Category" TEXT(99),
-      "Category" TEXT(99), "Proposed Tree Size" TEXT(99),
-      "Proposed Condition" TEXT(99), "Proposed Strategic Significance" TEXT(99),
-      "Proposed Tree Type" TEXT(99), "Location" TEXT(99),
-      "Habitat Created/Enhanced in advance/years" TEXT(99),
-      "Delay in starting habitat creation/enhancement in years" TEXT(99),
-      "Spatial risk category" TEXT(99), "Site Name" TEXT(999),
-      "Survey Date" DATE, "Survey Details" TEXT(999), "Comment" TEXT(999),
-      "Mapped by" TEXT(999), "Company" TEXT(999), "Base Map" TEXT(999),
-      "Count" MEDIUMINT, "Baseline Rural or Urban Tree" TEXT(999),
-      "Proposed Rural or Urban Tree" TEXT(999)
-    );
-  `);
-}
-
-// ---------------------------------------------------------------------------
-// Data generators
-// ---------------------------------------------------------------------------
-
-const SITE_NAME = "Oakwood Regional Development";
-const SURVEY_DATE = "2025-06-15";
-const MAPPED_BY = "J. Smith";
-const SURVEY_COMPANY = "Ecological Consultants Ltd";
-const BASE_MAP = "OS MasterMap";
-const WORKBOOK_IMPORT_LABEL = "Workbook import";
-const WORKBOOK_SURVEY_DETAILS = "From metric workbook";
-const BAD_FIXTURE_SURVEY_DETAILS = "Bad-mode fixture";
-const TREE_TYPE_STREET = "Street tree";
-
-// Width of the zero-padded numeric suffix used in feature reference codes
-// (e.g. H001, HG003, T012). Kept consistent across all layers and generators.
-const FEATURE_REF_PAD = 3;
-const FEATURE_REF_PAD_CHAR = "0";
-
-// Column counts for each layer's INSERT statement. Must match the column lists
-// in createAllTables(). Centralised here so all generators stay in sync if a
-// column is ever added or removed.
-const HABITATS_INSERT_COLUMNS = 25;
-const HEDGEROWS_INSERT_COLUMNS = 23;
-const URBAN_TREES_INSERT_COLUMNS = 26;
-
 // British National Grid envelope, used for sanity-checking --centre input.
 // Generous bounds — England/Scotland/Wales fit comfortably inside.
 const BNG_MAX_EASTING = 700000;
 const BNG_MAX_NORTHING = 1300000;
 
-// Workbook fixture sizing.
-const HECTARES_TO_SQ_M = 10000;
-// The boundary diameter must exceed the longest linear feature so it actually
-// fits inside the polygon. 1.2× gives a comfortable margin.
-const BOUNDARY_OVERSIZE_FACTOR = 1.2;
-// Sites smaller than this are almost certainly an empty/unparseable workbook
-// rather than a real BNG submission.
-const MIN_GENERATED_AREA_SQ_M = 100;
+// EPSG:27700 (British National Grid) coords of Maidenhead, deep inside England
+// — used as the fallback Red Line Boundary centre when --centre isn't given.
+const DEFAULT_CENTRE_E = 530000;
+const DEFAULT_CENTRE_N = 180000;
 
-function generateRedLineBoundary(db, cx, cy, radius) {
-  const ring = generateIrregularPolygon(cx, cy, radius);
-  const geom = gpkgPolygon(SRS_ID, ring);
-  const area = polygonArea(ring);
-
-  db.prepare(
-    `INSERT INTO "Red Line Boundary" (geometry, "Area", "Site Name") VALUES (?, ?, ?)`,
-  ).run(geom, Math.round(area), SITE_NAME);
-
-  registerLayer(db, "Red Line Boundary", "POLYGON", envelopeFromCoords(ring));
-  return ring;
-}
-
-function generateHabitats(db, boundaryRing, numParcels) {
-  const parcels = partitionPolygon(boundaryRing, numParcels);
-
-  const stmt = db.prepare(`
-    INSERT INTO "Habitats" (
-      geometry, "Parcel Ref", "Baseline Broad Habitat Type", "Baseline Habitat Type",
-      "Area", "Baseline Condition", "Baseline Strategic Significance",
-      "Retention Category", "Proposed Broad Habitat Type", "Proposed Habitat Type",
-      "Proposed Condition", "Proposed Strategic Significance",
-      "Habitat created in advance/years", "Delay in starting habitat creation/years",
-      "Spatial risk category", "Location", "Site Name", "Survey Date",
-      "Survey Details", "Comment", "Mapped by", "Company", "Base Map",
-      "Baseline Distinctiveness", "Proposed Distinctiveness"
-    ) VALUES (${Array(25).fill("?").join(", ")})
-  `);
-
-  const allEnvelope = [Infinity, -Infinity, Infinity, -Infinity];
-
-  for (let i = 0; i < parcels.length; i++) {
-    const ring = parcels[i];
-    const geom = gpkgPolygon(SRS_ID, ring);
-    const env = envelopeFromCoords(ring);
-    expandEnvelope(allEnvelope, env);
-
-    const baseline = pick(HABITATS);
-    const retention = pick(RETENTION_CATEGORIES);
-    const proposedBroad =
-      retention === "Lost" ? pick(BROAD_HABITAT_TYPES) : baseline.broad;
-    const proposed =
-      retention === "Retained"
-        ? baseline
-        : pick(HABITATS_BY_BROAD[proposedBroad]);
-    const area = Math.round(polygonArea(ring));
-
-    stmt.run(
-      geom,
-      `H${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
-      baseline.broad,
-      baseline.type,
-      area,
-      pick(baseline.validConditions),
-      pick(STRATEGIC_SIGNIFICANCE),
-      retention,
-      proposed.broad,
-      proposed.type,
-      pick(proposed.validConditions),
-      pick(STRATEGIC_SIGNIFICANCE),
-      retention === "Created" ? String(randInt(0, 5)) : "0",
-      retention === "Created" ? String(randInt(0, 3)) : "0",
-      pick(SPATIAL_RISK_HABITAT),
-      pick(LOCATIONS),
-      SITE_NAME,
-      SURVEY_DATE,
-      "Phase 1 habitat survey",
-      null,
-      MAPPED_BY,
-      SURVEY_COMPANY,
-      BASE_MAP,
-      baseline.distinctiveness,
-      proposed.distinctiveness,
-    );
-  }
-
-  registerLayer(
-    db,
-    "Habitats",
-    "POLYGON",
-    parcels.length > 0 ? allEnvelope : null,
-  );
-}
-
-/**
- * Shared rejection-sampling driver for linestring layers (Hedgerows, Rivers).
- *
- * Picks linestrings via `generateLinestring`, rejects any whose vertices fall
- * outside the boundary, and inserts up to `count` accepted features. The
- * caller supplies the table name, prepared INSERT SQL, and a per-row builder
- * that maps `(coords, index)` to the bind values for that row.
- */
-function generateLineFeatures(
-  db,
-  boundaryRing,
-  count,
-  { tableName, sql, buildRow },
-) {
-  const stmt = db.prepare(sql);
-  const allEnvelope = [Infinity, -Infinity, Infinity, -Infinity];
-
-  let produced = 0;
-  let attempts = 0;
-  const maxAttempts = count * 20;
-  while (produced < count && attempts < maxAttempts) {
-    attempts++;
-    const coords = generateLinestring(boundaryRing);
-    if (!coords || !lineInsideRing(coords, boundaryRing)) continue;
-    expandEnvelope(allEnvelope, envelopeFromCoords(coords));
-    stmt.run(...buildRow(coords, produced));
-    produced++;
-  }
-
-  registerLayer(db, tableName, "LINESTRING", produced > 0 ? allEnvelope : null);
-}
-
-function generateHedgerows(db, boundaryRing, count) {
-  generateLineFeatures(db, boundaryRing, count, {
-    tableName: "Hedgerows",
-    sql: `
-      INSERT INTO "Hedgerows" (
-        geometry, "Parcel Ref", "Baseline Hedge Type", "Baseline Condition",
-        "Baseline Strategic Significance", "Retention Category",
-        "Proposed Hedge Type", "Proposed Condition", "Proposed Strategic Significance",
-        "Length", "Habitat created in advance/years",
-        "Delay in starting habitat creation/years", "Spatial risk category",
-        "Location", "Site Name", "Survey Date", "Survey Details", "Comments",
-        "Mapped by", "Company", "Base Map",
-        "Baseline Distinctiveness", "Proposed Distinctiveness"
-      ) VALUES (${Array(23).fill("?").join(", ")})
-    `,
-    buildRow: (coords, i) => {
-      const hedgeType = pick(HEDGE_TYPES);
-      const retention = pick(RETENTION_CATEGORIES);
-      return [
-        gpkgLineString(SRS_ID, coords),
-        `HG${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
-        hedgeType,
-        pick(HEDGE_CONDITIONS),
-        pick(STRATEGIC_SIGNIFICANCE),
-        retention,
-        retention === "Lost" ? pick(HEDGE_TYPES) : hedgeType,
-        pick(HEDGE_CONDITIONS),
-        pick(STRATEGIC_SIGNIFICANCE),
-        linestringLength(coords),
-        retention === "Created" ? String(randInt(0, 3)) : "0",
-        retention === "Created" ? String(randInt(0, 2)) : "0",
-        pick(SPATIAL_RISK_HABITAT),
-        pick(LOCATIONS),
-        SITE_NAME,
-        SURVEY_DATE,
-        "Hedgerow survey",
-        null,
-        MAPPED_BY,
-        SURVEY_COMPANY,
-        BASE_MAP,
-        pick(DISTINCTIVENESS),
-        pick(DISTINCTIVENESS),
-      ];
-    },
-  });
-}
-
-function generateRivers(db, boundaryRing, count) {
-  generateLineFeatures(db, boundaryRing, count, {
-    tableName: "Rivers",
-    sql: `
-      INSERT INTO "Rivers" (
-        geometry, "Parcel Ref", "Baseline River Type", "Baseline Condition",
-        "Baseline Strategic Significance",
-        "Baseline Encroachment into Watercourse",
-        "Baseline Encroachment into riparian zone",
-        "Retention Category", "Proposed River Type", "Proposed Condition",
-        "Proposed Strategic Significance", "Length",
-        "Habitat created in advance/years",
-        "Delay in starting habitat creation/years",
-        "Spatial risk category", "Location",
-        "Proposed Encroachment into Watercourse",
-        "Proposed Encroachment into riparian zone",
-        "Site Name", "Survey Date", "Survey Details", "Comments",
-        "Mapped by", "Company", "Base Map",
-        "Enhancement Type", "Baseline Distinctiveness", "Proposed Distinctiveness"
-      ) VALUES (${Array(28).fill("?").join(", ")})
-    `,
-    buildRow: (coords, i) => {
-      const riverType = pick(RIVER_TYPES);
-      const retention = pick(["Retained", "Enhanced"]);
-      return [
-        gpkgLineString(SRS_ID, coords),
-        `R${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
-        riverType,
-        pick(CONDITIONS),
-        pick(STRATEGIC_SIGNIFICANCE),
-        pick(ENCROACHMENT_WATERCOURSE),
-        pick(ENCROACHMENT_RIPARIAN),
-        retention,
-        riverType,
-        pick(CONDITIONS),
-        pick(STRATEGIC_SIGNIFICANCE),
-        linestringLength(coords),
-        "0",
-        "0",
-        pick(SPATIAL_RISK_RIVER),
-        pick(LOCATIONS),
-        pick(ENCROACHMENT_WATERCOURSE),
-        pick(ENCROACHMENT_RIPARIAN),
-        SITE_NAME,
-        SURVEY_DATE,
-        "River corridor survey",
-        null,
-        MAPPED_BY,
-        SURVEY_COMPANY,
-        BASE_MAP,
-        null,
-        pick(DISTINCTIVENESS),
-        pick(DISTINCTIVENESS),
-      ];
-    },
-  });
-}
-
-function generateUrbanTrees(db, boundaryRing, count) {
-  const treeSizes = ["Small", "Medium", "Large"];
-  const treeTypes = [
-    TREE_TYPE_STREET,
-    "Park/garden tree",
-    "Woodland tree",
-    "Hedgerow tree",
-  ];
-
-  const stmt = db.prepare(`
-    INSERT INTO "Urban Trees" (
-      geometry, "Tree Ref", "Baseline Tree Size", "Baseline Condition",
-      "Baseline Strategic Significance", "Baseline Tree Type",
-      "Retention Category", "Category",
-      "Proposed Tree Size", "Proposed Condition",
-      "Proposed Strategic Significance", "Proposed Tree Type",
-      "Location", "Habitat Created/Enhanced in advance/years",
-      "Delay in starting habitat creation/enhancement in years",
-      "Spatial risk category", "Site Name", "Survey Date",
-      "Survey Details", "Comment", "Mapped by", "Company", "Base Map",
-      "Count", "Baseline Rural or Urban Tree", "Proposed Rural or Urban Tree"
-    ) VALUES (${Array(26).fill("?").join(", ")})
-  `);
-
-  const allEnvelope = [Infinity, -Infinity, Infinity, -Infinity];
-
-  let produced = 0;
-  while (produced < count) {
-    const point = pickInteriorPoint(boundaryRing);
-    if (!point) break;
-    const [x, y] = point;
-    expandEnvelope(allEnvelope, [x, x, y, y]);
-
-    const size = pick(treeSizes);
-    const type = pick(treeTypes);
-    const retention = pick(["Retained", "Enhanced", "Lost"]);
-
-    stmt.run(
-      gpkgPoint(SRS_ID, x, y),
-      `T${String(produced + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
-      size,
-      pick(CONDITIONS),
-      pick(STRATEGIC_SIGNIFICANCE),
-      type,
-      retention,
-      retention === "Lost" ? "Lost" : "Retained",
-      retention === "Lost" ? pick(treeSizes) : size,
-      pick(CONDITIONS),
-      pick(STRATEGIC_SIGNIFICANCE),
-      retention === "Lost" ? pick(treeTypes) : type,
-      pick(LOCATIONS),
-      "0",
-      "0",
-      pick(SPATIAL_RISK_HABITAT),
-      SITE_NAME,
-      SURVEY_DATE,
-      "Tree survey",
-      null,
-      MAPPED_BY,
-      SURVEY_COMPANY,
-      BASE_MAP,
-      1,
-      "Urban",
-      "Urban",
-    );
-    produced++;
-  }
-
-  registerLayer(db, "Urban Trees", "POINT", produced > 0 ? allEnvelope : null);
-}
-
-// ---------------------------------------------------------------------------
-// SLD styles
-// ---------------------------------------------------------------------------
-
-/**
- * Wrap a symbolizer XML fragment in a complete SLD 1.0.0 document.
- *
- * @param {string} layerName - Layer name used in NamedLayer and UserStyle
- * @param {string} symbolizerXml - Inner symbolizer XML (e.g. PolygonSymbolizer)
- * @returns {string} Complete SLD XML document
- */
-function sld(layerName, symbolizerXml) {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<StyledLayerDescriptor version="1.0.0"
-  xmlns="http://www.opengis.net/sld"
-  xmlns:ogc="http://www.opengis.net/ogc">
-  <NamedLayer>
-    <Name>${layerName}</Name>
-    <UserStyle>
-      <Name>${layerName}</Name>
-      <FeatureTypeStyle>
-        <Rule>
-          ${symbolizerXml}
-        </Rule>
-      </FeatureTypeStyle>
-    </UserStyle>
-  </NamedLayer>
-</StyledLayerDescriptor>`;
-}
-
-/**
- * Generate an SLD document for a polygon layer.
- *
- * @param {string} name - Layer name
- * @param {string} fill - Fill colour as hex (e.g. "#FF0000")
- * @param {string} stroke - Stroke colour as hex
- * @param {number} [fillOpacity=0.5] - Fill opacity (0–1)
- * @param {number} [strokeWidth=1.5] - Stroke width in pixels
- * @returns {string} Complete SLD XML document
- */
-function polygonSld(name, fill, stroke, fillOpacity = 0.5, strokeWidth = 1.5) {
-  return sld(
-    name,
-    `<PolygonSymbolizer>
-            <Fill>
-              <CssParameter name="fill">${fill}</CssParameter>
-              <CssParameter name="fill-opacity">${fillOpacity}</CssParameter>
-            </Fill>
-            <Stroke>
-              <CssParameter name="stroke">${stroke}</CssParameter>
-              <CssParameter name="stroke-width">${strokeWidth}</CssParameter>
-            </Stroke>
-          </PolygonSymbolizer>`,
-  );
-}
-
-/**
- * Generate an SLD document for a line layer.
- *
- * @param {string} name - Layer name
- * @param {string} stroke - Stroke colour as hex (e.g. "#0000FF")
- * @param {number} [strokeWidth=2] - Stroke width in pixels
- * @returns {string} Complete SLD XML document
- */
-function lineSld(name, stroke, strokeWidth = 2) {
-  return sld(
-    name,
-    `<LineSymbolizer>
-            <Stroke>
-              <CssParameter name="stroke">${stroke}</CssParameter>
-              <CssParameter name="stroke-width">${strokeWidth}</CssParameter>
-            </Stroke>
-          </LineSymbolizer>`,
-  );
-}
-
-/**
- * Generate an SLD document for a point layer using a circle marker.
- *
- * @param {string} name - Layer name
- * @param {string} fill - Marker fill colour as hex
- * @param {string} stroke - Marker outline colour as hex
- * @param {number} [size=8] - Marker size in pixels
- * @returns {string} Complete SLD XML document
- */
-function pointSld(name, fill, stroke, size = 8) {
-  return sld(
-    name,
-    `<PointSymbolizer>
-            <Graphic>
-              <Mark>
-                <WellKnownName>circle</WellKnownName>
-                <Fill>
-                  <CssParameter name="fill">${fill}</CssParameter>
-                </Fill>
-                <Stroke>
-                  <CssParameter name="stroke">${stroke}</CssParameter>
-                  <CssParameter name="stroke-width">1</CssParameter>
-                </Stroke>
-              </Mark>
-              <Size>${size}</Size>
-            </Graphic>
-          </PointSymbolizer>`,
-  );
-}
-
-// ---------------------------------------------------------------------------
-// QML styles (QGIS native format — used for auto-loading)
-// ---------------------------------------------------------------------------
-
-/**
- * Convert a hex colour string to a comma-separated RGBA value for QML.
- *
- * @param {string} hex - Hex colour (e.g. "#FF0000")
- * @param {number} [alpha=255] - Alpha value (0–255)
- * @returns {string} RGBA string (e.g. "255,0,0,255")
- */
-function hexToRgba(hex, alpha = 255) {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `${r},${g},${b},${alpha}`;
-}
-
-/**
- * Generate a QGIS QML style document for a polygon layer.
- *
- * @param {string} fill - Fill colour as hex (e.g. "#FF0000")
- * @param {string} stroke - Stroke colour as hex
- * @param {number} [fillOpacity=0.5] - Fill opacity (0–1)
- * @param {number} [strokeWidth=1.5] - Stroke width in mm
- * @returns {string} Complete QML XML document
- */
-function polygonQml(fill, stroke, fillOpacity = 0.5, strokeWidth = 1.5) {
-  const fillAlpha = Math.round(fillOpacity * 255);
-  return `<!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>
-<qgis version="3.34" styleCategories="Symbology">
-  <renderer-v2 type="singleSymbol" symbollevels="0">
-    <symbols>
-      <symbol type="fill" name="0" alpha="1">
-        <layer class="SimpleFill">
-          <Option type="Map">
-            <Option type="QString" name="color" value="${hexToRgba(fill, fillAlpha)}"/>
-            <Option type="QString" name="outline_color" value="${hexToRgba(stroke)}"/>
-            <Option type="QString" name="outline_width" value="${strokeWidth}"/>
-            <Option type="QString" name="outline_width_unit" value="MM"/>
-            <Option type="QString" name="style" value="solid"/>
-            <Option type="QString" name="outline_style" value="solid"/>
-          </Option>
-        </layer>
-      </symbol>
-    </symbols>
-  </renderer-v2>
-</qgis>`;
-}
-
-/**
- * Generate a QGIS QML style document for a line layer.
- *
- * @param {string} stroke - Stroke colour as hex (e.g. "#0000FF")
- * @param {number} [strokeWidth=2] - Stroke width in mm
- * @returns {string} Complete QML XML document
- */
-function lineQml(stroke, strokeWidth = 2) {
-  return `<!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>
-<qgis version="3.34" styleCategories="Symbology">
-  <renderer-v2 type="singleSymbol" symbollevels="0">
-    <symbols>
-      <symbol type="line" name="0" alpha="1">
-        <layer class="SimpleLine">
-          <Option type="Map">
-            <Option type="QString" name="line_color" value="${hexToRgba(stroke)}"/>
-            <Option type="QString" name="line_width" value="${strokeWidth}"/>
-            <Option type="QString" name="line_width_unit" value="MM"/>
-            <Option type="QString" name="line_style" value="solid"/>
-            <Option type="QString" name="capstyle" value="round"/>
-            <Option type="QString" name="joinstyle" value="round"/>
-          </Option>
-        </layer>
-      </symbol>
-    </symbols>
-  </renderer-v2>
-</qgis>`;
-}
-
-/**
- * Generate a QGIS QML style document for a point layer using a circle marker.
- *
- * @param {string} fill - Marker fill colour as hex
- * @param {string} stroke - Marker outline colour as hex
- * @param {number} [size=4] - Marker size in mm
- * @returns {string} Complete QML XML document
- */
-function pointQml(fill, stroke, size = 4) {
-  return `<!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>
-<qgis version="3.34" styleCategories="Symbology">
-  <renderer-v2 type="singleSymbol" symbollevels="0">
-    <symbols>
-      <symbol type="marker" name="0" alpha="1">
-        <layer class="SimpleMarker">
-          <Option type="Map">
-            <Option type="QString" name="color" value="${hexToRgba(fill)}"/>
-            <Option type="QString" name="outline_color" value="${hexToRgba(stroke)}"/>
-            <Option type="QString" name="outline_width" value="0.4"/>
-            <Option type="QString" name="size" value="${size}"/>
-            <Option type="QString" name="size_unit" value="MM"/>
-            <Option type="QString" name="name" value="circle"/>
-          </Option>
-        </layer>
-      </symbol>
-    </symbols>
-  </renderer-v2>
-</qgis>`;
-}
-
-// Style tunables — bundled here so the LAYER_STYLES table reads as
-// configuration rather than a soup of bare literals.
-const REDLINE_FILL_OPACITY = 0.2; // see-through, so habitats remain visible
-const REDLINE_STROKE_WIDTH = 2.5;
-const HEDGEROW_STROKE_WIDTH = 3;
-const RIVER_STROKE_WIDTH = 2.5;
-const URBAN_TREE_SLD_SIZE = 8;
-const URBAN_TREE_QML_SIZE = 4;
-
-const LAYER_STYLES = [
-  {
-    table: "Red Line Boundary",
-    sld: polygonSld(
-      "Red Line Boundary",
-      "#FF0000",
-      "#CC0000",
-      REDLINE_FILL_OPACITY,
-      REDLINE_STROKE_WIDTH,
-    ),
-    qml: polygonQml(
-      "#FF0000",
-      "#CC0000",
-      REDLINE_FILL_OPACITY,
-      REDLINE_STROKE_WIDTH,
-    ),
-  },
-  {
-    table: "Habitats",
-    sld: polygonSld("Habitats", "#FFB74D", "#F57C00"),
-    qml: polygonQml("#FFB74D", "#F57C00"),
-  },
-  {
-    table: "Hedgerows",
-    sld: lineSld("Hedgerows", "#2E7D32", HEDGEROW_STROKE_WIDTH),
-    qml: lineQml("#2E7D32", HEDGEROW_STROKE_WIDTH),
-  },
-  {
-    table: "Rivers",
-    sld: lineSld("Rivers", "#1565C0", RIVER_STROKE_WIDTH),
-    qml: lineQml("#1565C0", RIVER_STROKE_WIDTH),
-  },
-  {
-    table: "Urban Trees",
-    sld: pointSld("Urban Trees", "#8D6E63", "#4E342E", URBAN_TREE_SLD_SIZE),
-    qml: pointQml("#8D6E63", "#4E342E", URBAN_TREE_QML_SIZE),
-  },
-];
-
-/**
- * Create the `layer_styles` table and insert default styles for all layers.
- *
- * Stores both QML (for QGIS auto-loading) and SLD (for portability to other
- * GIS tools) in each row.
- *
- * @param {import("better-sqlite3").Database} db - An open better-sqlite3 database
- */
-function createLayerStyles(db) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS layer_styles (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      f_table_catalog TEXT DEFAULT '',
-      f_table_schema TEXT DEFAULT '',
-      f_table_name TEXT NOT NULL,
-      f_geometry_column TEXT,
-      styleName TEXT,
-      styleQML TEXT,
-      styleSLD TEXT,
-      useAsDefault BOOLEAN DEFAULT 1,
-      description TEXT DEFAULT '',
-      owner TEXT DEFAULT '',
-      ui TEXT,
-      update_time DATETIME DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-    );
-  `);
-
-  const stmt = db.prepare(`
-    INSERT INTO layer_styles (f_table_name, f_geometry_column, styleName, styleQML, styleSLD, useAsDefault)
-    VALUES (?, 'geometry', ?, ?, ?, 1)
-  `);
-
-  for (const style of LAYER_STYLES) {
-    stmt.run(style.table, style.table, style.qml, style.sld);
-  }
-}
+// CLI defaults when --size / --count are missing or non-numeric.
+const DEFAULT_SYNTHETIC_SIZE = 50;
+const DEFAULT_RUN_COUNT = 1;
+const PARSE_INT_BASE_10 = 10;
 
 // ---------------------------------------------------------------------------
 // Workbook source resolution: turn a path-or-URL into a local file path,
@@ -1667,13 +200,17 @@ function rewriteGithubBlobUrl(url) {
   const m = url.match(
     /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/,
   );
-  if (!m) return url;
+  if (!m) {
+    return url;
+  }
   const [, owner, repo, ref, p] = m;
   return `https://media.githubusercontent.com/media/${owner}/${repo}/${ref}/${p}`;
 }
 
 async function downloadToCache(url) {
-  if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
+  if (!existsSync(CACHE_DIR)) {
+    mkdirSync(CACHE_DIR, { recursive: true });
+  }
   const hash = createHash("sha256").update(url).digest("hex").slice(0, 16);
   const ext = path.extname(new URL(url).pathname) || ".xlsx";
   const cached = path.join(CACHE_DIR, `${hash}${ext}`);
@@ -1721,491 +258,300 @@ async function resolveWorkbookSource(ref) {
 }
 
 // ---------------------------------------------------------------------------
-// Workbook → habitat rows: combine baseline / enhancement / creation entries
-// from a metric workbook into the rows our Habitats layer needs (one row per
-// physical land parcel, with both baseline and proposed columns populated).
+// Workbook-driven orchestration: produce a baseline file, optionally produce
+// a post-intervention file that reuses the baseline's geometry.
 // ---------------------------------------------------------------------------
 
-// Synthetic "before" attributes used for workbook rows in retention="Created".
-// The metric workbook's A-2 sheet records only what's *being created*; the
-// pre-development state isn't captured. We use a generic "developed land"
-// baseline, which is what most created parcels in real planning applications
-// genuinely succeed.
-const CREATED_BASELINE = {
-  broad: "Urban",
-  type: "Developed land; sealed surface",
-  distinctiveness: "V.Low",
-  condition: "N/A - Other",
-  strategicSig: "Area/compensation not in local strategy/ no local strategy",
-};
+/**
+ * Generate the baseline GeoPackage. Lays out the RLB, partitions habitats,
+ * picks linear feature routes and tree positions. Returns the geometry it
+ * produced so the post-intervention pass can derive from it.
+ */
+function generateBaselineFile(outPath, _workbook, baselineRows, plan, centre) {
+  const [cx, cy] = centre;
+  const db = openGeoPackage(outPath);
+  createAllTables(db);
 
-function isHabitatConditionValid(broad, type, condition) {
-  const key = `${broad} - ${type}`;
-  if (!metricDistinctiveness[key]) return false;
-  const conds = metricConditionScores[key];
-  if (!conds) return false;
-  const v = conds[condition];
-  return typeof v === "number";
+  const ring = generateRedLineBoundaryFromArea(db, cx, cy, plan.totalAreaM2);
+
+  const { cells: habitatCells, byRef: habitatCellsByRef } =
+    partitionBaselineHabitats(ring, baselineRows.habitats);
+  const habitatsWritten = writeHabitatsBaseline(db, habitatCells, baselineRows.habitats);
+
+  const { coordsList: hedgeCoords, byRef: hedgeCoordsByRef } =
+    generateBaselineHedgerowGeometry(ring, baselineRows.hedgerows);
+  const hedgesWritten = writeHedgerowsBaseline(db, hedgeCoords, baselineRows.hedgerows);
+
+  const { coordsList: riverCoords, byRef: riverCoordsByRef } =
+    generateBaselineRiverGeometry(ring, baselineRows.rivers);
+  const riversWritten = writeRiversBaseline(db, riverCoords, baselineRows.rivers);
+
+  const { points: treePoints, byRef: treePointsByRef } =
+    generateBaselineTreePoints(ring, baselineRows.trees);
+  const treesWritten = writeUrbanTreesBaseline(db, treePoints, baselineRows.trees);
+
+  createLayerStyles(db);
+  db.close();
+
+  return {
+    ring,
+    habitatCellsByRef,
+    hedgeCoordsByRef,
+    riverCoordsByRef,
+    treePointsByRef,
+    written: {
+      habitats: habitatsWritten,
+      hedgerows: hedgesWritten,
+      rivers: riversWritten,
+      trees: treesWritten,
+    },
+  };
 }
 
-function buildHabitatRowsFromWorkbook(wb, { strict = false } = {}) {
-  const enhMap = new Map();
-  for (const e of wb.habitats.enhancements) {
-    enhMap.set(String(e.baselineRef), e);
-  }
+/**
+ * Generate the post-intervention GeoPackage, reusing the baseline RLB and
+ * deriving each layer's geometry from the baseline's.
+ */
+function generatePostInterventionFile(outPath, workbook, postRows, baselineGeom, plan) {
+  const db = openGeoPackage(outPath);
+  createAllTables(db);
 
-  const rows = [];
-  let nextRef = 1;
-  const skipReasons = [];
-
-  for (const b of wb.habitats.baseline) {
-    const enh = enhMap.get(String(b.ref));
-    const proposed = enh
-      ? {
-          broad: enh.proposedBroad,
-          type: enh.proposedType,
-          distinctiveness: enh.proposedDistinctiveness,
-          condition: enh.proposedCondition,
-          strategicSig: enh.proposedStrategicSignificance,
-          advanceYears: enh.advanceYears,
-          delayYears: enh.delayYears,
-        }
-      : {
-          broad: b.broad,
-          type: b.type,
-          distinctiveness: b.distinctiveness,
-          condition: b.condition,
-          strategicSig: b.strategicSignificance,
-          advanceYears: 0,
-          delayYears: 0,
-        };
-
-    if (
-      strict &&
-      (!isHabitatConditionValid(b.broad, b.type, b.condition) ||
-        !isHabitatConditionValid(
-          proposed.broad,
-          proposed.type,
-          proposed.condition,
-        ))
-    ) {
-      skipReasons.push(
-        `baseline ref ${b.ref}: invalid (habitat, condition) under --strict-habitats`,
-      );
-      continue;
-    }
-
-    const refIndex = nextRef;
-    nextRef += 1;
-    rows.push({
-      ref: `H${String(refIndex).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
-      retention: enh ? "Enhanced" : "Retained",
-      area: b.area,
-      baseline: {
-        broad: b.broad,
-        type: b.type,
-        distinctiveness: b.distinctiveness,
-        condition: b.condition,
-        strategicSig: b.strategicSignificance,
-      },
-      proposed,
-    });
-  }
-
-  for (const c of wb.habitats.created) {
-    if (strict && !isHabitatConditionValid(c.broad, c.type, c.condition)) {
-      skipReasons.push(
-        `created ref ${c.ref}: invalid (habitat, condition) under --strict-habitats`,
-      );
-      continue;
-    }
-    const refIndex = nextRef;
-    nextRef += 1;
-    rows.push({
-      ref: `H${String(refIndex).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
-      retention: "Created",
-      area: c.area,
-      baseline: { ...CREATED_BASELINE },
-      proposed: {
-        broad: c.broad,
-        type: c.type,
-        distinctiveness: c.distinctiveness,
-        condition: c.condition,
-        strategicSig: c.strategicSignificance,
-        advanceYears: c.advanceYears,
-        delayYears: c.delayYears,
-      },
-    });
-  }
-
-  return { rows, skipReasons };
-}
-
-// ---------------------------------------------------------------------------
-// Workbook-driven layer generators (parallel to the synthetic versions but
-// reading attributes and target geometry sizes from the workbook).
-// ---------------------------------------------------------------------------
-
-function generateRedLineBoundaryFromArea(db, cx, cy, totalAreaM2) {
-  // Convex hull of random points in an annulus has area ≈ 0.85 × π × r²
-  // (depends on n, but stable for n=18). Solve for radius that gives the
-  // requested total area.
-  const targetRingArea = Math.max(totalAreaM2, 1000); // floor at 0.1 ha for tiny sites
-  const radius = Math.sqrt(targetRingArea / (0.85 * Math.PI));
-  let ring = generateIrregularPolygon(cx, cy, radius);
-  // Adjust to exact area in case the random hull was unlucky.
-  ring = scaleRingToArea(ring, targetRingArea);
-
+  // Reuse the exact baseline ring rather than regenerating, so the two files
+  // share an identical RLB (story acceptance criterion).
+  const ring = baselineGeom.ring;
   const geom = gpkgPolygon(SRS_ID, ring);
-  const area = polygonArea(ring);
-  db.prepare(
-    `INSERT INTO "Red Line Boundary" (geometry, "Area", "Site Name") VALUES (?, ?, ?)`,
-  ).run(geom, Math.round(area), SITE_NAME);
+  db.prepare(`INSERT INTO "Red Line Boundary" (geometry, "Area", "Site Name") VALUES (?, ?, ?)`)
+    .run(geom, Math.round(polygonArea(ring)), plan.siteName);
   registerLayer(db, "Red Line Boundary", "POLYGON", envelopeFromCoords(ring));
-  return ring;
-}
 
-function generateHabitatsFromWorkbook(db, boundaryRing, rows) {
-  const stmt = db.prepare(`
-    INSERT INTO "Habitats" (
-      geometry, "Parcel Ref", "Baseline Broad Habitat Type", "Baseline Habitat Type",
-      "Area", "Baseline Condition", "Baseline Strategic Significance",
-      "Retention Category", "Proposed Broad Habitat Type", "Proposed Habitat Type",
-      "Proposed Condition", "Proposed Strategic Significance",
-      "Habitat created in advance/years", "Delay in starting habitat creation/years",
-      "Spatial risk category", "Location", "Site Name", "Survey Date",
-      "Survey Details", "Comment", "Mapped by", "Company", "Base Map",
-      "Baseline Distinctiveness", "Proposed Distinctiveness"
-    ) VALUES (${Array(25).fill("?").join(", ")})
-  `);
-
-  if (rows.length === 0) {
-    registerLayer(db, "Habitats", "POLYGON", null);
-    return 0;
-  }
-
-  // Excel areas are in hectares; convert to m² to match the polygon area unit.
-  const targetAreasM2 = rows.map((r) => r.area * 10000);
-  const cells = partitionPolygonByAreas(boundaryRing, targetAreasM2);
-
-  const allEnvelope = [Infinity, -Infinity, Infinity, -Infinity];
-  let written = 0;
-  for (let i = 0; i < rows.length; i++) {
-    const r = rows[i];
-    const cell = cells[i];
-    if (!cell) continue;
-    const geom = gpkgPolygon(SRS_ID, cell);
-    expandEnvelope(allEnvelope, envelopeFromCoords(cell));
-    stmt.run(
-      geom,
-      r.ref,
-      r.baseline.broad,
-      r.baseline.type,
-      Math.round(polygonArea(cell)),
-      r.baseline.condition,
-      r.baseline.strategicSig,
-      r.retention,
-      r.proposed.broad,
-      r.proposed.type,
-      r.proposed.condition,
-      r.proposed.strategicSig,
-      String(r.proposed.advanceYears ?? 0),
-      String(r.proposed.delayYears ?? 0),
-      pick(SPATIAL_RISK_HABITAT),
-      "On-site",
-      SITE_NAME,
-      SURVEY_DATE,
-      WORKBOOK_SURVEY_DETAILS,
-      null,
-      WORKBOOK_IMPORT_LABEL,
-      WORKBOOK_IMPORT_LABEL,
-      BASE_MAP,
-      r.baseline.distinctiveness,
-      r.proposed.distinctiveness,
-    );
-    written++;
-  }
-  registerLayer(db, "Habitats", "POLYGON", written > 0 ? allEnvelope : null);
-  return written;
-}
-
-/**
- * Generate a linestring with vertices inside `boundaryRing` whose total
- * length is approximately `targetLengthM`. Picks a random interior start
- * point, then a random direction, lays the end point at `targetLengthM`
- * along that direction, and inserts 1–2 lightly-offset midpoints. Retries
- * if either endpoint falls outside the boundary.
- */
-function generateLinestringOfLength(
-  boundaryRing,
-  targetLengthM,
-  maxAttempts = 20,
-) {
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const start = pickInteriorPoint(boundaryRing);
-    if (!start) return null;
-    const angle = Math.random() * 2 * Math.PI;
-    const end = [
-      start[0] + targetLengthM * Math.cos(angle),
-      start[1] + targetLengthM * Math.sin(angle),
-    ];
-    if (!pointInRing(end, boundaryRing)) continue;
-
-    const dx = end[0] - start[0];
-    const dy = end[1] - start[1];
-    const px = -dy / targetLengthM;
-    const py = dx / targetLengthM;
-    const numMid = 1 + randInt(0, 2);
-    const maxOffset = targetLengthM * 0.05;
-    const points = [start];
-    for (let i = 1; i <= numMid; i++) {
-      const t = i / (numMid + 1);
-      const offset = randBetween(-maxOffset, maxOffset);
-      const mid = [
-        start[0] + dx * t + px * offset,
-        start[1] + dy * t + py * offset,
-      ];
-      if (!pointInRing(mid, boundaryRing)) {
-        points.length = 0;
-        break;
-      }
-      points.push(mid);
-    }
-    if (points.length === 0) continue;
-    points.push(end);
-    return points;
-  }
-  return null;
-}
-
-function generateHedgerowsFromWorkbook(db, boundaryRing, baseline, created) {
-  const stmt = db.prepare(`
-    INSERT INTO "Hedgerows" (
-      geometry, "Parcel Ref", "Baseline Hedge Type", "Baseline Condition",
-      "Baseline Strategic Significance", "Retention Category",
-      "Proposed Hedge Type", "Proposed Condition", "Proposed Strategic Significance",
-      "Length", "Habitat created in advance/years",
-      "Delay in starting habitat creation/years", "Spatial risk category",
-      "Location", "Site Name", "Survey Date", "Survey Details", "Comments",
-      "Mapped by", "Company", "Base Map",
-      "Baseline Distinctiveness", "Proposed Distinctiveness"
-    ) VALUES (${Array(23).fill("?").join(", ")})
-  `);
-  const allEnvelope = [Infinity, -Infinity, Infinity, -Infinity];
-  let written = 0;
-
-  const records = [
-    ...baseline.map((h) => ({
-      retention: "Retained",
-      hedge: h,
-      isCreated: false,
-    })),
-    ...created.map((h) => ({
-      retention: "Created",
-      hedge: h,
-      isCreated: true,
-    })),
-  ];
-  for (let i = 0; i < records.length; i++) {
-    const { retention, hedge, isCreated } = records[i];
-    const coords = generateLinestringOfLength(boundaryRing, hedge.lengthM);
-    if (!coords) continue;
-    const geom = gpkgLineString(SRS_ID, coords);
-    expandEnvelope(allEnvelope, envelopeFromCoords(coords));
-    stmt.run(
-      geom,
-      `HG${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
-      isCreated ? "(Created)" : hedge.type,
-      hedge.condition ?? "Moderate",
-      hedge.strategicSignificance ??
-        "Area/compensation not in local strategy/ no local strategy",
-      retention,
-      hedge.type,
-      hedge.condition ?? "Moderate",
-      hedge.strategicSignificance ??
-        "Area/compensation not in local strategy/ no local strategy",
-      hedge.lengthM,
-      "0",
-      "0",
-      "Compensation inside LPA boundary or NCA of impact site",
-      "On-site",
-      SITE_NAME,
-      SURVEY_DATE,
-      WORKBOOK_SURVEY_DETAILS,
-      null,
-      WORKBOOK_IMPORT_LABEL,
-      WORKBOOK_IMPORT_LABEL,
-      BASE_MAP,
-      hedge.distinctiveness ?? "Medium",
-      hedge.distinctiveness ?? "Medium",
-    );
-    written++;
-  }
-  registerLayer(
-    db,
-    "Hedgerows",
-    "LINESTRING",
-    written > 0 ? allEnvelope : null,
+  const habitatCells = derivePostInterventionHabitatCells(
+    baselineGeom.habitatCellsByRef,
+    workbook.habitats.baseline,
+    postRows.habitats,
+    postRows.warnings,
   );
-  return written;
+  const habitatsWritten = writeHabitatsPostIntervention(db, habitatCells, postRows.habitats);
+
+  const hedgeCoords = derivePostInterventionLinearCoords(ring, baselineGeom.hedgeCoordsByRef, postRows.hedgerows);
+  const hedgesWritten = writeHedgerowsPostIntervention(db, hedgeCoords, postRows.hedgerows);
+
+  const riverCoords = derivePostInterventionLinearCoords(ring, baselineGeom.riverCoordsByRef, postRows.rivers);
+  const riversWritten = writeRiversPostIntervention(db, riverCoords, postRows.rivers);
+
+  const treePoints = derivePostInterventionTreePoints(ring, baselineGeom.treePointsByRef, postRows.trees);
+  const treesWritten = writeUrbanTreesPostIntervention(db, treePoints, postRows.trees);
+
+  createLayerStyles(db);
+  db.close();
+
+  return {
+    written: {
+      habitats: habitatsWritten,
+      hedgerows: hedgesWritten,
+      rivers: riversWritten,
+      trees: treesWritten,
+    },
+  };
 }
 
-function generateRiversFromWorkbook(db, boundaryRing, baseline, created) {
-  const stmt = db.prepare(`
-    INSERT INTO "Rivers" (
-      geometry, "Parcel Ref", "Baseline River Type", "Baseline Condition",
-      "Baseline Strategic Significance",
-      "Baseline Encroachment into Watercourse",
-      "Baseline Encroachment into riparian zone",
-      "Retention Category", "Proposed River Type", "Proposed Condition",
-      "Proposed Strategic Significance", "Length",
-      "Habitat created in advance/years",
-      "Delay in starting habitat creation/years",
-      "Spatial risk category", "Location",
-      "Proposed Encroachment into Watercourse",
-      "Proposed Encroachment into riparian zone",
-      "Site Name", "Survey Date", "Survey Details", "Comments",
-      "Mapped by", "Company", "Base Map",
-      "Enhancement Type", "Baseline Distinctiveness", "Proposed Distinctiveness"
-    ) VALUES (${Array(28).fill("?").join(", ")})
-  `);
-  const allEnvelope = [Infinity, -Infinity, Infinity, -Infinity];
-  let written = 0;
+function logWorkbookFixtureBanner({
+  workbook,
+  sourceLabel,
+  centre,
+  outPath,
+  habitatRows,
+  plan,
+  mode,
+}) {
+  header(`Generating BNG GeoPackage from workbook`, "cyan");
+  info(`  source: ${sourceLabel}`);
+  info(
+    `  site: ${plan.siteName} (${workbook.siteInfo.planningAuthority ?? "unknown LPA"})`,
+  );
+  info(`  mode: ${mode ?? MODE_BOTH}`);
+  info(
+    `  total area: ${plan.totalAreaHa.toFixed(4)} ha (${Math.round(plan.totalAreaM2)} m²)`,
+  );
+  info(
+    `  habitats: ${habitatRows.length} (${workbook.habitats.baseline.length} baseline, ` +
+      `${workbook.habitats.created.length} created, ${workbook.habitats.enhancements.length} enhanced)`,
+  );
+  info(
+    `  hedgerows: ${workbook.hedgerows.baseline.length} baseline + ${workbook.hedgerows.created.length} created`,
+  );
+  info(
+    `  rivers: ${workbook.watercourses.baseline.length} baseline + ${workbook.watercourses.created.length} created`,
+  );
+  info(
+    `  trees: ${workbook.trees.baseline.length} baseline + ${workbook.trees.created.length} created`,
+  );
+  info(`  centre: ${centre[0]},${centre[1]} (BNG)`);
+  info(`  → ${outPath}`);
+}
 
-  const records = [
-    ...baseline.map((r) => ({ retention: "Retained", river: r })),
-    ...created.map((r) => ({ retention: "Created", river: r })),
-  ];
-  for (let i = 0; i < records.length; i++) {
-    const { retention, river } = records[i];
-    const coords = generateLinestringOfLength(boundaryRing, river.lengthM);
-    if (!coords) continue;
-    const geom = gpkgLineString(SRS_ID, coords);
-    expandEnvelope(allEnvelope, envelopeFromCoords(coords));
-    stmt.run(
-      geom,
-      `R${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
-      river.type,
-      river.condition ?? "Moderate",
-      river.strategicSignificance ?? "Within waterbody catchment",
-      "No Encroachment",
-      "No Encroachment/No Encroachment",
-      retention,
-      river.type,
-      river.condition ?? "Moderate",
-      river.strategicSignificance ?? "Within waterbody catchment",
-      river.lengthM,
-      "0",
-      "0",
-      "Within waterbody catchment",
-      "On-site",
-      "No Encroachment",
-      "No Encroachment/No Encroachment",
-      SITE_NAME,
-      SURVEY_DATE,
-      WORKBOOK_SURVEY_DETAILS,
-      null,
-      WORKBOOK_IMPORT_LABEL,
-      WORKBOOK_IMPORT_LABEL,
-      BASE_MAP,
-      null,
-      river.distinctiveness ?? "Medium",
-      river.distinctiveness ?? "Medium",
-    );
-    written++;
+function logWorkbookFileSummary(label, written, outPath) {
+  info(
+    `  ${label}: ${written.habitats} habitats, ${written.hedgerows} hedgerows, ${written.rivers} rivers, ${written.trees} trees → ${outPath}`,
+  );
+}
+
+function surfaceWorkbookWarnings(workbook, baselineRows, postRows) {
+  for (const w of workbook.summary.warnings) {
+    warn(`  ${w}`);
   }
-  registerLayer(db, "Rivers", "LINESTRING", written > 0 ? allEnvelope : null);
-  return written;
-}
-
-function generateUrbanTreesFromWorkbook(db, boundaryRing, baseline, created) {
-  const stmt = db.prepare(`
-    INSERT INTO "Urban Trees" (
-      geometry, "Tree Ref", "Baseline Tree Size", "Baseline Condition",
-      "Baseline Strategic Significance", "Baseline Tree Type",
-      "Retention Category", "Category",
-      "Proposed Tree Size", "Proposed Condition",
-      "Proposed Strategic Significance", "Proposed Tree Type",
-      "Location", "Habitat Created/Enhanced in advance/years",
-      "Delay in starting habitat creation/enhancement in years",
-      "Spatial risk category", "Site Name", "Survey Date",
-      "Survey Details", "Comment", "Mapped by", "Company", "Base Map",
-      "Count", "Baseline Rural or Urban Tree", "Proposed Rural or Urban Tree"
-    ) VALUES (${Array(26).fill("?").join(", ")})
-  `);
-  const allEnvelope = [Infinity, -Infinity, Infinity, -Infinity];
-  let written = 0;
-
-  const records = [
-    ...baseline.map((t) => ({ retention: "Retained", tree: t })),
-    ...created.map((t) => ({ retention: "Created", tree: t })),
-  ];
-  for (let i = 0; i < records.length; i++) {
-    const { retention, tree } = records[i];
-    const point = pickInteriorPoint(boundaryRing);
-    if (!point) continue;
-    const [x, y] = point;
-    expandEnvelope(allEnvelope, [x, x, y, y]);
-    stmt.run(
-      gpkgPoint(SRS_ID, x, y),
-      `T${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
-      "Medium",
-      tree.condition ?? "Moderate",
-      tree.strategicSignificance ??
-        "Area/compensation not in local strategy/ no local strategy",
-      tree.type,
-      retention,
-      retention === "Lost" ? "Lost" : "Retained",
-      "Medium",
-      tree.condition ?? "Moderate",
-      tree.strategicSignificance ??
-        "Area/compensation not in local strategy/ no local strategy",
-      tree.type,
-      "On-site",
-      "0",
-      "0",
-      "Compensation inside LPA boundary or NCA of impact site",
-      SITE_NAME,
-      SURVEY_DATE,
-      WORKBOOK_SURVEY_DETAILS,
-      null,
-      WORKBOOK_IMPORT_LABEL,
-      WORKBOOK_IMPORT_LABEL,
-      BASE_MAP,
-      1,
-      "Urban",
-      "Urban",
-    );
-    written++;
+  for (const s of workbook.summary.skipped) {
+    warn(`  skipped ${s.sheet}:${s.row} (${s.reason})`);
   }
-  registerLayer(db, "Urban Trees", "POINT", written > 0 ? allEnvelope : null);
-  return written;
+  for (const r of baselineRows.skipReasons) {
+    warn(`  ${r}`);
+  }
+  if (postRows) {
+    for (const r of postRows.skipReasons) {
+      warn(`  ${r}`);
+    }
+    for (const r of postRows.warnings) {
+      warn(`  ${r}`);
+    }
+  }
 }
 
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
+function bannerOutPath(outPaths, mode) {
+  if (mode === MODE_BOTH) {
+    return `${outPaths.baseline} + ${outPaths.postIntervention}`;
+  }
+  return outPaths.baseline ?? outPaths.postIntervention;
+}
 
-/**
- * Prompt the user with a yes/no question on stdin.
- *
- * @param {string} question - The prompt text to display
- * @returns {Promise<boolean>} Resolves true if the user answered yes
- */
-function confirm(question) {
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
-      rl.close();
-      resolve(answer.trim().toLowerCase().startsWith("y"));
-    });
+function generateFromWorkbook(
+  outPaths,
+  workbook,
+  sourceLabel,
+  { strict = false, centre, mode = MODE_BOTH } = {},
+) {
+  const baselineRows = buildBaselineRows(workbook, { strict });
+  const postRows = mode === MODE_BASELINE ? null : buildPostInterventionRows(workbook, { strict });
+
+  // Use the baseline habitat areas (not the post-intervention sub-areas) to
+  // size the RLB so it can hold the full pre-development site.
+  const habitatRowsForSizing = baselineRows.habitats.map((r) => ({ area: r.area }));
+  const plan = computeWorkbookFixturePlan(workbook, habitatRowsForSizing);
+
+  logWorkbookFixtureBanner({
+    workbook,
+    sourceLabel,
+    centre,
+    outPath: bannerOutPath(outPaths, mode),
+    habitatRows: baselineRows.habitats,
+    plan,
+    mode,
   });
+
+  if (plan.totalAreaM2 < MIN_GENERATED_AREA_SQ_M) {
+    warn(
+      `  total area is < ${MIN_GENERATED_AREA_SQ_M} m² — workbook may be empty or unparseable; aborting`,
+    );
+    return false;
+  }
+
+  // We always need baseline geometry — it's the input to post-intervention
+  // derivation. If the user asked for post-intervention only, the baseline
+  // pipeline still runs but writes to an in-memory throwaway db.
+  const baselineDest = mode === MODE_POST_INTERVENTION ? ":memory:" : outPaths.baseline;
+  const baselineGeom = generateBaselineFile(baselineDest, workbook, baselineRows, plan, centre);
+  if (mode !== MODE_POST_INTERVENTION) {
+    logWorkbookFileSummary("baseline", baselineGeom.written, outPaths.baseline);
+  }
+
+  if (mode !== MODE_BASELINE) {
+    const postWritten = generatePostInterventionFile(
+      outPaths.postIntervention,
+      workbook,
+      postRows,
+      baselineGeom,
+      plan,
+    );
+    logWorkbookFileSummary("post-intervention", postWritten.written, outPaths.postIntervention);
+  }
+
+  surfaceWorkbookWarnings(workbook, baselineRows, postRows);
+  console.log(color("green", `✔ Done.`));
+  return true;
 }
 
-// EPSG:27700 (British National Grid) coords of Maidenhead, deep inside England
-// — used as the fallback Red Line Boundary centre when --centre isn't given.
-const DEFAULT_CENTRE_E = 530000;
-const DEFAULT_CENTRE_N = 180000;
+function timestampSuffix(d = new Date()) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
+}
+
+function workbookOutputNames(source) {
+  // Strip trailing query/hash, keep last path segment, replace extension.
+  const url = source.replace(/[?#].*$/, "");
+  const base = path.basename(url).replace(/\.(xlsx|xlsm|xls)$/i, "") || "bng-from-workbook";
+  const ts = timestampSuffix();
+  return {
+    baseline: `${base}-baseline-${ts}.gpkg`,
+    postIntervention: `${base}-post-intervention-${ts}.gpkg`,
+  };
+}
+
+async function runFromWorkbook(source, { strict, inspect, centre, mode }) {
+  if (!existsSync(OUT_DIR)) {
+    mkdirSync(OUT_DIR, { recursive: true });
+  }
+  const localPath = await resolveWorkbookSource(source);
+  const workbook = readMetricWorkbook(localPath);
+
+  if (inspect) {
+    const summary = {
+      source,
+      resolvedPath: localPath,
+      version: workbook.version,
+      siteInfo: workbook.siteInfo,
+      counts: {
+        habitats: {
+          baseline: workbook.habitats.baseline.length,
+          created: workbook.habitats.created.length,
+          enhancements: workbook.habitats.enhancements.length,
+        },
+        hedgerows: {
+          baseline: workbook.hedgerows.baseline.length,
+          created: workbook.hedgerows.created.length,
+          enhancements: workbook.hedgerows.enhancements.length,
+        },
+        watercourses: {
+          baseline: workbook.watercourses.baseline.length,
+          created: workbook.watercourses.created.length,
+          enhancements: workbook.watercourses.enhancements.length,
+        },
+        trees: {
+          baseline: workbook.trees.baseline.length,
+          created: workbook.trees.created.length,
+        },
+      },
+      summary: workbook.summary,
+    };
+    console.log(JSON.stringify(summary, null, 2));
+    return;
+  }
+
+  const names = workbookOutputNames(source);
+  const outPaths = {
+    baseline: path.join(OUT_DIR, names.baseline),
+    postIntervention: path.join(OUT_DIR, names.postIntervention),
+  };
+  if (mode !== MODE_POST_INTERVENTION && existsSync(outPaths.baseline)) {
+    unlinkSync(outPaths.baseline);
+  }
+  if (mode !== MODE_BASELINE && existsSync(outPaths.postIntervention)) {
+    unlinkSync(outPaths.postIntervention);
+  }
+
+  generateFromWorkbook(outPaths, workbook, source, { strict, centre, mode });
+}
+
+// ---------------------------------------------------------------------------
+// Centre parsing
+// ---------------------------------------------------------------------------
 
 /**
  * Parse the --centre "easting,northing" CLI value. Returns null when the
@@ -2238,1021 +584,54 @@ function parseCentre(value) {
   return [e, n];
 }
 
-const SYNTHETIC_RLB_RADIUS = 400;
+// ---------------------------------------------------------------------------
+// Synthetic-mode interactive overwrite prompt
+// ---------------------------------------------------------------------------
 
-function computeLayerCounts(numParcels, emptyLayers) {
-  const ifEmpty = (key, value) => (emptyLayers.has(key) ? 0 : value);
-  return {
-    numHabitats: ifEmpty("habitats", numParcels),
-    numHedgerows: ifEmpty(
-      "hedgerows",
-      Math.max(HEDGEROWS_MIN, Math.floor(numParcels / HEDGEROWS_PER_PARCEL)),
-    ),
-    numRivers: ifEmpty(
-      "rivers",
-      Math.max(RIVERS_MIN, Math.floor(numParcels / RIVERS_PER_PARCEL)),
-    ),
-    numTrees: ifEmpty(
-      "trees",
-      Math.max(TREES_MIN, Math.floor(numParcels / TREES_PER_PARCEL)),
-    ),
-  };
-}
-
-function logSyntheticBanner(outPath, centre, counts, emptyLayers) {
-  const { numHabitats, numHedgerows, numRivers, numTrees } = counts;
-  header(`Generating BNG test GeoPackage`, "cyan");
-  info(`  ${SITE_NAME}`);
-  info(
-    `  ${numHabitats} habitat parcels, ${numHedgerows} hedgerows, ${numRivers} rivers, ${numTrees} urban trees`,
-  );
-  if (emptyLayers.size > 0) {
-    info(
-      `  empty layers: ${[...emptyLayers].sort((a, b) => a.localeCompare(b)).join(", ")}`,
-    );
-  }
-  info(`  centre: ${centre[0]},${centre[1]} (BNG)`);
-  info(`  → ${outPath}`);
-}
-
-// For an "empty" layer we want the table to exist with zero rows. We can't
-// just call generateHabitats(0) — it would still emit one parcel covering the
-// whole boundary. Instead, register the layer here with a null envelope and
-// skip the matching generator in runLayerGenerators.
-function registerEmptyLayers(db, emptyLayers) {
-  for (const [key, { table, geom }] of Object.entries(EMPTYABLE_LAYERS)) {
-    if (emptyLayers.has(key)) {
-      registerLayer(db, table, geom, null);
-    }
-  }
-}
-
-function runLayerGenerators(db, ring, counts, emptyLayers) {
-  const generators = {
-    habitats: () => generateHabitats(db, ring, counts.numHabitats),
-    hedgerows: () => generateHedgerows(db, ring, counts.numHedgerows),
-    rivers: () => generateRivers(db, ring, counts.numRivers),
-    trees: () => generateUrbanTrees(db, ring, counts.numTrees),
-  };
-  for (const [key, generate] of Object.entries(generators)) {
-    if (!emptyLayers.has(key)) {
-      generate();
-    }
-  }
-}
-
-function generateOne(outPath, badFlawNames, numParcels, centre, emptyLayers = new Set()) {
-  if (badFlawNames && badFlawNames.length > 0) {
-    generateOneBad(outPath, centre, badFlawNames);
-    return;
-  }
-
-  const counts = computeLayerCounts(numParcels, emptyLayers);
-  logSyntheticBanner(outPath, centre, counts, emptyLayers);
-
-  const [cx, cy] = centre;
-  const db = new Database(outPath);
-  initGeoPackage(db);
-  createAllTables(db);
-
-  const ring = generateRedLineBoundary(db, cx, cy, SYNTHETIC_RLB_RADIUS);
-  registerEmptyLayers(db, emptyLayers);
-  runLayerGenerators(db, ring, counts, emptyLayers);
-  createLayerStyles(db);
-
-  db.close();
-
-  reportContents(outPath);
-  console.log(color("green", `✔ Done. ${outPath}`));
+function confirm(question) {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim().toLowerCase().startsWith("y"));
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------
-// --bad fixture: deliberately invalid GeoPackage that exercises the backend's
-// geometry validation checks.
-//
-// The fixture is composed from a registry of named *flaws*. Each flaw is a
-// small mutation of a base fixture state (one valid redline, no other
-// content). `--bad` is a shorthand for "apply every composable flaw"; a
-// single `--flaw <name>` produces a minimal fixture that triggers just one
-// validator code (subject to a few unavoidable side effects, e.g. adding
-// only a bad parcel also produces an area-sum mismatch).
+// Main
 // ---------------------------------------------------------------------------
 
-const BAD_REDLINE_HALF = 200; // base bad-fixture redline is a 400m × 400m square
-const BAD_PARCEL_HALF = 50;
-
-// Per-flaw layout offsets, in BNG metres from the fixture centre. Each pair
-// places a feature far enough from the redline (or from sibling features) for
-// the targeted validator to fire deterministically.
-const BOWTIE_PARCEL_DY = 60;
-const BOWTIE_PARCEL_HALF = 30;
-const OVERLAP_A_DX = 80;
-const OVERLAP_A_DY = -100;
-const OVERLAP_B_DX = 130;
-const OVERLAP_B_DY = -80;
-const OUTSIDE_PARCEL_DXY = 450;
-const HEDGEROW_INSIDE_OFFSET = 100;
-const HEDGEROW_OUTSIDE_OFFSET = 600;
-const WATERCOURSE_INSIDE_OFFSET = 100;
-const WATERCOURSE_OUTSIDE_OFFSET = 700;
-const TREE_OUTSIDE_OFFSET = 700;
-const IGGI_OUTSIDE_OFFSET = 500;
-const IGGI_HALF = 40;
-const AREA_MISMATCH_PARCEL_DXY = -100;
-const SLIVER_GAP = 0.002; // 2mm — under 1m² sliver area threshold, above GEOS grid
-
-// Wales (Snowdonia) centre — inside BNG envelope but outside England.
-const SNOWDONIA_E = 262000;
-const SNOWDONIA_N = 354000;
-const TOO_LARGE_HALF = 6000; // 12 km × 12 km = 144 sq km, over the 100 sq km cap
-
-// Layer-count ratios for the synthetic fixture, derived from parcel count.
-const HEDGEROWS_MIN = 3;
-const HEDGEROWS_PER_PARCEL = 3;
-const RIVERS_MIN = 1;
-const RIVERS_PER_PARCEL = 15;
-const TREES_MIN = 5;
-const TREES_PER_PARCEL = 2;
-
-// Banner formatting: width reserved for the error-code column so flaw lines
-// align under "Applied flaws".
-const FLAW_BANNER_ERRCODE_WIDTH = 34;
-
-// Number of columns in the Rivers INSERT statement — matches the schema.
-const RIVERS_COLUMN_COUNT = 28;
-
-// Banner text for empty-layer flaws — no validation error is triggered, the
-// fixture is just useful for exercising downstream null/empty handling.
-const NO_SPECIFIC_ERROR = "(no specific backend error)";
-
-/** Square ring of half-size `half` centred at (cx, cy). */
-function badSquareRing(cx, cy, half = BAD_PARCEL_HALF) {
-  return rectRing(cx - half, cy - half, cx + half, cy + half);
+function readWorkbookList(listPath) {
+  return readFileSync(listPath, "utf8")
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter((s) => s && !s.startsWith("#"));
 }
 
-/**
- * Registry of named flaws. Each entry has:
- *   description  short human-readable label, used in the banner
- *   errorCode    backend validation error this flaw is intended to trigger
- *   standalone   true → cannot be combined with any other flaw
- *   apply(state) mutates the bad-fixture state in place (geometric flaws only)
- *   emptyLayer   key into EMPTYABLE_LAYERS; if present, the flaw routes through
- *                the regular generator with that layer skipped and registered
- *                as an empty table — not through the bad-fixture builder
- */
-const FLAWS = {
-  "self-intersecting-redline": {
-    description: "redline drawn as a bowtie (self-intersecting)",
-    errorCode: "REDLINE_INVALID_GEOMETRY",
-    apply(s) {
-      s.redline = bowtieRing(s.cx, s.cy, BAD_REDLINE_HALF);
-    },
-  },
-  "bowtie-parcel": {
-    description: "one habitat parcel drawn as a bowtie",
-    errorCode: "AREA_PARCELS_INVALID_GEOMETRY",
-    apply(s) {
-      s.parcels.push(bowtieRing(s.cx, s.cy + BOWTIE_PARCEL_DY, BOWTIE_PARCEL_HALF));
-    },
-  },
-  "overlapping-parcels": {
-    description: "two habitat parcels overlap each other",
-    errorCode: "PARCEL_OVERLAPS",
-    apply(s) {
-      s.parcels.push(
-        badSquareRing(s.cx + OVERLAP_A_DX, s.cy + OVERLAP_A_DY),
-        badSquareRing(s.cx + OVERLAP_B_DX, s.cy + OVERLAP_B_DY),
-      );
-    },
-  },
-  "parcel-outside-redline": {
-    description: "a habitat parcel placed entirely outside the redline",
-    errorCode: "AREA_PARCELS_OUTSIDE_REDLINE",
-    apply(s) {
-      s.parcels.push(badSquareRing(s.cx + OUTSIDE_PARCEL_DXY, s.cy + OUTSIDE_PARCEL_DXY));
-    },
-  },
-  sliver: {
-    description: "two parcels almost tile the redline, leaving a hairline gap",
-    errorCode: "SLIVERS_INSIDE_REDLINE",
-    // SLIVERS_INSIDE_REDLINE only fires when parcels nearly tile the redline,
-    // so this flaw fully occupies the parcel layer and can't coexist with the
-    // other parcel-adding flaws.
-    conflictsWith: [
-      "bowtie-parcel",
-      "overlapping-parcels",
-      "parcel-outside-redline",
-      "area-sum-mismatch",
-    ],
-    apply(s) {
-      // Two parcels stacked vertically with a 2mm gap between them; the
-      // resulting sliver area is 0.002m × 400m = 0.8 sq m, under the 1 sq m
-      // sliver threshold and above the 1mm GEOS overlay grid.
-      const r = BAD_REDLINE_HALF;
-      s.parcels.push(
-        rectRing(s.cx - r, s.cy - r, s.cx + r, s.cy),
-        rectRing(s.cx - r, s.cy + SLIVER_GAP, s.cx + r, s.cy + r),
-      );
-    },
-  },
-  "hedgerow-outside": {
-    description: "a hedgerow runs from inside to outside the redline",
-    errorCode: "HEDGEROWS_OUTSIDE_REDLINE",
-    apply(s) {
-      s.hedgerows.push([
-        [s.cx - HEDGEROW_INSIDE_OFFSET, s.cy + HEDGEROW_INSIDE_OFFSET],
-        [s.cx + HEDGEROW_OUTSIDE_OFFSET, s.cy + HEDGEROW_OUTSIDE_OFFSET],
-      ]);
-    },
-  },
-  "watercourse-outside": {
-    description: "a watercourse runs from inside to outside the redline",
-    errorCode: "WATERCOURSES_OUTSIDE_REDLINE",
-    apply(s) {
-      s.rivers.push([
-        [s.cx + WATERCOURSE_INSIDE_OFFSET, s.cy - WATERCOURSE_INSIDE_OFFSET],
-        [s.cx + WATERCOURSE_OUTSIDE_OFFSET, s.cy - WATERCOURSE_OUTSIDE_OFFSET],
-      ]);
-    },
-  },
-  "tree-outside": {
-    description: "a tree is placed outside the redline",
-    errorCode: "TREES_OUTSIDE_REDLINE",
-    apply(s) {
-      s.trees.push([s.cx + TREE_OUTSIDE_OFFSET, s.cy + TREE_OUTSIDE_OFFSET]);
-    },
-  },
-  "iggi-outside": {
-    description: "an IGGI polygon is placed outside the redline",
-    errorCode: "IGGIS_OUTSIDE_REDLINE",
-    apply(s) {
-      s.iggis.push(badSquareRing(s.cx - IGGI_OUTSIDE_OFFSET, s.cy - IGGI_OUTSIDE_OFFSET, IGGI_HALF));
-    },
-  },
-  "area-sum-mismatch": {
-    description: "habitat parcels do not tile the redline",
-    errorCode: "AREA_SUM_MISMATCH",
-    apply(s) {
-      s.parcels.push(badSquareRing(s.cx + AREA_MISMATCH_PARCEL_DXY, s.cy + AREA_MISMATCH_PARCEL_DXY));
-    },
-  },
-  "redline-not-in-england": {
-    description: "redline placed outside England (Snowdonia, Wales)",
-    errorCode: "REDLINE_OUTSIDE_ENGLAND",
-    standalone: true,
-    apply(s) {
-      s.cx = SNOWDONIA_E;
-      s.cy = SNOWDONIA_N;
-      s.centre = [s.cx, s.cy];
-      s.redline = badSquareRing(s.cx, s.cy, BAD_REDLINE_HALF);
-    },
-  },
-  "redline-too-large": {
-    description: "redline area exceeds the 100 sq km limit",
-    errorCode: "REDLINE_AREA_TOO_LARGE",
-    standalone: true,
-    apply(s) {
-      s.redline = badSquareRing(s.cx, s.cy, TOO_LARGE_HALF);
-    },
-  },
-  "no-habitats": {
-    description: "Habitats layer present with zero rows",
-    errorCode: "NO_HABITAT_AREAS",
-    emptyLayer: "habitats",
-  },
-  "no-hedgerows": {
-    description: "Hedgerows layer present with zero rows",
-    errorCode: NO_SPECIFIC_ERROR,
-    emptyLayer: "hedgerows",
-  },
-  "no-rivers": {
-    description: "Rivers layer present with zero rows",
-    errorCode: NO_SPECIFIC_ERROR,
-    emptyLayer: "rivers",
-  },
-  "no-trees": {
-    description: "Urban Trees layer present with zero rows",
-    errorCode: NO_SPECIFIC_ERROR,
-    emptyLayer: "trees",
-  },
-};
-
-// Lookup for the four feature layers that can be emitted with zero rows via an
-// `emptyLayer` flaw. Each maps to the (gpkg_contents) table name and geometry
-// type the generator must still register so the layer exists in the file.
-const EMPTYABLE_LAYERS = {
-  habitats: { table: "Habitats", geom: "POLYGON" },
-  hedgerows: { table: "Hedgerows", geom: "LINESTRING" },
-  rivers: { table: "Rivers", geom: "LINESTRING" },
-  trees: { table: "Urban Trees", geom: "POINT" },
-};
-
-const ALL_FLAW_NAMES = Object.keys(FLAWS);
-
-/** Flaws that `--bad` expands to. Excludes standalone-only flaws, empty-layer
- *  flaws (different generation path), and `sliver` (which conflicts with the
- *  parcel-modifying flaws). */
-const BAD_DEFAULT_FLAWS = ALL_FLAW_NAMES.filter((n) => {
-  const f = FLAWS[n];
-  if (f.standalone) {
-    return false;
-  }
-  if (f.emptyLayer) {
-    return false;
-  }
-  if (n === "sliver") {
-    return false;
-  }
-  return true;
-});
-
-function collectRequestedFlaws(bad, flaws) {
-  const requested = new Set(bad ? BAD_DEFAULT_FLAWS : []);
-  for (const name of flaws) {
-    if (!FLAWS[name]) {
-      error(`Unknown flaw: ${name}. Valid: ${ALL_FLAW_NAMES.join(", ")}`);
-      process.exit(1);
-    }
-    requested.add(name);
-  }
-  return [...requested];
-}
-
-function assertEmptyAndGeometricNotMixed(emptyLayerNames, geometricNames, bad) {
-  if (emptyLayerNames.length && geometricNames.length) {
-    error(
-      `Empty-layer flaws (${emptyLayerNames.join(", ")}) cannot be combined ` +
-        `with geometric flaws (${geometricNames.join(", ")}).`,
-    );
-    process.exit(1);
-  }
-  if (emptyLayerNames.length && bad) {
-    error("--bad cannot be combined with empty-layer flaws.");
-    process.exit(1);
-  }
-  if (emptyLayerNames.length === Object.keys(EMPTYABLE_LAYERS).length) {
-    warn(
-      "every feature layer is being emptied; the output will contain only the Red Line Boundary",
-    );
-  }
-}
-
-function assertNoStandaloneCombination(geometricNames) {
-  const standalone = geometricNames.filter((n) => FLAWS[n].standalone);
-  if (standalone.length && geometricNames.length > 1) {
-    error(
-      `Flaw "${standalone[0]}" is standalone and cannot be combined with other flaws. Got: ${geometricNames.join(", ")}`,
-    );
-    process.exit(1);
-  }
-}
-
-function assertNoPairwiseConflicts(geometricNames) {
-  for (const name of geometricNames) {
-    const conflicts = FLAWS[name].conflictsWith ?? [];
-    const clash = conflicts.find((other) => geometricNames.includes(other));
-    if (clash) {
-      error(`Flaws "${name}" and "${clash}" conflict and cannot be combined.`);
-      process.exit(1);
-    }
-  }
-}
-
-function resolveFlawSelection({ bad, flaws }) {
-  const names = collectRequestedFlaws(bad, flaws);
-
-  // Empty-layer flaws use the regular generator (a valid fixture with one
-  // layer emptied); geometric flaws use the bad-fixture builder (a tiny
-  // deliberately-broken fixture). They can't coexist in a single output.
-  const emptyLayerNames = names.filter((n) => FLAWS[n].emptyLayer);
-  const geometricNames = names.filter((n) => !FLAWS[n].emptyLayer);
-
-  assertEmptyAndGeometricNotMixed(emptyLayerNames, geometricNames, bad);
-  assertNoStandaloneCombination(geometricNames);
-  assertNoPairwiseConflicts(geometricNames);
-
-  return {
-    geometric: geometricNames,
-    emptyLayers: new Set(emptyLayerNames.map((n) => FLAWS[n].emptyLayer)),
-    emptyFlawNames: emptyLayerNames,
-  };
-}
-
-function createBadFixtureState(centre) {
-  const [cx, cy] = centre;
-  return {
-    cx,
-    cy,
-    centre,
-    redline: badSquareRing(cx, cy, BAD_REDLINE_HALF),
-    parcels: [],
-    hedgerows: [],
-    rivers: [],
-    trees: [],
-    iggis: [],
-  };
-}
-
-function logBadFixtureBanner(state, outPath, flawNames) {
-  header(`Generating BAD BNG test GeoPackage`, "cyan");
-  info(`  ⚠ Bad mode: deliberately invalid geometry`);
-  info(`  Applied flaws (${flawNames.length}):`);
-  for (const name of flawNames) {
-    const flaw = FLAWS[name];
-    info(`    ${flaw.errorCode.padEnd(FLAW_BANNER_ERRCODE_WIDTH)} ${name} — ${flaw.description}`);
-  }
-  info(`  centre: ${state.cx},${state.cy} (BNG)`);
-  info(`  → ${outPath}`);
-}
-
-function insertBadRedline(db, ring) {
-  db.prepare(
-    `INSERT INTO "Red Line Boundary" (geometry, "Area", "Site Name") VALUES (?, ?, ?)`,
-  ).run(
-    gpkgPolygon(SRS_ID, ring),
-    Math.round(Math.abs(polygonArea(ring))),
-    `${SITE_NAME} (BAD)`,
-  );
-  registerLayer(db, "Red Line Boundary", "POLYGON", envelopeFromCoords(ring));
-}
-
-function generateOneBad(outPath, centre, flawNames) {
-  const state = createBadFixtureState(centre);
-  for (const name of flawNames) {
-    FLAWS[name].apply(state);
-  }
-  logBadFixtureBanner(state, outPath, flawNames);
-
-  const db = new Database(outPath);
-  initGeoPackage(db);
-  createAllTables(db);
-  if (state.iggis.length) {
-    createIggisTable(db);
-  }
-
-  insertBadRedline(db, state.redline);
-  if (state.parcels.length) {
-    insertBadHabitats(db, state.parcels);
-  }
-  if (state.hedgerows.length) {
-    insertBadHedgerows(db, state.hedgerows);
-  }
-  if (state.rivers.length) {
-    insertBadRivers(db, state.rivers);
-  }
-  if (state.trees.length) {
-    insertBadTrees(db, state.trees);
-  }
-  if (state.iggis.length) {
-    insertBadIggis(db, state.iggis);
-  }
-
-  createLayerStyles(db);
-  db.close();
-
-  reportContents(outPath);
-  console.log(color("green", `✔ Done (bad fixture). ${outPath}`));
-}
-
-function reportContents(outPath) {
-  const verify = new Database(outPath, { readonly: true });
-  const layers = verify
-    .prepare(
-      "SELECT table_name FROM gpkg_contents WHERE data_type = 'features'",
-    )
-    .all();
-  for (const layer of layers) {
-    const count = verify
-      .prepare(`SELECT COUNT(*) as n FROM "${layer.table_name}"`)
-      .get();
-    info(`  ${layer.table_name}: ${count.n} feature(s)`);
-  }
-  verify.close();
-}
-
-function insertBadHabitats(db, parcels) {
-  const stmt = db.prepare(`
-    INSERT INTO "Habitats" (
-      geometry, "Parcel Ref", "Baseline Broad Habitat Type", "Baseline Habitat Type",
-      "Area", "Baseline Condition", "Baseline Strategic Significance",
-      "Retention Category", "Proposed Broad Habitat Type", "Proposed Habitat Type",
-      "Proposed Condition", "Proposed Strategic Significance",
-      "Habitat created in advance/years", "Delay in starting habitat creation/years",
-      "Spatial risk category", "Location", "Site Name", "Survey Date",
-      "Survey Details", "Comment", "Mapped by", "Company", "Base Map",
-      "Baseline Distinctiveness", "Proposed Distinctiveness"
-    ) VALUES (${Array.from({ length: HABITATS_INSERT_COLUMNS }, () => "?").join(", ")})
-  `);
-  const env = [Infinity, -Infinity, Infinity, -Infinity];
-  parcels.forEach((ring, i) => {
-    expandEnvelope(env, envelopeFromCoords(ring));
-    const baseline = HABITATS[0];
-    stmt.run(
-      gpkgPolygon(SRS_ID, ring),
-      `H${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
-      baseline.broad,
-      baseline.type,
-      Math.round(Math.abs(polygonArea(ring))),
-      baseline.validConditions[0],
-      STRATEGIC_SIGNIFICANCE[0],
-      "Retained",
-      baseline.broad,
-      baseline.type,
-      baseline.validConditions[0],
-      STRATEGIC_SIGNIFICANCE[0],
-      "0",
-      "0",
-      SPATIAL_RISK_HABITAT[0],
-      "On-site",
-      `${SITE_NAME} (BAD)`,
-      SURVEY_DATE,
-      BAD_FIXTURE_SURVEY_DETAILS,
-      null,
-      MAPPED_BY,
-      SURVEY_COMPANY,
-      BASE_MAP,
-      baseline.distinctiveness,
-      baseline.distinctiveness,
-    );
-  });
-  registerLayer(db, "Habitats", "POLYGON", env);
-}
-
-function insertBadHedgerows(db, hedgerows) {
-  const stmt = db.prepare(`
-    INSERT INTO "Hedgerows" (
-      geometry, "Parcel Ref", "Baseline Hedge Type", "Baseline Condition",
-      "Baseline Strategic Significance", "Retention Category",
-      "Proposed Hedge Type", "Proposed Condition", "Proposed Strategic Significance",
-      "Length", "Habitat created in advance/years",
-      "Delay in starting habitat creation/years", "Spatial risk category",
-      "Location", "Site Name", "Survey Date", "Survey Details", "Comments",
-      "Mapped by", "Company", "Base Map",
-      "Baseline Distinctiveness", "Proposed Distinctiveness"
-    ) VALUES (${Array.from({ length: HEDGEROWS_INSERT_COLUMNS }, () => "?").join(", ")})
-  `);
-  const env = [Infinity, -Infinity, Infinity, -Infinity];
-  hedgerows.forEach((coords, i) => {
-    expandEnvelope(env, envelopeFromCoords(coords));
-    stmt.run(
-      gpkgLineString(SRS_ID, coords),
-      `HG${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
-      HEDGE_TYPES[0],
-      HEDGE_CONDITIONS[0],
-      STRATEGIC_SIGNIFICANCE[0],
-      "Retained",
-      HEDGE_TYPES[0],
-      HEDGE_CONDITIONS[0],
-      STRATEGIC_SIGNIFICANCE[0],
-      Math.round(linestringLength(coords)),
-      "0",
-      "0",
-      SPATIAL_RISK_HABITAT[0],
-      "On-site",
-      `${SITE_NAME} (BAD)`,
-      SURVEY_DATE,
-      BAD_FIXTURE_SURVEY_DETAILS,
-      null,
-      MAPPED_BY,
-      SURVEY_COMPANY,
-      BASE_MAP,
-      DISTINCTIVENESS[0],
-      DISTINCTIVENESS[0],
-    );
-  });
-  registerLayer(db, "Hedgerows", "LINESTRING", env);
-}
-
-function insertBadRivers(db, rivers) {
-  const stmt = db.prepare(`
-    INSERT INTO "Rivers" (
-      geometry, "Parcel Ref", "Baseline River Type", "Baseline Condition",
-      "Baseline Strategic Significance",
-      "Baseline Encroachment into Watercourse",
-      "Baseline Encroachment into riparian zone",
-      "Retention Category", "Proposed River Type", "Proposed Condition",
-      "Proposed Strategic Significance", "Length",
-      "Habitat created in advance/years",
-      "Delay in starting habitat creation/years",
-      "Spatial risk category", "Location",
-      "Proposed Encroachment into Watercourse",
-      "Proposed Encroachment into riparian zone",
-      "Site Name", "Survey Date", "Survey Details", "Comments",
-      "Mapped by", "Company", "Base Map",
-      "Enhancement Type", "Baseline Distinctiveness", "Proposed Distinctiveness"
-    ) VALUES (${Array.from({ length: RIVERS_COLUMN_COUNT }, () => "?").join(", ")})
-  `);
-  const env = [Infinity, -Infinity, Infinity, -Infinity];
-  rivers.forEach((coords, i) => {
-    expandEnvelope(env, envelopeFromCoords(coords));
-    stmt.run(
-      gpkgLineString(SRS_ID, coords),
-      `R${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
-      RIVER_TYPES[0],
-      CONDITIONS[0],
-      STRATEGIC_SIGNIFICANCE[0],
-      ENCROACHMENT_WATERCOURSE[0],
-      ENCROACHMENT_RIPARIAN[0],
-      "Retained",
-      RIVER_TYPES[0],
-      CONDITIONS[0],
-      STRATEGIC_SIGNIFICANCE[0],
-      Math.round(linestringLength(coords)),
-      "0",
-      "0",
-      SPATIAL_RISK_RIVER[0],
-      "On-site",
-      ENCROACHMENT_WATERCOURSE[0],
-      ENCROACHMENT_RIPARIAN[0],
-      `${SITE_NAME} (BAD)`,
-      SURVEY_DATE,
-      BAD_FIXTURE_SURVEY_DETAILS,
-      null,
-      MAPPED_BY,
-      SURVEY_COMPANY,
-      BASE_MAP,
-      null,
-      DISTINCTIVENESS[0],
-      DISTINCTIVENESS[0],
-    );
-  });
-  registerLayer(db, "Rivers", "LINESTRING", env);
-}
-
-function createIggisTable(db) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS "iggis" (
-      fid INTEGER PRIMARY KEY AUTOINCREMENT, geometry POLYGON,
-      "IGGI Ref" TEXT(99), "Area" MEDIUMINT, "Site Name" TEXT(999)
-    );
-  `);
-}
-
-function insertBadIggis(db, iggis) {
-  const stmt = db.prepare(
-    `INSERT INTO "iggis" (geometry, "IGGI Ref", "Area", "Site Name") VALUES (?, ?, ?, ?)`,
-  );
-  const env = [Infinity, -Infinity, Infinity, -Infinity];
-  iggis.forEach((ring, i) => {
-    expandEnvelope(env, envelopeFromCoords(ring));
-    stmt.run(
-      gpkgPolygon(SRS_ID, ring),
-      `I${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
-      Math.round(Math.abs(polygonArea(ring))),
-      `${SITE_NAME} (BAD)`,
-    );
-  });
-  registerLayer(db, "iggis", "POLYGON", env);
-}
-
-function insertBadTrees(db, points) {
-  const stmt = db.prepare(`
-    INSERT INTO "Urban Trees" (
-      geometry, "Tree Ref", "Baseline Tree Size", "Baseline Condition",
-      "Baseline Strategic Significance", "Baseline Tree Type",
-      "Retention Category", "Category",
-      "Proposed Tree Size", "Proposed Condition",
-      "Proposed Strategic Significance", "Proposed Tree Type",
-      "Location", "Habitat Created/Enhanced in advance/years",
-      "Delay in starting habitat creation/enhancement in years",
-      "Spatial risk category", "Site Name", "Survey Date",
-      "Survey Details", "Comment", "Mapped by", "Company", "Base Map",
-      "Count", "Baseline Rural or Urban Tree", "Proposed Rural or Urban Tree"
-    ) VALUES (${Array.from({ length: URBAN_TREES_INSERT_COLUMNS }, () => "?").join(", ")})
-  `);
-  const env = [Infinity, -Infinity, Infinity, -Infinity];
-  points.forEach(([x, y], i) => {
-    expandEnvelope(env, [x, x, y, y]);
-    stmt.run(
-      gpkgPoint(SRS_ID, x, y),
-      `T${String(i + 1).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`,
-      "Medium",
-      CONDITIONS[0],
-      STRATEGIC_SIGNIFICANCE[0],
-      TREE_TYPE_STREET,
-      "Retained",
-      "Retained",
-      "Medium",
-      CONDITIONS[0],
-      STRATEGIC_SIGNIFICANCE[0],
-      TREE_TYPE_STREET,
-      "On-site",
-      "0",
-      "0",
-      SPATIAL_RISK_HABITAT[0],
-      `${SITE_NAME} (BAD)`,
-      SURVEY_DATE,
-      BAD_FIXTURE_SURVEY_DETAILS,
-      null,
-      MAPPED_BY,
-      SURVEY_COMPANY,
-      BASE_MAP,
-      1,
-      "Urban",
-      "Urban",
-    );
-  });
-  registerLayer(db, "Urban Trees", "POINT", env);
-}
-
-/**
- * Compute the redline area for a workbook-driven fixture. Picks the largest
- * of (sum of habitat areas, declared site area, area required to fit the
- * longest linear feature).
- */
-function computeWorkbookFixturePlan(workbook, habitatRows) {
-  const habitatTotalM2 =
-    habitatRows.reduce((s, r) => s + r.area, 0) * HECTARES_TO_SQ_M;
-  const declaredSiteM2 =
-    (workbook.siteInfo.totalSiteAreaHa ?? 0) * HECTARES_TO_SQ_M;
-
-  const linearLengths = [
-    ...workbook.hedgerows.baseline.map((h) => h.lengthM),
-    ...workbook.hedgerows.created.map((h) => h.lengthM),
-    ...workbook.watercourses.baseline.map((r) => r.lengthM),
-    ...workbook.watercourses.created.map((r) => r.lengthM),
-  ];
-  const longestLinearM = linearLengths.length ? Math.max(...linearLengths) : 0;
-  const minRadiusM = (longestLinearM * BOUNDARY_OVERSIZE_FACTOR) / 2;
-  const minAreaFromDiameterM2 = Math.PI * minRadiusM * minRadiusM;
-
-  const totalAreaM2 = Math.max(
-    habitatTotalM2,
-    declaredSiteM2,
-    minAreaFromDiameterM2,
-  );
-  return {
-    totalAreaM2,
-    totalAreaHa: totalAreaM2 / HECTARES_TO_SQ_M,
-    siteName: String(workbook.siteInfo.projectName ?? "BNG500 site"),
-  };
-}
-
-function logWorkbookFixtureBanner({
-  workbook,
-  sourceLabel,
-  centre,
-  outPath,
-  habitatRows,
-  plan,
-}) {
-  header(`Generating BNG GeoPackage from workbook`, "cyan");
-  info(`  source: ${sourceLabel}`);
-  info(
-    `  site: ${plan.siteName} (${workbook.siteInfo.planningAuthority ?? "unknown LPA"})`,
-  );
-  info(
-    `  total area: ${plan.totalAreaHa.toFixed(4)} ha (${Math.round(plan.totalAreaM2)} m²)`,
-  );
-  info(
-    `  habitats: ${habitatRows.length} (${workbook.habitats.baseline.length} baseline, ` +
-      `${workbook.habitats.created.length} created, ${workbook.habitats.enhancements.length} enhanced)`,
-  );
-  info(
-    `  hedgerows: ${workbook.hedgerows.baseline.length} baseline + ${workbook.hedgerows.created.length} created`,
-  );
-  info(
-    `  rivers: ${workbook.watercourses.baseline.length} baseline + ${workbook.watercourses.created.length} created`,
-  );
-  info(
-    `  trees: ${workbook.trees.baseline.length} baseline + ${workbook.trees.created.length} created`,
-  );
-  info(`  centre: ${centre[0]},${centre[1]} (BNG)`);
-  info(`  → ${outPath}`);
-}
-
-function writeWorkbookLayers(db, ring, workbook, habitatRows) {
-  return {
-    habitats: generateHabitatsFromWorkbook(db, ring, habitatRows),
-    hedgerows: generateHedgerowsFromWorkbook(
-      db,
-      ring,
-      workbook.hedgerows.baseline,
-      workbook.hedgerows.created,
-    ),
-    rivers: generateRiversFromWorkbook(
-      db,
-      ring,
-      workbook.watercourses.baseline,
-      workbook.watercourses.created,
-    ),
-    trees: generateUrbanTreesFromWorkbook(
-      db,
-      ring,
-      workbook.trees.baseline,
-      workbook.trees.created,
-    ),
-  };
-}
-
-function logWorkbookPostWrite(workbook, skipReasons, written, outPath) {
-  info(
-    `  written: ${written.habitats} habitats, ${written.hedgerows} hedgerows, ` +
-      `${written.rivers} rivers, ${written.trees} trees`,
-  );
-  for (const w of workbook.summary.warnings) {
-    warn(`  ${w}`);
-  }
-  for (const s of workbook.summary.skipped) {
-    warn(`  skipped ${s.sheet}:${s.row} (${s.reason})`);
-  }
-  for (const r of skipReasons) {
-    warn(`  ${r}`);
-  }
-  console.log(color("green", `✔ Done. ${outPath}`));
-}
-
-function generateOneFromWorkbook(
-  outPath,
-  workbook,
-  sourceLabel,
-  { strict = false, centre } = {},
-) {
-  const { rows: habitatRows, skipReasons } = buildHabitatRowsFromWorkbook(
-    workbook,
-    { strict },
-  );
-  const plan = computeWorkbookFixturePlan(workbook, habitatRows);
-
-  logWorkbookFixtureBanner({
-    workbook,
-    sourceLabel,
-    centre,
-    outPath,
-    habitatRows,
-    plan,
-  });
-
-  if (plan.totalAreaM2 < MIN_GENERATED_AREA_SQ_M) {
-    warn(
-      `  total area is < ${MIN_GENERATED_AREA_SQ_M} m² — workbook may be empty or unparseable; aborting`,
-    );
-    return false;
-  }
-
-  const [cx, cy] = centre;
-  const db = new Database(outPath);
-  initGeoPackage(db);
-  createAllTables(db);
-
-  const ring = generateRedLineBoundaryFromArea(db, cx, cy, plan.totalAreaM2);
-  const written = writeWorkbookLayers(db, ring, workbook, habitatRows);
-  createLayerStyles(db);
-  db.close();
-
-  logWorkbookPostWrite(workbook, skipReasons, written, outPath);
-  return true;
-}
-
-function timestampSuffix(d = new Date()) {
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
-}
-
-function workbookOutputName(source) {
-  // Strip trailing query/hash, keep last path segment, replace extension.
-  const url = source.replace(/[?#].*$/, "");
-  const base = path.basename(url).replace(/\.(xlsx|xlsm|xls)$/i, "");
-  return `${base || "bng-from-workbook"}-${timestampSuffix()}.gpkg`;
-}
-
-async function runFromWorkbook(source, { strict, inspect, centre }) {
-  if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
-  const localPath = await resolveWorkbookSource(source);
-  const workbook = readMetricWorkbook(localPath);
-
-  if (inspect) {
-    const summary = {
-      source,
-      resolvedPath: localPath,
-      version: workbook.version,
-      siteInfo: workbook.siteInfo,
-      counts: {
-        habitats: {
-          baseline: workbook.habitats.baseline.length,
-          created: workbook.habitats.created.length,
-          enhancements: workbook.habitats.enhancements.length,
-        },
-        hedgerows: {
-          baseline: workbook.hedgerows.baseline.length,
-          created: workbook.hedgerows.created.length,
-        },
-        watercourses: {
-          baseline: workbook.watercourses.baseline.length,
-          created: workbook.watercourses.created.length,
-        },
-        trees: {
-          baseline: workbook.trees.baseline.length,
-          created: workbook.trees.created.length,
-        },
-      },
-      summary: workbook.summary,
-    };
-    console.log(JSON.stringify(summary, null, 2));
-    return;
-  }
-
-  const outPath = path.join(OUT_DIR, workbookOutputName(source));
-  if (existsSync(outPath)) unlinkSync(outPath);
-  generateOneFromWorkbook(outPath, workbook, source, { strict, centre });
-}
-
-const DEFAULT_NUM_PARCELS = 50;
-
-async function runFromListBatch(listPath, centre) {
+async function runFromList(listPathArg, centre) {
+  const listPath = path.resolve(listPathArg);
   if (!existsSync(listPath)) {
     error(`--from-list file not found: ${listPath}`);
     process.exit(1);
   }
-  const entries = readFileSync(listPath, "utf8")
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .filter((s) => s && !s.startsWith("#"));
-  for (const entry of entries) {
+  const opts = {
+    strict: args["strict-habitats"],
+    inspect: false,
+    centre,
+    mode: selectedMode,
+  };
+  for (const entry of readWorkbookList(listPath)) {
     try {
-      await runFromWorkbook(entry, {
-        strict: args["strict-habitats"],
-        inspect: false,
-        centre,
-      });
+      await runFromWorkbook(entry, opts);
     } catch (e) {
-      error(`Failed for ${entry}: ${e.message}`);
+      error(`Failed for ${entry}: ${e.message ?? e}`);
     }
   }
 }
 
-async function ensureWritable(outPath, total) {
-  if (!existsSync(outPath)) {
-    return;
-  }
-  if (total > 1) {
-    unlinkSync(outPath);
-    return;
-  }
-  const overwrite = await confirm(`${outPath} already exists. Overwrite? (y/N) `);
-  if (!overwrite) {
-    console.log("Aborted.");
-    process.exit(0);
-  }
-  unlinkSync(outPath);
-}
-
-async function runSyntheticBatch(centre) {
-  const numParcels = Number.parseInt(args.size, 10) || DEFAULT_NUM_PARCELS;
-  const total = Math.max(1, Number.parseInt(args.count, 10) || 1);
-  const { geometric, emptyLayers, emptyFlawNames } = resolveFlawSelection({
-    bad: args.bad,
-    flaws: args.flaw,
-  });
-  const baseSuffix = buildFlawFilenameSuffix({
-    bad: geometric.length > 0,
-    flagBad: args.bad,
-    geometric,
-    emptyFlawNames,
-  });
-
-  if (!existsSync(OUT_DIR)) {
-    mkdirSync(OUT_DIR, { recursive: true });
-  }
-
-  for (let i = 1; i <= total; i++) {
-    const countSuffix =
-      total > 1
-        ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`
-        : "";
-    const stamp = timestampSuffix();
-    const outPath = path.join(
-      OUT_DIR,
-      `bng-test-data${baseSuffix}${countSuffix}-${stamp}.gpkg`,
-    );
-    await ensureWritable(outPath, total);
-    generateOne(outPath, geometric, numParcels, centre, emptyLayers);
-  }
-}
-
-async function main() {
-  if (args.inspect && !args.from) {
-    error("--inspect requires --from <path-or-url>");
-    process.exit(1);
-  }
-
-  const centre = parseCentre(args.centre) ?? [DEFAULT_CENTRE_E, DEFAULT_CENTRE_N];
-
-  if (args["from-list"]) {
-    await runFromListBatch(path.resolve(args["from-list"]), centre);
-    return;
-  }
-
-  if (args.from) {
-    await runFromWorkbook(args.from, {
-      strict: args["strict-habitats"],
-      inspect: args.inspect,
-      centre,
-    });
-    return;
-  }
-
-  await runSyntheticBatch(centre);
+function syntheticFilename(flawSuffix, suffix, stamp) {
+  return `bng-test-data${flawSuffix}${suffix}-${stamp}.gpkg`;
 }
 
 // Output basename suffix following `bng-test-data`. Examples:
@@ -3264,18 +643,84 @@ async function main() {
 //   (no flaws)                     → ""
 // Empty-layer flaws don't get the "bad-" prefix because the file is
 // structurally valid — it just has zero rows in one or more layers.
+function sortFlawNames(names) {
+  return [...names].sort((a, b) => a.localeCompare(b));
+}
+
 function buildFlawFilenameSuffix({ bad, flagBad, geometric, emptyFlawNames }) {
   if (emptyFlawNames.length > 0) {
-    const sorted = [...emptyFlawNames].sort((a, b) => a.localeCompare(b));
-    return `-${sorted.join("-")}`;
+    return `-${sortFlawNames(emptyFlawNames).join("-")}`;
   }
   if (!bad) {
     return "";
   }
-  if (!flagBad && geometric.length === 1) {
-    return `-bad-${geometric[0]}`;
+  if (flagBad) {
+    return "-bad";
   }
-  return "-bad";
+  return `-bad-${sortFlawNames(geometric).join("-")}`;
+}
+
+async function clearExistingSyntheticOutput(outPath, isBatch) {
+  if (!existsSync(outPath)) {
+    return;
+  }
+  if (isBatch) {
+    unlinkSync(outPath);
+    return;
+  }
+  const overwrite = await confirm(`${outPath} already exists. Overwrite? (y/N) `);
+  if (!overwrite) {
+    console.log("Aborted.");
+    process.exit(0);
+  }
+  unlinkSync(outPath);
+}
+
+async function runSynthetic(centre) {
+  const numParcels = Number.parseInt(args.size, PARSE_INT_BASE_10) || DEFAULT_SYNTHETIC_SIZE;
+  const total = Math.max(1, Number.parseInt(args.count, PARSE_INT_BASE_10) || DEFAULT_RUN_COUNT);
+  const { geometric, emptyLayers, emptyFlawNames } = resolveFlawSelection({
+    bad: args.bad,
+    flaws: args.flaw,
+  });
+  const flawSuffix = buildFlawFilenameSuffix({
+    bad: geometric.length > 0,
+    flagBad: args.bad,
+    geometric,
+    emptyFlawNames,
+  });
+  if (!existsSync(OUT_DIR)) {
+    mkdirSync(OUT_DIR, { recursive: true });
+  }
+  for (let i = 1; i <= total; i++) {
+    const suffix = total > 1 ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}` : "";
+    const outPath = path.join(OUT_DIR, syntheticFilename(flawSuffix, suffix, timestampSuffix()));
+    await clearExistingSyntheticOutput(outPath, total > 1);
+    generateOne(outPath, geometric, numParcels, centre, emptyLayers);
+  }
+}
+
+async function main() {
+  if (args.inspect && !args.from) {
+    error("--inspect requires --from <path-or-url>");
+    process.exit(1);
+  }
+  const centre = parseCentre(args.centre) ?? [DEFAULT_CENTRE_E, DEFAULT_CENTRE_N];
+
+  if (args["from-list"]) {
+    await runFromList(args["from-list"], centre);
+    return;
+  }
+  if (args.from) {
+    await runFromWorkbook(args.from, {
+      strict: args["strict-habitats"],
+      inspect: args.inspect,
+      centre,
+      mode: selectedMode,
+    });
+    return;
+  }
+  await runSynthetic(centre);
 }
 
 main().catch((err) => {
