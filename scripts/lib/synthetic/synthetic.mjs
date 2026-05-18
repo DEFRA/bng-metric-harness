@@ -119,7 +119,7 @@ function generateHabitats(db, boundaryRing, numParcels) {
   const parcels = partitionPolygon(boundaryRing, numParcels);
   const stmt = db.prepare(`
     INSERT INTO "Habitats" (
-      geometry, "Parcel Ref", "Baseline Broad Habitat Type", "Baseline Habitat Type",
+      geom, "Parcel Ref", "Baseline Broad Habitat Type", "Baseline Habitat Type",
       "Area", "Baseline Condition", "Baseline Strategic Significance",
       "Retention Category", "Proposed Broad Habitat Type", "Proposed Habitat Type",
       "Proposed Condition", "Proposed Strategic Significance",
@@ -193,7 +193,7 @@ function generateLineFeatures(db, boundaryRing, count, { tableName, sql, buildRo
 
 const HEDGEROWS_SQL_SYNTH = `
   INSERT INTO "Hedgerows" (
-    geometry, "Parcel Ref", "Baseline Hedge Type", "Baseline Condition",
+    geom, "Parcel Ref", "Baseline Hedge Type", "Baseline Condition",
     "Baseline Strategic Significance", "Retention Category",
     "Proposed Hedge Type", "Proposed Condition", "Proposed Strategic Significance",
     "Length", "Habitat created in advance/years",
@@ -242,7 +242,7 @@ function generateHedgerows(db, boundaryRing, count) {
 
 const RIVERS_SQL_SYNTH = `
   INSERT INTO "Rivers" (
-    geometry, "Parcel Ref", "Baseline River Type", "Baseline Condition",
+    geom, "Parcel Ref", "Baseline River Type", "Baseline Condition",
     "Baseline Strategic Significance",
     "Baseline Encroachment into Watercourse",
     "Baseline Encroachment into riparian zone",

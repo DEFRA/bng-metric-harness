@@ -66,12 +66,31 @@ export function openGeoPackage(filename) {
   return openGeoPackageGeneric(filename, { srs: [BNG_SRS] });
 }
 
+// Per-table overrides where the NE baseline template diverges from the
+// default ("geometry"/declared-type). Habitats uses a "geom" column declared
+// as MULTIPOLYGON; Hedgerows and Rivers use "geom" with their natural
+// LINESTRING type. RLB, Urban Trees and iggis fall through to the defaults.
+const DEFAULT_GEOM_COLUMN = "geometry";
+const GEOMETRY_OVERRIDES = {
+  Habitats: { column: "geom", type: "MULTIPOLYGON" },
+  Hedgerows: { column: "geom" },
+  Rivers: { column: "geom" },
+};
+
+export function geomColumnFor(tableName) {
+  return GEOMETRY_OVERRIDES[tableName]?.column ?? DEFAULT_GEOM_COLUMN;
+}
+
 /**
  * Register a feature layer in the GeoPackage metadata, tagging it with the
- * BNG SRS.
+ * BNG SRS and applying any per-table geometry-column / type overrides from
+ * the NE baseline template.
  */
 export function registerLayer(db, tableName, geomType, envelope) {
-  registerLayerGeneric(db, tableName, geomType, envelope, SRS_ID);
+  const override = GEOMETRY_OVERRIDES[tableName];
+  const geomColumn = override?.column ?? DEFAULT_GEOM_COLUMN;
+  const effectiveType = override?.type ?? geomType;
+  registerLayerGeneric(db, tableName, effectiveType, envelope, SRS_ID, geomColumn);
 }
 
 /**
@@ -82,12 +101,12 @@ export function registerLayer(db, tableName, geomType, envelope) {
 export function createAllTables(db) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS "Red Line Boundary" (
-      fid INTEGER PRIMARY KEY AUTOINCREMENT, geometry POLYGON,
+      fid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, geometry POLYGON,
       "Area" REAL, "Site Name" TEXT(99)
     );
 
     CREATE TABLE IF NOT EXISTS "Habitats" (
-      fid INTEGER PRIMARY KEY AUTOINCREMENT, geometry POLYGON,
+      fid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, geom MULTIPOLYGON,
       "Parcel Ref" TEXT(99), "Baseline Broad Habitat Type" TEXT(99),
       "Baseline Habitat Type" TEXT(99), "Area" MEDIUMINT,
       "Baseline Condition" TEXT(99), "Baseline Strategic Significance" TEXT(99),
@@ -104,7 +123,7 @@ export function createAllTables(db) {
     );
 
     CREATE TABLE IF NOT EXISTS "Hedgerows" (
-      fid INTEGER PRIMARY KEY AUTOINCREMENT, geometry LINESTRING,
+      fid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, geom LINESTRING,
       "Parcel Ref" TEXT(99), "Baseline Hedge Type" TEXT(99),
       "Baseline Condition" TEXT(99), "Baseline Strategic Significance" TEXT(99),
       "Retention Category" TEXT(99), "Proposed Hedge Type" TEXT(99),
@@ -119,7 +138,7 @@ export function createAllTables(db) {
     );
 
     CREATE TABLE IF NOT EXISTS "Rivers" (
-      fid INTEGER PRIMARY KEY AUTOINCREMENT, geometry LINESTRING,
+      fid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, geom LINESTRING,
       "Parcel Ref" TEXT(99), "Baseline River Type" TEXT(99),
       "Baseline Condition" TEXT(99), "Baseline Strategic Significance" TEXT(99),
       "Baseline Encroachment into Watercourse" TEXT(99),
@@ -138,7 +157,7 @@ export function createAllTables(db) {
     );
 
     CREATE TABLE IF NOT EXISTS "Urban Trees" (
-      fid INTEGER PRIMARY KEY AUTOINCREMENT, geometry POINT,
+      fid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, geometry POINT,
       "Tree Ref" TEXT(99), "Baseline Tree Size" TEXT(99),
       "Baseline Condition" TEXT(99), "Baseline Strategic Significance" TEXT(99),
       "Baseline Tree Type" TEXT(99), "Retention Category" TEXT(99),
@@ -200,6 +219,6 @@ const BNG_LAYER_STYLES = [
 export function createLayerStyles(db) {
   createLayerStylesTable(db);
   for (const style of BNG_LAYER_STYLES) {
-    insertLayerStyle(db, style.table, style.qml, style.sld);
+    insertLayerStyle(db, style.table, style.qml, style.sld, geomColumnFor(style.table));
   }
 }

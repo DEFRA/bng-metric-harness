@@ -102,7 +102,7 @@ function insertBadRedline(db, ring) {
 
 const BAD_HABITAT_SQL = `
   INSERT INTO "Habitats" (
-    geometry, "Parcel Ref", "Baseline Broad Habitat Type", "Baseline Habitat Type",
+    geom, "Parcel Ref", "Baseline Broad Habitat Type", "Baseline Habitat Type",
     "Area", "Baseline Condition", "Baseline Strategic Significance",
     "Retention Category", "Proposed Broad Habitat Type", "Proposed Habitat Type",
     "Proposed Condition", "Proposed Strategic Significance",
@@ -152,7 +152,7 @@ function insertBadHabitats(db, parcels) {
 
 const BAD_HEDGEROW_SQL = `
   INSERT INTO "Hedgerows" (
-    geometry, "Parcel Ref", "Baseline Hedge Type", "Baseline Condition",
+    geom, "Parcel Ref", "Baseline Hedge Type", "Baseline Condition",
     "Baseline Strategic Significance", "Retention Category",
     "Proposed Hedge Type", "Proposed Condition", "Proposed Strategic Significance",
     "Length", "Habitat created in advance/years",
@@ -199,7 +199,7 @@ function insertBadHedgerows(db, hedgerows) {
 
 const BAD_RIVERS_SQL = `
   INSERT INTO "Rivers" (
-    geometry, "Parcel Ref", "Baseline River Type", "Baseline Condition",
+    geom, "Parcel Ref", "Baseline River Type", "Baseline Condition",
     "Baseline Strategic Significance",
     "Baseline Encroachment into Watercourse",
     "Baseline Encroachment into riparian zone",
@@ -310,7 +310,7 @@ function insertBadTrees(db, points) {
 function createIggisTable(db) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS "iggis" (
-      fid INTEGER PRIMARY KEY AUTOINCREMENT, geometry POLYGON,
+      fid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, geometry POLYGON,
       "IGGI Ref" TEXT(99), "Area" MEDIUMINT, "Site Name" TEXT(999)
     );
   `);
@@ -345,11 +345,72 @@ function reportContents(outPath) {
   verify.close();
 }
 
+// Seeded baseline content sits in the NW quadrant of the BAD_REDLINE_HALF=200
+// redline, clear of every bad-parcel/line/tree zone the flaws place. One
+// feature per required layer is enough to register the layer in gpkg_contents
+// and satisfy the backend's missing-layer check, so the targeted geometry
+// validator (e.g. REDLINE_OUTSIDE_ENGLAND) can actually fire.
+const SEED_PARCEL_HALF = 20;
+const SEED_PARCEL_DX = -150;
+const SEED_PARCEL_DY = 150;
+const SEED_HEDGE_DX = -150;
+const SEED_HEDGE_DY_START = 60;
+const SEED_HEDGE_DY_END = 100;
+const SEED_RIVER_DX = 150;
+const SEED_RIVER_DY_START = 60;
+const SEED_RIVER_DY_END = 100;
+const SEED_TREE_DX = -150;
+const SEED_TREE_DY = 30;
+
+function seedBaselineContent(state, ownedLayers) {
+  const { cx, cy } = state;
+  if (!ownedLayers.has("parcels")) {
+    state.parcels.push(
+      badSquareRing(cx + SEED_PARCEL_DX, cy + SEED_PARCEL_DY, SEED_PARCEL_HALF),
+    );
+  }
+  if (!ownedLayers.has("hedgerows")) {
+    state.hedgerows.push([
+      [cx + SEED_HEDGE_DX, cy + SEED_HEDGE_DY_START],
+      [cx + SEED_HEDGE_DX, cy + SEED_HEDGE_DY_END],
+    ]);
+  }
+  if (!ownedLayers.has("rivers")) {
+    state.rivers.push([
+      [cx + SEED_RIVER_DX, cy + SEED_RIVER_DY_START],
+      [cx + SEED_RIVER_DX, cy + SEED_RIVER_DY_END],
+    ]);
+  }
+  if (!ownedLayers.has("trees")) {
+    state.trees.push([cx + SEED_TREE_DX, cy + SEED_TREE_DY]);
+  }
+}
+
 export function generateOneBad(outPath, centre, flawNames) {
   const state = createBadFixtureState(centre);
+
+  // Apply redline-mutating flaws first so cx/cy and the redline shape are
+  // finalised before any baseline content is positioned inside the RLB.
   for (const name of flawNames) {
-    FLAWS[name].apply(state);
+    if (FLAWS[name].phase === "redline") {
+      FLAWS[name].apply(state);
+    }
   }
+
+  // Seed one valid feature per required layer, skipping any layer a flaw
+  // claims to own (sliver wholly replaces the parcel layer).
+  const ownedLayers = new Set(
+    flawNames.map((n) => FLAWS[n].ownsLayer).filter(Boolean),
+  );
+  seedBaselineContent(state, ownedLayers);
+
+  // Then layer the content-mutating flaws on top of the seeded baseline.
+  for (const name of flawNames) {
+    if (FLAWS[name].phase !== "redline") {
+      FLAWS[name].apply(state);
+    }
+  }
+
   logBadFixtureBanner(state, outPath, flawNames);
 
   const db = openGeoPackage(outPath);

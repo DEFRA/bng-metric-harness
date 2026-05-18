@@ -124,8 +124,18 @@ export function initGeoPackage(db, extraSrs = []) {
  * @param {string} geomType            'POINT' | 'LINESTRING' | 'POLYGON' | …
  * @param {number[]|null} envelope     [minX, maxX, minY, maxY] or null
  * @param {number} srsId
+ * @param {string} [geomColumn='geometry']  name of the geometry column on the
+ *                                          feature table; pass to match the
+ *                                          column name used in CREATE TABLE
  */
-export function registerLayer(db, tableName, geomType, envelope, srsId) {
+export function registerLayer(
+  db,
+  tableName,
+  geomType,
+  envelope,
+  srsId,
+  geomColumn = "geometry",
+) {
   const [minX = null, maxX = null, minY = null, maxY = null] = envelope ?? [];
 
   db.prepare(
@@ -140,9 +150,9 @@ export function registerLayer(db, tableName, geomType, envelope, srsId) {
     `
     INSERT OR REPLACE INTO gpkg_geometry_columns
       (table_name, column_name, geometry_type_name, srs_id, z, m)
-    VALUES (?, 'geometry', ?, ?, 0, 0)
+    VALUES (?, ?, ?, ?, 0, 0)
   `,
-  ).run(tableName, geomType, srsId);
+  ).run(tableName, geomColumn, geomType, srsId);
 }
 
 /**

@@ -53,6 +53,7 @@ export const FLAWS = {
   "self-intersecting-redline": {
     description: "redline drawn as a bowtie (self-intersecting)",
     errorCode: "REDLINE_INVALID_GEOMETRY",
+    phase: "redline",
     apply(s) {
       s.redline = bowtieRing(s.cx, s.cy, BAD_REDLINE_HALF);
     },
@@ -84,6 +85,7 @@ export const FLAWS = {
   sliver: {
     description: "two parcels almost tile the redline, leaving a hairline gap",
     errorCode: "SLIVERS_INSIDE_REDLINE",
+    ownsLayer: "parcels",
     conflictsWith: [
       "bowtie-parcel",
       "overlapping-parcels",
@@ -143,6 +145,7 @@ export const FLAWS = {
     description: "redline placed outside England (Snowdonia, Wales)",
     errorCode: "REDLINE_OUTSIDE_ENGLAND",
     standalone: true,
+    phase: "redline",
     apply(s) {
       s.cx = SNOWDONIA_E;
       s.cy = SNOWDONIA_N;
@@ -154,6 +157,7 @@ export const FLAWS = {
     description: "redline area exceeds the 100 sq km limit",
     errorCode: "REDLINE_AREA_TOO_LARGE",
     standalone: true,
+    phase: "redline",
     apply(s) {
       s.redline = badSquareRing(s.cx, s.cy, TOO_LARGE_HALF);
     },

@@ -268,7 +268,7 @@ function writeLineFeatureLayer(db, sql, tableName, coordsList, rows, bindings) {
 
 const HEDGEROWS_SQL = `
   INSERT INTO "Hedgerows" (
-    geometry, "Parcel Ref", "Baseline Hedge Type", "Baseline Condition",
+    geom, "Parcel Ref", "Baseline Hedge Type", "Baseline Condition",
     "Baseline Strategic Significance", "Retention Category",
     "Proposed Hedge Type", "Proposed Condition", "Proposed Strategic Significance",
     "Length", "Habitat created in advance/years",
@@ -366,7 +366,7 @@ export function writeHedgerowsPostIntervention(db, coordsList, rows) {
 
 const RIVERS_SQL = `
   INSERT INTO "Rivers" (
-    geometry, "Parcel Ref", "Baseline River Type", "Baseline Condition",
+    geom, "Parcel Ref", "Baseline River Type", "Baseline Condition",
     "Baseline Strategic Significance",
     "Baseline Encroachment into Watercourse",
     "Baseline Encroachment into riparian zone",

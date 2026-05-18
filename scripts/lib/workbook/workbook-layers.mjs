@@ -99,7 +99,7 @@ export function partitionBaselineHabitats(boundaryRing, baselineRows) {
 // per-row column values differ.
 const HABITATS_SQL = `
   INSERT INTO "Habitats" (
-    geometry, "Parcel Ref", "Baseline Broad Habitat Type", "Baseline Habitat Type",
+    geom, "Parcel Ref", "Baseline Broad Habitat Type", "Baseline Habitat Type",
     "Area", "Baseline Condition", "Baseline Strategic Significance",
     "Retention Category", "Proposed Broad Habitat Type", "Proposed Habitat Type",
     "Proposed Condition", "Proposed Strategic Significance",
