@@ -8,7 +8,7 @@
     "#gpkg-io": "./packages/gpkg-io/index.mjs"
   },
   "engines": {
-    "node": ">=24"
+    "node": ">=24.14.1"
   },
   "scripts": {
     "bootstrap": "node scripts/bootstrap.mjs",
@@ -33,13 +33,18 @@
     "docs:aggregate": "node scripts/build-docs.mjs",
     "docs:likec4": "npx likec4 build --base ./ --use-hash-history -o site_src/docs/architecture/app likec4",
     "docs:build": "npm run docs:aggregate && npm run docs:likec4 && mkdocs build",
-    "docs:serve": "npm run docs:aggregate && npm run docs:likec4 && mkdocs serve"
+    "docs:serve": "npm run docs:aggregate && npm run docs:likec4 && mkdocs serve",
+    "setup:husky": "node -e \"try { (await import('husky')).default() } catch (e) { if (e.code !== 'ERR_MODULE_NOT_FOUND') throw e }\" --input-type module",
+    "install:gitleaks": "node scripts/install-gitleaks.mjs",
+    "postinstall": "node scripts/postinstall.mjs",
+    "git:pre-commit-hook": "node scripts/run-gitleaks.mjs"
   },
   "dependencies": {
     "concurrently": "^9.1.0"
   },
   "devDependencies": {
     "better-sqlite3": "^12.9.0",
+    "husky": "9.1.7",
     "likec4": "^1.56.0",
     "remark-parse": "^11.0.0",
     "remark-stringify": "^11.0.0",

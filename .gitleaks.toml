@@ -1,0 +1,12 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Harness allowlist"
+paths = [
+  '''node_modules/''',
+  '''_site/''',
+  '''site_src/''',
+  '''test-data/''',
+  '''package-lock\.json''',
+]
