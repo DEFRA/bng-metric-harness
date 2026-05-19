@@ -155,6 +155,57 @@ claude --add-dir ../bng-metric-frontend --add-dir ../bng-metric-backend
 
 The symlinks remain useful for typing paths and for tool calls; `--add-dir` is what makes the picker see across repos. See the [Claude Code permissions docs](https://code.claude.com/docs/en/permissions#additional-directories-grant-file-access-not-configuration) for details.
 
+## Security: Secret scanning
+
+All three repos (harness + both siblings) scan for secrets at three independent layers. A real credential has to slip past all three to reach `main`:
+
+| Layer        | When           | What runs                                                  |
+| ------------ | -------------- | ---------------------------------------------------------- |
+| pre-commit   | `git commit`   | `gitleaks protect --staged` on the staged diff (< 200ms)   |
+| pre-push     | `git push`     | `gitleaks detect` on `@{u}..HEAD` (catches `--no-verify`)  |
+| CI (PR-gate) | every PR       | `trufflehog --only-verified`                               |
+
+> `gitleaks` only runs locally (pre-commit and pre-push). It is intentionally **not** part of the CI workflow — `gitleaks-action` is published under a license that prohibits use by for-profit organisations without a commercial subscription, so CI relies on `trufflehog --only-verified` as the gate-of-record. The local hooks remain the first line of defence; `trufflehog` is the backstop on every PR.
+
+### Setup
+
+`npm install` installs everything:
+
+1. `husky` is configured via `postinstall`.
+2. `scripts/install-gitleaks.mjs` downloads a pinned gitleaks binary into `node_modules/.gitleaks/bin/`, verifies its SHA-256, and reuses any system `gitleaks` already on `PATH`.
+
+No manual `brew install` needed. Repeat in each sibling — `npm run install:all` covers all three.
+
+If the download fails (firewall/offline), the hook falls back to a system `gitleaks` on `PATH`. Manual install:
+
+```sh
+brew install gitleaks            # macOS
+sudo apt install gitleaks        # Debian/Ubuntu
+choco install gitleaks           # Windows
+```
+
+### Bypass (emergency only)
+
+```sh
+SKIP_GITLEAKS_INSTALL=1 npm install   # skip binary download
+git commit --no-verify                # skip local pre-commit
+git push --no-verify                  # skip local pre-push
+```
+
+CI still runs the same scans on the PR and **will block the merge**. Don't rely on `--no-verify` to land a real secret.
+
+### Allowlisting a false positive
+
+Edit `.gitleaks.toml` in the repo that flagged — add a `regexes` or `paths` entry — and open a PR. Reviewers must approve the widening. See per-repo `.gitleaks.toml` for current entries.
+
+### If a secret reaches `main`
+
+1. **Rotate the credential immediately** — assume compromised.
+2. `git filter-repo` to scrub history.
+3. Force-push and notify clones to re-clone.
+4. Add a regression regex to `.gitleaks.toml` so the exact pattern is blocked next time.
+5. Enable GitHub Push Protection (Settings → Code security and analysis) if not already on.
+
 ## Troubleshooting
 
 - **`Sibling "X" not found`** — run `npm run bootstrap`.

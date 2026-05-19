@@ -1,0 +1,1 @@
+node scripts/run-gitleaks.mjs --range
