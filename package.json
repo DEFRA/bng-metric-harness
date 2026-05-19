@@ -31,7 +31,7 @@
     "docs:serve": "npm run docs:aggregate && npm run docs:likec4 && mkdocs serve",
     "setup:husky": "node -e \"try { (await import('husky')).default() } catch (e) { if (e.code !== 'ERR_MODULE_NOT_FOUND') throw e }\" --input-type module",
     "install:gitleaks": "node scripts/install-gitleaks.mjs",
-    "postinstall": "node -e \"if(!process.env.CI && require('fs').existsSync('.git')){require('child_process').execSync('npm run setup:husky && npm run install:gitleaks',{stdio:'inherit'})}\"",
+    "postinstall": "node scripts/postinstall.mjs",
     "git:pre-commit-hook": "node scripts/run-gitleaks.mjs"
   },
   "dependencies": {
