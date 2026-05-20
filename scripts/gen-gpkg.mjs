@@ -655,26 +655,21 @@ function sortFlawNames(names) {
   return [...names].sort((a, b) => a.localeCompare(b));
 }
 
-function buildFlawFilenameSuffix({
-  bad,
-  flagBad,
-  geometric,
-  emptyFlawNames,
-  attributeFlawNames,
-}) {
+function buildFlawFilenameSuffix({ selection, flagBad }) {
+  const { geometricFlawNames, emptyFlawNames, attributeFlawNames } = selection;
   if (attributeFlawNames.length > 0) {
     return `-${sortFlawNames(attributeFlawNames).join("-")}`;
   }
   if (emptyFlawNames.length > 0) {
     return `-${sortFlawNames(emptyFlawNames).join("-")}`;
   }
-  if (!bad) {
+  if (geometricFlawNames.length === 0) {
     return "";
   }
   if (flagBad) {
     return "-bad";
   }
-  return `-bad-${sortFlawNames(geometric).join("-")}`;
+  return `-bad-${sortFlawNames(geometricFlawNames).join("-")}`;
 }
 
 async function clearExistingSyntheticOutput(outPath, isBatch) {
@@ -696,23 +691,8 @@ async function clearExistingSyntheticOutput(outPath, isBatch) {
 async function runSynthetic(centre) {
   const numParcels = Number.parseInt(args.size, PARSE_INT_BASE_10) || DEFAULT_SYNTHETIC_SIZE;
   const total = Math.max(1, Number.parseInt(args.count, PARSE_INT_BASE_10) || DEFAULT_RUN_COUNT);
-  const {
-    geometric,
-    emptyLayers,
-    emptyFlawNames,
-    attributeOverrides,
-    attributeFlawNames,
-  } = resolveFlawSelection({
-    bad: args.bad,
-    flaws: args.flaw,
-  });
-  const flawSuffix = buildFlawFilenameSuffix({
-    bad: geometric.length > 0,
-    flagBad: args.bad,
-    geometric,
-    emptyFlawNames,
-    attributeFlawNames,
-  });
+  const selection = resolveFlawSelection({ bad: args.bad, flaws: args.flaw });
+  const flawSuffix = buildFlawFilenameSuffix({ selection, flagBad: args.bad });
   if (!existsSync(OUT_DIR)) {
     mkdirSync(OUT_DIR, { recursive: true });
   }
@@ -720,7 +700,7 @@ async function runSynthetic(centre) {
     const suffix = total > 1 ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}` : "";
     const outPath = path.join(OUT_DIR, syntheticFilename(flawSuffix, suffix, timestampSuffix()));
     await clearExistingSyntheticOutput(outPath, total > 1);
-    generateOne(outPath, geometric, numParcels, centre, emptyLayers, attributeOverrides);
+    generateOne(outPath, centre, { numParcels, ...selection });
   }
 }
 

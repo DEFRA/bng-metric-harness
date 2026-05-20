@@ -1,9 +1,9 @@
 /**
  * Registry of named --bad / --flaw fixtures and the resolution logic that
  * turns a CLI selection into a normalised plan (which geometric flaws to
- * apply, which feature layers to empty). The bad-fixture builder consumes
- * the geometric list; the regular synthetic generator consumes the empty
- * set.
+ * apply, which feature layers to empty, which attribute overrides to pin).
+ * The bad-fixture builder consumes the geometric list; the regular synthetic
+ * generator consumes the empty set and the attribute overrides.
  */
 
 import { error, warn } from "../../_lib.mjs";
@@ -34,6 +34,23 @@ import {
 
 export const NO_SPECIFIC_ERROR = "(no specific backend error)";
 
+// Categories drive dispatch in resolveFlawSelection. Each flaw belongs to
+// exactly one. "geometric" is the default for flaws that mutate the bad-
+// fixture state directly.
+export const CATEGORY_GEOMETRIC = "geometric";
+export const CATEGORY_EMPTY = "empty";
+export const CATEGORY_ATTRIBUTE = "attribute";
+
+const CATEGORY_LABEL = {
+  [CATEGORY_GEOMETRIC]: "geometric",
+  [CATEGORY_EMPTY]: "empty-layer",
+  [CATEGORY_ATTRIBUTE]: "attribute-override",
+};
+
+function categoryOf(flaw) {
+  return flaw.category ?? CATEGORY_GEOMETRIC;
+}
+
 /** Square ring of half-size `half` centred at (cx, cy). */
 export function badSquareRing(cx, cy, half = BAD_PARCEL_HALF) {
   return rectRing(cx - half, cy - half, cx + half, cy + half);
@@ -43,11 +60,15 @@ export function badSquareRing(cx, cy, half = BAD_PARCEL_HALF) {
  * Registry of named flaws. Each entry has:
  *   description  short human-readable label, used in the banner
  *   errorCode    backend validation error this flaw is intended to trigger
+ *   category     "geometric" (default) | "empty" | "attribute" — drives
+ *                dispatch and selects which payload field is read
  *   standalone   true → cannot be combined with any other flaw
- *   apply(state) mutates the bad-fixture state in place (geometric flaws only)
- *   emptyLayer   key into EMPTYABLE_LAYERS; if present, the flaw routes through
- *                the regular generator with that layer skipped and registered
- *                as an empty table — not through the bad-fixture builder
+ *   apply(state) (geometric) mutates the bad-fixture state in place
+ *   emptyLayer   (empty) key into EMPTYABLE_LAYERS; that layer is registered
+ *                as an empty table instead of being populated
+ *   attributeOverride
+ *                (attribute) { layer, perRow } — generator pins the listed
+ *                column values on the first perRow.length rows of `layer`
  */
 export const FLAWS = {
   "self-intersecting-redline": {
@@ -165,39 +186,43 @@ export const FLAWS = {
   "no-habitats": {
     description: "Habitats layer present with zero rows",
     errorCode: "NO_HABITAT_AREAS",
+    category: CATEGORY_EMPTY,
     emptyLayer: "habitats",
   },
   "distinctiveness-out-of-scope": {
     description: "habitat types whose reference-data distinctiveness is rejected by the BNG Beta service",
     errorCode: "HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE",
+    category: CATEGORY_ATTRIBUTE,
     // The backend derives distinctiveness from the Baseline Habitat Type via
     // a reference table — the Baseline Distinctiveness column is decorative.
-    // So this flaw forces specific habitat types on the first N rows whose
-    // reference band is High / V.High; the rest of the row (geometry,
-    // condition, columns) is generated normally so all earlier validators
-    // still pass. Retention is forced to "Retained" so the proposed habitat
-    // mirrors the baseline, keeping the row coherent.
+    // Each perRow entry pins arbitrary column values on row i; the generator
+    // applies whatever fields are present and randomises the rest. Forcing
+    // retention to "Retained" keeps the proposed habitat aligned with the
+    // baseline so the row stays internally consistent.
     attributeOverride: {
       layer: "habitats",
       perRow: [
-        { habitatFullName: "Grassland - Lowland meadows" }, // V.High
-        { habitatFullName: "Grassland - Traditional orchards" }, // High
+        { habitatFullName: "Grassland - Lowland meadows", retention: "Retained" }, // V.High
+        { habitatFullName: "Grassland - Traditional orchards", retention: "Retained" }, // High
       ],
     },
   },
   "no-hedgerows": {
     description: "Hedgerows layer present with zero rows",
     errorCode: NO_SPECIFIC_ERROR,
+    category: CATEGORY_EMPTY,
     emptyLayer: "hedgerows",
   },
   "no-rivers": {
     description: "Rivers layer present with zero rows",
     errorCode: NO_SPECIFIC_ERROR,
+    category: CATEGORY_EMPTY,
     emptyLayer: "rivers",
   },
   "no-trees": {
     description: "Urban Trees layer present with zero rows",
     errorCode: NO_SPECIFIC_ERROR,
+    category: CATEGORY_EMPTY,
     emptyLayer: "trees",
   },
 };
@@ -214,20 +239,14 @@ export const EMPTYABLE_LAYERS = {
 
 export const ALL_FLAW_NAMES = Object.keys(FLAWS);
 
-/** Flaws that `--bad` expands to. Excludes standalone-only flaws, empty-layer
- *  flaws (different generation path), attribute-override flaws (file must
- *  pass earlier validation to reach the attribute check, so geometric flaws
- *  would mask them), and `sliver` (which conflicts with the parcel-modifying
- *  flaws). */
+/** Flaws that `--bad` expands to. Only geometric, non-standalone flaws — and
+ *  `sliver` is excluded because it conflicts with the parcel-modifying flaws. */
 export const BAD_DEFAULT_FLAWS = ALL_FLAW_NAMES.filter((n) => {
   const f = FLAWS[n];
+  if (categoryOf(f) !== CATEGORY_GEOMETRIC) {
+    return false;
+  }
   if (f.standalone) {
-    return false;
-  }
-  if (f.emptyLayer) {
-    return false;
-  }
-  if (f.attributeOverride) {
     return false;
   }
   if (n === "sliver") {
@@ -235,6 +254,15 @@ export const BAD_DEFAULT_FLAWS = ALL_FLAW_NAMES.filter((n) => {
   }
   return true;
 });
+
+// Category pairs that cannot coexist in a single selection. Attribute and
+// empty are not listed here because they only conflict when they target the
+// same layer — that case is handled separately by
+// assertAttributeLayerNotEmptied.
+const EXCLUSIVE_PAIRS = [
+  [CATEGORY_EMPTY, CATEGORY_GEOMETRIC],
+  [CATEGORY_ATTRIBUTE, CATEGORY_GEOMETRIC],
+];
 
 function collectRequestedFlaws(bad, flaws) {
   const requested = new Set(bad ? BAD_DEFAULT_FLAWS : []);
@@ -248,48 +276,50 @@ function collectRequestedFlaws(bad, flaws) {
   return [...requested];
 }
 
-function assertEmptyAndGeometricNotMixed(emptyLayerNames, geometricNames, bad) {
-  if (emptyLayerNames.length && geometricNames.length) {
-    error(
-      `Empty-layer flaws (${emptyLayerNames.join(", ")}) cannot be combined ` +
-        `with geometric flaws (${geometricNames.join(", ")}).`,
-    );
+function partitionByCategory(names) {
+  const buckets = {
+    [CATEGORY_GEOMETRIC]: [],
+    [CATEGORY_EMPTY]: [],
+    [CATEGORY_ATTRIBUTE]: [],
+  };
+  for (const name of names) {
+    buckets[categoryOf(FLAWS[name])].push(name);
+  }
+  return buckets;
+}
+
+function assertCategoryConflicts(buckets, bad) {
+  for (const [a, b] of EXCLUSIVE_PAIRS) {
+    if (!buckets[a].length || !buckets[b].length) {
+      continue;
+    }
+    const nonGeometric = a === CATEGORY_GEOMETRIC ? b : a;
+    if (bad && (a === CATEGORY_GEOMETRIC || b === CATEGORY_GEOMETRIC)) {
+      error(`--bad cannot be combined with ${CATEGORY_LABEL[nonGeometric]} flaws.`);
+    } else {
+      error(
+        `${CATEGORY_LABEL[a]} flaws (${buckets[a].join(", ")}) cannot be combined ` +
+          `with ${CATEGORY_LABEL[b]} flaws (${buckets[b].join(", ")}).`,
+      );
+    }
     process.exit(1);
   }
-  if (emptyLayerNames.length && bad) {
-    error("--bad cannot be combined with empty-layer flaws.");
-    process.exit(1);
-  }
-  if (emptyLayerNames.length === Object.keys(EMPTYABLE_LAYERS).length) {
+}
+
+function warnIfAllLayersEmpty(emptyNames) {
+  if (emptyNames.length === Object.keys(EMPTYABLE_LAYERS).length) {
     warn(
       "every feature layer is being emptied; the output will contain only the Red Line Boundary",
     );
   }
 }
 
-// Attribute-override flaws need the generated file to pass every earlier
-// validator (geometry, schema, in-England, etc.) so the validator actually
-// reaches the attribute check. Combining them with --bad / geometric flaws
-// or empty-layer flaws would either mask the override or strip the target
-// rows, so we reject those combinations up front.
-function assertAttributeFlawsCompatible(attributeNames, geometricNames, emptyLayerNames, bad) {
-  if (!attributeNames.length) {
-    return;
-  }
-  if (bad) {
-    error("--bad cannot be combined with attribute-override flaws.");
-    process.exit(1);
-  }
-  if (geometricNames.length) {
-    error(
-      `Attribute-override flaws (${attributeNames.join(", ")}) cannot be combined ` +
-        `with geometric flaws (${geometricNames.join(", ")}).`,
-    );
-    process.exit(1);
-  }
+// Attribute-override flaws need their target layer to actually contain rows;
+// otherwise the override has nothing to attach to.
+function assertAttributeLayerNotEmptied(attributeNames, emptyNames) {
   for (const name of attributeNames) {
     const targetLayer = FLAWS[name].attributeOverride.layer;
-    const conflictingEmpty = emptyLayerNames.find((n) => FLAWS[n].emptyLayer === targetLayer);
+    const conflictingEmpty = emptyNames.find((n) => FLAWS[n].emptyLayer === targetLayer);
     if (conflictingEmpty) {
       error(
         `Flaw "${name}" overrides rows in the "${targetLayer}" layer ` +
@@ -300,14 +330,22 @@ function assertAttributeFlawsCompatible(attributeNames, geometricNames, emptyLay
   }
 }
 
+function assertAttributeTargetsUnique(attributeNames) {
+  const seen = new Map();
+  for (const name of attributeNames) {
+    const { layer } = FLAWS[name].attributeOverride;
+    if (seen.has(layer)) {
+      error(`Multiple attribute-override flaws target the "${layer}" layer; combine them manually.`);
+      process.exit(1);
+    }
+    seen.set(layer, name);
+  }
+}
+
 function buildAttributeOverrides(attributeNames) {
   const overrides = {};
   for (const name of attributeNames) {
     const { layer, perRow } = FLAWS[name].attributeOverride;
-    if (overrides[layer]) {
-      error(`Multiple attribute-override flaws target the "${layer}" layer; combine them manually.`);
-      process.exit(1);
-    }
     overrides[layer] = perRow;
   }
   return overrides;
@@ -336,22 +374,23 @@ function assertNoPairwiseConflicts(geometricNames) {
 
 export function resolveFlawSelection({ bad, flaws }) {
   const names = collectRequestedFlaws(bad, flaws);
-  const emptyLayerNames = names.filter((n) => FLAWS[n].emptyLayer);
-  const attributeNames = names.filter((n) => FLAWS[n].attributeOverride);
-  const geometricNames = names.filter(
-    (n) => !FLAWS[n].emptyLayer && !FLAWS[n].attributeOverride,
-  );
+  const buckets = partitionByCategory(names);
+  const geometricFlawNames = buckets[CATEGORY_GEOMETRIC];
+  const emptyFlawNames = buckets[CATEGORY_EMPTY];
+  const attributeFlawNames = buckets[CATEGORY_ATTRIBUTE];
 
-  assertEmptyAndGeometricNotMixed(emptyLayerNames, geometricNames, bad);
-  assertAttributeFlawsCompatible(attributeNames, geometricNames, emptyLayerNames, bad);
-  assertNoStandaloneCombination(geometricNames);
-  assertNoPairwiseConflicts(geometricNames);
+  assertCategoryConflicts(buckets, bad);
+  assertAttributeLayerNotEmptied(attributeFlawNames, emptyFlawNames);
+  assertAttributeTargetsUnique(attributeFlawNames);
+  assertNoStandaloneCombination(geometricFlawNames);
+  assertNoPairwiseConflicts(geometricFlawNames);
+  warnIfAllLayersEmpty(emptyFlawNames);
 
   return {
-    geometric: geometricNames,
-    emptyLayers: new Set(emptyLayerNames.map((n) => FLAWS[n].emptyLayer)),
-    emptyFlawNames: emptyLayerNames,
-    attributeOverrides: buildAttributeOverrides(attributeNames),
-    attributeFlawNames: attributeNames,
+    geometricFlawNames,
+    emptyFlawNames,
+    attributeFlawNames,
+    emptyLayers: new Set(emptyFlawNames.map((n) => FLAWS[n].emptyLayer)),
+    attributeOverrides: buildAttributeOverrides(attributeFlawNames),
   };
 }
