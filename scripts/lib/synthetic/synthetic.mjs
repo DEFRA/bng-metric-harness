@@ -123,6 +123,12 @@ function findHabitatByFullName(fullName) {
   return habitat;
 }
 
+/**
+ * Inserts one habitat row per partitioned parcel. `perRowOverrides[i]`,
+ * if provided, pins column values on row i (currently `habitatFullName`
+ * and `retention`); fields not set there are randomised as normal. Used
+ * by attribute-override flaws.
+ */
 function generateHabitats(db, boundaryRing, numParcels, perRowOverrides) {
   const parcels = partitionPolygon(boundaryRing, numParcels);
   const stmt = db.prepare(`
@@ -458,6 +464,16 @@ function runLayerGenerators(db, ring, ctx) {
   }
 }
 
+/**
+ * Writes one synthetic GeoPackage at `outPath`. The plan controls the
+ * fixture shape:
+ *   numParcels           how many habitat parcels to partition
+ *   geometricFlawNames   non-empty → routes to the bad-fixture builder;
+ *                        the rest of the plan is ignored
+ *   emptyLayers          Set of layer keys to leave empty (table is still
+ *                        registered, just has zero rows)
+ *   attributeOverrides   per-layer row data to pin on the first N rows
+ */
 export function generateOne(outPath, centre, plan) {
   const {
     numParcels,

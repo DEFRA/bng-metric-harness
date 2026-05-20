@@ -1,9 +1,8 @@
 /**
- * Registry of named --bad / --flaw fixtures and the resolution logic that
- * turns a CLI selection into a normalised plan (which geometric flaws to
- * apply, which feature layers to empty, which attribute overrides to pin).
- * The bad-fixture builder consumes the geometric list; the regular synthetic
- * generator consumes the empty set and the attribute overrides.
+ * Lists every --bad / --flaw fixture and turns a CLI selection into a plan
+ * the generators can act on: a list of geometric flaws, a set of layers to
+ * leave empty, and per-layer attribute overrides. The bad-fixture builder
+ * reads the geometric list; the synthetic generator reads the other two.
  */
 
 import { error, warn } from "../../_lib.mjs";
@@ -193,12 +192,11 @@ export const FLAWS = {
     description: "habitat types whose reference-data distinctiveness is rejected by the BNG Beta service",
     errorCode: "HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE",
     category: CATEGORY_ATTRIBUTE,
-    // The backend derives distinctiveness from the Baseline Habitat Type via
-    // a reference table — the Baseline Distinctiveness column is decorative.
-    // Each perRow entry pins arbitrary column values on row i; the generator
-    // applies whatever fields are present and randomises the rest. Forcing
-    // retention to "Retained" keeps the proposed habitat aligned with the
-    // baseline so the row stays internally consistent.
+    // Backend looks up distinctiveness from the habitat type, not from the
+    // Baseline Distinctiveness column — so pinning the habitat name is what
+    // triggers the validator. Forcing retention to "Retained" makes the
+    // proposed habitat mirror the baseline, which keeps the row consistent.
+    // Any fields not set here are randomised by the generator as normal.
     attributeOverride: {
       layer: "habitats",
       perRow: [
@@ -372,6 +370,14 @@ function assertNoPairwiseConflicts(geometricNames) {
   }
 }
 
+/**
+ * Validates a CLI flaw selection and returns a plan for the generators.
+ * Exits the process with an error if the selection is invalid (unknown
+ * name, conflicting categories, etc).
+ *
+ * Returns one list per category plus `emptyLayers` (Set of layer keys to
+ * leave empty) and `attributeOverrides` (per-layer row data to pin).
+ */
 export function resolveFlawSelection({ bad, flaws }) {
   const names = collectRequestedFlaws(bad, flaws);
   const buckets = partitionByCategory(names);
