@@ -1,0 +1,135 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { resolveFlawSelection } from "../../../scripts/lib/synthetic/flaws.mjs";
+
+describe("resolveFlawSelection — happy paths", () => {
+  it("returns empty buckets when nothing is requested", () => {
+    const sel = resolveFlawSelection({ bad: false, flaws: [] });
+    expect(sel.geometricFlawNames).toEqual([]);
+    expect(sel.emptyFlawNames).toEqual([]);
+    expect(sel.attributeFlawNames).toEqual([]);
+    expect(sel.emptyLayers.size).toBe(0);
+    expect(sel.attributeOverrides).toEqual({});
+  });
+
+  it("routes a geometric flaw to the geometric bucket only", () => {
+    const sel = resolveFlawSelection({ bad: false, flaws: ["bowtie-parcel"] });
+    expect(sel.geometricFlawNames).toEqual(["bowtie-parcel"]);
+    expect(sel.emptyFlawNames).toEqual([]);
+    expect(sel.attributeFlawNames).toEqual([]);
+  });
+
+  it("routes an empty-layer flaw and resolves the target layer key", () => {
+    const sel = resolveFlawSelection({ bad: false, flaws: ["no-habitats"] });
+    expect(sel.emptyFlawNames).toEqual(["no-habitats"]);
+    expect([...sel.emptyLayers]).toEqual(["habitats"]);
+    expect(sel.geometricFlawNames).toEqual([]);
+    expect(sel.attributeFlawNames).toEqual([]);
+  });
+
+  it("routes an attribute-override flaw and builds a per-layer override map", () => {
+    const sel = resolveFlawSelection({
+      bad: false,
+      flaws: ["distinctiveness-out-of-scope"],
+    });
+    expect(sel.attributeFlawNames).toEqual(["distinctiveness-out-of-scope"]);
+    expect(Object.keys(sel.attributeOverrides)).toEqual(["habitats"]);
+    expect(sel.attributeOverrides.habitats).toHaveLength(2);
+    // Override row data carries retention explicitly — generator just applies
+    // fields, no hidden "force Retained" rule.
+    expect(sel.attributeOverrides.habitats[0]).toMatchObject({
+      habitatFullName: expect.any(String),
+      retention: "Retained",
+    });
+  });
+
+  it("expands --bad into the geometric default set", () => {
+    const sel = resolveFlawSelection({ bad: true, flaws: [] });
+    expect(sel.geometricFlawNames.length).toBeGreaterThan(0);
+    expect(sel.emptyFlawNames).toEqual([]);
+    expect(sel.attributeFlawNames).toEqual([]);
+    // sliver is excluded because it conflicts with the parcel-modifying flaws
+    expect(sel.geometricFlawNames).not.toContain("sliver");
+    // Standalone flaws are excluded
+    expect(sel.geometricFlawNames).not.toContain("redline-not-in-england");
+    // Non-geometric flaws are excluded
+    expect(sel.geometricFlawNames).not.toContain("no-habitats");
+    expect(sel.geometricFlawNames).not.toContain("distinctiveness-out-of-scope");
+  });
+});
+
+describe("resolveFlawSelection — conflicts", () => {
+  let exitSpy;
+  let errSpy;
+
+  beforeEach(() => {
+    exitSpy = vi.spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("__EXIT__");
+    });
+    errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    exitSpy.mockRestore();
+    errSpy.mockRestore();
+  });
+
+  function expectConflict(input, messageFragment) {
+    expect(() => resolveFlawSelection(input)).toThrow("__EXIT__");
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    const logged = errSpy.mock.calls.flat().join(" ");
+    expect(logged).toContain(messageFragment);
+  }
+
+  it("rejects empty-layer + geometric flaws", () => {
+    expectConflict(
+      { bad: false, flaws: ["no-habitats", "bowtie-parcel"] },
+      "empty-layer flaws",
+    );
+  });
+
+  it("rejects attribute-override + geometric flaws", () => {
+    expectConflict(
+      { bad: false, flaws: ["distinctiveness-out-of-scope", "bowtie-parcel"] },
+      "attribute-override flaws",
+    );
+  });
+
+  it("rejects --bad combined with an empty-layer flaw", () => {
+    expectConflict(
+      { bad: true, flaws: ["no-habitats"] },
+      "--bad cannot be combined with empty-layer",
+    );
+  });
+
+  it("rejects --bad combined with an attribute-override flaw", () => {
+    expectConflict(
+      { bad: true, flaws: ["distinctiveness-out-of-scope"] },
+      "--bad cannot be combined with attribute-override",
+    );
+  });
+
+  it("rejects an attribute override on a layer that an empty-layer flaw clears", () => {
+    expectConflict(
+      { bad: false, flaws: ["distinctiveness-out-of-scope", "no-habitats"] },
+      'overrides rows in the "habitats" layer',
+    );
+  });
+
+  it("rejects a standalone flaw combined with others", () => {
+    expectConflict(
+      { bad: false, flaws: ["redline-not-in-england", "bowtie-parcel"] },
+      "is standalone",
+    );
+  });
+
+  it("rejects pairwise-conflicting geometric flaws", () => {
+    expectConflict(
+      { bad: false, flaws: ["sliver", "bowtie-parcel"] },
+      "conflict and cannot be combined",
+    );
+  });
+
+  it("rejects unknown flaw names", () => {
+    expectConflict({ bad: false, flaws: ["nope"] }, "Unknown flaw: nope");
+  });
+});
