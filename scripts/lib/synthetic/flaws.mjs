@@ -13,6 +13,7 @@ import {
   BAD_REDLINE_HALF,
   BOWTIE_PARCEL_DY,
   BOWTIE_PARCEL_HALF,
+  HABITATS,
   HEDGEROW_INSIDE_OFFSET,
   HEDGEROW_OUTSIDE_OFFSET,
   IGGI_HALF,
@@ -328,12 +329,38 @@ function assertAttributeLayerNotEmptied(attributeNames, emptyNames) {
   }
 }
 
+// Catch typos in attributeOverride.perRow at CLI-validation time, before any
+// gpkg file is opened. Without this the generator would still throw later,
+// but only after the output file and schema had been created.
+function assertAttributeOverridesValid(attributeNames) {
+  const knownFullNames = new Set(HABITATS.map((h) => h.fullName));
+  for (const name of attributeNames) {
+    const { perRow } = FLAWS[name].attributeOverride;
+    perRow.forEach((row, idx) => {
+      if (
+        row.habitatFullName !== undefined &&
+        !knownFullNames.has(row.habitatFullName)
+      ) {
+        error(
+          `Flaw "${name}" override row ${idx} references unknown ` +
+            `habitatFullName "${row.habitatFullName}". ` +
+            `Must match a fullName in HABITATS reference data.`,
+        );
+        process.exit(1);
+      }
+    });
+  }
+}
+
 function assertAttributeTargetsUnique(attributeNames) {
   const seen = new Map();
   for (const name of attributeNames) {
     const { layer } = FLAWS[name].attributeOverride;
     if (seen.has(layer)) {
-      error(`Multiple attribute-override flaws target the "${layer}" layer; combine them manually.`);
+      error(
+        `Multiple attribute-override flaws target the "${layer}" layer; ` +
+          `define a single combined flaw entry instead.`,
+      );
       process.exit(1);
     }
     seen.set(layer, name);
@@ -347,6 +374,22 @@ function buildAttributeOverrides(attributeNames) {
     overrides[layer] = perRow;
   }
   return overrides;
+}
+
+// Per-row attribute overrides are applied in order to the first perRow.length
+// rows of the target layer. When --size is smaller than that, the tail of
+// perRow has no row to attach to — warn so the user knows the requested fixture
+// won't carry every pinned attribute.
+function warnIfInsufficientParcels(attributeNames, numParcels) {
+  for (const name of attributeNames) {
+    const { perRow } = FLAWS[name].attributeOverride;
+    if (perRow.length > numParcels) {
+      warn(
+        `Flaw "${name}" pins ${perRow.length} rows but only ${numParcels} parcels requested; ` +
+          `${perRow.length - numParcels} override(s) will be silently skipped.`,
+      );
+    }
+  }
 }
 
 function assertNoStandaloneCombination(geometricNames) {
@@ -377,8 +420,11 @@ function assertNoPairwiseConflicts(geometricNames) {
  *
  * Returns one list per category plus `emptyLayers` (Set of layer keys to
  * leave empty) and `attributeOverrides` (per-layer row data to pin).
+ *
+ * `numParcels` is used only to warn when an attribute-override flaw pins
+ * more rows than the requested fixture will contain.
  */
-export function resolveFlawSelection({ bad, flaws }) {
+export function resolveFlawSelection({ bad, flaws, numParcels }) {
   const names = collectRequestedFlaws(bad, flaws);
   const buckets = partitionByCategory(names);
   const geometricFlawNames = buckets[CATEGORY_GEOMETRIC];
@@ -388,9 +434,13 @@ export function resolveFlawSelection({ bad, flaws }) {
   assertCategoryConflicts(buckets, bad);
   assertAttributeLayerNotEmptied(attributeFlawNames, emptyFlawNames);
   assertAttributeTargetsUnique(attributeFlawNames);
+  assertAttributeOverridesValid(attributeFlawNames);
   assertNoStandaloneCombination(geometricFlawNames);
   assertNoPairwiseConflicts(geometricFlawNames);
   warnIfAllLayersEmpty(emptyFlawNames);
+  if (typeof numParcels === "number") {
+    warnIfInsufficientParcels(attributeFlawNames, numParcels);
+  }
 
   return {
     geometricFlawNames,

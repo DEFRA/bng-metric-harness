@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { resolveFlawSelection } from "../../../scripts/lib/synthetic/flaws.mjs";
+import {
+  CATEGORY_ATTRIBUTE,
+  FLAWS,
+  resolveFlawSelection,
+} from "../../../scripts/lib/synthetic/flaws.mjs";
 
 describe("resolveFlawSelection — happy paths", () => {
   it("returns empty buckets when nothing is requested", () => {
@@ -40,6 +44,17 @@ describe("resolveFlawSelection — happy paths", () => {
       habitatFullName: expect.any(String),
       retention: "Retained",
     });
+  });
+
+  it("allows attribute + empty flaws when they target different layers", () => {
+    const sel = resolveFlawSelection({
+      bad: false,
+      flaws: ["distinctiveness-out-of-scope", "no-hedgerows"],
+    });
+    expect(sel.attributeFlawNames).toEqual(["distinctiveness-out-of-scope"]);
+    expect(sel.emptyFlawNames).toEqual(["no-hedgerows"]);
+    expect(Object.keys(sel.attributeOverrides)).toEqual(["habitats"]);
+    expect([...sel.emptyLayers]).toEqual(["hedgerows"]);
   });
 
   it("expands --bad into the geometric default set", () => {
@@ -131,5 +146,71 @@ describe("resolveFlawSelection — conflicts", () => {
 
   it("rejects unknown flaw names", () => {
     expectConflict({ bad: false, flaws: ["nope"] }, "Unknown flaw: nope");
+  });
+
+  it("rejects an attribute-override flaw whose habitatFullName is not in HABITATS", () => {
+    const TEST_FLAW = "__test_bad_full_name";
+    FLAWS[TEST_FLAW] = {
+      description: "test-only flaw with an unknown habitatFullName",
+      errorCode: "TEST",
+      category: CATEGORY_ATTRIBUTE,
+      attributeOverride: {
+        layer: "habitats",
+        perRow: [{ habitatFullName: "Nonsense - Not real", retention: "Retained" }],
+      },
+    };
+    try {
+      expectConflict(
+        { bad: false, flaws: [TEST_FLAW] },
+        'unknown habitatFullName "Nonsense - Not real"',
+      );
+    } finally {
+      delete FLAWS[TEST_FLAW];
+    }
+  });
+});
+
+describe("resolveFlawSelection — parcel sufficiency", () => {
+  let logSpy;
+
+  beforeEach(() => {
+    logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    logSpy.mockRestore();
+  });
+
+  function loggedText() {
+    return logSpy.mock.calls.flat().join(" ");
+  }
+
+  it("warns when numParcels is smaller than the override row count", () => {
+    resolveFlawSelection({
+      bad: false,
+      flaws: ["distinctiveness-out-of-scope"],
+      numParcels: 1,
+    });
+    const out = loggedText();
+    expect(out).toContain('"distinctiveness-out-of-scope"');
+    expect(out).toContain("pins 2 rows");
+    expect(out).toContain("only 1 parcels requested");
+  });
+
+  it("does not warn when numParcels is at least the override row count", () => {
+    resolveFlawSelection({
+      bad: false,
+      flaws: ["distinctiveness-out-of-scope"],
+      numParcels: 5,
+    });
+    expect(loggedText()).not.toContain("silently skipped");
+  });
+
+  it("does not warn when numParcels is omitted (back-compat for tests/scripts)", () => {
+    resolveFlawSelection({
+      bad: false,
+      flaws: ["distinctiveness-out-of-scope"],
+    });
+    expect(loggedText()).not.toContain("silently skipped");
   });
 });

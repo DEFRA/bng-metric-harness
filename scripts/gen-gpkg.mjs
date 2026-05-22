@@ -691,7 +691,7 @@ async function clearExistingSyntheticOutput(outPath, isBatch) {
 async function runSynthetic(centre) {
   const numParcels = Number.parseInt(args.size, PARSE_INT_BASE_10) || DEFAULT_SYNTHETIC_SIZE;
   const total = Math.max(1, Number.parseInt(args.count, PARSE_INT_BASE_10) || DEFAULT_RUN_COUNT);
-  const selection = resolveFlawSelection({ bad: args.bad, flaws: args.flaw });
+  const selection = resolveFlawSelection({ bad: args.bad, flaws: args.flaw, numParcels });
   const flawSuffix = buildFlawFilenameSuffix({ selection, flagBad: args.bad });
   if (!existsSync(OUT_DIR)) {
     mkdirSync(OUT_DIR, { recursive: true });
