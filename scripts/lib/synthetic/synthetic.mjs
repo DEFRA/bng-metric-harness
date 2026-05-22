@@ -115,7 +115,21 @@ function pickProposedHabitat(baseline, retention) {
   return pick(HABITATS_BY_BROAD[proposedBroad]);
 }
 
-function generateHabitats(db, boundaryRing, numParcels) {
+function findHabitatByFullName(fullName) {
+  const habitat = HABITATS.find((h) => h.fullName === fullName);
+  if (!habitat) {
+    throw new Error(`habitatFullName "${fullName}" not found in HABITATS reference data`);
+  }
+  return habitat;
+}
+
+/**
+ * Inserts one habitat row per partitioned parcel. `perRowOverrides[i]`,
+ * if provided, pins column values on row i (currently `habitatFullName`
+ * and `retention`); fields not set there are randomised as normal. Used
+ * by attribute-override flaws.
+ */
+function generateHabitats(db, boundaryRing, numParcels, perRowOverrides) {
   const parcels = partitionPolygon(boundaryRing, numParcels);
   const stmt = db.prepare(`
     INSERT INTO "Habitats" (
@@ -134,8 +148,11 @@ function generateHabitats(db, boundaryRing, numParcels) {
   for (let i = 0; i < parcels.length; i += 1) {
     const ring = parcels[i];
     expandEnvelope(allEnvelope, envelopeFromCoords(ring));
-    const baseline = pick(HABITATS);
-    const retention = pick(RETENTION_CATEGORIES);
+    const override = perRowOverrides?.[i];
+    const baseline = override?.habitatFullName
+      ? findHabitatByFullName(override.habitatFullName)
+      : pick(HABITATS);
+    const retention = override?.retention ?? pick(RETENTION_CATEGORIES);
     const proposed = pickProposedHabitat(baseline, retention);
     stmt.run(
       gpkgPolygon(SRS_ID, ring),
@@ -400,7 +417,8 @@ function computeLayerCounts(numParcels, emptyLayers) {
   };
 }
 
-function logSyntheticBanner(outPath, centre, counts, emptyLayers) {
+function logSyntheticBanner(outPath, centre, ctx) {
+  const { counts, emptyLayers, attributeOverrides } = ctx;
   const { numHabitats, numHedgerows, numRivers, numTrees } = counts;
   header(`Generating BNG test GeoPackage`, "cyan");
   info(`  ${SITE_NAME}`);
@@ -411,6 +429,9 @@ function logSyntheticBanner(outPath, centre, counts, emptyLayers) {
     info(
       `  empty layers: ${[...emptyLayers].sort((a, b) => a.localeCompare(b)).join(", ")}`,
     );
+  }
+  for (const [layer, perRow] of Object.entries(attributeOverrides)) {
+    info(`  attribute overrides: ${layer} rows 0..${perRow.length - 1}`);
   }
   info(`  centre: ${centre[0]},${centre[1]} (BNG)`);
   info(`  → ${outPath}`);
@@ -428,9 +449,10 @@ function registerEmptyLayers(db, emptyLayers) {
   }
 }
 
-function runLayerGenerators(db, ring, counts, emptyLayers) {
+function runLayerGenerators(db, ring, ctx) {
+  const { counts, emptyLayers, attributeOverrides } = ctx;
   const generators = {
-    habitats: () => generateHabitats(db, ring, counts.numHabitats),
+    habitats: () => generateHabitats(db, ring, counts.numHabitats, attributeOverrides.habitats),
     hedgerows: () => generateHedgerows(db, ring, counts.numHedgerows),
     rivers: () => generateRivers(db, ring, counts.numRivers),
     trees: () => generateUrbanTrees(db, ring, counts.numTrees),
@@ -442,14 +464,33 @@ function runLayerGenerators(db, ring, counts, emptyLayers) {
   }
 }
 
-export function generateOne(outPath, badFlawNames, numParcels, centre, emptyLayers = new Set()) {
-  if (badFlawNames && badFlawNames.length > 0) {
-    generateOneBad(outPath, centre, badFlawNames);
+/**
+ * Writes one synthetic GeoPackage at `outPath`. The plan controls the
+ * fixture shape:
+ *   numParcels           how many habitat parcels to partition
+ *   geometricFlawNames   non-empty → routes to the bad-fixture builder;
+ *                        the rest of the plan is ignored
+ *   emptyLayers          Set of layer keys to leave empty (table is still
+ *                        registered, just has zero rows)
+ *   attributeOverrides   per-layer row data to pin on the first N rows
+ */
+export function generateOne(outPath, centre, plan) {
+  const {
+    numParcels,
+    geometricFlawNames = [],
+    emptyLayers = new Set(),
+    attributeOverrides = {},
+  } = plan;
+
+  if (geometricFlawNames.length > 0) {
+    generateOneBad(outPath, centre, geometricFlawNames);
     return;
   }
 
   const counts = computeLayerCounts(numParcels, emptyLayers);
-  logSyntheticBanner(outPath, centre, counts, emptyLayers);
+  const ctx = { counts, emptyLayers, attributeOverrides };
+
+  logSyntheticBanner(outPath, centre, ctx);
 
   const [cx, cy] = centre;
   const db = openGeoPackage(outPath);
@@ -457,7 +498,7 @@ export function generateOne(outPath, badFlawNames, numParcels, centre, emptyLaye
 
   const ring = generateRedLineBoundary(db, cx, cy, SYNTHETIC_RLB_RADIUS_M);
   registerEmptyLayers(db, emptyLayers);
-  runLayerGenerators(db, ring, counts, emptyLayers);
+  runLayerGenerators(db, ring, ctx);
   createLayerStyles(db);
 
   db.close();
