@@ -52,6 +52,7 @@ import {
   ENCROACHMENT_WATERCOURSE,
   HABITATS,
   HABITATS_BY_BROAD,
+  IN_SCOPE_HABITATS,
   HEDGE_CONDITIONS,
   HEDGEROW_PER_PARCEL_RATIO,
   HEDGE_TYPES,
@@ -151,7 +152,7 @@ function generateHabitats(db, boundaryRing, numParcels, perRowOverrides) {
     const override = perRowOverrides?.[i];
     const baseline = override?.habitatFullName
       ? findHabitatByFullName(override.habitatFullName)
-      : pick(HABITATS);
+      : pick(IN_SCOPE_HABITATS);
     const retention = override?.retention ?? pick(RETENTION_CATEGORIES);
     const proposed = pickProposedHabitat(baseline, retention);
     stmt.run(
