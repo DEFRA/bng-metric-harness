@@ -1,0 +1,78 @@
+{
+  "$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.schema.json",
+  "name": "BNG Metric Harness",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm",
+  "workspaceFolder": "/workspaces/bng-metric-harness",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/bng-metric-harness,type=bind,consistency=cached",
+  "mounts": [
+    "source=${localWorkspaceFolder}/../bng-metric-frontend,target=/workspaces/bng-metric-frontend,type=bind,consistency=cached",
+    "source=${localWorkspaceFolder}/../bng-metric-backend,target=/workspaces/bng-metric-backend,type=bind,consistency=cached"
+  ],
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": false,
+      "username": "node",
+      "upgradePackages": true
+    },
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.12"
+    },
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "17"
+    },
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "version": "latest",
+      "moby": false
+    }
+  },
+  "remoteEnv": {
+    "PATH": "${containerEnv:PATH}:/home/node/.local/bin"
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "forwardPorts": [
+    3000,
+    3001,
+    3200,
+    5432,
+    6379,
+    4566,
+    7337,
+    8000,
+    10350
+  ],
+  "portsAttributes": {
+    "5432": {
+      "label": "PostgreSQL",
+      "onAutoForward": "ignore"
+    },
+    "3000": {
+      "label": "Frontend",
+      "onAutoForward": "notify"
+    },
+    "3001": {
+      "label": "Backend API",
+      "onAutoForward": "notify"
+    },
+    "10350": {
+      "label": "Tilt dashboard",
+      "onAutoForward": "notify"
+    },
+    "8000": {
+      "label": "MkDocs",
+      "onAutoForward": "silent"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "task.allowAutomaticTasks": "on"
+      },
+      "extensions": [
+        "likec4.likec4-vscode"
+      ]
+    }
+  },
+  "runArgs": [
+    "--add-host=host.docker.internal:host-gateway"
+  ]
+}
