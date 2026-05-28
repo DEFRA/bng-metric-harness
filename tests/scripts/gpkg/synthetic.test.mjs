@@ -202,3 +202,54 @@ describe("synthetic generateOne — attribute overrides", () => {
     }
   });
 });
+
+describe("synthetic generateOne — duplicate Parcel Ref override", () => {
+  let outDir;
+  let outPath;
+
+  beforeAll(() => {
+    outDir = mkdtempSync(path.join(tmpdir(), "bng-synthetic-dup-ref-"));
+    outPath = path.join(outDir, "dup-ref.gpkg");
+    generateOne(outPath, CENTRE, {
+      numParcels: NUM_PARCELS,
+      attributeOverrides: {
+        habitats: [{ parcelRef: "DUP-1" }, { parcelRef: "DUP-1" }],
+      },
+    });
+  });
+
+  afterAll(() => {
+    rmSync(outDir, { recursive: true, force: true });
+  });
+
+  it("emits two habitat rows sharing the same Parcel Ref", () => {
+    const db = openGeoPackageReadonly(outPath);
+    try {
+      const rows = db
+        .prepare(`SELECT "Parcel Ref" AS ref FROM "Habitats"`)
+        .all();
+      const duplicated = rows.filter((r) => r.ref === "DUP-1");
+      expect(duplicated).toHaveLength(2);
+    } finally {
+      db.close();
+    }
+  });
+
+  it("leaves un-overridden rows with their generated H-prefixed refs", () => {
+    const db = openGeoPackageReadonly(outPath);
+    try {
+      const rows = db
+        .prepare(
+          `SELECT "Parcel Ref" AS ref FROM "Habitats" WHERE "Parcel Ref" != 'DUP-1' ORDER BY "Parcel Ref"`,
+        )
+        .all();
+      const REMAINING = NUM_PARCELS - 2;
+      expect(rows).toHaveLength(REMAINING);
+      for (const row of rows) {
+        expect(row.ref).toMatch(/^H\d+$/);
+      }
+    } finally {
+      db.close();
+    }
+  });
+});

@@ -46,6 +46,19 @@ describe("resolveFlawSelection — happy paths", () => {
     });
   });
 
+  it("routes the duplicate-habitat-ref flaw and pins the same ref on two rows", () => {
+    const sel = resolveFlawSelection({
+      bad: false,
+      flaws: ["duplicate-habitat-ref"],
+    });
+    expect(sel.attributeFlawNames).toEqual(["duplicate-habitat-ref"]);
+    expect(Object.keys(sel.attributeOverrides)).toEqual(["habitats"]);
+    expect(sel.attributeOverrides.habitats).toHaveLength(2);
+    const refs = sel.attributeOverrides.habitats.map((r) => r.parcelRef);
+    expect(refs[0]).toBeTruthy();
+    expect(refs[0]).toBe(refs[1]);
+  });
+
   it("allows attribute + empty flaws when they target different layers", () => {
     const sel = resolveFlawSelection({
       bad: false,

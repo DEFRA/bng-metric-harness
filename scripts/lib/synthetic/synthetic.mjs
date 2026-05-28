@@ -125,9 +125,9 @@ function findHabitatByFullName(fullName) {
 
 /**
  * Inserts one habitat row per partitioned parcel. `perRowOverrides[i]`,
- * if provided, pins column values on row i (currently `habitatFullName`
- * and `retention`); fields not set there are randomised as normal. Used
- * by attribute-override flaws.
+ * if provided, pins column values on row i (currently `habitatFullName`,
+ * `retention`, and `parcelRef`); fields not set there are randomised as
+ * normal. Used by attribute-override flaws.
  */
 function generateHabitats(db, boundaryRing, numParcels, perRowOverrides) {
   const parcels = partitionPolygon(boundaryRing, numParcels);
@@ -156,7 +156,7 @@ function generateHabitats(db, boundaryRing, numParcels, perRowOverrides) {
     const proposed = pickProposedHabitat(baseline, retention);
     stmt.run(
       gpkgPolygon(SRS_ID, ring),
-      syntheticRef("H", i),
+      override?.parcelRef ?? syntheticRef("H", i),
       baseline.broad,
       baseline.type,
       Math.round(polygonArea(ring)),

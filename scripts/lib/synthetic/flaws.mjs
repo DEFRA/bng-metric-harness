@@ -206,6 +206,17 @@ export const FLAWS = {
       ],
     },
   },
+  "duplicate-habitat-ref": {
+    description: "two habitat parcels share the same Parcel Ref",
+    errorCode: "DUPLICATE_HABITAT_REF",
+    category: CATEGORY_ATTRIBUTE,
+    // Pin both rows to the same Parcel Ref. Geometry and every other column
+    // are randomised as normal — only the ref collision triggers the validator.
+    attributeOverride: {
+      layer: "habitats",
+      perRow: [{ parcelRef: "DUP-1" }, { parcelRef: "DUP-1" }],
+    },
+  },
   "no-hedgerows": {
     description: "Hedgerows layer present with zero rows",
     errorCode: NO_SPECIFIC_ERROR,
