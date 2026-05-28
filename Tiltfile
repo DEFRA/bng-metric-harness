@@ -34,3 +34,35 @@ local_resource(
     links=['http://localhost:3001'],
     labels=['apps'],
 )
+
+# Journey tests — manual one-shot trigger. Runs the full Playwright suite
+# against the locally-running frontend/backend. Click the button in the
+# Tilt UI to start a run.
+#
+# Pre-flight checks that the Node version pinned in journey-tests/.nvmrc is
+# actually installed in nvm; otherwise nvm fails silently (exit 3) and the
+# Tilt log shows nothing useful.
+journey_tests_cmd = '''
+. "$NVM_DIR/nvm.sh"
+REQUIRED=$(tr -d '[:space:]' < .nvmrc)
+if ! nvm which "$REQUIRED" >/dev/null 2>&1; then
+  echo ""
+  echo "Node $REQUIRED (from bng-metric-journey-tests/.nvmrc) is not installed in nvm."
+  echo "Install it with:"
+  echo "  (cd ../bng-metric-journey-tests && nvm install)"
+  echo ""
+  exit 1
+fi
+nvm use --silent
+exec npm run test:local
+'''
+
+local_resource(
+    'journey-tests',
+    cmd=journey_tests_cmd,
+    dir='../bng-metric-journey-tests',
+    auto_init=False,
+    trigger_mode=TRIGGER_MODE_MANUAL,
+    resource_deps=['frontend', 'backend'],
+    labels=['tests'],
+)
