@@ -52,6 +52,7 @@ import {
   ENCROACHMENT_WATERCOURSE,
   HABITATS,
   HABITATS_BY_BROAD,
+  IN_SCOPE_HABITATS,
   HEDGE_CONDITIONS,
   HEDGEROW_PER_PARCEL_RATIO,
   HEDGE_TYPES,
@@ -125,9 +126,9 @@ function findHabitatByFullName(fullName) {
 
 /**
  * Inserts one habitat row per partitioned parcel. `perRowOverrides[i]`,
- * if provided, pins column values on row i (currently `habitatFullName`
- * and `retention`); fields not set there are randomised as normal. Used
- * by attribute-override flaws.
+ * if provided, pins column values on row i (currently `habitatFullName`,
+ * `retention`, and `parcelRef`); fields not set there are randomised as
+ * normal. Used by attribute-override flaws.
  */
 function generateHabitats(db, boundaryRing, numParcels, perRowOverrides) {
   const parcels = partitionPolygon(boundaryRing, numParcels);
@@ -151,12 +152,12 @@ function generateHabitats(db, boundaryRing, numParcels, perRowOverrides) {
     const override = perRowOverrides?.[i];
     const baseline = override?.habitatFullName
       ? findHabitatByFullName(override.habitatFullName)
-      : pick(HABITATS);
+      : pick(IN_SCOPE_HABITATS);
     const retention = override?.retention ?? pick(RETENTION_CATEGORIES);
     const proposed = pickProposedHabitat(baseline, retention);
     stmt.run(
       gpkgPolygon(SRS_ID, ring),
-      syntheticRef("H", i),
+      override?.parcelRef ?? syntheticRef("H", i),
       baseline.broad,
       baseline.type,
       Math.round(polygonArea(ring)),

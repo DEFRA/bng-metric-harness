@@ -59,6 +59,7 @@
  *   valid; specific column values on the first few rows of one layer are
  *   replaced with out-of-scope values so a single attribute validator fires:
  *     distinctiveness-out-of-scope  HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE
+ *     duplicate-habitat-ref         DUPLICATE_HABITAT_REF
  *
  * --flaw is repeatable; geometric, empty-layer, and attribute-override flaws
  * cannot be mixed with each other.

@@ -128,6 +128,16 @@ for (const fullName of Object.keys(metricDistinctiveness)) {
 
 export const BROAD_HABITAT_TYPES = Object.keys(HABITATS_BY_BROAD);
 
+// Distinctiveness bands the backend accepts (BMD-352). Random baseline picks
+// are constrained to these so synthetic fixtures don't accidentally trip the
+// distinctiveness validator. Flaws that need an out-of-scope habitat (e.g.
+// distinctiveness-out-of-scope) pin it explicitly via habitatFullName and
+// look it up against the full HABITATS list.
+const IN_SCOPE_DISTINCTIVENESS_BANDS = new Set(["Medium", "Low", "V.Low"]);
+export const IN_SCOPE_HABITATS = HABITATS.filter((h) =>
+  IN_SCOPE_DISTINCTIVENESS_BANDS.has(h.distinctiveness),
+);
+
 // Hedgerows / Rivers / Urban Trees use their own metric tables; the prototype
 // validates them separately. Until the same wiring is added for those layers,
 // keep the generic enum lists used previously.
