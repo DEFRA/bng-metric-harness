@@ -3,7 +3,8 @@
     "additionalDirectories": [
       "../bng-metric-frontend",
       "../bng-metric-backend",
-      "../bng-metric-digital-prototype"
+      "../bng-metric-digital-prototype",
+      "../bng-metric-journey-tests"
     ],
     "allow": [
       "Read",
