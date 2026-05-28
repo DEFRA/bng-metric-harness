@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const ansi = {
   reset: "\x1b[0m",
@@ -31,7 +32,10 @@ export const REPOS = [
   },
 ];
 
-export const HARNESS_ROOT = path.resolve(import.meta.dirname, "..");
+export const HARNESS_ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+);
 export const WORKSPACE_ROOT = path.resolve(HARNESS_ROOT, "..");
 
 export const repoPath = (name) => path.resolve(WORKSPACE_ROOT, name);

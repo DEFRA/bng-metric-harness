@@ -4,23 +4,26 @@ This repo is a **meta-repo / harness** that orchestrates two sibling repos check
 
 ```
 <workspace>/
-├── bng-metric-harness/      ← you are here
-│   ├── frontend  →  ../bng-metric-frontend   (symlink)
-│   └── backend   →  ../bng-metric-backend    (symlink)
-├── bng-metric-frontend/     ← Hapi + Nunjucks + GOV.UK, port 3000
-└── bng-metric-backend/      ← Hapi API, port 3001
+├── bng-metric-harness/             ← you are here
+│   ├── frontend       →  ../bng-metric-frontend         (symlink)
+│   ├── backend        →  ../bng-metric-backend          (symlink)
+│   └── journey-tests  →  ../bng-metric-journey-tests    (symlink)
+├── bng-metric-frontend/            ← Hapi + Nunjucks + GOV.UK, port 3000
+├── bng-metric-backend/             ← Hapi API, port 3001
+└── bng-metric-journey-tests/       ← Playwright suite, triggered from Tilt
 ```
 
 The harness owns no application code. Its only job is to give a developer a single place to run `npm install`, `npm run dev`, `npm run test`, `npm run status`, etc. across the pair.
 
 ## Sibling access from inside the harness
 
-Two symlinks live in the harness root so both siblings are reachable from a Claude Code session started here:
+Symlinks live in the harness root so the siblings are reachable from a Claude Code session started here:
 
 - `./frontend` → `../bng-metric-frontend`
 - `./backend` → `../bng-metric-backend`
+- `./journey-tests` → `../bng-metric-journey-tests`
 
-Read and edit sibling files through those symlinks — e.g. `frontend/src/server/index.js`, `backend/src/api/routes.js`. The `.claude/settings.json` also lists `../bng-metric-frontend` and `../bng-metric-backend` under `permissions.additionalDirectories`, so tool permissions resolve correctly against the real paths (symlinks alone wouldn't be enough because the trust boundary checks canonical paths).
+Read and edit sibling files through those symlinks — e.g. `frontend/src/server/index.js`, `backend/src/api/routes.js`, `journey-tests/test/...`. The `.claude/settings.json` also lists each sibling under `permissions.additionalDirectories`, so tool permissions resolve correctly against the real paths (symlinks alone wouldn't be enough because the trust boundary checks canonical paths).
 
 The orchestration scripts (`scripts/*.mjs`) resolve sibling paths by name (`bng-metric-frontend`, `bng-metric-backend`), not through the symlinks — so the symlinks are purely for interactive access, not for the build/dev pipeline.
 
