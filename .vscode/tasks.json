@@ -2,6 +2,55 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Tilt: up",
+      "type": "shell",
+      "command": "bash",
+      "args": ["${workspaceFolder}/.vscode/run-tilt-up-if-ready.sh"],
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "tilt",
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "Tilt started on"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "focus": false
+      },
+      "runOptions": {
+        "runOn": "folderOpen"
+      }
+    },
+    {
+      "label": "MkDocs: serve",
+      "type": "shell",
+      "command": "bash",
+      "args": ["${workspaceFolder}/.vscode/run-docs-serve-if-node.sh"],
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "mkdocs",
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "Serving\\s+on\\s+http://"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "focus": false
+      }
+    },
+    {
       "label": "tilt up",
       "type": "shell",
       "command": "tilt up --stream",

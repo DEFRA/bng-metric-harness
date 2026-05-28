@@ -16,7 +16,67 @@ This repo contains no application code — just scripts and Claude Code config. 
 - **Node.js ≥ 24** (matches both siblings' engines)
 - **npm** (lockfiles in both siblings are npm)
 - **git** (with SSH access to `github.com:DEFRA/*`)
-- **Docker** (optional, but needed for supporting services — see below)
+- **Docker** (needed for supporting services)
+
+## Local development (Dev Container)
+
+This repository includes a [Dev Container](https://containers.dev/) under `.devcontainer/` for a consistent environment (Node 24, Tilt, MkDocs Material, LikeC4).
+
+**Requirements:**
+
+- [Docker](https://www.docker.com/) running on the **host** (the container uses your host engine via the Docker socket)
+- Microsoft [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) (`ms-vscode-remote.remote-containers`)
+- Sibling repos cloned **beside** this one on the host (see layout below) — the container bind-mounts each repo into `/workspaces/`
+
+**Use VS Code for dev containers.** Cursor does not support the official Microsoft extension—it installs Anysphere’s fork (`anysphere.remote-containers`) instead, even if you request the Microsoft ID.
+
+Install the Microsoft extension (from the repo root):
+
+```bash
+bash .devcontainer/install-host-extension.sh
+```
+
+Or in VS Code: **Extensions** → search **Dev Containers** → install the one published by **Microsoft**.
+
+**Host layout** (your `~/code/defra` directory is the intended setup):
+
+```
+~/code/defra/
+├── bng-metric-harness/    ← open this folder in VS Code
+├── bng-metric-frontend/
+└── bng-metric-backend/
+```
+
+**Before reopening in container** (on the host, with SSH to `github.com:DEFRA/*`):
+
+```bash
+cd ~/code/defra/bng-metric-harness
+npm run bootstrap      # clone siblings if missing
+npm run install:all    # npm install in harness + siblings
+```
+
+1. Open this repository in **VS Code** (not Cursor).
+2. Run **Dev Containers: Reopen in Container** from the Command Palette (`Ctrl+Shift+P`).
+3. Wait for the container to build (installs `npm ci`, MkDocs Material, Tilt, Graphviz, Java 17, and `ripgrep`).
+4. If siblings and Docker are available, the **Tilt: up** task starts on folder open — frontend **http://localhost:3000**, backend **http://localhost:3001**, dashboard **http://localhost:10350**. If prerequisites are missing, the task prints a short skip message instead of failing.
+5. In a second terminal, run **`npm run docs:serve`** for the aggregated docs site at **http://localhost:8000/bng-metric-harness/** (live reload). Or use **Terminal → Run Task → MkDocs: serve**.
+
+The devcontainer also adds `host.docker.internal` via:
+
+```json
+"runArgs": ["--add-host=host.docker.internal:host-gateway"]
+```
+
+This avoids local Docker networking issues when services inside the container need to reach host-bound ports.
+
+**Run commands** (use separate terminals):
+
+```bash
+tilt up              # Docker services + frontend + backend
+npm run docs:serve   # Aggregate docs + serve MkDocs (live reload)
+```
+
+Or via tasks: **Terminal → Run Task → Tilt: up** or **MkDocs: serve**.
 
 ## Get started
 
@@ -34,24 +94,35 @@ npm run bootstrap
 # 4. Install deps in all three repos
 npm run install:all
 
-# 5. Start supporting services (postgres, redis, localstack, defra-id-stub)
-(cd ../bng-metric-backend && docker compose up -d)
+# 5. Start the full stack with Tilt
+tilt up
 
-# 6. Run both apps together
-npm run dev
+# 6. In another terminal — aggregated docs site (live reload)
+npm run docs:serve
 ```
 
-Frontend on <http://localhost:3000>, backend on <http://localhost:3001>.
-
-If you have [Tilt](https://tilt.dev/) installed, you can replace steps 5–6 with `tilt up` — see the [Tilt](#tilt) section below.
+Frontend on <http://localhost:3000>, backend on <http://localhost:3001>, docs on <http://localhost:8000/bng-metric-harness/>.
 
 ## Running the apps
 
-| Command          | What it does                                                                                    |
-| ---------------- | ----------------------------------------------------------------------------------------------- |
-| `npm run dev`    | Both apps in parallel with prefixed output (`[fe]` cyan, `[be]` magenta). Any crash kills both. |
-| `npm run dev:fe` | Frontend only                                                                                   |
-| `npm run dev:be` | Backend only                                                                                    |
+| Command              | What it does                                                                                    |
+| -------------------- | ----------------------------------------------------------------------------------------------- |
+| `tilt up`            | Full stack: Docker services + frontend + backend (see [Tilt](#tilt))                            |
+| `npm run docs:serve` | Aggregate docs from all three repos and serve MkDocs with live reload                           |
+| `npm run dev`        | Both apps in parallel with prefixed output (`[fe]` cyan, `[be]` magenta). Any crash kills both. |
+| `npm run dev:fe`     | Frontend only                                                                                   |
+| `npm run dev:be`     | Backend only                                                                                    |
+
+## Documentation
+
+The harness aggregates markdown from all three repos into a single MkDocs site. See [docs/documentation-site.md](docs/documentation-site.md) for how publishing works.
+
+| Command                  | What it does                                                                 |
+| ------------------------ | ---------------------------------------------------------------------------- |
+| `npm run docs:serve`     | Aggregate + build LikeC4 + serve at <http://localhost:8000/bng-metric-harness/> |
+| `npm run docs:build`     | Same as above but static output in `_site/`                                  |
+| `npm run docs:aggregate` | Copy markdown from sibling repos and emit `mkdocs.generated.yml`             |
+| `npm run docs:likec4`    | Build the LikeC4 architecture SPA into `site_src/docs/architecture/app/`     |
 
 ## Dependency management
 
@@ -98,19 +169,18 @@ This repo contains a script to generate example GeoPackage files for testing. Se
 [Tilt](https://tilt.dev/) is a local development orchestrator. Instead of manually running `docker compose up` and `npm run dev` separately, Tilt starts the full stack — Docker services **and** both Node apps — in one command, with dependency ordering (apps wait for their backing services to be healthy) and a web dashboard for logs and restarts.
 
 ```sh
-tilt up        # starts everything, opens dashboard at http://localhost:10350
-tilt down      # tears it all down
+tilt up              # starts everything, opens dashboard at http://localhost:10350
+tilt down            # tears it all down
+npm run docs:serve   # docs site (separate terminal) at http://localhost:8000/bng-metric-harness/
 ```
 
 In VS Code, you can also use the **Run and Debug** panel (green play button) to launch "Tilt Up", which streams all logs into the integrated terminal.
 
 The `Tiltfile` in this repo references the backend's `compose.yml` for infrastructure and runs `npm run dev` in each sibling. It can be customised to change how services are started or to add additional commands as needed.
 
-If you prefer not to install Tilt, the manual approach below works identically.
-
 ## Supporting services (Docker Compose)
 
-The apps themselves run in Node, but the backend talks to a handful of infrastructure services. Only the **backend** repo ships a `compose.yml` — the harness does not duplicate it, and the frontend does not need its own stack.
+Tilt orchestrates backend `docker compose` services for you. Only the **backend** repo ships a `compose.yml` — the harness does not duplicate it, and the frontend does not need its own stack.
 
 Backend (`../bng-metric-backend/compose.yml`):
 
@@ -119,16 +189,7 @@ Backend (`../bng-metric-backend/compose.yml`):
 - LocalStack on `4566`
 - CDP Defra ID stub on `3200`
 
-Start the stack from the backend repo:
-
-```sh
-(cd ../bng-metric-backend && docker compose up -d)
-
-# Later
-(cd ../bng-metric-backend && docker compose down)
-```
-
-Once services are up, `npm run dev` in the harness starts the two Node apps against them.
+Tilt handles starting/stopping this stack alongside frontend/backend app processes.
 
 ## Claude Code
 
@@ -211,4 +272,6 @@ Edit `.gitleaks.toml` in the repo that flagged — add a `regexes` or `paths` en
 - **`Sibling "X" not found`** — run `npm run bootstrap`.
 - **`git pull --ff-only` refuses** — you have local commits or a diverged branch. Resolve manually in the affected repo; the harness will keep going.
 - **`npm run dev` exits immediately** — one of the apps crashed on startup. Check both logs; `--kill-others-on-fail` is intentional. Run `npm run dev:fe` or `npm run dev:be` alone to isolate.
-- **Port conflicts** — 3000/3001 (apps), 5432/6379/4566/3200 (backend services) must all be free.
+- **Port conflicts** — 3000/3001 (apps), 5432/6379/4566/3200 (backend services), 8000 (MkDocs) must all be free.
+- **`npm run docs:serve` fails with `not found: dot`** — Graphviz is required for LikeC4 diagram export. The devcontainer installs it automatically; on a bare host run `sudo apt install graphviz` (or equivalent).
+- **`db-migrate` fails in Tilt with little/no output** — `scripts/liquibase.sh` now runs a local Liquibase CLI (Java required) to avoid bind-mount issues in some Docker/devcontainer setups.

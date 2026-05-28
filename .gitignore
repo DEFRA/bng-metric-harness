@@ -22,3 +22,12 @@ id_ed25519
 site_src/
 _site/
 mkdocs.generated.yml
+
+# Visual Studio Code (keep shared team config)
+.vscode/*
+!.vscode/extensions.json
+!.vscode/tasks.json
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/run-docs-serve-if-node.sh
+!.vscode/run-tilt-up-if-ready.sh

@@ -50,6 +50,12 @@ Conventions:
 
 ## Building locally
 
+### Dev Container (recommended)
+
+See the [Dev Container section in the README](../README.md#local-development-dev-container). After **Reopen in Container**, MkDocs is pre-installed and **MkDocs: serve** can start on folder open.
+
+### Manual setup
+
 ```sh
 # Node deps (already installed if you ran `npm install`)
 npm install

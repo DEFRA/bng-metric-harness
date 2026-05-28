@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "ms-vscode-remote.remote-containers",
+    "likec4.likec4-vscode"
+  ],
+  "unwantedRecommendations": [
+    "anysphere.remote-containers"
+  ]
+}
