@@ -27,7 +27,7 @@ import {
   filledArray,
   gpkgPolygon,
   placeholders,
-} from "#gpkg-io";
+} from "../gpkg-io/index.mjs";
 import {
   HABITATS_INSERT_COLUMNS,
   SRS_ID,

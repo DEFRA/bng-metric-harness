@@ -5,7 +5,7 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { envelopeFromCoords } from "#gpkg-io";
+import { envelopeFromCoords } from "./gpkg-io/index.mjs";
 
 // ---------------------------------------------------------------------------
 // Tunables — named so SonarCloud's S109 magic-number rule is satisfied.

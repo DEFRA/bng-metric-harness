@@ -59,10 +59,23 @@ export function detectMetricVersion(workbook) {
  */
 export function readMetricWorkbook(filePath) {
   const workbook = XLSX.readFile(filePath, { cellDates: true, cellNF: false });
+  return normaliseWorkbook(workbook, filePath);
+}
+
+/**
+ * Same as readMetricWorkbook but reads from an in-memory buffer. Used by the
+ * web form path so the workbook never has to touch disk.
+ */
+export function readMetricWorkbookFromBuffer(buffer, sourceLabel = "<buffer>") {
+  const workbook = XLSX.read(buffer, { type: "buffer", cellDates: true, cellNF: false });
+  return normaliseWorkbook(workbook, sourceLabel);
+}
+
+function normaliseWorkbook(workbook, sourceLabel) {
   const version = detectMetricVersion(workbook);
   if (version === METRIC_UNKNOWN) {
     throw new Error(
-      `Unrecognised metric workbook layout in ${filePath}. ` +
+      `Unrecognised metric workbook layout in ${sourceLabel}. ` +
         "Expected sheets like 'A-1 On-Site Habitat Baseline'. " +
         "v3.x and other older layouts are not supported.",
     );
@@ -101,14 +114,14 @@ export function readMetricWorkbook(filePath) {
 }
 
 // ---------------------------------------------------------------------------
-// CLI: inspection helper. Run `node scripts/lib/metric-workbook.mjs <file>`
-// to print a JSON summary without writing any GeoPackage.
+// Direct invocation: print a JSON summary of a workbook without writing any
+// GeoPackage. Run `node packages/bng-lib/src/workbook/metric-workbook.mjs <file>`.
 // ---------------------------------------------------------------------------
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const file = process.argv[2];
   if (!file) {
-    console.error("Usage: node scripts/lib/metric-workbook.mjs <workbook.xlsx>");
+    console.error("Usage: node packages/bng-lib/src/workbook/metric-workbook.mjs <workbook.xlsx>");
     process.exit(1);
   }
   const wb = readMetricWorkbook(file);

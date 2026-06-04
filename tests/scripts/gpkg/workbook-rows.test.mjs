@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildBaselineRows, buildPostInterventionRows } from "../../../scripts/lib/workbook/workbook-rows.mjs";
+import { buildBaselineRows, buildPostInterventionRows } from "#bng-lib";
 
 // In-memory workbook shape that mirrors what readMetricWorkbook() returns.
 // Tests fill in only the layers they care about; the rest stay empty so the

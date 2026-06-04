@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CATEGORY_ATTRIBUTE,
   FLAWS,
+  FlawSelectionError,
   resolveFlawSelection,
-} from "../../../scripts/lib/synthetic/flaws.mjs";
+} from "#bng-lib";
 
 describe("resolveFlawSelection — happy paths", () => {
   it("returns empty buckets when nothing is requested", () => {
@@ -86,26 +87,13 @@ describe("resolveFlawSelection — happy paths", () => {
 });
 
 describe("resolveFlawSelection — conflicts", () => {
-  let exitSpy;
-  let errSpy;
-
-  beforeEach(() => {
-    exitSpy = vi.spyOn(process, "exit").mockImplementation(() => {
-      throw new Error("__EXIT__");
-    });
-    errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    exitSpy.mockRestore();
-    errSpy.mockRestore();
-  });
-
   function expectConflict(input, messageFragment) {
-    expect(() => resolveFlawSelection(input)).toThrow("__EXIT__");
-    expect(exitSpy).toHaveBeenCalledWith(1);
-    const logged = errSpy.mock.calls.flat().join(" ");
-    expect(logged).toContain(messageFragment);
+    expect(() => resolveFlawSelection(input)).toThrow(FlawSelectionError);
+    try {
+      resolveFlawSelection(input);
+    } catch (err) {
+      expect(err.message).toContain(messageFragment);
+    }
   }
 
   it("rejects empty-layer + geometric flaws", () => {

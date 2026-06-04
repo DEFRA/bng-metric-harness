@@ -5,7 +5,7 @@
  * precomputed HABITATS table live in `synthetic-constants.mjs`.
  */
 
-import { color, header, info } from "../../_lib.mjs";
+import { color, header, info } from "../log.mjs";
 import {
   envelopeFromCoords,
   expandEnvelope,
@@ -14,7 +14,7 @@ import {
   gpkgPolygon,
   openGeoPackageReadonly,
   placeholders,
-} from "#gpkg-io";
+} from "../gpkg-io/index.mjs";
 import {
   HABITATS_INSERT_COLUMNS,
   HEDGEROWS_INSERT_COLUMNS,
@@ -505,5 +505,5 @@ export function generateOne(outPath, centre, plan) {
   db.close();
 
   reportContents(outPath);
-  console.log(color("green", `✔ Done. ${outPath}`));
+  info(color("green", `✔ Done. ${outPath}`));
 }

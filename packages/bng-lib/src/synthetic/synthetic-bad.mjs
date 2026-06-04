@@ -5,7 +5,7 @@
  * the state into the file.
  */
 
-import { color, header, info } from "../../_lib.mjs";
+import { color, header, info } from "../log.mjs";
 import {
   envelopeFromCoords,
   expandEnvelope,
@@ -14,7 +14,7 @@ import {
   gpkgPolygon,
   openGeoPackageReadonly,
   placeholders,
-} from "#gpkg-io";
+} from "../gpkg-io/index.mjs";
 import {
   HABITATS_INSERT_COLUMNS,
   HEDGEROWS_INSERT_COLUMNS,
@@ -442,5 +442,5 @@ export function generateOneBad(outPath, centre, flawNames) {
   db.close();
 
   reportContents(outPath);
-  console.log(color("green", `✔ Done (bad fixture). ${outPath}`));
+  info(color("green", `✔ Done (bad fixture). ${outPath}`));
 }
