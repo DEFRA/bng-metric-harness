@@ -50,6 +50,7 @@ import {
   WORKBOOK_IMPORT_LABEL,
   WORKBOOK_SURVEY_DETAILS,
 } from "./workbook-layers-shared.mjs";
+import { gpkgRetention } from "../retention.mjs";
 
 // Re-export so callers can keep their existing `import { ... } from "./workbook-layers.mjs"`.
 export {
@@ -169,7 +170,7 @@ function habitatPostBindings(r, cell) {
     Math.round(polygonArea(cell)),
     r.baseline?.condition ?? null,
     r.baseline?.strategicSig ?? null,
-    r.retention,
+    gpkgRetention(r.retention),
     r.proposed.broad,
     r.proposed.type,
     r.proposed.condition,

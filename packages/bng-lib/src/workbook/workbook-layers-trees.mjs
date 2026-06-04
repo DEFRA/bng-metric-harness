@@ -26,6 +26,7 @@ import {
   WORKBOOK_IMPORT_LABEL,
   WORKBOOK_SURVEY_DETAILS,
 } from "./workbook-layers-shared.mjs";
+import { gpkgRetention } from "../retention.mjs";
 
 const URBAN_TREES_SQL = `
   INSERT INTO "Urban Trees" (
@@ -117,8 +118,8 @@ function treePostBindings(r, [x, y]) {
     r.baseline?.condition ?? null,
     r.baseline?.strategicSig ?? null,
     r.baseline?.type ?? null,
-    r.retention,
-    r.retention === "Lost" ? "Lost" : "Retained",
+    gpkgRetention(r.retention),
+    gpkgRetention(r.retention) === "Lost" ? "Lost" : "Retained",
     TREE_SIZE_DEFAULT,
     r.proposed.condition,
     r.proposed.strategicSig,

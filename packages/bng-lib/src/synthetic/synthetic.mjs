@@ -43,6 +43,7 @@ import {
 } from "../workbook/workbook-rows.mjs";
 import { generateOneBad } from "./synthetic-bad.mjs";
 import { EMPTYABLE_LAYERS } from "./flaws.mjs";
+import { gpkgRetention } from "../retention.mjs";
 import {
   BASE_MAP,
   BROAD_HABITAT_TYPES,
@@ -163,7 +164,7 @@ function generateHabitats(db, boundaryRing, numParcels, perRowOverrides) {
       Math.round(polygonArea(ring)),
       pick(baseline.validConditions),
       pick(STRATEGIC_SIGNIFICANCE),
-      retention,
+      gpkgRetention(retention),
       proposed.broad,
       proposed.type,
       pick(proposed.validConditions),
@@ -235,7 +236,7 @@ function generateHedgerows(db, boundaryRing, count) {
         hedgeType,
         pick(HEDGE_CONDITIONS),
         pick(STRATEGIC_SIGNIFICANCE),
-        retention,
+        gpkgRetention(retention),
         retention === "Lost" ? pick(HEDGE_TYPES) : hedgeType,
         pick(HEDGE_CONDITIONS),
         pick(STRATEGIC_SIGNIFICANCE),
@@ -292,7 +293,7 @@ function generateRivers(db, boundaryRing, count) {
         pick(STRATEGIC_SIGNIFICANCE),
         pick(ENCROACHMENT_WATERCOURSE),
         pick(ENCROACHMENT_RIPARIAN),
-        retention,
+        gpkgRetention(retention),
         riverType,
         pick(CONDITIONS),
         pick(STRATEGIC_SIGNIFICANCE),
@@ -357,8 +358,8 @@ function generateUrbanTrees(db, boundaryRing, count) {
       pick(CONDITIONS),
       pick(STRATEGIC_SIGNIFICANCE),
       type,
-      retention,
-      retention === "Lost" ? "Lost" : "Retained",
+      gpkgRetention(retention),
+      gpkgRetention(retention) === "Lost" ? "Lost" : "Retained",
       retention === "Lost" ? pick(TREE_SIZES) : size,
       pick(CONDITIONS),
       pick(STRATEGIC_SIGNIFICANCE),
