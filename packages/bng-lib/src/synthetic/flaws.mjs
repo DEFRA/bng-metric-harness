@@ -5,7 +5,7 @@
  * reads the geometric list; the synthetic generator reads the other two.
  */
 
-import { error, warn } from "../../_lib.mjs";
+import { error, warn } from "../log.mjs";
 import { bowtieRing, rectRing } from "../geometry.mjs";
 import {
   AREA_MISMATCH_PARCEL_DXY,
@@ -279,7 +279,6 @@ function collectRequestedFlaws(bad, flaws) {
   for (const name of flaws) {
     if (!FLAWS[name]) {
       error(`Unknown flaw: ${name}. Valid: ${ALL_FLAW_NAMES.join(", ")}`);
-      process.exit(1);
     }
     requested.add(name);
   }
@@ -312,7 +311,6 @@ function assertCategoryConflicts(buckets, bad) {
           `with ${CATEGORY_LABEL[b]} flaws (${buckets[b].join(", ")}).`,
       );
     }
-    process.exit(1);
   }
 }
 
@@ -335,7 +333,6 @@ function assertAttributeLayerNotEmptied(attributeNames, emptyNames) {
         `Flaw "${name}" overrides rows in the "${targetLayer}" layer ` +
           `but "${conflictingEmpty}" empties that layer.`,
       );
-      process.exit(1);
     }
   }
 }
@@ -357,7 +354,6 @@ function assertAttributeOverridesValid(attributeNames) {
             `habitatFullName "${row.habitatFullName}". ` +
             `Must match a fullName in HABITATS reference data.`,
         );
-        process.exit(1);
       }
     });
   }
@@ -372,7 +368,6 @@ function assertAttributeTargetsUnique(attributeNames) {
         `Multiple attribute-override flaws target the "${layer}" layer; ` +
           `define a single combined flaw entry instead.`,
       );
-      process.exit(1);
     }
     seen.set(layer, name);
   }
@@ -409,7 +404,6 @@ function assertNoStandaloneCombination(geometricNames) {
     error(
       `Flaw "${standalone[0]}" is standalone and cannot be combined with other flaws. Got: ${geometricNames.join(", ")}`,
     );
-    process.exit(1);
   }
 }
 
@@ -419,15 +413,14 @@ function assertNoPairwiseConflicts(geometricNames) {
     const clash = conflicts.find((other) => geometricNames.includes(other));
     if (clash) {
       error(`Flaws "${name}" and "${clash}" conflict and cannot be combined.`);
-      process.exit(1);
     }
   }
 }
 
 /**
- * Validates a CLI flaw selection and returns a plan for the generators.
- * Exits the process with an error if the selection is invalid (unknown
- * name, conflicting categories, etc).
+ * Validates a flaw selection and returns a plan for the generators.
+ * Throws FlawSelectionError if the selection is invalid (unknown name,
+ * conflicting categories, etc).
  *
  * Returns one list per category plus `emptyLayers` (Set of layer keys to
  * leave empty) and `attributeOverrides` (per-layer row data to pin).

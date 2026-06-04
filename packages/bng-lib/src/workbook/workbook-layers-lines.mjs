@@ -17,7 +17,7 @@ import {
   filledArray,
   gpkgLineString,
   placeholders,
-} from "#gpkg-io";
+} from "../gpkg-io/index.mjs";
 import {
   HEDGEROWS_INSERT_COLUMNS,
   RIVERS_INSERT_COLUMNS,

@@ -23,7 +23,7 @@ import {
   polygonQml,
   polygonSld,
   registerLayer as registerLayerGeneric,
-} from "#gpkg-io";
+} from "./gpkg-io/index.mjs";
 
 // SRS — British National Grid (OSGB 1936).
 export const SRS_ID = 27700;

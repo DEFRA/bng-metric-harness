@@ -5,7 +5,8 @@
   "description": "Meta-repo that orchestrates bng-metric-frontend and bng-metric-backend",
   "type": "module",
   "imports": {
-    "#gpkg-io": "./packages/gpkg-io/index.mjs"
+    "#gpkg-io": "./packages/bng-lib/src/gpkg-io/index.mjs",
+    "#bng-lib": "./packages/bng-lib/index.mjs"
   },
   "engines": {
     "node": ">=24.14.1"

@@ -8,7 +8,7 @@ import {
   filledArray,
   gpkgPoint,
   placeholders,
-} from "#gpkg-io";
+} from "../gpkg-io/index.mjs";
 import {
   SRS_ID,
   URBAN_TREES_INSERT_COLUMNS,

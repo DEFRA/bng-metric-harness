@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { openGeoPackageReadonly } from "#gpkg-io";
-import { generateOne } from "../../../scripts/lib/synthetic/synthetic.mjs";
+import { generateOne } from "#bng-lib";
 
 // Small but non-trivial: 5 parcels exercises partition + line + point pipelines
 // without making the test slow.
