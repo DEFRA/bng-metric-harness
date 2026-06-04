@@ -41,6 +41,7 @@ import {
   WORKBOOK_IMPORT_LABEL,
   WORKBOOK_SURVEY_DETAILS,
 } from "./workbook-layers-shared.mjs";
+import { gpkgRetention } from "../retention.mjs";
 
 // ---------------------------------------------------------------------------
 // Tunables for the random linestring sampler.
@@ -331,7 +332,7 @@ function hedgerowPostBindings(r, coords) {
     r.baseline?.type ?? null,
     r.baseline?.condition ?? null,
     r.baseline?.strategicSig ?? null,
-    r.retention,
+    gpkgRetention(r.retention),
     r.proposed.type,
     r.proposed.condition,
     r.proposed.strategicSig,
@@ -433,7 +434,7 @@ function riverPostBindings(r, coords) {
     r.baseline?.strategicSig ?? null,
     RIVER_ENCROACHMENT_NONE,
     RIVER_ENCROACHMENT_RIPARIAN_NONE,
-    r.retention,
+    gpkgRetention(r.retention),
     r.proposed.type,
     r.proposed.condition,
     r.proposed.strategicSig,

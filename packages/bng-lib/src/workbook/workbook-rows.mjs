@@ -320,26 +320,32 @@ function emitEnhancedRow(b, baselineRef, suffix, proposed) {
   };
 }
 
-/** Emit a created-slice row (lineage-linked to a baseline parcel). */
-function emitLinkedCreatedRow(c, baselineRef, suffix) {
+/**
+ * Emit a created-slice row (lineage-linked to a baseline parcel). Internal
+ * retention stays "Created" so the writer's geometry partitioner can match
+ * it against the parent's lost-area budget; the gpkg-written retention
+ * column is translated to "Lost" at write time (NE-template convention).
+ */
+function emitLinkedCreatedRow(b, c, baselineRef, suffix) {
   return {
     ref: makeRef("H", baselineRef, suffix),
     baselineRef,
     retention: "Created",
     area: c.area,
-    baseline: null,
+    baseline: habitatBaselineShape(b),
     proposed: habitatProposedFromCreated(c),
   };
 }
 
-/** Emit a created-only row with a fresh sequential ref. */
+/** Emit a created-only row with a fresh sequential ref. Self-similar baseline
+ *  shape keeps the row self-contained for downstream calculators. */
 function emitUnassignedCreatedRow(c, freshRefIndex) {
   return {
     ref: makeRef("H", freshRefIndex),
     baselineRef: null,
     retention: "Created",
     area: c.area,
-    baseline: null,
+    baseline: habitatBaselineShape(c),
     proposed: habitatProposedFromCreated(c),
   };
 }
@@ -374,7 +380,7 @@ function emitRowsForBaseline(b, baselineRef, assignedCreatedIdxs, created, habEn
     rows.push(emitEnhancedRow(b, baselineRef, nextSuffix(), proposed));
   }
   for (const idx of assignedCreatedIdxs) {
-    rows.push(emitLinkedCreatedRow(created[idx], baselineRef, nextSuffix()));
+    rows.push(emitLinkedCreatedRow(b, created[idx], baselineRef, nextSuffix()));
   }
   return rows;
 }
@@ -484,7 +490,7 @@ function makeCreatedLinearRow(c, refPrefix, freshRefIndex) {
     baselineRef: null,
     retention: "Created",
     lengthM: c.lengthM,
-    baseline: null,
+    baseline: linearAttributeShape(c),
     proposed: linearProposedFromCreated(c),
   };
 }
@@ -576,7 +582,7 @@ function makeCreatedTreeRow(c, freshRefIndex) {
     ref: makeRef("T", freshRefIndex),
     baselineRef: null,
     retention: "Created",
-    baseline: null,
+    baseline: linearAttributeShape(c),
     proposed: linearProposedFromCreated(c),
   };
 }

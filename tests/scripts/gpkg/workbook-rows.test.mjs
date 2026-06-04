@@ -105,7 +105,7 @@ describe("buildPostInterventionRows — habitats", () => {
     });
   });
 
-  it("fully-lost baseline with matching created yields one Created row linked to that baseline", () => {
+  it("fully-lost baseline with matching created yields one Created row that inlines the lost parcel's baseline shape", () => {
     const baseline = habBaseline({ area: 1, areaRetained: 0, areaEnhanced: 0, areaLost: 1 });
     const created = habCreated({ area: 0.9 });
     const { habitats } = buildPostInterventionRows(
@@ -117,11 +117,21 @@ describe("buildPostInterventionRows — habitats", () => {
       retention: "Created",
       baselineRef: "1",
       area: 0.9,
-      baseline: null,
+    });
+    // Baseline columns carry the lost parcel's attributes (Modified grassland)
+    // — needed so the row is self-contained for downstream calculators that
+    // don't join back to the baseline table.
+    expect(habitats[0].baseline).toMatchObject({
+      broad: "Grassland",
+      type: "Modified grassland",
+    });
+    expect(habitats[0].proposed).toMatchObject({
+      broad: "Woodland and forest",
+      type: "Other woodland; broadleaved",
     });
   });
 
-  it("unassigned created gets a fresh ref after baseline.length", () => {
+  it("unassigned created gets a fresh ref and a self-similar baseline shape", () => {
     // Three baselines, none with lost area, plus one created that has nowhere
     // to attach → fresh ref H004 (1-based, after the three baselines).
     const baselines = [1, 2, 3].map((ref) => habBaseline({ ref }));
@@ -129,12 +139,18 @@ describe("buildPostInterventionRows — habitats", () => {
     const { habitats } = buildPostInterventionRows(
       wb({ habitats: { baseline: baselines, created: [created] } }),
     );
-    const createdRow = habitats.find((h) => h.retention === "Created");
+    const createdRow = habitats.find((h) => h.baselineRef === null);
     expect(createdRow).toMatchObject({
       ref: "H004",
       baselineRef: null,
+      retention: "Created",
       area: 0.2,
-      baseline: null,
+    });
+    // Self-similar baseline shape: copies the created's habitat data so the
+    // row is self-contained for downstream calculators.
+    expect(createdRow.baseline).toMatchObject({
+      broad: "Woodland and forest",
+      type: "Other woodland; broadleaved",
     });
   });
 
