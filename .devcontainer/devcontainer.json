@@ -26,25 +26,12 @@
     }
   },
   "remoteEnv": {
-    "PATH": "${containerEnv:PATH}:/home/node/.local/bin"
+    "PATH": "${containerEnv:PATH}:/home/node/.local/bin",
+    "BNG_METRIC_DEVCONTAINER": "1"
   },
   "postCreateCommand": "bash .devcontainer/post-create.sh",
-  "forwardPorts": [
-    3000,
-    3001,
-    3200,
-    5432,
-    6379,
-    4566,
-    7337,
-    8000,
-    10350
-  ],
+  "forwardPorts": [3000, 3001, 8000, 10350],
   "portsAttributes": {
-    "5432": {
-      "label": "PostgreSQL",
-      "onAutoForward": "ignore"
-    },
     "3000": {
       "label": "Frontend",
       "onAutoForward": "notify"

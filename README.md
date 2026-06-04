@@ -178,6 +178,8 @@ In VS Code, you can also use the **Run and Debug** panel (green play button) to 
 
 The `Tiltfile` in this repo references the backend's `compose.yml` for infrastructure and runs `npm run dev` in each sibling. It can be customised to change how services are started or to add additional commands as needed.
 
+In the **devcontainer**, Tilt pins Node 24 via the image's nvm path and sets `DB_HOST` / `S3_ENDPOINT` for Docker-from-container networking. On a normal host (including Windows), run `nvm use` (or equivalent) before `tilt up` — the Tiltfile uses your existing `PATH` and backend `.env` defaults.
+
 ## Supporting services (Docker Compose)
 
 Tilt orchestrates backend `docker compose` services for you. Only the **backend** repo ships a `compose.yml` — the harness does not duplicate it, and the frontend does not need its own stack.
@@ -272,6 +274,7 @@ Edit `.gitleaks.toml` in the repo that flagged — add a `regexes` or `paths` en
 - **`Sibling "X" not found`** — run `npm run bootstrap`.
 - **`git pull --ff-only` refuses** — you have local commits or a diverged branch. Resolve manually in the affected repo; the harness will keep going.
 - **`npm run dev` exits immediately** — one of the apps crashed on startup. Check both logs; `--kill-others-on-fail` is intentional. Run `npm run dev:fe` or `npm run dev:be` alone to isolate.
-- **Port conflicts** — 3000/3001 (apps), 5432/6379/4566/3200 (backend services), 8000 (MkDocs) must all be free.
+- **Port conflicts** — 3000/3001 (apps), 5432/6379/4566/3200/7337 (backend services), 8000 (MkDocs) must all be free. In Cursor/VS Code, **host port forwards** on infra ports block Docker (`bind: address already in use`); stop them in the Ports panel or run `sudo fuser -k 3200/tcp` (etc.) on the host. The devcontainer only forwards app/docs/Tilt ports (3000, 3001, 8000, 10350) — not Postgres/Redis/LocalStack/etc.
+- **Tilt shows some containers up, others stuck** — Tilt deploys compose services one-by-one; if `localstack` or `cdp-defra-id-stub` fail, `frontend`/`backend` stay `waiting-for-dep` while `postgres`/`redis` may already be running. Fix the failing port, then `tilt trigger localstack` (and `cdp-defra-id-stub`), or run `(cd ../bng-metric-backend && docker compose down && tilt up)` for a clean restart.
 - **`npm run docs:serve` fails with `not found: dot`** — Graphviz is required for LikeC4 diagram export. The devcontainer installs it automatically; on a bare host run `sudo apt install graphviz` (or equivalent).
 - **`db-migrate` fails in Tilt with little/no output** — `scripts/liquibase.sh` now runs a local Liquibase CLI (Java required) to avoid bind-mount issues in some Docker/devcontainer setups.
