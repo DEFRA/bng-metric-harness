@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -43,6 +43,18 @@ export const repoPath = (name) => path.resolve(WORKSPACE_ROOT, name);
 export const exists = (name) => existsSync(repoPath(name));
 
 export const npmBin = process.platform === "win32" ? "npm.cmd" : "npm";
+const pnpmBin = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+
+export function packageManagerFor(repoName) {
+  const pkgPath = path.join(repoPath(repoName), "package.json");
+  try {
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+    if (typeof pkg.packageManager === "string" && pkg.packageManager.startsWith("pnpm@")) {
+      return pnpmBin;
+    }
+  } catch {}
+  return npmBin;
+}
 
 export function header(label, colorName = "blue") {
   const line = "─".repeat(Math.max(0, 60 - label.length - 3));

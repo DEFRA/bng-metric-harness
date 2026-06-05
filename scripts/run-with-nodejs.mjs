@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { error, info, repoPath, requireSibling } from "./_lib.mjs";
+import { error, info, packageManagerFor, repoPath, requireSibling } from "./_lib.mjs";
 
 const USAGE =
   "Usage: run-with-nodejs.mjs <sibling> [--env KEY=VAL]... <npm-args...>";
@@ -35,17 +35,18 @@ const version = readFileSync(path.join(siblingDir, ".nvmrc"), "utf8")
   .trim()
   .replace(/^v/, "");
 const isWin = process.platform === "win32";
+const pm = packageManagerFor(sibling);
 
-info(`▸ ${sibling}: Node v${version} | npm ${argv.join(" ")}`);
+info(`▸ ${sibling}: Node v${version} | ${pm} ${argv.join(" ")}`);
 
 // nvm-windows is a binary; Unix nvm is a shell function that must be sourced.
 const [cmd, args] = isWin
-  ? ["nvm", ["exec", version, "npm", ...argv]]
+  ? ["nvm", ["exec", version, pm, ...argv]]
   : [
       "bash",
       [
         "-c",
-        `. "$NVM_DIR/nvm.sh" && nvm use ${version} >/dev/null && exec npm "$@"`,
+        `. "$NVM_DIR/nvm.sh" && nvm use ${version} >/dev/null && exec ${pm} "$@"`,
         "run-with-nodejs",
         ...argv,
       ],
@@ -58,7 +59,7 @@ process.on("SIGINT", () => child.kill("SIGINT"));
 
 child.on("error", (err) => {
   error(
-    `Failed to spawn ${cmd}: ${err.message} — is ${isWin ? "nvm-windows" : "nvm"} installed?`,
+    `Failed to spawn ${cmd}: ${err.message} — is ${isWin ? "nvm-windows" : "nvm"} installed (and ${pm} available)?`,
   );
   process.exit(1);
 });

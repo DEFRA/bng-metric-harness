@@ -3,6 +3,7 @@ import {
   header,
   info,
   npmBin,
+  packageManagerFor,
   parseTarget,
   repoPath,
   reposForTarget,
@@ -21,7 +22,8 @@ if (target === "all") {
 for (const repo of reposForTarget(target)) {
   header(`install: ${repo.name}`, repo.color);
   requireSibling(repo.name);
-  const code = await run(npmBin, ["install"], { cwd: repoPath(repo.name) });
+  const pm = packageManagerFor(repo.name);
+  const code = await run(pm, ["install"], { cwd: repoPath(repo.name) });
   if (code !== 0) process.exit(code);
 }
 

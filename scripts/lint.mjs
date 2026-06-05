@@ -5,7 +5,7 @@ import {
   error,
   header,
   info,
-  npmBin,
+  packageManagerFor,
   repoPath,
   requireSibling,
   run,
@@ -26,7 +26,7 @@ for (const repo of REPOS) {
     continue;
   }
 
-  const code = await run(npmBin, ["run", "lint"], { cwd });
+  const code = await run(packageManagerFor(repo.name), ["run", "lint"], { cwd });
   results.push({ repo: repo.name, code, skipped: false });
 }
 

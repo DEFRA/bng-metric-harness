@@ -2,7 +2,7 @@ import {
   REPOS,
   header,
   info,
-  npmBin,
+  packageManagerFor,
   parseTarget,
   repoPath,
   requireSibling,
@@ -21,7 +21,7 @@ if (target === "all") {
   const { result } = concurrently(
     REPOS.map((r) => ({
       name: r.key,
-      command: `${npmBin} run dev`,
+      command: `${packageManagerFor(r.name)} run dev`,
       cwd: repoPath(r.name),
       prefixColor: r.color,
     })),
@@ -45,6 +45,8 @@ if (target === "all") {
   requireSibling(repo.name);
   header(`dev: ${repo.name}`, repo.color);
   info(`  cwd: ${repoPath(repo.name)}`);
-  const code = await run(npmBin, ["run", "dev"], { cwd: repoPath(repo.name) });
+  const code = await run(packageManagerFor(repo.name), ["run", "dev"], {
+    cwd: repoPath(repo.name),
+  });
   process.exit(code);
 }
