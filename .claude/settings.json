@@ -4,7 +4,8 @@
       "../bng-metric-frontend",
       "../bng-metric-backend",
       "../bng-metric-digital-prototype",
-      "../bng-metric-journey-tests"
+      "../bng-metric-journey-tests",
+      "../bng-library"
     ],
     "allow": [
       "Read",
