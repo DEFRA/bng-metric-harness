@@ -19,6 +19,10 @@
       "path": "../bng-metric-journey-tests",
       "name": "bng-metric-journey-tests",
     },
+    {
+      "path": "../bng-library",
+      "name": "bng-library",
+    },
   ],
   "settings": {},
 }
