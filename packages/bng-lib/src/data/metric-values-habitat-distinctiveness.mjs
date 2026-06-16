@@ -151,8 +151,8 @@ export const distinctivenessCategories = {
     "Intertidal sediment - Littoral sand": "Medium",
     "Intertidal sediment - Littoral muddy sand": "High",
     "Intertidal hard structures - Artificial hard structures": "Low",
-    "Intertidal hard structures - Artificial features of hard structures": "Low",
-    "Infrastructure (IGGI) - Infrastructure (IGGI)": "Medium",
+    "Intertidal hard structures - Artificial features of hard structures": "Medium",
+    "Intertidal hard structures - Artificial hard structures with integrated greening of grey infrastructure (IGGI)": "V.Low",
     "Watercourse footprint - Watercourse footprint": "V.Low",
 };
 
