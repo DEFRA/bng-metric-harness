@@ -47,11 +47,39 @@ If you have [Tilt](https://tilt.dev/) installed, you can replace steps 5–6 wit
 
 ## Running the apps
 
-| Command          | What it does                                                                                    |
-| ---------------- | ----------------------------------------------------------------------------------------------- |
-| `npm run dev`    | Both apps in parallel with prefixed output (`[fe]` cyan, `[be]` magenta). Any crash kills both. |
-| `npm run dev:fe` | Frontend only                                                                                   |
-| `npm run dev:be` | Backend only                                                                                    |
+| Command              | What it does                                                                                                  |
+| -------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`        | Both apps in parallel with prefixed output (`[fe]` cyan, `[be]` magenta). Any crash kills both.               |
+| `npm run dev:fe`     | Frontend only                                                                                                 |
+| `npm run dev:be`     | Backend only                                                                                                  |
+| `npm run dev:b2c`    | Both apps, but the frontend runs against **real** Defra ID (B2C) instead of the stub (`OIDC_USE_STUB=false`). |
+| `npm run dev:fe:b2c` | Frontend only, against real Defra ID (B2C).                                                                   |
+
+### Stub vs. real Defra ID (B2C) login
+
+`npm run dev` runs the frontend against the local **cdp-defra-id-stub** — its `dev`
+script pins `OIDC_USE_STUB=true` (via `cross-env`, which overrides any value you
+export), so setting `OIDC_USE_STUB=false` yourself has no effect on `npm run dev`.
+
+Use the `:b2c` variants to test against **real** Defra ID locally. They run the
+frontend with `OIDC_USE_STUB=false`, which makes it append the client id to the
+OIDC scopes (so B2C returns an access token) **and** validate the id_token nonce.
+
+The `:b2c` flag only affects the **frontend** — the backend has no stub switch. It
+verifies the forwarded id_token from whatever its environment points at, so to
+check real B2C tokens end to end, export the backend's OIDC vars before running
+(otherwise it defaults to the stub's discovery URL and rejects B2C tokens):
+
+```sh
+export OIDC_DISCOVERY_URL=https://<tenant>.b2clogin.com/.../v2.0/.well-known/openid-configuration
+export OIDC_AUDIENCE=<your B2C client id>   # enables audience checking
+export OIDC_ISSUER=<expected issuer>        # optional issuer pin
+npm run dev:b2c
+```
+
+The frontend's own OIDC vars (`OIDC_DISCOVERY_URL`, `OIDC_CLIENT_ID`,
+`OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`) are likewise read from the environment;
+see the frontend's `.env.example`.
 
 ## Dependency management
 
