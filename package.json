@@ -19,6 +19,8 @@
     "dev": "node scripts/dev.mjs all",
     "dev:fe": "node scripts/dev.mjs fe",
     "dev:be": "node scripts/dev.mjs be",
+    "dev:b2c": "node scripts/dev.mjs all --b2c",
+    "dev:fe:b2c": "node scripts/dev.mjs fe --b2c",
     "status": "node scripts/status.mjs",
     "pull": "node scripts/pull.mjs",
     "branch": "node scripts/branch.mjs",

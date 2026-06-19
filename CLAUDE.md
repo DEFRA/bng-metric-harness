@@ -78,7 +78,7 @@ Then `npm run dev` in this harness starts the two Node apps against those servic
 - Propagate exit codes. Use `process.exit(1)` for expected-failure paths, not thrown errors.
 - If a sibling repo is missing, print a message pointing the user at `npm run bootstrap` and exit 1.
 - Log what the script is doing as it does it.
-- Code is scanned by SonarCloud (project key in `sonar-project.properties`). After pushing, run `/check-sonar-pr` to see PR-scoped issues. First-draft rules most likely to be flagged: brace every single-line `if` body (S121), extract magic numbers to constants (S109), keep nesting ≤ 3 levels (S134), prefer `replaceAll` and template literals over `replace`/concat.
+- **Always attempt to respect default SonarCloud conventions where possible** — write to them in the first draft rather than waiting for the scan to flag them. Code is scanned by SonarCloud (project key in `sonar-project.properties`); after pushing, run `/check-sonar-pr` to see PR-scoped issues. Rules most likely to be flagged: brace every single-line `if`/`for` body (S121), extract magic numbers to named constants (S109), keep nesting ≤ 3 levels (S134), keep cognitive complexity per function low (S3776), prefer `replaceAll` and template literals over `replace`/concat, and remove dead/commented-out code (S125).
 
 ## Not in scope for this repo
 
