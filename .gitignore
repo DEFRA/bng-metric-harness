@@ -4,6 +4,12 @@ node_modules/
 test-data/
 .cache/
 
+# Internal roadmap assessment working dir — keep the Mural export and the derived
+# analysis OUT of the public GitHub Pages site (scripts/build-docs.mjs publishes docs/).
+# Leading slash anchors this to the repo root so it does NOT also ignore the
+# checked-in skill at .claude/skills/roadmap-assessment/.
+/roadmap-assessment/
+
 # Secrets — never commit
 .env
 .env.*
