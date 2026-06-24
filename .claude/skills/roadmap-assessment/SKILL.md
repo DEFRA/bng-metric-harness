@@ -101,29 +101,44 @@ instructions are the explicit opt-in to use it):
 Workflow({ scriptPath: ".claude/skills/roadmap-assessment/scripts/assessment-workflow.mjs" })
 ```
 
-It runs in the background (~10 min, dozens of agents) and notifies on completion.
-It reads `roadmap.json` and discovers the journey-test folders itself, so it needs
-no edits for a new export. Phases: **Load → Inventory → Assess → Verify → Synthesize**.
-The Synthesize agent writes `roadmap-assessment/assessment.md`.
+It runs in the background (~10 min) and notifies on completion. It reads `roadmap.json`
+and discovers the journey-test folders itself, so it needs no edits for a new export.
+Phases: **Load → Inventory → Assess → Verify → Synthesize**. The Synthesize agent writes
+`roadmap-assessment/assessment.md` **and** the `roadmap-assessment/progress-now.json` sidecar
+(per-theme NOW evidence + GitHub links for the Progress chart).
 
-### Step 5 — Linkify tickets, review, verify, present
+**Token efficiency (built into the workflow — no action needed):** agents are model-tiered
+rather than all inheriting the (expensive) session model — **Haiku** for the mechanical
+**Load** + **Inventory** passes, **Sonnet** for **Assess / Verify / Synthesize** (see the
+`MODEL` map at the top of `assessment-workflow.mjs`; bump a tier up if quality drifts).
+**Verify** only runs for themes that actually have a `covered`/`partial` claim to re-check
+(all-future / all-not-built themes skip it), and each per-theme Assess prompt embeds a **slim**
+inventory projection instead of the full inventory. If you need a deeper pass, raise the
+`MODEL` tiers.
 
-When the workflow completes:
+### Step 5 — Post-process, review, verify, present
 
-1. **Linkify the Jira tickets** — deterministic, idempotent post-process that turns every
-   `BMD-*` ref in the report into a clickable link (base
+When the workflow completes, run the two deterministic post-processes (both idempotent):
+
+1. **Insert the Progress (NOW) chart** — parses the coverage matrix (bars/%/chips) and merges
+   the `progress-now.json` sidecar (Evidence + Links columns) into a `## Progress (NOW)` section
+   above the theme-status table:
+   ```bash
+   node .claude/skills/roadmap-assessment/scripts/progress-chart.mjs roadmap-assessment/assessment.md
+   ```
+2. **Linkify the Jira tickets** — turns every `BMD-*` ref into a clickable link (base
    `https://eaflood.atlassian.net/browse/`, override via `JIRA_BROWSE_URL`):
    ```bash
    node .claude/skills/roadmap-assessment/scripts/linkify-tickets.mjs roadmap-assessment/assessment.md
    ```
-2. **Read `roadmap-assessment/assessment.md`.**
-3. **Reconcile the counts:** the NOW sub-counts (on-track + test-gap + delivery-gap
+3. **Read `roadmap-assessment/assessment.md`.**
+4. **Reconcile the counts:** the NOW sub-counts (on-track + test-gap + delivery-gap
    + placeholder) must equal the NOW total from `roadmap.json`'s `phaseCounts`. Fix
    any slips (the synthesis can mis-tally placeholders / "all expected-absent" lines).
-4. **Spot-check** the 2-3 highest-stakes "delivery gap (not built)" claims against the
+5. **Spot-check** the 2-3 highest-stakes "delivery gap (not built)" claims against the
    code with a quick `grep` before endorsing — the workflow self-verifies, but a sanity
    check protects against a false "not built".
-5. **Present** the headline dashboard + top findings, and offer next steps: generate a
+6. **Present** the headline dashboard + top findings, and offer next steps: generate a
    backlog of tickets from the gaps, publish a sanitised summary into `docs/`
    (deliberately, never the raw internal export), or set a re-run cadence.
 
@@ -158,17 +173,31 @@ When the workflow completes:
 - Every `covered`/`partial` verdict is **adversarially re-verified** (a skeptic re-opens
   the cited spec) to kill over-claims.
 
-**Output format — `assessment.md` is strictly tabular** (no prose paragraphs, no bullet
-lists): a phase **summary** table, **top findings** table, **theme status** table, the full
-**coverage matrix**, a **journey tests needed** table, and a **recommendations** table.
+**Output format — `assessment.md` is tabular** (each section is one table; bullet lists appear
+only *inside* designated cells, written **inline** as `• … • …`): a phase **summary** table, **top
+findings** table, a **Progress (NOW)** chart, **theme status** table, the full **coverage
+matrix**, a **journey tests needed** table, and a **recommendations** table.
+- **No HTML in the output.** The report is read in **Confluence** (and other Markdown renderers)
+  that render raw `<br>` / `<br/>` as literal text, not a line break — so the output must contain
+  **no HTML tags at all**. Markdown table cells also take no real newline, so in-cell lists are
+  **single-line and space-separated** (`• one • two`; multiple links in a cell are space-separated
+  too). The workflow prompts and `progress-chart.mjs` both emit this inline form.
+- A **Progress (NOW)** section — chips (themes on track / in progress / not started), per-theme
+  **emoji stacked bars** (🟩 on track · 🟨 in progress · 🟥 not started) + % done, and **Evidence**
+  + **Links** columns — is inserted by `scripts/progress-chart.mjs` (Step 5) from the coverage
+  matrix plus the `progress-now.json` sidecar (per-theme plain-language evidence + GitHub links)
+  the workflow writes. NOW-phase only.
 - Coverage uses a **RAG emoji**: 🟢 Covered · 🟠 Partial · 🔴 None.
-- Judgement carries its own emoji: ✅ on-track · 🛠️ test gap · ❌ delivery gap · 🚀 ahead ·
-  ⏳ expected-absent · ❓ placeholder.
+- Judgement carries its own emoji (✅ on-track · 🛠️ test gap · ❌ delivery gap · 🚀 ahead ·
+  ⏳ expected-absent · ❓ placeholder) followed by **plain-language evidence bullets** justifying
+  the verdict, for a non-technical audience. Evidence shows only for in-scope items (every NOW
+  story + any 🚀 ahead); ⏳ expected-absent rows show the status word only.
+- **Theme status** spells out each theme's NOW gaps as a bulleted list in the "NOW gaps" cell.
 - A **Tickets** column lists best-effort `BMD-*` refs mined from the commit history of the
-  implementing files (`git log --format=%s -- <file> | grep -oiE 'BMD-[0-9]+'`). Heuristic —
-  often blank, especially for journey-tests where tickets live in branch/PR names. They are
-  rendered as clickable Jira links by `scripts/linkify-tickets.mjs` in Step 5.
-- **No raw file:line evidence** is shown — a short "related test/code" summary instead.
+  implementing files. Heuristic — often blank. Rendered as clickable Jira links by
+  `scripts/linkify-tickets.mjs` in Step 5.
+- **GitHub links** (Progress chart Links + evidence sources) use the
+  `https://github.com/DEFRA/<repo>/blob/main/<path>#L<line>` form (base branch `main`).
 
 See `references/methodology.md` for the full detail (classification rules, output format,
 BMD extraction, known gotchas).
@@ -185,6 +214,9 @@ against the previous to see drift (gaps closed, new NOW work, newly-tested stori
 - `scripts/parse-roadmap.mjs` — canonical deterministic CSV → `roadmap.json` parser
   (copied into the working dir in Step 1; emits only the intermediate JSON, no IDs).
 - `scripts/assessment-workflow.mjs` — the data-driven assessment Workflow.
+- `scripts/progress-chart.mjs` — idempotent post-process that inserts the `## Progress (NOW)`
+  chart (chips, emoji bars, Evidence + Links columns) from the coverage matrix + the
+  `progress-now.json` sidecar (Step 5).
 - `scripts/linkify-tickets.mjs` — idempotent post-process that turns `BMD-*` refs in
   `assessment.md` into clickable Jira links (Step 5).
 - `references/methodology.md` — detailed, reproducible methodology and gotchas.

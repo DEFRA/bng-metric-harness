@@ -76,7 +76,8 @@ Pipeline (`scripts/assessment-workflow.mjs`): **Load → Inventory → Assess �
 - **Inventory** — one agent per test folder builds an evidence base of what each spec
   *proves* end-to-end (strictly evidence-based; skipped specs flagged).
 - **Assess** — one agent per theme assigns each story a `coverage` + phase-relative
-  `judgment`, a one-line `relatedSummary`, and best-effort `tickets` (see §5b).
+  `judgment`, a one-line `relatedSummary`, plain-language `evidence` bullets + GitHub `links`
+  (in-scope items only), and best-effort `tickets` (see §5b).
 - **Verify** — adversarial skeptic re-opens every cited spec to downgrade over-claims.
 - **Synthesize** — writes the single **strictly-tabular** `assessment.md` (see §5a).
 
@@ -94,24 +95,40 @@ The **narrow code corroboration runs only for NOW gaps** (frontend/backend/libra
 to split *built-but-untested* from *not-built*. All other phases are judged on
 journey-test coverage alone (not-built is expected and not flagged).
 
+> **Check the DB layer, not just application code.** Some features (audit / change
+> history, versioning, constraints, computed values, cascades) are delivered in the
+> backend **Liquibase changelog** (`backend/changelog/*.xml`) as SQL stored procedures,
+> trigger functions and triggers — there is no JS that writes them. Grep the changelog
+> for the table/feature (`TRIGGER` / `FUNCTION` / `PROCEDURE`) before concluding *not
+> built*; DB-delivered logic is **built** (a test gap), not a delivery gap. (This is
+> exactly how `audit_log` change-history capture is delivered.)
+
 ### 5a. Output format (`assessment.md`)
 
-Strictly tabular — no prose paragraphs, no bullet lists; each section is a heading +
-one table:
+Tabular — each section is a heading + one table. Bullet lists appear only INSIDE designated
+cells, written INLINE as `• … • …` — space-separated bullets, **NO HTML**. The report is
+read in Confluence (and other Markdown renderers) that render raw `<br>` / `<br/>` as literal
+text, not a line break, so the output must never contain HTML tags; table cells also take no
+real newline, hence the single-line inline form (multiple links in a cell are space-separated
+too):
 
 1. **Summary** — phases × outcome tallies (on-track / test gap / delivery gap / ahead /
    expected-absent / placeholder / total), plus NOW end-to-end coverage %.
 2. **Top findings** — material items, most important first.
-3. **Theme status** — one row per theme.
-4. **Coverage matrix** — every story: Theme · Roadmap item · Related test/code · Phase ·
-   Coverage · Judgement · Confidence · Tickets.
-5. **Journey tests needed** — the NOW test-gaps and partials (built / likely-built but
-   unproven end-to-end) — the explicit journey-test coverage to add.
-6. **Recommendations** — prioritised actions, typed Build / Add journey test / Define.
+3. **Progress (NOW)** — inserted by `progress-chart.mjs` (see §5c).
+4. **Theme status** — one row per theme; the "NOW gaps" cell is a bulleted list of each gap.
+5. **Coverage matrix** — every story: Theme · Roadmap item · Related test/code · Phase ·
+   Coverage · Judgement · Confidence · Tickets. The **Judgement** cell = the status word, then
+   plain-language **evidence bullets** justifying it (in-scope items only; ⏳ expected-absent =
+   status word alone).
+6. **Journey tests needed** — the NOW test-gaps and partials to cover.
+7. **Recommendations** — prioritised actions, typed Build / Add journey test / Define.
 
-Encodings: **Coverage = RAG emoji** (🟢 Covered / 🟠 Partial / 🔴 None). **Judgement
-emoji** (✅ on-track / 🛠️ test gap / ❌ delivery gap / 🚀 ahead / ⏳ expected-absent /
-❓ placeholder). No raw file:line evidence — a one-line "related test/code" summary instead.
+Encodings: **Coverage = RAG emoji** (🟢 Covered / 🟠 Partial / 🔴 None). **Judgement emoji**
+(✅ on-track / 🛠️ test gap / ❌ delivery gap / 🚀 ahead / ⏳ expected-absent / ❓ placeholder).
+**Evidence** is plain-language and non-technical (technical refs go in GitHub **links**,
+`https://github.com/DEFRA/<repo>/blob/main/<path>#L<line>`). Evidence is produced only for
+in-scope items (every NOW story + 🚀 ahead) — out-of-scope expected-absent work gets none.
 
 ### 5b. BMD ticket extraction (best-effort, heuristic)
 
@@ -130,6 +147,24 @@ normal and acceptable. Agents must never fabricate refs.
 After the workflow, `scripts/linkify-tickets.mjs` (Step 5) rewrites every `BMD-NNN` in
 `assessment.md` as a clickable Jira link — `https://eaflood.atlassian.net/browse/BMD-NNN`
 (override via `JIRA_BROWSE_URL`). It is idempotent (skips refs already inside a link).
+
+### 5c. Progress (NOW) chart
+
+`scripts/progress-chart.mjs` (Step 5) parses the coverage matrix and aggregates each theme's
+**NOW** stories into on-track (`✅`) / in-progress (`🛠️ test gap`) / not-started (`❌ delivery
+gap` + `❓ placeholder`), then inserts a `## Progress (NOW)` section above the theme-status
+table. Columns: Theme · Progress · % done · Evidence · Links.
+
+- **Chips** — theme-level counts (on track / in progress / not started) across ALL themes,
+  with future-only themes (no NOW stories) counted as not-started.
+- **Emoji stacked bars** + `% done` — 10 squares (🟩/🟨/🟥) scaled to each theme's NOW story
+  mix; on-track share. Computed deterministically from the matrix.
+- **Evidence** + **Links** — per-theme plain-language evidence bullets and GitHub links, read
+  from the `roadmap-assessment/progress-now.json` sidecar the synth agent writes. If the sidecar
+  is missing, those two cells show `—` (bars/%/chips still render).
+
+NOW-phase only; idempotent (re-running replaces the section). Built on the same coverage data
+as the Theme-status table.
 
 ## 6. Human review (Step 5 — do not skip)
 
