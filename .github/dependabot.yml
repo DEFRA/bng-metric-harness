@@ -45,3 +45,9 @@ updates:
       interval: weekly
       time: '10:30'
       timezone: 'Europe/London'
+
+    # Pin the Node base image: we manage Node upgrades manually (kept in step
+    # with .nvmrc / package.json engines), so Dependabot must not raise base-image
+    # version PRs for it. Remove this entry to re-enable automated Node bumps.
+    ignore:
+      - dependency-name: 'node'
