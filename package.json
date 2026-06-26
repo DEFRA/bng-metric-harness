@@ -43,7 +43,7 @@
     "git:pre-commit-hook": "node scripts/run-gitleaks.mjs"
   },
   "dependencies": {
-    "concurrently": "^9.1.0"
+    "concurrently": "^10.0.3"
   },
   "devDependencies": {
     "better-sqlite3": "^12.9.0",
