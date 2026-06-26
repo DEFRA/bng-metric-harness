@@ -21,18 +21,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout harness
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: bng-metric-harness
 
       - name: Checkout frontend
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: DEFRA/bng-metric-frontend
           path: bng-metric-frontend
 
       - name: Checkout backend
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: DEFRA/bng-metric-backend
           path: bng-metric-backend
