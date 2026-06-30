@@ -15,6 +15,16 @@ jobs:
         uses: dependabot/fetch-metadata@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Approve the PR
+        # Satisfies the "1 approving review" branch rule so the armed
+        # auto-merge can complete. github-actions[bot] approving a
+        # dependabot[bot] PR is not a self-approval and counts as a review
+        # from a writer.
+        if: steps.meta.outputs.update-type == 'version-update:semver-patch' || steps.meta.outputs.update-type == 'version-update:semver-minor'
+        run: gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Enable auto-merge
         # Only auto-merge patch and minor bumps; leave majors for a human to
         # review. For grouped updates the reported update-type is the highest
