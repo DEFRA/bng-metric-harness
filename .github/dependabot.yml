@@ -46,11 +46,9 @@ updates:
       timezone: 'Europe/London'
 
     # Hold new PRs for a few days after a release (see npm block above).
+    # GitHub Actions is not semver-versioned, so only default-days is supported.
     cooldown:
       default-days: 7
-      semver-major-days: 14
-      semver-minor-days: 7
-      semver-patch-days: 3
 
   # Update the Docker base image
   - package-ecosystem: docker
