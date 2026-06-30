@@ -22,6 +22,15 @@ updates:
 
     versioning-strategy: increase
 
+    # Hold new PRs for a few days after a release so auto-merge does not pull in
+    # a version that gets yanked shortly after publishing. Longer hold for the
+    # riskier bumps.
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 3
+
     allow:
       # Include direct package.json updates
       - dependency-type: direct
@@ -35,6 +44,13 @@ updates:
       interval: weekly
       time: '10:30'
       timezone: 'Europe/London'
+
+    # Hold new PRs for a few days after a release (see npm block above).
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 3
 
   # Update the Docker base image
   - package-ecosystem: docker

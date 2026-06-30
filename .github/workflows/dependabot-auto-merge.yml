@@ -16,6 +16,10 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Enable auto-merge
+        # Only auto-merge patch and minor bumps; leave majors for a human to
+        # review. For grouped updates the reported update-type is the highest
+        # bump in the group, so a group containing a major is excluded here.
+        if: steps.meta.outputs.update-type == 'version-update:semver-patch' || steps.meta.outputs.update-type == 'version-update:semver-minor'
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
