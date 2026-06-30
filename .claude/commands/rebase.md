@@ -1,11 +1,11 @@
 ---
 description: Rebase the current branch of a sibling repo onto origin/main.
-argument-hint: backend|frontend
+argument-hint: backend|frontend|library|journey-tests|prototype
 ---
 
 Rebase the named sibling's current branch onto the latest `origin/main`.
 
-The argument selects the target repo: `backend` → `../bng-metric-backend`, `frontend` → `../bng-metric-frontend`. If no argument is given, ask which repo to target — do not guess.
+The argument selects the target repo: `backend` → `../bng-metric-backend`, `frontend` → `../bng-metric-frontend`, `library` → `../bng-library`, `journey-tests` → `../bng-metric-journey-tests`, `prototype` → `../bng-metric-digital-prototype`. If no argument is given, ask which repo to target — do not guess.
 
 ## Procedure
 
