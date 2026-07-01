@@ -8,7 +8,9 @@ updates:
 
     # Group low-risk updates into shared PRs
     groups:
-      # @types/* packages are devDependencies, so they fall into this group too.
+      # @types/* packages are usually devDependencies, so they typically fall
+      # into this group. (If declared under "dependencies" — e.g. a library that
+      # re-exports them — they'd instead land in the npm-minor-patch group.)
       dev-dependencies:
         dependency-type: development
       # Roll all remaining minor/patch bumps into one PR so they merge
