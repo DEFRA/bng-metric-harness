@@ -8,11 +8,19 @@ updates:
 
     # Group low-risk updates into shared PRs
     groups:
-      types:
-        patterns:
-          - '@types/*'
+      # @types/* packages are usually devDependencies, so they typically fall
+      # into this group. (If declared under "dependencies" — e.g. a library that
+      # re-exports them — they'd instead land in the npm-minor-patch group.)
       dev-dependencies:
         dependency-type: development
+      # Roll all remaining minor/patch bumps into one PR so they merge
+      # together — avoids competing lockfile updates across many PRs.
+      npm-minor-patch:
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
 
     # Schedule run every Monday, local time
     schedule:
