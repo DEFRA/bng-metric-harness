@@ -1,0 +1,27 @@
+// ─────────────────────────────────────────────────────────────────────────
+// Security — AWS security & routing
+//
+// Single security-focused view: Shield DDoS protection, WAF/ALB routing,
+// Secrets Manager and the private outbound subnet. There is no LPA-specific
+// security variant — the routing is identical, so one diagram covers it.
+//
+// All elements are defined in shared.likec4; this view only includes a subset.
+// The `views 'Security'` prefix nests it below under a "Security" folder.
+// ─────────────────────────────────────────────────────────────────────────
+
+views 'Security' {
+
+  view securityFlow {
+    title "AWS Security & Routing"
+    description "AWS security mechanisms: Shield DDoS protection, WAF/ALB routing to the completer front-end, Secrets Manager, and the private outbound subnet for external API calls."
+
+    include defraCustomerId
+    include awsEuWest2.publicEgress.awsShield
+    include awsEuWest2.publicAlbWaf
+    include awsEuWest2.publicBoundaryCDP.publicApp
+    include awsEuWest2.secretsManager
+    include awsEuWest2.privateBoundaryCDP.backendApi
+    include awsEuWest2.privateOutboundSubnet
+    include thirdPartyApis
+  }
+}

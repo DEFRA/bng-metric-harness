@@ -55,5 +55,8 @@
     "unist-util-visit": "^5.0.0",
     "vitest": "^4.1.10",
     "xlsx": "^0.18.5"
+  },
+  "overrides": {
+    "vite": "8.1.4"
   }
 }

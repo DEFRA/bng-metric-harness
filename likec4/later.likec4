@@ -1,0 +1,63 @@
+// ─────────────────────────────────────────────────────────────────────────
+// Later — roadmap (LPA assessment capability)
+//
+// Views that include the LPA login / LPA assessment capability layered on top
+// of the MVS. These are the combined diagrams (completer + LPA) plus the
+// LPA-only officer journey.
+//
+// All elements are defined in shared.likec4; these views only include subsets.
+// The `views 'Later'` prefix nests every view below under a "Later" folder.
+// ─────────────────────────────────────────────────────────────────────────
+
+views 'Later' {
+
+  // Full complete flow — completer front-end AND LPA assessment front-end
+  // (the MVS complete flow is the `index` landing view; this is the roadmap superset)
+  view indexLater {
+    title "Complete Flow (with LPA)"
+    description "Complete view showing all components and their connections, including the LPA assessment front-end and LPA identity"
+
+    include defraCustomerId
+    include defraCustomerIdLpa
+    include awsEuWest2.publicBoundaryCDP.publicApp
+    include awsEuWest2.publicBoundaryCDP.lpaApp
+    include awsEuWest2.privateBoundaryCDP.backendApi
+    include awsEuWest2.privateBoundaryCDP.virusScanService
+    include awsEuWest2.privateBoundaryCDP.fileStorageS3
+    include awsEuWest2.privateBoundaryCDP.postgresDb
+    include externalApiCalls
+  }
+
+  // Full system overview — includes the LPA officer reviewing submissions
+  view systemOverview {
+    title "System Overview (with LPA)"
+    description "High-level system context showing actors (including the LPA officer), BNG Service, data stores, and the GIO Data Platform"
+
+    autoLayout LeftRight
+
+    include landDeveloper
+    include lpaOfficer
+    include awsEuWest2.bngService
+    include awsEuWest2.privateBoundaryCDP.postgresDb
+    include awsEuWest2.privateBoundaryCDP.fileStorageS3
+    include azureUkSouth.azureDataPlatform.dynamicsPlatform
+    include naturalEngland
+  }
+
+  // LPA Officer user journey (LPA-only — left as-is per the brief)
+  view lpaContext {
+    title "LPA Officer – User Journey"
+    description "Linear user journey showing the step-by-step flow an LPA officer follows from receiving a BNG submission to approval decision"
+
+    autoLayout TopBottom
+
+    include lpaOfficer
+    include planningPortal
+    include lpaPhaseAccess.*
+    include defraCustomerIdLpa
+    include lpaPhaseReview.*
+    include lpaPhaseDecision.*
+    include govukNotifyRequest
+    include govukNotifyDecision
+  }
+}

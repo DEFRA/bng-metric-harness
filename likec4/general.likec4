@@ -1,0 +1,128 @@
+// ─────────────────────────────────────────────────────────────────────────
+// General — cross-cutting platform, data & validation views
+//
+// Views with no LPA-specific variant: some genuinely span both phases (CI/CD,
+// infrastructure change process, observability, environment alignment, audit
+// stream, data linkage); others are completer-facing data/validation flows
+// that simply have no LPA counterpart (GeoPackage upload pipeline, GIS data
+// serving).
+//
+// All elements are defined in shared.likec4; these views only include subsets.
+// The `views 'General'` prefix nests every view below under a "General" folder.
+// ─────────────────────────────────────────────────────────────────────────
+
+views 'General' {
+
+  // Audit Event Stream to GIO Platform
+  view dataSyncFlow {
+    title "Audit Event Stream to GIO Platform"
+    description "BNG Core API pushes audit events to AWS Kinesis Data Firehose, which delivers them to a dedicated S3 bucket (not accessible to the BNG service). The GIO Data Platform in Azure reads from this S3 bucket to ingest data into its data lake."
+
+    autoLayout LeftRight
+
+    include awsEuWest2.privateBoundaryCDP.backendApi
+    include awsEuWest2.privateBoundaryCDP.firehoseStream
+    include awsEuWest2.privateBoundaryCDP.bngProjectDataS3
+    include azureUkSouth.azureDataPlatform.dynamicsPlatform
+  }
+
+  // PostgreSQL Data Linkage Model
+  view dataLinkage {
+    title "PostgreSQL Data Linkage Model"
+    description "Shows how PostgreSQL is the primary data store, with BNG JSONB documents linking to PostGIS for spatial data and S3 for file uploads"
+
+    autoLayout TopBottom
+
+    include awsEuWest2.privateBoundaryCDP.postgresDb
+    include awsEuWest2.privateBoundaryCDP.bngJsonDocument
+    include awsEuWest2.privateBoundaryCDP.fileStorageS3
+  }
+
+  // CDP Code Release Pipeline
+  view codeReleasePipeline {
+    title "CDP Code Release Pipeline"
+    description "CI/CD flow from PR to deployment: GitHub Actions runs tests and security scans, merges to main trigger Docker image builds to ECR, and CDP deploys to Fargate across environments"
+
+    autoLayout TopBottom
+
+    include bngDeveloper
+    include gitHooks
+    include gitHubRepo
+    include gitHubActions
+    include codeQualityScans.*
+    include gitTag
+    include ecrRepo
+    include cdpFargate
+    include deploymentEnvs.*
+  }
+
+  // CDP Infrastructure Changes
+  view infraChanges {
+    title "CDP Infrastructure Changes"
+    description "How the BNG product team requests AWS infrastructure changes via CDP, and manages deployments across environments through the CDP Portal"
+
+    autoLayout TopBottom
+
+    include bngDeveloper
+    include slackChannel
+    include jiraTicket
+    include terraformRepo
+    include cdpPortal
+    include deploymentEnvs.*
+  }
+
+  // Logging, Monitoring & Alerting
+  view loggingMonitoring {
+    title "Logging, Monitoring & Alerting"
+    description "Observability pipeline: BNG Service emits logs and metrics to CloudWatch, which streams to OpenSearch for indexing. Grafana dashboards query OpenSearch and fire alert notifications to Slack"
+
+    autoLayout LeftRight
+
+    include awsEuWest2.bngService
+    include awsEuWest2.monitoringStack.*
+    include slackAlerts
+  }
+
+  // OIDC to CDP Environment Alignment
+  view oidcEnvAlignment {
+    title "OIDC to CDP Environment Alignment"
+    description "Mapping of Defra Customer ID OIDC provider environments (Azure) to BNG CDP deployment environments (AWS)"
+
+    autoLayout LeftRight
+
+    include azureUkSouth.defraCustomerIdEnvs.*
+    include awsEuWest2.bngCdpEnvs.*
+  }
+
+  // GeoPackage Upload Validation Pipeline
+  view geopackageUploadPipeline {
+    title "GeoPackage Upload Validation Pipeline"
+    description "Multi-stage validation pipeline applied to GIS GeoPackage uploads. Each stage gates the next; any failure routes the user to the drop-out page, success routes them to the habitat listing page."
+
+    autoLayout LeftRight
+
+    include gpkgUploadJourney.*
+    include awsEuWest2.publicBoundaryCDP.publicApp
+    include awsEuWest2.privateBoundaryCDP.fileTypeSizeCheck
+    include awsEuWest2.privateBoundaryCDP.virusScanService
+    include awsEuWest2.privateBoundaryCDP.geopackageCheck
+    include awsEuWest2.privateBoundaryCDP.layerSchemaCheck
+    include awsEuWest2.privateBoundaryCDP.geometryCheck
+  }
+
+  // GIS Data Serving Architecture
+  view gisDataServingArchitecture {
+    title "GIS Data Serving Architecture"
+    description "Read/write data architecture for GIS geometry: stored in British National Grid in PostGIS, referenced from the BNG project JSONB document, served as WGS84 to MapLibre via the GIS Data API endpoint of the BNG Service Core API. PostGIS performs the ST_Transform; HTTP and Redis caches minimise repeat conversions."
+
+    autoLayout LeftRight
+
+    include mapLibreViewer
+    include httpCache
+    include awsEuWest2.privateBoundaryCDP.backendApi
+    include awsEuWest2.privateBoundaryCDP.backendApi.gisDataApi
+    include awsEuWest2.privateBoundaryCDP.redisCache
+    include awsEuWest2.privateBoundaryCDP.postgresDb
+    include awsEuWest2.privateBoundaryCDP.bngJsonDocument
+  }
+}

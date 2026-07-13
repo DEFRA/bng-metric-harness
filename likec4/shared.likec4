@@ -1,0 +1,1000 @@
+// ─────────────────────────────────────────────────────────────────────────
+// BNG Architecture — SHARED MODEL
+//
+// Single source of truth for the specification and ALL model elements and
+// relationships. This file declares NO views — the views live in the
+// perspective files (mvs / later / security / general), which merely include
+// subsets of the elements defined here. LikeC4 merges every .likec4 file into
+// one model, so a view in any file can reference anything declared below.
+//
+// A file with no `views` block produces no entry in the UI, so this shared
+// model is invisible in the explorer — exactly what we want.
+// ─────────────────────────────────────────────────────────────────────────
+
+specification {
+  element actor {
+    style {
+      shape person
+      color amber
+    }
+  }
+  element system {
+    style {
+      shape rectangle
+      color slate
+    }
+  }
+  element service {
+    style {
+      shape rectangle
+      color green
+    }
+  }
+  element database {
+    style {
+      shape cylinder
+      color blue
+    }
+  }
+  element storage {
+    style {
+      shape rectangle
+      color sky
+    }
+  }
+  element queue {
+    style {
+      shape queue
+      color amber
+    }
+  }
+  element cache {
+    style {
+      shape rectangle
+      color green
+    }
+  }
+  element platform {
+    style {
+      shape rectangle
+      color indigo
+    }
+  }
+  element visualisation {
+    style {
+      shape rectangle
+      color indigo
+    }
+  }
+  element boundary {
+    style {
+      color muted
+    }
+  }
+}
+
+model {
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // BNG core architecture — cloud boundaries, apps, data stores, identity, security, external services
+  //   (from bng-architecture.likec4)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // External Boundary - Actors and Identity
+  system defraCustomerId "Defra Customer ID" {
+    description "Handles external users login and authentication"
+    style {
+      shape person
+      color indigo
+    }
+  }
+
+  system defraCustomerIdLpa "Defra Customer ID (LPA)" {
+    description "Trusted Third-Party flow for LPA authentication"
+    style {
+      shape person
+      color indigo
+    }
+  }
+
+  // AWS eu-west-2 (London) Region
+  boundary awsEuWest2 "CDP – AWS eu-west-2 (London)" {
+    description "AWS London region hosting CDP infrastructure"
+    icon https://icons.terrastruct.com/dev%2Famazonwebservices.svg
+
+    // Security - Public Ingress
+    boundary publicEgress "Public Egress" {
+      description "Public-facing edge network with DDoS protection"
+
+      service awsShield "AWS Shield" {
+        description "DDoS protection for all inbound traffic to the platform"
+        technology "AWS Shield Advanced"
+        icon https://icon.icepanel.io/AWS/svg/Security-Identity-Compliance/Shield.svg
+        style {
+          color red
+        }
+      }
+    }
+
+    service publicAlbWaf "Public ALB / AWS WAF" {
+      description "Application Load Balancer with Web Application Firewall for traffic filtering and routing to front-end services"
+      technology "AWS ALB / WAF"
+      icon https://icon.icepanel.io/AWS/svg/Security-Identity-Compliance/WAF.svg
+      style {
+        color red
+      }
+    }
+
+    service secretsManager "AWS Secrets Manager" {
+      description "Centralized secrets management for API keys, database credentials, and service tokens used by all application tiers"
+      technology "AWS Secrets Manager"
+      icon https://icon.icepanel.io/AWS/svg/Security-Identity-Compliance/Secrets-Manager.svg
+      style {
+        color red
+      }
+    }
+
+    // Public Boundary CDP (AWS)
+    boundary publicBoundaryCDP "Public Boundary CDP" {
+      description "AWS Public Zone"
+      icon https://icon.icepanel.io/AWS/svg/Compute/Fargate.svg
+
+      service publicApp "BNG Completion Front-end" {
+        description "Public-facing application for BNG completion"
+        technology "Node.js / AWS"
+        icon https://icons.terrastruct.com/dev%2Fnodejs.svg
+        style {
+          color green
+        }
+      }
+
+      service lpaApp "LPA BNG Assessment front-end" {
+        description "LPA-facing application for BNG assessment"
+        technology "Node.js / AWS"
+        icon https://icons.terrastruct.com/dev%2Fnodejs.svg
+        style {
+          color green
+        }
+      }
+    }
+
+    // Private Boundary CDP (AWS)
+    boundary privateBoundaryCDP "Private Boundary CDP" {
+      description "AWS Private Zone"
+      icon https://icon.icepanel.io/AWS/svg/Compute/Fargate.svg
+
+      service backendApi "BNG Service Core API" {
+        description "Backend API handling BNG metric processing"
+        technology "Node.js / AWS"
+        icon https://icons.terrastruct.com/dev%2Fnodejs.svg
+        style {
+          color green
+        }
+      }
+
+      service virusScanService "CDP Virus Scanning Service" {
+        description "Scans uploaded files for malware before storage"
+        technology "ClamAV / AWS"
+        icon https://icon.icepanel.io/AWS/svg/Security-Identity-Compliance/Inspector.svg
+        style {
+          color green
+        }
+      }
+
+      storage fileStorageS3 "File Storage - S3" {
+        description "Used for any uploaded data by users, associated with case and user"
+        technology "AWS S3"
+        icon https://icons.terrastruct.com/aws%2FStorage%2FAmazon-Simple-Storage-Service-S3.svg
+        style {
+          shape rectangle
+          color sky
+        }
+      }
+
+      storage bngProjectDataS3 "BNG Audit Events - S3" {
+        description "Dedicated S3 bucket receiving audit events from Firehose. Not accessible to the BNG service directly. Read by the GIO Data Platform for data lake ingestion."
+        technology "AWS S3"
+        icon https://icons.terrastruct.com/aws%2FStorage%2FAmazon-Simple-Storage-Service-S3.svg
+        style {
+          shape rectangle
+          color sky
+        }
+      }
+
+      database postgresDb "CDP Postgres / PostGIS Database" {
+        description "Primary data store. JSONB used to store BNG project data in relational table(s). PostGIS stores reference data (e.g. Living England habitats) and user uploaded/created GIS layers. JSON documents hold references to GIS data stored in PostGIS."
+        technology "PostgreSQL / PostGIS"
+        icon https://icons.terrastruct.com/dev%2Fpostgresql.svg
+      }
+    }
+
+    service privateOutboundSubnet "Private Outbound Subnet" {
+      description "NAT Gateway subnet with Squid Proxy for all outbound API calls from private services"
+      technology "AWS VPC / NAT Gateway"
+      icon https://icon.icepanel.io/AWS/svg/Security-Identity-Compliance/Network-Firewall.svg
+      style {
+        color red
+      }
+    }
+  }
+
+  // Azure UK South (London) Region
+  boundary azureUkSouth "Azure UK South (London)" {
+    description "Azure London region hosting data platform"
+    icon https://az-icons.com/export/icons/0e64f85d4661e42d46e4e2bc1602eadb.svg
+
+    boundary azureDataPlatform "Azure Data Platform" {
+      description "Azure cloud services for reporting and data platform"
+
+      platform dynamicsPlatform "GIO Data Platform" {
+        description "Power BI-based data platform for BNG reporting, analysis, and data management"
+        technology "Microsoft Power BI"
+        icon https://az-icons.com/export/icons/e4e7a2a46c0b319dc5989d4b4977cad1.svg
+      }
+    }
+  }
+
+  // External Services
+  service archGovukNotify "GOV.UK Notify" {
+    description "Send alerts to BNG stakeholders about changes"
+    technology "GOV.UK Notify"
+    icon https://icons.terrastruct.com/aws%2FCustomer%20Engagement%2FAmazon-Simple-Email-Service-SES.svg
+    style {
+      color amber
+    }
+  }
+
+  service externalApiCalls "External API Calls" {
+    description "Calls to external services such as Ordnance Survey, ArcGIS or GovUK Notify"
+    technology "REST / HTTPS"
+    icon https://icons.terrastruct.com/aws%2F_General%2FInternet-alt2_light-bg.svg
+    style {
+      color amber
+    }
+  }
+
+  service thirdPartyApis "Third-party API Services" {
+    description "External API services consumed by the platform (e.g. GOV.UK Notify, OS Data Hub, Planning Data API (MHCLG))"
+    technology "REST / HTTPS"
+    icon https://icons.terrastruct.com/aws%2F_General%2FInternet-alt2_light-bg.svg
+    style {
+      color amber
+    }
+  }
+
+  // Relationships
+
+  // External to Public CDP
+  defraCustomerId -> awsEuWest2.publicBoundaryCDP.publicApp "Authenticates users"
+  defraCustomerIdLpa -> awsEuWest2.publicBoundaryCDP.lpaApp "Authenticates LPA users"
+
+  // Public to Private CDP
+  awsEuWest2.publicBoundaryCDP.publicApp -> awsEuWest2.privateBoundaryCDP.backendApi "Internal API calls"
+  awsEuWest2.publicBoundaryCDP.lpaApp -> awsEuWest2.privateBoundaryCDP.backendApi "Internal API calls"
+
+  // Within Private CDP
+  awsEuWest2.privateBoundaryCDP.backendApi -> awsEuWest2.privateBoundaryCDP.virusScanService "Sends files for scanning"
+  awsEuWest2.privateBoundaryCDP.virusScanService -> awsEuWest2.privateBoundaryCDP.fileStorageS3 "Stores scanned files"
+  awsEuWest2.privateBoundaryCDP.backendApi -> awsEuWest2.privateBoundaryCDP.postgresDb "Application data (JSONB) & GIS operations"
+  
+  // Backend to External API Calls
+  awsEuWest2.privateBoundaryCDP.backendApi -> externalApiCalls "External API calls"
+
+  // Front-end outputs the BNG PDF (external to CDP) for planning portal submission
+  awsEuWest2.publicBoundaryCDP.publicApp -> bngPdfDocument "Outputs BNG PDF for planning portal submission"
+
+  // AWS to Azure cross-cloud data ingestion
+  awsEuWest2.privateBoundaryCDP.bngProjectDataS3 -> azureUkSouth.azureDataPlatform.dynamicsPlatform "GIO reads audit events for data lake ingestion"
+
+  // Security routing - Ingress
+  defraCustomerId -> awsEuWest2.publicEgress.awsShield "Inbound traffic"
+  defraCustomerIdLpa -> awsEuWest2.publicEgress.awsShield "Inbound traffic"
+  awsEuWest2.publicEgress.awsShield -> awsEuWest2.publicAlbWaf "DDoS-filtered traffic"
+  awsEuWest2.publicAlbWaf -> awsEuWest2.publicBoundaryCDP.publicApp "Routes to BNG app"
+  awsEuWest2.publicAlbWaf -> awsEuWest2.publicBoundaryCDP.lpaApp "Routes to LPA app"
+
+  // Security - Secrets Management
+  awsEuWest2.publicBoundaryCDP.publicApp -> awsEuWest2.secretsManager "Retrieves secrets"
+  awsEuWest2.publicBoundaryCDP.lpaApp -> awsEuWest2.secretsManager "Retrieves secrets"
+  awsEuWest2.privateBoundaryCDP.backendApi -> awsEuWest2.secretsManager "Retrieves secrets"
+
+  // Security - Private Egress
+  awsEuWest2.privateBoundaryCDP.backendApi -> awsEuWest2.privateOutboundSubnet "Outbound API calls"
+  awsEuWest2.privateOutboundSubnet -> thirdPartyApis "External API calls"
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Actors, user-journey phases, audit stream, data linkage, CI/CD, infra changes, monitoring
+  //   (from bng-context.likec4)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // Actors (unique to context diagrams)
+  actor bngCompleter "BNG Completer" {
+    description "Developer or landowner completing a BNG metric submission as part of the planning process"
+  }
+
+  actor lpaOfficer "LPA Officer" {
+    description "Local Planning Authority officer assessing BNG submissions against planning conditions"
+  }
+
+  // External Systems
+  system planningPortal "Planning Portal" {
+    description "Reference submitted on the LPA system"
+    style {
+      shape rectangle
+      color amber
+    }
+  }
+
+  // Output artifact — external to the CDP boundaries
+  system bngPdfDocument "BNG PDF Document" {
+    description "BNG metric PDF report generated by the completion front-end for the applicant to submit to the Planning Portal. External to the CDP boundaries."
+    technology "PDF"
+    style {
+      shape rectangle
+      color amber
+    }
+  }
+
+  // ── System Overview actors and elements ──
+
+  actor landDeveloper "Land Developer / Ecologist" {
+    description "Developer or ecologist submitting BNG metric data as part of the planning process"
+  }
+
+  actor naturalEngland "Natural England" {
+    description "Government body responsible for biodiversity and natural environment oversight"
+    style {
+      color green
+    }
+  }
+
+  extend awsEuWest2 {
+    service bngService "BNG Service" {
+      description "BNG digital service for biodiversity metric completion and assessment"
+      technology "Node.js / AWS"
+      icon https://icons.terrastruct.com/dev%2Fnodejs.svg
+      style {
+        color green
+      }
+    }
+  }
+
+  // ── System Overview relationships ──
+
+  landDeveloper -> awsEuWest2.bngService "Submits BNG metric data"
+  lpaOfficer -> awsEuWest2.bngService "Reviews BNG submissions"
+  awsEuWest2.bngService -> awsEuWest2.privateBoundaryCDP.postgresDb "Application data (JSONB) & GIS data"
+  awsEuWest2.bngService -> awsEuWest2.privateBoundaryCDP.fileStorageS3 "File uploads"
+  awsEuWest2.bngService -> azureUkSouth.azureDataPlatform.dynamicsPlatform "Audit events via Firehose → S3"
+  naturalEngland -> azureUkSouth.azureDataPlatform.dynamicsPlatform "BNG reporting and oversight"
+
+  // ── Audit Event Stream elements ──
+
+  extend awsEuWest2.privateBoundaryCDP {
+    service firehoseStream "AWS Kinesis Data Firehose" {
+      description "Receives audit events from the BNG Core API and delivers them to a dedicated S3 bucket for GIO platform ingestion"
+      technology "AWS Kinesis Data Firehose"
+      icon https://icon.icepanel.io/AWS/svg/Analytics/Kinesis.svg
+      style {
+        color amber
+      }
+    }
+  }
+
+  // ── Data Linkage Model elements ──
+
+  extend awsEuWest2.privateBoundaryCDP {
+    service bngJsonDocument "BNG JSONB Document" {
+      description "Core JSONB document stored in PostgreSQL representing a BNG project. Contains references to GIS layers in PostGIS and uploaded files in S3, acting as the single linking record across all data stores."
+      technology "JSONB / PostgreSQL"
+      icon https://icons.terrastruct.com/dev%2Fpostgresql.svg
+      style {
+        color green
+      }
+    }
+  }
+
+  // Data Linkage relationships
+  awsEuWest2.privateBoundaryCDP.postgresDb -> awsEuWest2.privateBoundaryCDP.bngJsonDocument "Stores & retrieves"
+  awsEuWest2.privateBoundaryCDP.bngJsonDocument -> awsEuWest2.privateBoundaryCDP.postgresDb "References GIS layers (red-line boundary, habitat parcels)"
+  awsEuWest2.privateBoundaryCDP.bngJsonDocument -> awsEuWest2.privateBoundaryCDP.fileStorageS3 "References uploaded files (GeoPackages, shapefiles, PDFs)"
+
+  // Audit event stream relationships
+  awsEuWest2.privateBoundaryCDP.backendApi -> awsEuWest2.privateBoundaryCDP.firehoseStream "Pushes audit events"
+  awsEuWest2.privateBoundaryCDP.firehoseStream -> awsEuWest2.privateBoundaryCDP.bngProjectDataS3 "Delivers events to S3"
+
+  // ── BNG Completer User Journey (grouped into phases) ──
+
+  boundary phaseAuth "1. Authentication & Project Setup" {
+    service stepCreateProject "Create BNG Project" {
+      description "Completer creates a new BNG project in the front-end"
+      style {
+        color green
+      }
+    }
+  }
+
+  boundary phaseBaseline "2. Baseline Data" {
+    service stepBaselineGis "Baseline GIS" {
+      description "Define red-line boundary and upload baseline spatial data"
+      style {
+        color green
+      }
+    }
+
+    service stepBaselineHabitats "Baseline Habitats" {
+      description "Map and classify baseline habitat parcels within the red-line boundary"
+      style {
+        color green
+      }
+    }
+  }
+
+  boundary phasePostIntervention "3. Post-intervention Data" {
+    service stepPostInterventionGis "Post-intervention GIS" {
+      description "Upload or define post-intervention spatial data"
+      style {
+        color green
+      }
+    }
+
+    service stepPostInterventionHabitats "Post-intervention Habitats" {
+      description "Map and classify post-intervention habitat parcels"
+      style {
+        color green
+      }
+    }
+  }
+
+  boundary phaseReview "4. Review & Submit" {
+    service stepReviewReport "Review BNG Report" {
+      description "Review the calculated biodiversity metric and habitat summary"
+      style {
+        color green
+      }
+    }
+
+    service stepOutputPdf "Output PDF Report" {
+      description "Generate a PDF report containing the BNG metric results"
+      style {
+        color green
+      }
+    }
+  }
+
+  // ── BNG Completer Flow (linear user journey) ──
+
+  bngCompleter -> defraCustomerId "Signs in with Defra account"
+  defraCustomerId -> phaseAuth.stepCreateProject "Authenticates"
+  phaseAuth.stepCreateProject -> phaseBaseline.stepBaselineGis
+  phaseBaseline.stepBaselineGis -> phaseBaseline.stepBaselineHabitats
+  phaseBaseline.stepBaselineHabitats -> phasePostIntervention.stepPostInterventionGis
+  phasePostIntervention.stepPostInterventionGis -> phasePostIntervention.stepPostInterventionHabitats
+  phasePostIntervention.stepPostInterventionHabitats -> phaseReview.stepReviewReport
+  phaseReview.stepReviewReport -> phaseReview.stepOutputPdf
+  phaseReview.stepOutputPdf -> planningPortal "Upload BNG PDF to Planning Portal"
+
+  // GOV.UK Notify for LPA notifications
+  service govukNotifyRequest "GOV.UK Notify" {
+    description "Sends an email to BNG plan stakeholders notifying them that further information has been requested"
+    technology "GOV.UK Notify"
+    icon https://icons.terrastruct.com/aws%2FCustomer%20Engagement%2FAmazon-Simple-Email-Service-SES.svg
+    style {
+      color amber
+    }
+  }
+
+  service govukNotifyDecision "GOV.UK Notify" {
+    description "Sends an email to BNG plan stakeholders notifying them of the approval decision"
+    technology "GOV.UK Notify"
+    icon https://icons.terrastruct.com/aws%2FCustomer%20Engagement%2FAmazon-Simple-Email-Service-SES.svg
+    style {
+      color amber
+    }
+  }
+
+  // ── LPA Officer User Journey (grouped into phases) ──
+
+  boundary lpaPhaseAccess "1. Access BNG Submission" {
+    service stepClickLink "Officer Clicks on Link" {
+      description "LPA officer follows the BNG Service URL from the Planning Portal submission"
+      style {
+        color green
+      }
+    }
+  }
+
+  boundary lpaPhaseReview "2. Assessment" {
+    service stepReviewBng "Reviews Validated BNG Report" {
+      description "Officer reviews the validated BNG metric report and habitat data"
+      style {
+        color green
+      }
+    }
+
+    service stepRequestInfo "Requests Further Info" {
+      description "Officer may request additional information from the applicant (optional step)"
+      style {
+        color green
+      }
+    }
+  }
+
+  boundary lpaPhaseDecision "3. Decision" {
+    service stepApproval "Approves BNG Plan / No Approval" {
+      description "Officer makes the final decision to approve or reject the BNG plan"
+      style {
+        color green
+      }
+    }
+  }
+
+  // ── LPA Officer Flow (linear user journey) ──
+
+  lpaOfficer -> planningPortal "Extracts BNG report with URL to Service"
+  planningPortal -> lpaPhaseAccess.stepClickLink
+  lpaPhaseAccess.stepClickLink -> defraCustomerIdLpa "Trusted third-party auth"
+  defraCustomerIdLpa -> lpaPhaseReview.stepReviewBng
+  lpaPhaseReview.stepReviewBng -> lpaPhaseReview.stepRequestInfo "(optional)"
+  lpaPhaseReview.stepRequestInfo -> lpaPhaseDecision.stepApproval
+  lpaPhaseReview.stepRequestInfo -> govukNotifyRequest "Notifies stakeholders"
+  lpaPhaseDecision.stepApproval -> govukNotifyDecision "Notifies stakeholders"
+
+  // ── CDP Code Release Pipeline ──
+
+  actor bngDeveloper "BNG Developer" {
+    description "Developer working on the BNG digital service codebase"
+  }
+
+  service gitHooks "Git Commit & Push Hooks" {
+    description "Local Husky git hooks run before code reaches GitHub: automated tests, code formatting / linting, and a secrets scan (Gitleaks)"
+    technology "Husky / Gitleaks"
+    icon https://icons.terrastruct.com/dev%2Fgit.svg
+    style {
+      color slate
+    }
+  }
+
+  service gitHubRepo "GitHub Repository" {
+    description "Source code repository for BNG service applications"
+    technology "GitHub"
+    icon https://icons.terrastruct.com/dev%2Fgithub.svg
+    style {
+      color slate
+    }
+  }
+
+  service gitHubActions "GitHub Actions" {
+    description "CI pipeline triggered on every PR and merge to main. Runs automated test suites, linting, and build steps"
+    technology "GitHub Actions"
+    icon https://icons.terrastruct.com/dev%2Fgithub.svg
+    style {
+      color slate
+    }
+  }
+
+  boundary codeQualityScans "Security & Quality Scans" {
+    service dependabot "Dependabot" {
+      description "Automated dependency vulnerability scanning on every PR"
+      style {
+        color red
+      }
+    }
+
+    service githubAdvancedSecurity "GitHub Advanced Security & Secret Scanning" {
+      description "GitHub-native code scanning (CodeQL SAST) and dependency review, plus secret/credential scanning (GitHub secret scanning and Gitleaks / TruffleHog) on every PR"
+      style {
+        color red
+      }
+    }
+
+    service sonarCloud "SonarCloud" {
+      description "Static code analysis for code quality, maintainability, and security hotspots"
+      style {
+        color red
+      }
+    }
+
+    service automatedTests "Automated Tests" {
+      description "CI test suites run on every PR: unit tests, integration tests, and user journey (end-to-end) tests"
+      style {
+        color green
+      }
+    }
+  }
+
+  service ecrRepo "Amazon ECR" {
+    description "Docker container image registry. Each merge to main pushes a versioned image"
+    technology "AWS ECR"
+    icon https://icon.icepanel.io/AWS/svg/Containers/Elastic-Container-Registry.svg
+    style {
+      color sky
+    }
+  }
+
+  service gitTag "Git Tag / SemVer" {
+    description "Each merge to main triggers an automatic Git tag with semantic versioning. SemVer strategy can be targeted via PR labels"
+    technology "Git"
+    icon https://icons.terrastruct.com/dev%2Fgit.svg
+    style {
+      color slate
+    }
+  }
+
+  boundary deploymentEnvs "CDP Deployment Environments" {
+    service envDev "Dev" {
+      description "Development environment — auto-deployed on merge to main"
+      style {
+        color green
+      }
+    }
+
+    service envTest "Test" {
+      description "Test environment for QA and integration testing"
+      style {
+        color green
+      }
+    }
+
+    service envPerf "Perf" {
+      description "Performance testing environment"
+      style {
+        color green
+      }
+    }
+
+    service envProd "Prod" {
+      description "Production environment — manual deployment via CDP Portal for strict change control"
+      style {
+        color red
+      }
+    }
+  }
+
+  service cdpFargate "AWS Fargate" {
+    description "CDP Platform pushes the latest versioned container image from ECR to Fargate for each environment"
+    technology "AWS Fargate"
+    icon https://icon.icepanel.io/AWS/svg/Containers/Fargate.svg
+    style {
+      color sky
+    }
+  }
+
+  // Code Release relationships
+  bngDeveloper -> gitHooks "git commit / push"
+  gitHooks -> gitHubRepo "Opens Pull Request"
+  gitHubRepo -> gitHubActions "PR triggers CI"
+  gitHubActions -> codeQualityScans.dependabot "Dependency scan"
+  gitHubActions -> codeQualityScans.githubAdvancedSecurity "Code scanning (CodeQL) & secret scanning"
+  gitHubActions -> codeQualityScans.sonarCloud "Code quality scan"
+  gitHubActions -> codeQualityScans.automatedTests "Runs unit, integration & journey tests"
+  gitHubRepo -> gitTag "Merge to main triggers tag"
+  gitHubRepo -> ecrRepo "Merge to main pushes Docker image"
+  ecrRepo -> cdpFargate "CDP deploys image"
+  cdpFargate -> deploymentEnvs.envDev "Auto-deploy"
+  cdpFargate -> deploymentEnvs.envTest "Auto-deploy"
+  cdpFargate -> deploymentEnvs.envPerf "Auto-deploy"
+  cdpFargate -> deploymentEnvs.envProd "Manual deploy"
+
+  // ── CDP Infrastructure Changes ──
+
+  service slackChannel "CDP Slack Channel" {
+    description "Product team initiates conversation with CDP platform team to request new AWS resources"
+    technology "Slack"
+    icon https://icons.terrastruct.com/dev%2Fslack.svg
+    style {
+      color amber
+    }
+  }
+
+  service jiraTicket "Jira Ticket" {
+    description "Automatically created from the Slack conversation and linked back. All parties collaborate via ticket and/or Slack"
+    technology "Jira"
+    icon https://cdn.simpleicons.org/jira
+    style {
+      color blue
+    }
+  }
+
+  service terraformRepo "Terraform IaC" {
+    description "All CDP infrastructure is managed via Terraform in a private GitHub repository maintained by the CDP platform team"
+    technology "Terraform / GitHub"
+    icon https://icons.terrastruct.com/dev%2Fgithub.svg
+    style {
+      color indigo
+    }
+  }
+
+  service cdpPortal "CDP Portal" {
+    description "Web portal for managing deployments. Product team can track container versions, view deployment status across environments, and initiate manual deployments (e.g. to prod)"
+    technology "CDP Portal"
+    icon https://icon.icepanel.io/AWS/svg/Compute/Fargate.svg
+    style {
+      color green
+    }
+  }
+
+  // Infrastructure Change relationships
+  bngDeveloper -> slackChannel "Requests new AWS resource"
+  slackChannel -> jiraTicket "Auto-creates linked ticket"
+  jiraTicket -> terraformRepo "CDP team applies IaC changes"
+  bngDeveloper -> cdpPortal "Manages deployments"
+  cdpPortal -> deploymentEnvs.envDev "Track & deploy"
+  cdpPortal -> deploymentEnvs.envTest "Track & deploy"
+  cdpPortal -> deploymentEnvs.envPerf "Track & deploy"
+  cdpPortal -> deploymentEnvs.envProd "Manual release"
+
+  // ── Logging, Monitoring & Alerting elements ──
+
+  extend awsEuWest2 {
+    boundary monitoringStack "Logging, Monitoring & Alerting" {
+      service cloudWatch "Amazon CloudWatch" {
+        description "Collects application logs, metrics, and traces from BNG services running on Fargate"
+        technology "AWS CloudWatch"
+        icon https://icon.icepanel.io/AWS/svg/Management-Governance/CloudWatch.svg
+        style {
+          color sky
+        }
+      }
+
+      service openSearch "CDP OpenSearch" {
+        description "Indexes and stores log data streamed from CloudWatch for full-text search, analysis, and dashboarding"
+        technology "OpenSearch"
+        icon https://cdn.simpleicons.org/opensearch
+        style {
+          color sky
+        }
+      }
+
+      visualisation grafana "Grafana" {
+        description "Observability dashboards querying OpenSearch for log visualisation, metric monitoring, and alert rule evaluation"
+        technology "Grafana"
+        icon https://cdn.simpleicons.org/grafana
+      }
+    }
+  }
+
+  service slackAlerts "Slack Alerts" {
+    description "Slack channel receiving automated alert notifications from Grafana when monitoring thresholds are breached"
+    technology "Slack"
+    icon https://icons.terrastruct.com/dev%2Fslack.svg
+    style {
+      color amber
+    }
+  }
+
+  // Logging, Monitoring & Alerting relationships
+  awsEuWest2.bngService -> awsEuWest2.monitoringStack.cloudWatch "Application logs & metrics"
+  awsEuWest2.monitoringStack.cloudWatch -> awsEuWest2.monitoringStack.openSearch "Streams logs via subscription filter"
+  awsEuWest2.monitoringStack.openSearch -> awsEuWest2.monitoringStack.grafana "Queries log data"
+  awsEuWest2.monitoringStack.grafana -> slackAlerts "Alert notifications"
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Defra Customer ID OIDC ↔ BNG CDP deployment environment alignment
+  //   (from bng-environments.likec4)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  extend azureUkSouth {
+    boundary defraCustomerIdEnvs "Defra Customer ID Environments" {
+      description "OIDC provider environments hosted in Azure"
+
+      service oidcCpdev "CPDEV" {
+        description "Defra Customer ID development OIDC environment"
+        style {
+          color indigo
+        }
+      }
+
+      service oidcPreProd "PRE-PROD" {
+        description "Defra Customer ID pre-production OIDC environment"
+        style {
+          color indigo
+        }
+      }
+
+      service oidcProd "PROD" {
+        description "Defra Customer ID production OIDC environment"
+        style {
+          color indigo
+        }
+      }
+    }
+  }
+
+  extend awsEuWest2 {
+    boundary bngCdpEnvs "BNG CDP Deployment Environments" {
+      description "BNG project environments deployed on CDP"
+
+      service cdpDev "Dev" {
+        description "BNG development environment on CDP"
+        style {
+          color green
+        }
+      }
+
+      service cdpTest "Test" {
+        description "BNG test environment on CDP"
+        style {
+          color green
+        }
+      }
+
+      service cdpExtTest "Ext-Test" {
+        description "BNG external-test environment on CDP"
+        style {
+          color green
+        }
+      }
+
+      service cdpPerfTest "Perf-Test" {
+        description "BNG performance-test environment on CDP"
+        style {
+          color green
+        }
+      }
+
+      service cdpProd "Production" {
+        description "BNG production environment on CDP"
+        style {
+          color red
+        }
+      }
+    }
+  }
+
+  // OIDC-to-CDP environment alignment
+  // Dev, Test and Ext-Test all authenticate against the CPDEV OIDC environment;
+  // Perf-Test uses PRE-PROD; Production uses PROD.
+  azureUkSouth.defraCustomerIdEnvs.oidcCpdev   -> awsEuWest2.bngCdpEnvs.cdpDev      "Auth provider for"
+  azureUkSouth.defraCustomerIdEnvs.oidcCpdev   -> awsEuWest2.bngCdpEnvs.cdpTest     "Auth provider for"
+  azureUkSouth.defraCustomerIdEnvs.oidcCpdev   -> awsEuWest2.bngCdpEnvs.cdpExtTest  "Auth provider for"
+  azureUkSouth.defraCustomerIdEnvs.oidcPreProd -> awsEuWest2.bngCdpEnvs.cdpPerfTest "Auth provider for"
+  azureUkSouth.defraCustomerIdEnvs.oidcProd    -> awsEuWest2.bngCdpEnvs.cdpProd     "Auth provider for"
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // GeoPackage upload validation pipeline
+  //   (from bng-geopackage-upload.likec4)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // ── Front-end pages in the upload journey ──
+
+  boundary gpkgUploadJourney "GeoPackage Upload Journey" {
+    description "Front-end pages traversed by the completer when uploading a GeoPackage"
+
+    service uploadPage "GeoPackage Upload Page" {
+      description "Page where the completer selects and submits a GeoPackage file"
+      style {
+        color green
+      }
+    }
+
+    service habitatListingPage "Habitat Listing Page" {
+      description "Shown after the GeoPackage passes all validation. Lists the parsed habitats for review."
+      style {
+        color green
+      }
+    }
+
+    service dropOutPage "Upload Drop-out Page" {
+      description "Error page shown to the user listing the issue(s) detected in their upload"
+      style {
+        color amber
+      }
+    }
+  }
+
+  // ── Server-side validation pipeline stages ──
+  // virusScanService already exists in privateBoundaryCDP and is reused below.
+
+  extend awsEuWest2.privateBoundaryCDP {
+    service fileTypeSizeCheck "File Type & Size Check" {
+      description "Validates that the upload is the expected file type (.gpkg) and within the maximum allowed size"
+      technology "Node.js"
+      style {
+        color green
+      }
+    }
+
+    service geopackageCheck "GeoPackage Format Check" {
+      description "Confirms the file is a structurally valid GeoPackage (SQLite container with the required GeoPackage tables)"
+      technology "Node.js / better-sqlite3"
+      style {
+        color green
+      }
+    }
+
+    service layerSchemaCheck "Layer & Schema Check" {
+      description "Verifies that the GeoPackage contains the expected layers, and that each layer has the expected column names and column types"
+      technology "Node.js / better-sqlite3"
+      style {
+        color green
+      }
+    }
+
+    service geometryCheck "Geometry Check" {
+      description "Validates spatial rules: exactly one red-line boundary, all area covered by habitats, no area or linear habitats extend beyond the red-line, no slivers detected"
+      technology "Node.js / PostGIS"
+      style {
+        color green
+      }
+    }
+  }
+
+  // ── Pipeline flow: happy path (each stage gates the next) ──
+
+  gpkgUploadJourney.uploadPage -> awsEuWest2.publicBoundaryCDP.publicApp "Submits GeoPackage"
+  awsEuWest2.publicBoundaryCDP.publicApp -> awsEuWest2.privateBoundaryCDP.fileTypeSizeCheck "Forwards file"
+
+  awsEuWest2.privateBoundaryCDP.fileTypeSizeCheck  -> awsEuWest2.privateBoundaryCDP.virusScanService "Pass: scan for viruses"
+  awsEuWest2.privateBoundaryCDP.virusScanService   -> awsEuWest2.privateBoundaryCDP.geopackageCheck  "Pass: parse GeoPackage"
+  awsEuWest2.privateBoundaryCDP.geopackageCheck    -> awsEuWest2.privateBoundaryCDP.layerSchemaCheck "Pass: validate schema"
+  awsEuWest2.privateBoundaryCDP.layerSchemaCheck   -> awsEuWest2.privateBoundaryCDP.geometryCheck    "Pass: validate geometry"
+  awsEuWest2.privateBoundaryCDP.geometryCheck      -> gpkgUploadJourney.habitatListingPage           "Pass: render habitats"
+
+  // ── Pipeline flow: error path (any failed stage routes to drop-out) ──
+
+  awsEuWest2.privateBoundaryCDP.fileTypeSizeCheck -> gpkgUploadJourney.dropOutPage "Fail: invalid type or too large"
+  awsEuWest2.privateBoundaryCDP.virusScanService  -> gpkgUploadJourney.dropOutPage "Fail: malware detected"
+  awsEuWest2.privateBoundaryCDP.geopackageCheck   -> gpkgUploadJourney.dropOutPage "Fail: not a valid GeoPackage"
+  awsEuWest2.privateBoundaryCDP.layerSchemaCheck  -> gpkgUploadJourney.dropOutPage "Fail: missing or invalid layers/columns"
+  awsEuWest2.privateBoundaryCDP.geometryCheck     -> gpkgUploadJourney.dropOutPage "Fail: geometry violations"
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // GIS data serving architecture (read/write paths, caches)
+  //   (from bng-gis-data-architecture.likec4)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // ── Front-end map viewer ──
+
+  service mapLibreViewer "MapLibre Map Viewer" {
+    description "Front-end map component that renders GIS layers in WGS84"
+    technology "MapLibre GL JS"
+    style {
+      color green
+    }
+  }
+
+  // ── Edge HTTP cache (browser + intermediate proxies) ──
+
+  cache httpCache "HTTP Cache" {
+    description "Browser and intermediate-proxy HTTP cache, populated via Cache-Control and ETag response headers on the GIS Data API. First-line cache to avoid hitting the API at all for unchanged data."
+    technology "HTTP cache headers"
+  }
+
+  // ── Server-side GIS read pipeline ──
+  // GIS Data API is an endpoint of the BNG Service Core API; CRS conversion
+  // is performed by PostGIS via ST_Transform, not by a separate process.
+
+  extend awsEuWest2.privateBoundaryCDP.backendApi {
+    service gisDataApi "GIS Data API" {
+      description "Dedicated read endpoint of the BNG Service Core API. Takes a BNG project reference, resolves geometry references from the project's JSONB document, and fetches geometry rows from PostGIS already projected into WGS84."
+      technology "Node.js / Hapi"
+      style {
+        color green
+      }
+    }
+  }
+
+  extend awsEuWest2.privateBoundaryCDP {
+    cache redisCache "Redis GIS Cache" {
+      description "Server-side cache of WGS84 geometry, keyed by BNG project reference and layer. Avoids re-running ST_Transform in PostGIS across requests and users."
+      technology "Redis"
+      icon https://icons.terrastruct.com/dev%2Fredis.svg
+    }
+  }
+
+  // ── Write path: validated geometry stored in BNG CRS ──
+
+  awsEuWest2.privateBoundaryCDP.backendApi -> awsEuWest2.privateBoundaryCDP.postgresDb "Stores validated geometry layers (British National Grid / EPSG:27700)"
+  awsEuWest2.privateBoundaryCDP.backendApi -> awsEuWest2.privateBoundaryCDP.bngJsonDocument "Adds geometry references to the project document"
+
+  // ── Read path: MapLibre fetches WGS84 geometry ──
+
+  mapLibreViewer -> httpCache "Requests GIS by BNG project ref"
+  httpCache      -> awsEuWest2.privateBoundaryCDP.backendApi.gisDataApi "Cache miss: forward request"
+
+  awsEuWest2.privateBoundaryCDP.backendApi.gisDataApi -> awsEuWest2.privateBoundaryCDP.redisCache             "Lookup cached WGS84 geometry"
+  awsEuWest2.privateBoundaryCDP.backendApi.gisDataApi -> awsEuWest2.privateBoundaryCDP.bngJsonDocument        "Resolve project ref to geometry references"
+  awsEuWest2.privateBoundaryCDP.backendApi.gisDataApi -> awsEuWest2.privateBoundaryCDP.postgresDb             "Fetch geometry rows + ST_Transform to WGS84 (EPSG:4326)"
+  awsEuWest2.privateBoundaryCDP.backendApi.gisDataApi -> awsEuWest2.privateBoundaryCDP.redisCache             "Populate cache on miss"
+}
