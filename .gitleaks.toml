@@ -9,4 +9,7 @@ paths = [
   '''site_src/''',
   '''test-data/''',
   '''package-lock\.json''',
+  # LikeC4 architecture diagrams: DSL element names / descriptions, no secrets.
+  # Long camelCase element paths trip the generic-api-key entropy rule.
+  '''likec4/''',
 ]
