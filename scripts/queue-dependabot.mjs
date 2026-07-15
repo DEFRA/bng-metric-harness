@@ -1,18 +1,13 @@
-// Sweep the BNG repos for Dependabot PRs that the per-repo auto-merge
-// workflow has already vetted (approved + armed + green) and add them to the
-// merge queue as *you*.
-//
-// Why this exists: the auto-merge workflows arm Dependabot PRs with the
-// GitHub Actions GITHUB_TOKEN, and GitHub deliberately ignores bot-armed
-// auto-merge when a merge queue is required (recursive-trigger protection:
-// https://github.com/orgs/community/discussions/70310). A real user's
-// enqueue works, so a developer runs this once a day:
+// Sweep the BNG repos for Dependabot PRs the per-repo auto-merge workflow
+// has already vetted (approved + armed + green) and add them to the merge
+// queue as *you*. GitHub ignores bot-armed auto-merge when a merge queue is
+// required (recursive-trigger protection, see
+// https://github.com/orgs/community/discussions/70310), so a developer runs
+// this once a day with their own gh identity:
 //
 //   npm run queue-deps                     # enqueue everything eligible
 //   npm run queue-deps -- --dry-run
 //   npm run queue-deps -- backend          # one repo only (name substring)
-//
-// Requires the GitHub CLI (`gh`) authenticated as a user with write access.
 
 import { color, error, header, info, runCapture, warn } from "./_lib.mjs";
 
@@ -25,32 +20,18 @@ const GITHUB_REPOS = [
   "bng-metric-journey-tests",
 ];
 
-const PR_LIST_FIELDS = [
-  "id",
-  "number",
-  "title",
-  "isDraft",
-  "reviewDecision",
-  "autoMergeRequest",
-  "statusCheckRollup",
-].join(",");
+const PR_LIST_FIELDS =
+  "id,number,title,isDraft,reviewDecision,autoMergeRequest,statusCheckRollup";
 
-// `gh pr merge` cannot do this: on a queue-protected branch it only arms
-// auto-merge, which is a silent no-op when the PR is already armed (by the
-// workflow's bot token) — the PR never reaches the queue. The GraphQL
-// mutation is the only direct "add to the queue now" API, and its response
-// proves the enqueue actually happened.
-const ENQUEUE_MUTATION = `
-  mutation ($prId: ID!) {
-    enqueuePullRequest(input: { pullRequestId: $prId }) {
-      mergeQueueEntry { position }
-    }
-  }
-`;
+// The only direct "add to the queue now" API. `gh pr merge` cannot do this:
+// on a queue-protected branch it merely arms auto-merge, a silent no-op when
+// the PR is already bot-armed.
+const ENQUEUE_MUTATION =
+  "mutation ($prId: ID!) { enqueuePullRequest(input: { pullRequestId: $prId }) { mergeQueueEntry { position } } }";
 
-// Check runs report `conclusion`, commit statuses report `state`; any of
-// these values means that item is not blocking a merge.
+// Check runs report `conclusion`, commit statuses report `state`.
 const PASSING_CHECK_RESULTS = new Set(["SUCCESS", "NEUTRAL", "SKIPPED"]);
+const CLI_ARGS_START = 2;
 
 async function gh(args) {
   const { code, stdout, stderr } = await runCapture("gh", args);
@@ -60,33 +41,27 @@ async function gh(args) {
   return stdout;
 }
 
-function checksAreGreen(rollup) {
-  if (!rollup || rollup.length === 0) {
-    return false;
-  }
-  return rollup.every((item) =>
-    PASSING_CHECK_RESULTS.has(item.conclusion || item.state),
-  );
-}
+const ghJson = async (args) => JSON.parse(await gh(args));
 
-// A PR qualifies when the repo's Dependabot auto-merge workflow has already
-// applied its policy (patch/minor only → approved + armed) and CI is green.
-// Anything else is skipped with the reason, never merged by force.
-function skipReason(pr) {
-  if (pr.isDraft) {
-    return "draft";
-  }
-  if (!pr.autoMergeRequest) {
-    return "not armed by the auto-merge workflow (major bump?)";
-  }
-  if (pr.reviewDecision !== "APPROVED") {
-    return `review decision is ${pr.reviewDecision || "pending"}`;
-  }
-  if (!checksAreGreen(pr.statusCheckRollup)) {
-    return "checks are not all green";
-  }
-  return null;
-}
+const checksAreGreen = (rollup) =>
+  rollup?.length > 0 &&
+  rollup.every((c) => PASSING_CHECK_RESULTS.has(c.conclusion || c.state));
+
+// A PR qualifies when the repo's own workflow already applied its policy
+// (patch/minor → approved + armed) and CI is green; the first matching rule
+// explains why a PR is skipped, and nothing is ever merged by force.
+const VETTING_RULES = [
+  (pr) => pr.isDraft && "draft",
+  (pr) =>
+    !pr.autoMergeRequest &&
+    "not armed by the auto-merge workflow (major bump?)",
+  (pr) =>
+    pr.reviewDecision !== "APPROVED" &&
+    `review decision is ${pr.reviewDecision || "pending"}`,
+  (pr) => !checksAreGreen(pr.statusCheckRollup) && "checks are not all green",
+];
+
+const skipReason = (pr) => VETTING_RULES.map((rule) => rule(pr)).find(Boolean);
 
 async function enqueue(pr, dryRun) {
   const label = `#${pr.number} ${pr.title}`;
@@ -95,7 +70,7 @@ async function enqueue(pr, dryRun) {
     return "enqueued";
   }
   try {
-    const stdout = await gh([
+    const result = await ghJson([
       "api",
       "graphql",
       "-f",
@@ -103,8 +78,7 @@ async function enqueue(pr, dryRun) {
       "-f",
       `prId=${pr.id}`,
     ]);
-    const entry =
-      JSON.parse(stdout).data.enqueuePullRequest.mergeQueueEntry ?? null;
+    const entry = result.data.enqueuePullRequest.mergeQueueEntry;
     if (!entry) {
       error(`  enqueue of ${label} returned no queue entry — check manually`);
       return "failed";
@@ -114,7 +88,7 @@ async function enqueue(pr, dryRun) {
     );
     return "enqueued";
   } catch (err) {
-    if (/already.*(queue|queued)/i.test(err.message)) {
+    if (/already.*queue/i.test(err.message)) {
       info(`  skipping ${label} — already in the merge queue`);
       return "skipped";
     }
@@ -125,9 +99,11 @@ async function enqueue(pr, dryRun) {
 
 async function processRepo(repo, dryRun) {
   header(`${OWNER}/${repo}`);
+  const counts = { enqueued: 0, skipped: 0, failed: 0 };
+
   let prs;
   try {
-    const stdout = await gh([
+    prs = await ghJson([
       "pr",
       "list",
       "--repo",
@@ -139,32 +115,25 @@ async function processRepo(repo, dryRun) {
       "--json",
       PR_LIST_FIELDS,
     ]);
-    prs = JSON.parse(stdout);
   } catch (err) {
     error(`  could not list PRs: ${err.message}`);
-    return { enqueued: 0, failed: 1 };
+    return { ...counts, failed: 1 };
   }
 
   if (prs.length === 0) {
     info("  no open Dependabot PRs");
-    return { enqueued: 0, failed: 0 };
   }
-
-  const counts = { enqueued: 0, skipped: 0, failed: 0 };
   for (const pr of prs) {
     const reason = skipReason(pr);
     if (reason) {
       info(`  skipping #${pr.number} ${pr.title} — ${reason}`);
       counts.skipped += 1;
-      continue;
+    } else {
+      counts[await enqueue(pr, dryRun)] += 1;
     }
-    const outcome = await enqueue(pr, dryRun);
-    counts[outcome] += 1;
   }
-  return { enqueued: counts.enqueued, failed: counts.failed };
+  return counts;
 }
-
-const CLI_ARGS_START = 2;
 
 function selectRepos(filters) {
   if (filters.length === 0) {
@@ -181,14 +150,7 @@ function selectRepos(filters) {
   return selected;
 }
 
-async function main() {
-  const args = process.argv.slice(CLI_ARGS_START);
-  const dryRun = args.includes("--dry-run");
-  const repos = selectRepos(args.filter((a) => !a.startsWith("--")));
-  if (dryRun) {
-    warn("dry run — nothing will be enqueued");
-  }
-
+async function ensureGhReady() {
   try {
     await gh(["auth", "status"]);
   } catch (err) {
@@ -196,20 +158,29 @@ async function main() {
     info("  → Install gh and run `gh auth login` first.");
     process.exit(1);
   }
+}
 
-  let enqueued = 0;
-  let failed = 0;
+async function main() {
+  const args = process.argv.slice(CLI_ARGS_START);
+  const dryRun = args.includes("--dry-run");
+  const repos = selectRepos(args.filter((a) => !a.startsWith("--")));
+  if (dryRun) {
+    warn("dry run — nothing will be enqueued");
+  }
+  await ensureGhReady();
+
+  const totals = { enqueued: 0, failed: 0 };
   for (const repo of repos) {
-    const result = await processRepo(repo, dryRun);
-    enqueued += result.enqueued;
-    failed += result.failed;
+    const { enqueued, failed } = await processRepo(repo, dryRun);
+    totals.enqueued += enqueued;
+    totals.failed += failed;
   }
 
   header("summary", "green");
   console.log(
-    `  ${enqueued} PR(s) ${dryRun ? "would be " : ""}enqueued, ${failed} failure(s)`,
+    `  ${totals.enqueued} PR(s) ${dryRun ? "would be " : ""}enqueued, ${totals.failed} failure(s)`,
   );
-  if (failed > 0) {
+  if (totals.failed > 0) {
     process.exit(1);
   }
 }
