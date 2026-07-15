@@ -23,6 +23,7 @@
     "dev:fe:b2c": "node scripts/dev.mjs fe --b2c",
     "status": "node scripts/status.mjs",
     "pull": "node scripts/pull.mjs",
+    "queue-deps": "node scripts/queue-dependabot.mjs",
     "branch": "node scripts/branch.mjs",
     "fe": "node scripts/proxy.mjs fe",
     "be": "node scripts/proxy.mjs be",
