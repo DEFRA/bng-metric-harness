@@ -50,7 +50,7 @@ const ENQUEUE_MUTATION = `
 
 // Check runs report `conclusion`, commit statuses report `state`; any of
 // these values means that item is not blocking a merge.
-const PASSING_CHECK_RESULTS = ["SUCCESS", "NEUTRAL", "SKIPPED"];
+const PASSING_CHECK_RESULTS = new Set(["SUCCESS", "NEUTRAL", "SKIPPED"]);
 
 async function gh(args) {
   const { code, stdout, stderr } = await runCapture("gh", args);
@@ -65,7 +65,7 @@ function checksAreGreen(rollup) {
     return false;
   }
   return rollup.every((item) =>
-    PASSING_CHECK_RESULTS.includes(item.conclusion || item.state),
+    PASSING_CHECK_RESULTS.has(item.conclusion || item.state),
   );
 }
 
@@ -150,22 +150,18 @@ async function processRepo(repo, dryRun) {
     return { enqueued: 0, failed: 0 };
   }
 
-  let enqueued = 0;
-  let failed = 0;
+  const counts = { enqueued: 0, skipped: 0, failed: 0 };
   for (const pr of prs) {
     const reason = skipReason(pr);
     if (reason) {
       info(`  skipping #${pr.number} ${pr.title} — ${reason}`);
+      counts.skipped += 1;
       continue;
     }
     const outcome = await enqueue(pr, dryRun);
-    if (outcome === "enqueued") {
-      enqueued += 1;
-    } else if (outcome === "failed") {
-      failed += 1;
-    }
+    counts[outcome] += 1;
   }
-  return { enqueued, failed };
+  return { enqueued: counts.enqueued, failed: counts.failed };
 }
 
 const CLI_ARGS_START = 2;
