@@ -98,6 +98,25 @@ see the frontend's `.env.example`.
 | `npm run pull`   | `git pull --ff-only` in all three — warns (never errors) on ff failure |
 | `npm run branch` | Current branch of each repo, side-by-side                              |
 
+## Dependabot merge-queue sweep
+
+GitHub ignores merge-queue auto-merge that was armed by a workflow's
+`GITHUB_TOKEN` (recursive-trigger protection), so the per-repo Dependabot
+auto-merge workflows approve and arm PRs that then never reach the queue.
+Until a PAT / GitHub App identity is provisioned, a developer runs the sweep
+once a day — it enqueues as *you*, which is what makes it work:
+
+```sh
+npm run queue-deps                  # sweep all six BNG repos (incl. this one)
+npm run queue-deps -- backend       # one repo (name substring)
+npm run queue-deps -- --dry-run     # preview without enqueueing
+```
+
+It only enqueues Dependabot PRs the repo's own workflow already vetted —
+auto-merge armed (patch/minor policy passed), approved, and all checks green.
+Majors and anything red are skipped with the reason printed. Safe to re-run:
+already-queued PRs are skipped.
+
 ## Proxy commands
 
 Run an arbitrary npm script in one of the siblings without `cd`-ing:
