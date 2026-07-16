@@ -13,6 +13,7 @@ import { color, error, header, info, runCapture, warn } from "./_lib.mjs";
 
 const OWNER = "DEFRA";
 const GITHUB_REPOS = [
+  "bng-metric-harness",
   "bng-metric-frontend",
   "bng-metric-backend",
   "bng-metric-digital-prototype",

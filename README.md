@@ -107,7 +107,7 @@ Until a PAT / GitHub App identity is provisioned, a developer runs the sweep
 once a day — it enqueues as *you*, which is what makes it work:
 
 ```sh
-npm run queue-deps                  # sweep all five BNG repos
+npm run queue-deps                  # sweep all six BNG repos (incl. this one)
 npm run queue-deps -- backend       # one repo (name substring)
 npm run queue-deps -- --dry-run     # preview without enqueueing
 ```
