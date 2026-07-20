@@ -5,8 +5,8 @@
   "description": "Meta-repo that orchestrates bng-metric-frontend and bng-metric-backend",
   "type": "module",
   "imports": {
-    "#gpkg-io": "./packages/bng-lib/src/gpkg-io/index.mjs",
-    "#bng-lib": "./packages/bng-lib/index.mjs"
+    "#gpkg-io": "bng-library/gpkg-io",
+    "#bng-lib": "bng-library"
   },
   "engines": {
     "node": ">=24.14.1"
@@ -32,6 +32,9 @@
     "test:scripts:watch": "vitest tests/scripts/gpkg",
     "generate:gpkg": "node scripts/gen-gpkg.mjs",
     "generate:gpkg:docker": "docker compose -f compose.gen-gpkg.yml run --rm --build gen-gpkg",
+    "lib:link": "npm link ../bng-library",
+    "lib:unlink": "npm uninstall --no-save bng-library && npm install",
+    "lib:status": "node -e \"const fs=require('node:fs');const p='node_modules/bng-library';try{const s=fs.lstatSync(p);console.log('bng-library: '+(s.isSymbolicLink()?('LINKED -> '+fs.realpathSync(p)):'installed from pin (not linked)'))}catch{console.log('bng-library: not installed')}\"",
     "likec4": "npx likec4 start likec4",
     "likec4:export": "docker run --rm -v \"$PWD:/data\" -w /data likec4/likec4 export png -o ./arch-diagrams likec4",
     "docs:aggregate": "node scripts/build-docs.mjs",
@@ -48,6 +51,7 @@
   },
   "devDependencies": {
     "better-sqlite3": "^12.11.1",
+    "bng-library": "github:DEFRA/bng-library#2b0af85d8e1fe7349775370b5a745796ae290f2d",
     "husky": "9.1.7",
     "likec4": "^1.58.0",
     "remark-parse": "^11.0.0",
