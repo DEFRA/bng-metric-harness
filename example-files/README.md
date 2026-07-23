@@ -28,6 +28,17 @@ Regenerate reproducible fixtures with `npm run generate:gpkg` (see
 `scripts/gen-gpkg.mjs` is the authoritative scenario list; the "Flaw" column
 below gives the flag that reproduces a file where one exists.
 
+Every fixture here stays within the beta's distinctiveness scope (V.Low, Low,
+Medium) apart from the two deliberate exceptions noted below —
+`attribute-problems/Baseline - habitat distinctiveness out of scope.gpkg`, which
+exists to trip the check, and `bng-500/`, which is real survey data. A fixture
+that carries an out-of-scope habitat trips
+`HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE`, and because that error is reported ahead
+of the geometry errors it masks whatever the fixture was built to demonstrate.
+The generator enforces this by drawing from the in-scope type pools; note that
+every `Wetland` habitat type is High or V.High, so no in-scope fixture can carry
+one.
+
 ## valid/
 
 | File                                             | Covers                                                                                            |
@@ -139,6 +150,15 @@ varies by site — these are real sites, so empty layers are genuine, not flaws:
 Each pair has a `-baseline.gpkg` and a `-post-intervention.gpkg`. The files
 previously carried a shared `-20260603` datestamp, dropped because it was
 identical across all ten and recorded nothing useful.
+
+**Three of the five pairs cannot complete an upload.** Barking and Dagenham,
+Sunderland and Wiltshire all contain High or Very High distinctiveness habitats
+— mostly `Other rivers and streams` (High), `Priority habitat` (V.High) and the
+`… with trees` / `… associated with bank or ditch` hedgerow types — so the
+backend rejects them with `HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE`. This is real
+surveyed ecology, not a fixture defect, so the files are deliberately left as
+they are: they record how much of a real submission falls outside beta scope.
+Only BROADLAND and Cambridge are uploadable end to end.
 
 Note the folder is `bng-500/` while the generator's cache is `.cache/bng500/`
 and the code spells the corpus "BNG500" throughout — the hyphen here is
