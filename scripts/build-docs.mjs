@@ -344,6 +344,96 @@ async function writeStaticAssets() {
   const dest = path.join(SITE_SRC, "assets", "full-bleed.css");
   await mkdir(path.dirname(dest), { recursive: true });
   await writeFile(dest, css, "utf8");
+
+  // Print styles. Mermaid emits an SVG sized for the screen, which a browser will
+  // happily slice across a page boundary. Constraining its height and forbidding
+  // internal breaks keeps a diagram whole; `height: auto` plus the SVG's own
+  // viewBox makes it scale proportionally rather than crop.
+  const printCss = `@media print {
+  @page {
+    margin: 15mm;
+  }
+
+  /* Drop the site chrome — only the page content should reach the paper. */
+  .md-header,
+  .md-tabs,
+  .md-sidebar,
+  .md-footer,
+  .md-top,
+  .md-dialog,
+  .md-search {
+    display: none !important;
+  }
+
+  .md-main__inner,
+  .md-content,
+  .md-content__inner {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .md-typeset {
+    font-size: 10pt;
+    line-height: 1.45;
+  }
+
+  /* Keep a diagram on one page and scale it to fit the printable area. */
+  .mermaid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    text-align: center;
+  }
+
+  .mermaid svg {
+    max-width: 100% !important;
+    max-height: 20cm !important;
+    width: auto !important;
+    height: auto !important;
+  }
+
+  /* Same treatment for the generated charts. */
+  .md-typeset img {
+    max-width: 100% !important;
+    max-height: 16cm !important;
+    height: auto !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Tables may span pages, but never split a row, and repeat the header. */
+  .md-typeset table:not([class]) {
+    font-size: 8.5pt;
+  }
+
+  .md-typeset thead {
+    display: table-header-group;
+  }
+
+  .md-typeset tr,
+  .md-typeset blockquote,
+  .md-typeset pre {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Never leave a heading stranded at the foot of a page. */
+  .md-typeset h1,
+  .md-typeset h2,
+  .md-typeset h3,
+  .md-typeset h4 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* Long code blocks scroll on screen; on paper they must wrap. */
+  .md-typeset pre > code {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+}
+`;
+  const printDest = path.join(SITE_SRC, "assets", "print.css");
+  await writeFile(printDest, printCss, "utf8");
 }
 
 async function writeArchitecturePage() {

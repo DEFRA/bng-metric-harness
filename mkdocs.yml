@@ -54,3 +54,4 @@ markdown_extensions:
 
 extra_css:
   - assets/full-bleed.css
+  - assets/print.css
