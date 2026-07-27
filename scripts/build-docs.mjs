@@ -409,9 +409,40 @@ async function writeStaticAssets() {
     page-break-inside: avoid;
   }
 
+  /*
+   * Material wraps every table in a horizontally scrolling container, injected by
+   * its JavaScript at runtime rather than present in the HTML. On screen that is
+   * what lets a wide table scroll; on paper it renders as a stray scrollbar or a
+   * clipped edge, so unwrap it and let the table use the full measure instead.
+   */
+  .md-typeset__scrollwrap,
+  .md-typeset__table {
+    overflow: visible !important;
+    display: block !important;
+    margin: 0 !important;
+  }
+
   /* Tables may span pages, but never split a row, and repeat the header. */
   .md-typeset table:not([class]) {
+    display: table !important;
+    width: 100% !important;
     font-size: 9.5pt;
+  }
+
+  /*
+   * Long inline code — the worked examples put a whole argument list in one cell —
+   * is what pushes a table past the page width. Let it wrap rather than scroll.
+   */
+  .md-typeset table code {
+    white-space: normal !important;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .md-typeset table th,
+  .md-typeset table td {
+    word-break: break-word;
+    overflow-wrap: anywhere;
   }
 
   .md-typeset thead {
@@ -434,10 +465,19 @@ async function writeStaticAssets() {
     page-break-after: avoid;
   }
 
-  /* Long code blocks scroll on screen; on paper they must wrap. */
+  /* Long code blocks scroll on screen; on paper they must wrap, not scroll. */
+  .md-typeset pre,
+  .md-typeset pre > code,
+  .md-typeset .highlight,
+  .md-typeset .highlighttable {
+    overflow: visible !important;
+    max-width: 100% !important;
+  }
+
   .md-typeset pre > code {
-    white-space: pre-wrap;
+    white-space: pre-wrap !important;
     word-wrap: break-word;
+    overflow-wrap: anywhere;
   }
 }
 `;
