@@ -349,6 +349,10 @@ async function writeStaticAssets() {
   // happily slice across a page boundary. Constraining its height and forbidding
   // internal breaks keeps a diagram whole; `height: auto` plus the SVG's own
   // viewBox makes it scale proportionally rather than crop.
+  //
+  // The height caps are the tuning knob for how large diagrams print. They only
+  // bite when a diagram is taller than the cap, so a short one is unaffected by
+  // lowering them.
   const printCss = `@media print {
   @page {
     margin: 15mm;
@@ -386,7 +390,7 @@ async function writeStaticAssets() {
 
   .mermaid svg {
     max-width: 100% !important;
-    max-height: 20cm !important;
+    max-height: 17cm !important;
     width: auto !important;
     height: auto !important;
   }
@@ -394,7 +398,7 @@ async function writeStaticAssets() {
   /* Same treatment for the generated charts. */
   .md-typeset img {
     max-width: 100% !important;
-    max-height: 16cm !important;
+    max-height: 13.6cm !important;
     height: auto !important;
     break-inside: avoid;
     page-break-inside: avoid;
