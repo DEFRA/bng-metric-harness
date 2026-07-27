@@ -1,0 +1,170 @@
+{
+  "$comment": "Worked examples executed against the real engine by scripts/run-worked-examples.mjs. Every number published in the documentation comes from running these, never from reading the tables by eye. The 'expect' blocks are regression assertions: a failure on re-run means the engine's behaviour moved and the prose needs rewriting before republishing. Set 'expectThrow': true when the rejection IS the documented behaviour, so the runner reports it without failing. Add scenarios freely — the runner dispatches on any function exported from the engine's index.js.",
+  "columns": [
+    { "key": "units", "label": "Units" },
+    { "key": "distinctivenessScore", "label": "Distinctiveness" },
+    { "key": "conditionScore", "label": "Condition" },
+    { "key": "timeMultiplier", "label": "Time multiplier" },
+    { "key": "difficultyMultiplier", "label": "Difficulty multiplier" }
+  ],
+  "sections": [
+    {
+      "title": "Baseline — no risk multipliers apply",
+      "intro": "Habitat already on site is scored on what it is and what state it is in. Nothing about the future is being predicted, so neither time nor difficulty enters the sum.",
+      "examples": [
+        {
+          "name": "1 ha modified grassland, moderate condition",
+          "fn": "calculateAreaHabitatBaseline",
+          "args": [1, "Grassland - Modified grassland", "Moderate"],
+          "expect": { "units": 4, "distinctivenessScore": 2, "conditionScore": 2 }
+        },
+        {
+          "name": "1 ha coastal saltmarsh, good condition",
+          "fn": "calculateAreaHabitatBaseline",
+          "args": [1, "Coastal saltmarsh - Saltmarshes and saline reedbeds", "Good"],
+          "expect": { "units": 18, "distinctivenessScore": 6, "conditionScore": 3 }
+        }
+      ]
+    },
+    {
+      "title": "The effect of delay and advance on a created habitat",
+      "intro": "One habitat, one target condition, one hectare — only the timing changes. Creating coastal saltmarsh in good condition normally takes 15 years to reach the target, and reaching merely poor condition takes 1 year. Watch both multipliers move as years are added or removed. Note the jump between 7 and 8 years of advance, and that advance and delay do not simply cancel.",
+      "examples": [
+        {
+          "name": "Created as planned (no delay, no advance)",
+          "fn": "calculateCreatedAreaHabitatPostIntervention",
+          "args": [1, "Coastal saltmarsh - Saltmarshes and saline reedbeds", "Good", 0, 0],
+          "expect": { "timeMultiplier": 0.5860163055, "difficultyMultiplier": 0.33 }
+        },
+        {
+          "name": "Delayed by 5 years — takes longer to deliver, so the time discount deepens",
+          "fn": "calculateCreatedAreaHabitatPostIntervention",
+          "args": [1, "Coastal saltmarsh - Saltmarshes and saline reedbeds", "Good", 0, 5],
+          "expect": { "timeMultiplier": 0.4903952635, "difficultyMultiplier": 0.33 }
+        },
+        {
+          "name": "Delayed by 20 years — 35 years is past the 30-year ceiling, so it is capped there",
+          "fn": "calculateCreatedAreaHabitatPostIntervention",
+          "args": [1, "Coastal saltmarsh - Saltmarshes and saline reedbeds", "Good", 0, 20],
+          "expect": { "timeMultiplier": 0.3197967361, "difficultyMultiplier": 0.33 }
+        },
+        {
+          "name": "Advanced by 1 year — enough to have reached poor condition already, so the easier enhancement difficulty band is used",
+          "fn": "calculateCreatedAreaHabitatPostIntervention",
+          "args": [1, "Coastal saltmarsh - Saltmarshes and saline reedbeds", "Good", 1, 0],
+          "expect": { "timeMultiplier": 0.6072707829, "difficultyMultiplier": 0.67 }
+        },
+        {
+          "name": "Advanced by 7 years — 8 years of growing still to go, so difficulty still applies",
+          "fn": "calculateCreatedAreaHabitatPostIntervention",
+          "args": [1, "Coastal saltmarsh - Saltmarshes and saline reedbeds", "Good", 7, 0],
+          "expect": { "timeMultiplier": 0.7520011535, "difficultyMultiplier": 0.67 }
+        },
+        {
+          "name": "Advanced by 8 years — head start now exceeds the 7 years remaining, so difficulty drops away entirely",
+          "fn": "calculateCreatedAreaHabitatPostIntervention",
+          "args": [1, "Coastal saltmarsh - Saltmarshes and saline reedbeds", "Good", 8, 0],
+          "expect": { "timeMultiplier": 0.7792758067, "difficultyMultiplier": 1 }
+        },
+        {
+          "name": "Advanced by 15 years — fully mature at the point of assessment, so no risk discount at all",
+          "fn": "calculateCreatedAreaHabitatPostIntervention",
+          "args": [1, "Coastal saltmarsh - Saltmarshes and saline reedbeds", "Good", 15, 0],
+          "expect": { "timeMultiplier": 1, "difficultyMultiplier": 1, "units": 18 }
+        },
+        {
+          "name": "Advanced 5 and delayed 5 — the time multiplier cancels back to the as-planned value, but difficulty does not",
+          "fn": "calculateCreatedAreaHabitatPostIntervention",
+          "args": [1, "Coastal saltmarsh - Saltmarshes and saline reedbeds", "Good", 5, 5],
+          "expect": { "timeMultiplier": 0.5860163055, "difficultyMultiplier": 0.67 }
+        }
+      ]
+    },
+    {
+      "title": "Difficulty depends on the habitat, not just the timing",
+      "intro": "Same one hectare, same target condition, same timing — different habitats. Harder-to-create habitats keep less of their headline value.",
+      "examples": [
+        {
+          "name": "Modified grassland (low difficulty to create)",
+          "fn": "calculateCreatedAreaHabitatPostIntervention",
+          "args": [1, "Grassland - Modified grassland", "Good", 0, 0],
+          "expect": { "difficultyMultiplier": 1 }
+        },
+        {
+          "name": "Hazel scrub (medium difficulty to create)",
+          "fn": "calculateCreatedAreaHabitatPostIntervention",
+          "args": [1, "Heathland and shrub - Hazel scrub", "Good", 0, 0],
+          "expect": { "difficultyMultiplier": 0.67 }
+        },
+        {
+          "name": "Lowland calcareous grassland (high difficulty to create)",
+          "fn": "calculateCreatedAreaHabitatPostIntervention",
+          "args": [1, "Grassland - Lowland calcareous grassland", "Good", 0, 0],
+          "expect": { "difficultyMultiplier": 0.33 }
+        }
+      ]
+    },
+    {
+      "title": "Retained and enhanced habitat",
+      "intro": "Retained habitat carries no risk multipliers. Enhancement applies the risk multipliers only to the uplift — the value the habitat already had is never discounted.",
+      "examples": [
+        {
+          "name": "Retained — 1 ha modified grassland left as it is",
+          "fn": "calculateRetainedAreaHabitatPostIntervention",
+          "args": [1, "Grassland - Modified grassland", "Moderate"],
+          "expect": { "units": 4 }
+        },
+        {
+          "name": "Enhanced — 1 ha modified grassland improved from moderate to good",
+          "fn": "calculateEnhancedAreaHabitatPostIntervention",
+          "args": [1, "Grassland - Modified grassland", "Grassland - Modified grassland", "Moderate", "Good", 0, 0]
+        },
+        {
+          "name": "Enhanced, delayed by 10 years — the uplift is discounted harder, the existing value is not",
+          "fn": "calculateEnhancedAreaHabitatPostIntervention",
+          "args": [1, "Grassland - Modified grassland", "Grassland - Modified grassland", "Moderate", "Good", 0, 10]
+        }
+      ]
+    },
+    {
+      "title": "Combinations the engine refuses",
+      "intro": "Not every habitat can be in every condition. Where the statutory tables mark a pairing as not possible, the engine rejects it outright rather than quietly scoring it as zero.",
+      "columns": [{ "key": "outcome", "label": "Outcome" }],
+      "examples": [
+        {
+          "name": "A condition the habitat cannot be assessed in",
+          "fn": "calculateCreatedAreaHabitatPostIntervention",
+          "args": [1, "Coastal saltmarsh - Saltmarshes and saline reedbeds", "Condition Assessment N/A", 0, 0],
+          "expectThrow": true
+        },
+        {
+          "name": "A habitat that is not in the statutory list",
+          "fn": "calculateAreaHabitatBaseline",
+          "args": [1, "Not A Real Habitat", "Good"],
+          "expectThrow": true
+        }
+      ]
+    },
+    {
+      "title": "Hedgerows follow the same shape",
+      "intro": "Hedgerows and watercourses are measured in kilometres rather than hectares, and use their own lookup tables, but the rule for choosing multipliers is the same one.",
+      "examples": [
+        {
+          "name": "Baseline — 1 km native hedgerow, moderate condition",
+          "fn": "calculateHedgerowBaseline",
+          "args": [1, "Native hedgerow", "Moderate"]
+        },
+        {
+          "name": "Created — 1 km native hedgerow to good condition, as planned",
+          "fn": "calculateCreatedHedgerowPostIntervention",
+          "args": [1, "Native hedgerow", "Good", 0, 0]
+        },
+        {
+          "name": "Created — same hedgerow, delayed by 10 years",
+          "fn": "calculateCreatedHedgerowPostIntervention",
+          "args": [1, "Native hedgerow", "Good", 0, 10]
+        }
+      ]
+    }
+  ]
+}
