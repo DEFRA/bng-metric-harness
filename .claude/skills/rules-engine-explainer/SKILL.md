@@ -182,23 +182,11 @@ or the example run.** If you want to state a multiplier, quote the one the engin
 produced. If you cannot source a number, describe the behaviour qualitatively
 instead.
 
-## Step 5 — Enable Mermaid on the docs site (first run only)
+## Step 5 — Check Mermaid is still wired up
 
-The site uses `pymdownx.superfences` but does not yet configure the Mermaid custom
-fence, so a ` ```mermaid ` block renders as a plain code block. Check `mkdocs.yml`
-and, if the custom fence is absent, add it:
-
-```yaml
-  - pymdownx.superfences:
-      custom_fences:
-        - name: mermaid
-          class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
-```
-
-Material for MkDocs loads Mermaid itself once the fence is registered. The diagram
-renders on GitHub regardless, so this only affects the published site. Skip if
-already present.
+`mkdocs.yml` already registers the Mermaid custom fence under
+`pymdownx.superfences`. Confirm it is still there; without it the diagrams render
+as plain code blocks on the docs site.
 
 ## Step 6 — Verify before publishing
 

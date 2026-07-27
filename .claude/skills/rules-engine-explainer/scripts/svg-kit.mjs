@@ -26,7 +26,7 @@ export const PALETTE = {
   ghost: '#d8d6cf'
 }
 
-export const FONT =
+const FONT =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
 
 /** Mark geometry, per the dataviz mark specs. */
@@ -46,7 +46,7 @@ const LEGEND_SWATCH = 10
 const LEGEND_GAP = 6
 const LEGEND_ITEM_GAP = 18
 
-export function esc(value) {
+function esc(value) {
   return String(value)
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
@@ -148,7 +148,7 @@ export function legend(items, x, y) {
 }
 
 /** Rough advance-width estimate; good enough to lay out a legend row. */
-export function estimateTextWidth(value, size) {
+function estimateTextWidth(value, size) {
   const AVERAGE_GLYPH_RATIO = 0.55
   return String(value).length * size * AVERAGE_GLYPH_RATIO
 }
@@ -158,7 +158,7 @@ export function round(value) {
   return Math.round(value * PRECISION) / PRECISION
 }
 
-export const CARD_PAD = 16
+const CARD_PAD = 16
 const TITLE_Y = 26
 const SUBTITLE_TOP = 44
 const SUBTITLE_LINE_HEIGHT = 16
@@ -167,7 +167,7 @@ const SUBTITLE_LINE_HEIGHT = 16
  * Greedy word wrap to a pixel width. SVG has no automatic text wrapping, so long
  * subtitles must be split into explicit lines or they run past the card edge.
  */
-export function wrapText(content, maxWidth, size) {
+function wrapText(content, maxWidth, size) {
   const words = String(content).split(/\s+/)
   const lines = []
   let current = ''
@@ -236,4 +236,3 @@ export function card({ width, height, title, subtitle, body, footnote }) {
   )
 }
 
-export const SIZES = { TITLE_SIZE, SUBTITLE_SIZE, LABEL_SIZE, VALUE_SIZE }

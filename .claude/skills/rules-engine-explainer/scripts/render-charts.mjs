@@ -23,7 +23,6 @@ import {
   bar,
   card,
   circle,
-  esc,
   legend,
   line,
   linearScale,
