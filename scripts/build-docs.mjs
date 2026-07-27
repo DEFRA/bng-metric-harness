@@ -394,7 +394,7 @@ async function writeStaticAssets() {
    * shrinks them; height stays as a backstop for unusually tall diagrams.
    */
   .mermaid svg {
-    max-width: 72% !important;
+    max-width: 55% !important;
     max-height: 17cm !important;
     width: auto !important;
     height: auto !important;
