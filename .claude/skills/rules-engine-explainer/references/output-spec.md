@@ -94,6 +94,13 @@ branch. Split it into **two flowcharts** — one for the time multiplier, one fo
 difficulty — rather than one chart carrying both; a single diagram holding the
 advance override *and* the partial-advance branch becomes unfollowable.
 
+**Keep every node label under about 30 characters.** Mermaid does not wrap them, so
+a long label makes the whole diagram wide, and a wide diagram prints small or spills
+across pages. No `<br/>` to force wrapping either — that shows as literal text in
+Confluence. Shorten the wording instead: "Already at poor condition?" rather than
+"Is this a created habitat with enough advance to have reached poor condition?". The
+surrounding prose carries the detail; the diagram carries the shape.
+
 Then the same logic as a **decision table**: one row per situation, columns for the
 habitat's state (created/enhanced/retained), the timing, which time multiplier
 applies, and which difficulty band. Confluence renders tables natively but **not**

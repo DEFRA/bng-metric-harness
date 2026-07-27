@@ -388,8 +388,13 @@ async function writeStaticAssets() {
     text-align: center;
   }
 
+  /*
+   * Wide flowcharts are constrained by width, not height, so a max-height alone
+   * does nothing for them. Capping width below the full measure is what actually
+   * shrinks them; height stays as a backstop for unusually tall diagrams.
+   */
   .mermaid svg {
-    max-width: 100% !important;
+    max-width: 72% !important;
     max-height: 17cm !important;
     width: auto !important;
     height: auto !important;

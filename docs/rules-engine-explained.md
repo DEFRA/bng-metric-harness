@@ -183,16 +183,16 @@ How the engine reaches the time multiplier:
 
 ```mermaid
 flowchart TD
-    A[A habitat parcel] --> B{Is it being created or improved?}
-    B -->|No, it is baseline or retained| C[No time multiplier applies]
-    B -->|Yes| D[Look up the reference years to reach the target condition]
-    D --> E[Add delay years Subtract advance years]
-    E --> F{Result below zero?}
-    F -->|Yes| G[Treat as zero years]
-    F -->|No| H{Result above 30 years?}
-    H -->|Yes| I[Treat as more than 30 years]
+    A[Habitat parcel] --> B{Created or improved?}
+    B -->|No, baseline or retained| C[No time multiplier]
+    B -->|Yes| D[Look up reference years]
+    D --> E[Add delay, subtract advance]
+    E --> F{Below zero?}
+    F -->|Yes| G[Use zero years]
+    F -->|No| H{Above 30 years?}
+    H -->|Yes| I[Use 'more than 30']
     H -->|No| J[Use the result]
-    G --> K[Read the multiplier for that number of years]
+    G --> K[Read the multiplier]
     I --> K
     J --> K
 ```
@@ -201,15 +201,15 @@ How the engine reaches the difficulty multiplier:
 
 ```mermaid
 flowchart TD
-    A[A habitat parcel] --> B{Is it being created or improved?}
-    B -->|No, it is baseline or retained| C[No difficulty multiplier applies]
-    B -->|Yes| D[Work out the years still to wait after advance and delay]
-    D --> E{Does the advance cover those remaining years?}
-    E -->|Yes| F[Low band — no reduction]
-    E -->|No| G{Is this a created habitat with enough advance to have reached poor condition?}
-    G -->|Yes| H[Use the enhancement difficulty band]
-    G -->|No| I[Use the creation difficulty band]
-    H --> J[Read the multiplier for that band]
+    A[Habitat parcel] --> B{Created or improved?}
+    B -->|No, baseline or retained| C[No difficulty multiplier]
+    B -->|Yes| D[Years still to wait]
+    D --> E{Advance covers them?}
+    E -->|Yes| F[Low band, no reduction]
+    E -->|No| G{Already at poor condition?}
+    G -->|Yes| H[Use enhancement band]
+    G -->|No| I[Use creation band]
+    H --> J[Read the multiplier]
     I --> J
 ```
 
