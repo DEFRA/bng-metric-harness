@@ -41,6 +41,8 @@
     "docs:likec4": "npx likec4 build --base ./ --use-hash-history -o site_src/docs/architecture/app likec4",
     "docs:build": "npm run docs:aggregate && npm run docs:likec4 && mkdocs build",
     "docs:serve": "npm run docs:aggregate && npm run docs:likec4 && mkdocs serve",
+    "docs:serve:docker": "npm run docs:aggregate && docker run --rm -it -p 8000:8000 -v \"$PWD:/docs\" -w /docs squidfunk/mkdocs-material:9 serve --dev-addr 0.0.0.0:8000",
+    "docs:build:docker": "npm run docs:aggregate && docker run --rm -v \"$PWD:/docs\" -w /docs squidfunk/mkdocs-material:9 build",
     "setup:husky": "node -e \"try { (await import('husky')).default() } catch (e) { if (e.code !== 'ERR_MODULE_NOT_FOUND') throw e }\" --input-type module",
     "install:gitleaks": "node scripts/install-gitleaks.mjs",
     "postinstall": "node scripts/postinstall.mjs",

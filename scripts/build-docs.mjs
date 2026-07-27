@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { unified } from "unified";
@@ -66,6 +66,30 @@ async function walkMarkdown(dir) {
   return out;
 }
 
+// Images under a repo's docs/ are copied into the site rather than linked back to
+// raw.githubusercontent.com. That keeps the built site self-contained: it renders
+// correctly in a local preview (where a GitHub URL for unmerged work 404s), needs
+// no external requests, and does not break if a source repo is renamed or made
+// private. Images living outside docs/ still fall back to a GitHub URL.
+async function walkAssets(dir) {
+  const out = [];
+  if (!existsSync(dir)) {
+    return out;
+  }
+  const entries = await readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      out.push(...(await walkAssets(full)));
+      continue;
+    }
+    if (entry.isFile() && IMAGE_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
 // Discover every markdown file we plan to copy. Returns:
 //   { manifest: Map<absSourcePath, { absDestPath, repo, relInSection }>,
 //     bySection: Map<repoSlug, Array<{ absSourcePath, absDestPath, kind, relInSection, title }>> }
@@ -112,6 +136,21 @@ async function discoverDocs() {
         kind: "doc",
         relInSection: lowered,
         title: titleFromSlug(path.basename(lowered, ".md")),
+      });
+    }
+
+    // Assets are registered in the manifest so rewriteUrl resolves them to a
+    // relative site path, but are not pushed into `entries` — they must not
+    // appear in the navigation.
+    for (const src of await walkAssets(docsDir)) {
+      const repoRel = path.relative(docsDir, src);
+      const lowered = repoRel.split(path.sep).map((s) => s.toLowerCase()).join("/");
+      const destPath = path.join(SITE_SRC, repo.slug, lowered);
+      manifest.set(src, {
+        absDestPath: destPath,
+        repo,
+        relInSection: lowered,
+        isAsset: true,
       });
     }
 
@@ -447,7 +486,14 @@ async function main() {
   const { manifest, bySection } = await discoverDocs();
 
   let copied = 0;
-  for (const [absSourcePath, { absDestPath, repo }] of manifest) {
+  let assetsCopied = 0;
+  for (const [absSourcePath, { absDestPath, repo, isAsset }] of manifest) {
+    if (isAsset) {
+      await mkdir(path.dirname(absDestPath), { recursive: true });
+      await copyFile(absSourcePath, absDestPath);
+      assetsCopied++;
+      continue;
+    }
     await transformAndWrite({ absSourcePath, absDestPath, repo, manifest });
     copied++;
   }
@@ -458,7 +504,7 @@ async function main() {
   await writeStaticAssets();
   await writeMkdocsGenerated(bySection);
 
-  console.log(color("green", `✓ Aggregated ${copied} markdown file(s)`));
+  console.log(color("green", `✓ Aggregated ${copied} markdown file(s), ${assetsCopied} image(s)`));
   for (const repo of REPOS) {
     const entries = bySection.get(repo.slug) ?? [];
     console.log(
