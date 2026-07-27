@@ -106,7 +106,9 @@ files the diff flagged.
    comparison is made against.**
 3. **Baseline vs retained vs created vs enhanced.** How the four paths differ, and
    specifically how enhancement applies risk multipliers to the uplift only rather
-   than the whole parcel.
+   than the whole parcel. Also trace **what each path returns**: enhancement reports
+   a difficulty band label and a standard time-to-target that the other paths do not,
+   and that asymmetry needs explaining rather than glossing.
 4. **Hedgerows and watercourses.** Where the linear path diverges from the area
    path, plus watercourse encroachment.
 

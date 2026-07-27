@@ -126,6 +126,23 @@ them, one short paragraph telling the reader these figures are produced by runni
 the real engine each time the document is rebuilt, so they always match the shipped
 behaviour. Below them, call out anything counter-intuitive the numbers reveal.
 
+### 7a. What the engine reports back
+
+The engine returns more than a unit total: for enhancement it also names the
+**difficulty band** it chose (`Low` / `Medium` / `High`) and the **standard time to
+target** for that habitat and condition change. Cover both, because a screen or
+report showing these values needs them explained:
+
+- The difficulty band label always agrees with the difficulty multiplier. It is the
+  reasoning behind the number, expressed in words.
+- The standard time to target is the figure **from the statutory table**, before any
+  advance or delay is applied. It is the calculation's starting point, not its
+  result. Say this plainly — a reader seeing "standard time to target: 10 years"
+  beside a time multiplier of 0.49 will otherwise assume one is wrong.
+- Both fields are returned for **enhancement only**. Created and retained habitat do
+  not carry them. Note the asymmetry rather than letting a reader infer it is
+  universal.
+
 ### 8. Things that surprise people
 
 The behaviours a careful reader would get wrong if they assumed the obvious. Each

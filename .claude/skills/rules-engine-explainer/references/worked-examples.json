@@ -105,6 +105,63 @@
       ]
     },
     {
+      "title": "The engine reports which difficulty band it chose",
+      "intro": "Enhancement results name the difficulty band in words alongside the number, so a screen or report can show the reasoning rather than a bare multiplier. The label and the multiplier always agree: low difficulty keeps all of the uplift, medium keeps about two thirds, high keeps about a third. Units are deliberately not shown here — they also depend on distinctiveness, condition and timing, so comparing them across these three rows would not isolate the effect of difficulty.",
+      "columns": [
+        { "key": "difficulty", "label": "Difficulty band" },
+        { "key": "difficultyMultiplier", "label": "Difficulty multiplier" }
+      ],
+      "examples": [
+        {
+          "name": "Modified grassland, moderate to good — an easy habitat to improve",
+          "fn": "calculateEnhancedAreaHabitatPostIntervention",
+          "args": [1, "Grassland - Modified grassland", "Grassland - Modified grassland", "Moderate", "Good", 0, 0],
+          "expect": { "difficulty": "Low", "difficultyMultiplier": 1 }
+        },
+        {
+          "name": "Coastal saltmarsh, poor to good — harder",
+          "fn": "calculateEnhancedAreaHabitatPostIntervention",
+          "args": [1, "Coastal saltmarsh - Saltmarshes and saline reedbeds", "Coastal saltmarsh - Saltmarshes and saline reedbeds", "Poor", "Good", 0, 0],
+          "expect": { "difficulty": "Medium", "difficultyMultiplier": 0.67 }
+        },
+        {
+          "name": "Lowland calcareous grassland, poor to good — hardest of the three",
+          "fn": "calculateEnhancedAreaHabitatPostIntervention",
+          "args": [1, "Grassland - Lowland calcareous grassland", "Grassland - Lowland calcareous grassland", "Poor", "Good", 0, 0],
+          "expect": { "difficulty": "High", "difficultyMultiplier": 0.33 }
+        }
+      ]
+    },
+    {
+      "title": "\"Standard time to target\" is not the number that drives the multiplier",
+      "intro": "Enhancement results also report the standard time to target — the years the statutory table gives for that habitat and condition change. It is the starting point of the calculation, not its result: advance and delay are applied afterwards. Below, the same improvement is delayed and then advanced. The standard time to target never moves; the time multiplier moves a long way.",
+      "columns": [
+        { "key": "standardTimeToTargetCondition", "label": "Standard time to target (years)" },
+        { "key": "timeMultiplier", "label": "Time multiplier" },
+        { "key": "units", "label": "Units" }
+      ],
+      "examples": [
+        {
+          "name": "As planned",
+          "fn": "calculateEnhancedAreaHabitatPostIntervention",
+          "args": [1, "Grassland - Modified grassland", "Grassland - Modified grassland", "Moderate", "Good", 0, 0],
+          "expect": { "standardTimeToTargetCondition": "10", "timeMultiplier": 0.7002822742 }
+        },
+        {
+          "name": "Delayed by 10 years — 20 years of waiting in practice",
+          "fn": "calculateEnhancedAreaHabitatPostIntervention",
+          "args": [1, "Grassland - Modified grassland", "Grassland - Modified grassland", "Moderate", "Good", 0, 10],
+          "expect": { "standardTimeToTargetCondition": "10", "timeMultiplier": 0.4903952635 }
+        },
+        {
+          "name": "Advanced by 10 years — no waiting at all",
+          "fn": "calculateEnhancedAreaHabitatPostIntervention",
+          "args": [1, "Grassland - Modified grassland", "Grassland - Modified grassland", "Moderate", "Good", 10, 0],
+          "expect": { "standardTimeToTargetCondition": "10", "timeMultiplier": 1 }
+        }
+      ]
+    },
+    {
       "title": "Retained and enhanced habitat",
       "intro": "Retained habitat carries no risk multipliers. Enhancement applies the risk multipliers only to the uplift — the value the habitat already had is never discounted.",
       "examples": [
