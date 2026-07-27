@@ -377,8 +377,8 @@ async function writeStaticAssets() {
   }
 
   .md-typeset {
-    font-size: 10pt;
-    line-height: 1.45;
+    font-size: 11.5pt;
+    line-height: 1.5;
   }
 
   /* Keep a diagram on one page and scale it to fit the printable area. */
@@ -411,7 +411,7 @@ async function writeStaticAssets() {
 
   /* Tables may span pages, but never split a row, and repeat the header. */
   .md-typeset table:not([class]) {
-    font-size: 8.5pt;
+    font-size: 9.5pt;
   }
 
   .md-typeset thead {
