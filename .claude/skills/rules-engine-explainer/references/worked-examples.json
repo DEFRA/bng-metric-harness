@@ -28,7 +28,7 @@
     },
     {
       "title": "The effect of delay and advance on a created habitat",
-      "intro": "One habitat, one target condition, one hectare — only the timing changes. Creating coastal saltmarsh in good condition normally takes 15 years to reach the target, and reaching merely poor condition takes 1 year. Watch both multipliers move as years are added or removed. Note the jump between 7 and 8 years of advance, and that advance and delay do not simply cancel.",
+      "intro": "One habitat, one target condition, one hectare — only the timing changes. Creating coastal saltmarsh in good condition normally takes 15 years to reach the target, and reaching merely poor condition takes 1 year. Watch both multipliers move as years are added or removed. Two things to note: the difficulty penalty disappears at 8 years of advance rather than the 15 you might expect, because the advance is subtracted from the target before being compared against it and so counts twice; and advance and delay cancel exactly for time but not for difficulty.",
       "examples": [
         {
           "name": "Created as planned (no delay, no advance)",
@@ -204,7 +204,7 @@
     },
     {
       "title": "Hedgerows follow the same shape",
-      "intro": "Hedgerows and watercourses are measured in kilometres rather than hectares, and use their own lookup tables, but the rule for choosing multipliers is the same one.",
+      "intro": "Hedgerows and watercourses are measured in kilometres rather than hectares and use their own lookup tables. The time multiplier is chosen by exactly the same rule as for area habitats. The difficulty rule is not the same — see the next section.",
       "examples": [
         {
           "name": "Baseline — 1 km native hedgerow, moderate condition",
@@ -220,6 +220,63 @@
           "name": "Created — same hedgerow, delayed by 10 years",
           "fn": "calculateCreatedHedgerowPostIntervention",
           "args": [1, "Native hedgerow", "Good", 0, 10]
+        }
+      ]
+    },
+    {
+      "title": "Watercourses do not get the advance discount on difficulty",
+      "intro": "For an area habitat, enough advance removes the difficulty penalty entirely — the band is forced to low and the multiplier becomes 1. Watercourses never get that. However far a watercourse is advanced, the difficulty multiplier stops at the enhancement band and never reaches 1, even once the time multiplier has reached 1. For a ditch it gets worse rather than better: creating one is banded low difficulty, but three years of advance switches the lookup to the enhancement band, which is medium.",
+      "columns": [
+        { "key": "timeMultiplier", "label": "Time multiplier" },
+        { "key": "difficultyMultiplier", "label": "Difficulty multiplier" },
+        { "key": "units", "label": "Units" }
+      ],
+      "examples": [
+        {
+          "name": "Created ditch, as planned",
+          "fn": "calculateCreatedWatercoursePostIntervention",
+          "args": [1, "Ditches", "Good", "No Encroachment", "No Encroachment/No Encroachment", 0, 0],
+          "expect": { "difficultyMultiplier": 1 }
+        },
+        {
+          "name": "Created ditch, advanced 3 years — difficulty gets worse, not better",
+          "fn": "calculateCreatedWatercoursePostIntervention",
+          "args": [1, "Ditches", "Good", "No Encroachment", "No Encroachment/No Encroachment", 3, 0],
+          "expect": { "difficultyMultiplier": 0.67 }
+        },
+        {
+          "name": "Created ditch, advanced 30 years — time risk gone, difficulty penalty remains",
+          "fn": "calculateCreatedWatercoursePostIntervention",
+          "args": [1, "Ditches", "Good", "No Encroachment", "No Encroachment/No Encroachment", 30, 0],
+          "expect": { "timeMultiplier": 1, "difficultyMultiplier": 0.67 }
+        },
+        {
+          "name": "For comparison — an area habitat advanced 30 years loses both penalties",
+          "fn": "calculateCreatedAreaHabitatPostIntervention",
+          "args": [1, "Grassland - Traditional orchards", "Good", 30, 0],
+          "expect": { "timeMultiplier": 1, "difficultyMultiplier": 1 }
+        }
+      ]
+    },
+    {
+      "title": "Combinations the engine refuses that it arguably should not",
+      "intro": "Before choosing a difficulty band for a created habitat, the engine checks how long that habitat would take to reach poor condition — even when no advance has been entered and the answer cannot change anything. For cropland types, reaching poor condition is not a recognised outcome, so that internal check fails and takes the whole calculation with it. The same habitat and the same target succeed as soon as any advance is entered, because a different branch runs first.",
+      "columns": [
+        { "key": "units", "label": "Units" },
+        { "key": "difficultyMultiplier", "label": "Difficulty multiplier" }
+      ],
+      "examples": [
+        {
+          "name": "Created cereal crops, no advance — rejected",
+          "fn": "calculateCreatedAreaHabitatPostIntervention",
+          "args": [1, "Cropland - Cereal crops", "Condition Assessment N/A", 0, 0],
+          "expectThrow": true
+        },
+        {
+          "name": "Identical, but advanced by one year — succeeds",
+          "fn": "calculateCreatedAreaHabitatPostIntervention",
+          "args": [1, "Cropland - Cereal crops", "Condition Assessment N/A", 1, 0],
+          "expect": { "units": 2, "difficultyMultiplier": 1 }
         }
       ]
     }
