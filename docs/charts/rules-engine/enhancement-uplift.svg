@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="292" viewBox="0 0 720 292" role="img" aria-label="Enhancement only discounts the improvement">
+  <rect x="0.5" y="0.5" width="719" height="291" rx="6" fill="#fcfcfb" stroke="#e3e2dd" stroke-width="1" />
+  <text x="16" y="26" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#0b0b0b" text-anchor="start" dominant-baseline="auto">Enhancement only discounts the improvement</text>
+  <text x="16" y="44" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#52514e" text-anchor="start" dominant-baseline="auto">1 ha of modified grassland improved from moderate to good, delayed 10 years.</text>
+  <rect x="62" y="92" width="285.33" height="54" fill="#2a78d6"  />
+  <text x="204.66666666666666" y="123" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle" dominant-baseline="auto">4.00</text>
+  <rect x="349.33" y="92" width="67.96" height="54" fill="#1baf7a"  />
+  <text x="383.31486212966666" y="123" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle" dominant-baseline="auto">0.98</text>
+  <rect x="419.3" y="92" width="70.7" height="54" fill="#d8d6cf" rx="4" />
+  <text x="454.648195463" y="123" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#52514e" text-anchor="middle" dominant-baseline="auto">1.02</text>
+  <path d="M62,156 L62,162 L417.3,162 L417.3,156" fill="none" stroke="#c9c7c0" stroke-width="1" />
+  <text x="239.648195463" y="178" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#0b0b0b" text-anchor="middle" dominant-baseline="auto">4.98 units awarded</text>
+  <text x="502" y="123" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#77756e" text-anchor="start" dominant-baseline="auto">6.00 if the improvement were certain</text>
+  <rect x="62" y="195" width="10" height="10" rx="2" fill="#2a78d6" />
+  <text x="80" y="204" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#52514e" text-anchor="start" dominant-baseline="auto">Value it already had — never discounted — 4.00</text>
+  <rect x="62" y="217" width="10" height="10" rx="2" fill="#1baf7a" />
+  <text x="80" y="226" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#52514e" text-anchor="start" dominant-baseline="auto">Uplift that survives the risk discount — 0.98</text>
+  <rect x="62" y="239" width="10" height="10" rx="2" fill="#d8d6cf" />
+  <text x="80" y="248" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#52514e" text-anchor="start" dominant-baseline="auto">Uplift removed for time and difficulty risk — 1.02</text>
+  <text x="16" y="280" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#77756e" text-anchor="start" dominant-baseline="auto">The habitat keeps the value it already had in full; only the uplift carries risk.</text>
+</svg>

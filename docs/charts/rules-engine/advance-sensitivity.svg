@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="420" viewBox="0 0 720 420" role="img" aria-label="Advance creation does not pay off smoothly">
+  <rect x="0.5" y="0.5" width="719" height="419" rx="6" fill="#fcfcfb" stroke="#e3e2dd" stroke-width="1" />
+  <text x="16" y="26" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#0b0b0b" text-anchor="start" dominant-baseline="auto">Advance creation does not pay off smoothly</text>
+  <text x="16" y="44" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#52514e" text-anchor="start" dominant-baseline="auto">Units for 1 ha of saltmarshes and saline reedbeds reaching good condition. Colour shows which difficulty</text>
+  <text x="16" y="60" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#52514e" text-anchor="start" dominant-baseline="auto">rule the engine applied.</text>
+  <line x1="62" y1="320" x2="700" y2="320" stroke="#c9c7c0" stroke-width="1" />
+  <path d="M67,320 L67,286.67 Q67,282.67 71,282.67 L92.88,282.67 Q96.88,282.67 96.88,286.67 L96.88,320 Z" fill="#eb6834" />
+  <text x="81.9375" y="275.6682134426696" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#0b0b0b" text-anchor="middle" dominant-baseline="auto">3.5</text>
+  <text x="81.9375" y="336" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#77756e" text-anchor="middle" dominant-baseline="auto">0</text>
+  <path d="M106.88,320 L106.88,245.46 Q106.88,241.46 110.88,241.46 L132.76,241.46 Q136.76,241.46 136.76,245.46 L136.76,320 Z" fill="#2a78d6" />
+  <text x="121.8125" y="234.45612500126435" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#0b0b0b" text-anchor="middle" dominant-baseline="auto">7.3</text>
+  <text x="121.8125" y="336" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#77756e" text-anchor="middle" dominant-baseline="auto">1</text>
+  <path d="M146.75,320 L146.75,242.61 Q146.75,238.61 150.75,238.61 L172.63,238.61 Q176.63,238.61 176.63,242.61 L176.63,320 Z" fill="#2a78d6" />
+  <text x="161.6875" y="231.60738341878783" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#0b0b0b" text-anchor="middle" dominant-baseline="auto">7.6</text>
+  <text x="161.6875" y="336" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#77756e" text-anchor="middle" dominant-baseline="auto">2</text>
+  <path d="M186.63,320 L186.63,239.66 Q186.63,235.66 190.63,235.66 L212.51,235.66 Q216.51,235.66 216.51,239.66 L216.51,320 Z" fill="#2a78d6" />
+  <text x="201.5625" y="228.65531960824524" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#0b0b0b" text-anchor="middle" dominant-baseline="auto">7.9</text>
+  <text x="201.5625" y="336" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#77756e" text-anchor="middle" dominant-baseline="auto">3</text>
+  <path d="M226.5,320 L226.5,236.6 Q226.5,232.6 230.5,232.6 L252.38,232.6 Q256.38,232.6 256.38,236.6 L256.38,320 Z" fill="#2a78d6" />
+  <text x="241.4375" y="225.59618611060523" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#0b0b0b" text-anchor="middle" dominant-baseline="auto">8.1</text>
+  <text x="241.4375" y="336" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#77756e" text-anchor="middle" dominant-baseline="auto">4</text>
+  <path d="M266.38,320 L266.38,233.43 Q266.38,229.43 270.38,229.43 L292.26,229.43 Q296.26,229.43 296.26,233.43 L296.26,320 Z" fill="#2a78d6" />
+  <text x="281.3125" y="222.42609959608" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#0b0b0b" text-anchor="middle" dominant-baseline="auto">8.4</text>
+  <text x="281.3125" y="336" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#77756e" text-anchor="middle" dominant-baseline="auto">5</text>
+  <path d="M306.25,320 L306.25,230.14 Q306.25,226.14 310.25,226.14 L332.13,226.14 Q336.13,226.14 336.13,230.14 L336.13,320 Z" fill="#2a78d6" />
+  <text x="321.1875" y="219.1410358587009" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#0b0b0b" text-anchor="middle" dominant-baseline="auto">8.8</text>
+  <text x="321.1875" y="336" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#77756e" text-anchor="middle" dominant-baseline="auto">6</text>
+  <path d="M346.13,320 L346.13,226.74 Q346.13,222.74 350.13,222.74 L372.01,222.74 Q376.01,222.74 376.01,226.74 L376.01,320 Z" fill="#2a78d6" />
+  <text x="361.0625" y="215.73682472035654" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#0b0b0b" text-anchor="middle" dominant-baseline="auto">9.1</text>
+  <text x="361.0625" y="336" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#77756e" text-anchor="middle" dominant-baseline="auto">7</text>
+  <path d="M386,320 L386,173.57 Q386,169.57 390,169.57 L411.88,169.57 Q415.88,169.57 415.88,173.57 L415.88,320 Z" fill="#1baf7a" />
+  <text x="400.9375" y="162.56588775008694" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#0b0b0b" text-anchor="middle" dominant-baseline="auto">14.0</text>
+  <text x="400.9375" y="336" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#77756e" text-anchor="middle" dominant-baseline="auto">8</text>
+  <path d="M425.88,320 L425.88,168.11 Q425.88,164.11 429.88,164.11 L451.76,164.11 Q455.76,164.11 455.76,168.11 L455.76,320 Z" fill="#1baf7a" />
+  <text x="440.8125" y="157.10972823113042" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#0b0b0b" text-anchor="middle" dominant-baseline="auto">14.5</text>
+  <text x="440.8125" y="336" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#77756e" text-anchor="middle" dominant-baseline="auto">9</text>
+  <path d="M465.75,320 L465.75,162.46 Q465.75,158.46 469.75,158.46 L491.63,158.46 Q495.63,158.46 495.63,162.46 L495.63,320 Z" fill="#1baf7a" />
+  <text x="480.6875" y="151.45567692765218" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#0b0b0b" text-anchor="middle" dominant-baseline="auto">15.1</text>
+  <text x="480.6875" y="336" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#77756e" text-anchor="middle" dominant-baseline="auto">10</text>
+  <path d="M505.63,320 L505.63,156.6 Q505.63,152.6 509.63,152.6 L531.51,152.6 Q535.51,152.6 535.51,156.6 L535.51,320 Z" fill="#1baf7a" />
+  <text x="520.5625" y="145.59655640591302" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#0b0b0b" text-anchor="middle" dominant-baseline="auto">15.6</text>
+  <text x="520.5625" y="336" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#77756e" text-anchor="middle" dominant-baseline="auto">11</text>
+  <path d="M545.5,320 L545.5,150.52 Q545.5,146.52 549.5,146.52 L571.38,146.52 Q575.38,146.52 575.38,150.52 L575.38,320 Z" fill="#1baf7a" />
+  <text x="560.4375" y="139.52492891304345" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#0b0b0b" text-anchor="middle" dominant-baseline="auto">16.2</text>
+  <text x="560.4375" y="336" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#77756e" text-anchor="middle" dominant-baseline="auto">12</text>
+  <path d="M585.38,320 L585.38,144.23 Q585.38,140.23 589.38,140.23 L611.26,140.23 Q615.26,140.23 615.26,144.23 L615.26,320 Z" fill="#1baf7a" />
+  <text x="600.3125" y="133.23308695652176" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#0b0b0b" text-anchor="middle" dominant-baseline="auto">16.8</text>
+  <text x="600.3125" y="336" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#77756e" text-anchor="middle" dominant-baseline="auto">13</text>
+  <path d="M625.25,320 L625.25,137.71 Q625.25,133.71 629.25,133.71 L651.13,133.71 Q655.13,133.71 655.13,137.71 L655.13,320 Z" fill="#1baf7a" />
+  <text x="640.1875" y="126.71304347826086" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#0b0b0b" text-anchor="middle" dominant-baseline="auto">17.4</text>
+  <text x="640.1875" y="336" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#77756e" text-anchor="middle" dominant-baseline="auto">14</text>
+  <path d="M665.13,320 L665.13,130.95999999999998 Q665.13,126.96 669.13,126.96 L691.01,126.96 Q695.01,126.96 695.01,130.95999999999998 L695.01,320 Z" fill="#1baf7a" />
+  <text x="680.0625" y="119.95652173913044" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#0b0b0b" text-anchor="middle" dominant-baseline="auto">18.0</text>
+  <text x="680.0625" y="336" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#77756e" text-anchor="middle" dominant-baseline="auto">15</text>
+  <line x1="381" y1="94" x2="381" y2="320" stroke="#77756e" stroke-width="1" stroke-dasharray="4 3" />
+  <text x="387" y="104" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#52514e" text-anchor="start" dominant-baseline="auto">step change at 8 years</text>
+  <text x="381" y="360" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#52514e" text-anchor="middle" dominant-baseline="auto">Years of advance creation (habitat established before it is needed)</text>
+  <rect x="62" y="377" width="10" height="10" rx="2" fill="#eb6834" />
+  <text x="78" y="386" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#52514e" text-anchor="start" dominant-baseline="auto">Creation difficulty applies</text>
+  <rect x="259.35" y="377" width="10" height="10" rx="2" fill="#2a78d6" />
+  <text x="275.35" y="386" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#52514e" text-anchor="start" dominant-baseline="auto">Scored as enhancement</text>
+  <rect x="420.40000000000003" y="377" width="10" height="10" rx="2" fill="#1baf7a" />
+  <text x="436.40000000000003" y="386" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#52514e" text-anchor="start" dominant-baseline="auto">Difficulty no longer applies</text>
+  <text x="16" y="408" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#77756e" text-anchor="start" dominant-baseline="auto">Units shown for 1 hectare with no delay; the same pattern holds at any size.</text>
+</svg>

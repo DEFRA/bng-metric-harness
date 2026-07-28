@@ -1,0 +1,11 @@
+/* Architecture page: let the LikeC4 iframe use the full content area. */
+.md-content--full-bleed {
+  margin: 0 -1.2rem;
+}
+
+.md-content--full-bleed .architecture-frame {
+  width: 100%;
+  height: calc(100vh - 8rem);
+  border: 0;
+  display: block;
+}

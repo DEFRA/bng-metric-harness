@@ -28,3 +28,6 @@ id_ed25519
 site_src/
 _site/
 mkdocs.generated.yml
+
+# Rules-engine explainer working state — intermediates, not deliverables
+/.rules-engine-explainer/
