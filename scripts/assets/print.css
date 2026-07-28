@@ -90,13 +90,11 @@
    */
   .md-typeset table code {
     white-space: normal !important;
-    word-break: break-word;
     overflow-wrap: anywhere;
   }
 
   .md-typeset table th,
   .md-typeset table td {
-    word-break: break-word;
     overflow-wrap: anywhere;
   }
 
@@ -131,7 +129,6 @@
 
   .md-typeset pre > code {
     white-space: pre-wrap !important;
-    word-wrap: break-word;
     overflow-wrap: anywhere;
   }
 }
