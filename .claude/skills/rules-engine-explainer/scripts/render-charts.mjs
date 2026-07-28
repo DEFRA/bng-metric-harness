@@ -17,8 +17,10 @@
  * Env:
  *   BNG_ENGINE_DIR  Explicit path to the engine package, overriding discovery.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { parseArgs } from 'node:util'
+import { importEngine, locateEngine } from './_lib.mjs'
 import {
   bar,
   card,
@@ -33,19 +35,6 @@ import {
   round,
   text
 } from './svg-kit.mjs'
-
-const HARNESS_ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..')
-const WORKSPACE_ROOT = path.resolve(HARNESS_ROOT, '..')
-const PACKAGE_NAME = 'bng-metric-engine'
-
-const CANDIDATE_DIRS = [
-  process.env.BNG_ENGINE_DIR,
-  path.join(WORKSPACE_ROOT, 'bng-metric-backend', PACKAGE_NAME),
-  path.join(WORKSPACE_ROOT, 'bng-library', 'packages', PACKAGE_NAME),
-  path.join(WORKSPACE_ROOT, 'bng-library', PACKAGE_NAME),
-  path.join(WORKSPACE_ROOT, PACKAGE_NAME),
-  path.join(HARNESS_ROOT, 'packages', PACKAGE_NAME)
-].filter(Boolean)
 
 /** The habitat the advance/delay charts are built around. */
 const DEMO_HABITAT = 'Coastal saltmarsh - Saltmarshes and saline reedbeds'
@@ -76,25 +65,6 @@ const PLOT = { left: 62, right: 20 }
 function shortHabitatName(habitat) {
   const [, specific] = habitat.split(' - ')
   return (specific ?? habitat).toLowerCase()
-}
-
-function locateEngine() {
-  const found = CANDIDATE_DIRS.find((dir) => {
-    const manifest = path.join(dir, 'package.json')
-    if (!existsSync(manifest)) {
-      return false
-    }
-    try {
-      return JSON.parse(readFileSync(manifest, 'utf8')).name === PACKAGE_NAME
-    } catch {
-      return false
-    }
-  })
-  if (!found) {
-    console.error(`Could not find the ${PACKAGE_NAME} package. Set BNG_ENGINE_DIR.`)
-    process.exit(1)
-  }
-  return found
 }
 
 // ---------------------------------------------------------------------------
@@ -491,14 +461,17 @@ async function rasterise(files, outDir) {
   await browser.close()
 }
 
-const flags = process.argv.slice(2)
-const outDir = flags.includes('--out')
-  ? flags[flags.indexOf('--out') + 1]
-  : path.join(process.cwd(), 'charts')
-const wantPng = flags.includes('--png')
+const { values: flags } = parseArgs({
+  options: {
+    out: { type: 'string' },
+    png: { type: 'boolean', default: false }
+  }
+})
+const outDir = flags.out ?? path.join(process.cwd(), 'charts')
+const wantPng = flags.png
 
 const engineDir = locateEngine()
-const engine = await import(`file://${path.join(engineDir, 'src', 'index.js')}`)
+const engine = await importEngine(engineDir)
 console.log(`Engine located at: ${engineDir}`)
 
 mkdirSync(outDir, { recursive: true })

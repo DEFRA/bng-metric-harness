@@ -21,11 +21,9 @@ import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { parseArgs } from 'node:util'
+import { importEngine, locateEngine, WORKSPACE_ROOT } from './_lib.mjs'
 
-const HARNESS_ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..')
-const WORKSPACE_ROOT = path.resolve(HARNESS_ROOT, '..')
-
-const PACKAGE_NAME = 'bng-metric-engine'
 const HASH_LENGTH = 12
 /** Abbreviated git sha length used in console output. */
 const SHORT_SHA_DISPLAY = 8
@@ -33,45 +31,6 @@ const SHORT_SHA_DISPLAY = 8
 const SMALL_TABLE_MAX_LEAVES = 60
 /** Number of sample keys shown for a table too large to inline. */
 const SAMPLE_KEY_COUNT = 5
-
-/**
- * Candidate locations for the engine, most-likely first. The engine is expected
- * to move out of the backend at some point (see docs/move-engine-into-bng-lib.md),
- * so discovery is deliberately path-agnostic rather than hardcoded.
- */
-const CANDIDATE_DIRS = [
-  process.env.BNG_ENGINE_DIR,
-  path.join(WORKSPACE_ROOT, 'bng-metric-backend', PACKAGE_NAME),
-  path.join(WORKSPACE_ROOT, 'bng-library', 'packages', PACKAGE_NAME),
-  path.join(WORKSPACE_ROOT, 'bng-library', PACKAGE_NAME),
-  path.join(WORKSPACE_ROOT, PACKAGE_NAME),
-  path.join(HARNESS_ROOT, 'packages', PACKAGE_NAME)
-].filter(Boolean)
-
-function isEnginePackage(dir) {
-  const manifest = path.join(dir, 'package.json')
-  if (!existsSync(manifest)) {
-    return false
-  }
-  try {
-    return JSON.parse(readFileSync(manifest, 'utf8')).name === PACKAGE_NAME
-  } catch {
-    return false
-  }
-}
-
-function locateEngine() {
-  const found = CANDIDATE_DIRS.find(isEnginePackage)
-  if (!found) {
-    console.error(
-      `Could not find the ${PACKAGE_NAME} package. Looked in:\n` +
-        CANDIDATE_DIRS.map((d) => `  - ${d}`).join('\n') +
-        `\n\nSet BNG_ENGINE_DIR to its location, or run 'npm run bootstrap' in the harness.`
-    )
-    process.exit(1)
-  }
-  return found
-}
 
 function hash(content) {
   return createHash('sha256').update(content).digest('hex').slice(0, HASH_LENGTH)
@@ -148,8 +107,7 @@ function collectSourceFiles(engineDir) {
 }
 
 async function collectExports(engineDir) {
-  const entry = path.join(engineDir, 'src', 'index.js')
-  const mod = await import(`file://${entry}`)
+  const mod = await importEngine(engineDir)
   const functions = []
   const tables = []
   const constants = {}
@@ -249,21 +207,12 @@ function printDiff(changes) {
   }
 }
 
-function parseArgs(argv) {
-  const args = { out: null, compare: null }
-  for (let i = 0; i < argv.length; i += 1) {
-    if (argv[i] === '--out') {
-      args.out = argv[i + 1]
-      i += 1
-    } else if (argv[i] === '--compare') {
-      args.compare = argv[i + 1]
-      i += 1
-    }
+const { values: args } = parseArgs({
+  options: {
+    out: { type: 'string' },
+    compare: { type: 'string' }
   }
-  return args
-}
-
-const args = parseArgs(process.argv.slice(2))
+})
 
 // Load the previous facts BEFORE writing the new ones. The intended usage passes
 // the same path to --out and --compare (each run becomes the next run's baseline),

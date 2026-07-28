@@ -18,42 +18,12 @@
  * Env:
  *   BNG_ENGINE_DIR  Explicit path to the engine package, overriding discovery.
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { parseArgs } from 'node:util'
+import { importEngine, locateEngine } from './_lib.mjs'
 
-const HARNESS_ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..')
-const WORKSPACE_ROOT = path.resolve(HARNESS_ROOT, '..')
-const PACKAGE_NAME = 'bng-metric-engine'
 /** Multipliers are compared at this tolerance; the engine rounds to 15 sig figs. */
 const FLOAT_TOLERANCE = 1e-9
-
-const CANDIDATE_DIRS = [
-  process.env.BNG_ENGINE_DIR,
-  path.join(WORKSPACE_ROOT, 'bng-metric-backend', PACKAGE_NAME),
-  path.join(WORKSPACE_ROOT, 'bng-library', 'packages', PACKAGE_NAME),
-  path.join(WORKSPACE_ROOT, 'bng-library', PACKAGE_NAME),
-  path.join(WORKSPACE_ROOT, PACKAGE_NAME),
-  path.join(HARNESS_ROOT, 'packages', PACKAGE_NAME)
-].filter(Boolean)
-
-function locateEngine() {
-  const found = CANDIDATE_DIRS.find((dir) => {
-    const manifest = path.join(dir, 'package.json')
-    if (!existsSync(manifest)) {
-      return false
-    }
-    try {
-      return JSON.parse(readFileSync(manifest, 'utf8')).name === PACKAGE_NAME
-    } catch {
-      return false
-    }
-  })
-  if (!found) {
-    console.error(`Could not find the ${PACKAGE_NAME} package. Set BNG_ENGINE_DIR.`)
-    process.exit(1)
-  }
-  return found
-}
 
 function matches(actual, expected) {
   if (typeof actual === 'number' && typeof expected === 'number') {
@@ -141,18 +111,23 @@ function renderTable(results, columns) {
   return lines.join('\n')
 }
 
-const [examplesPath] = process.argv.slice(2).filter((a) => !a.startsWith('--'))
+const { values: flags, positionals } = parseArgs({
+  allowPositionals: true,
+  options: {
+    out: { type: 'string' },
+    json: { type: 'string' }
+  }
+})
+const [examplesPath] = positionals
 if (!examplesPath) {
   console.error('Usage: node run-worked-examples.mjs <examples.json> [--out <table.md>] [--json <results.json>]')
   process.exit(1)
 }
-
-const flags = process.argv.slice(2)
-const outPath = flags.includes('--out') ? flags[flags.indexOf('--out') + 1] : null
-const jsonPath = flags.includes('--json') ? flags[flags.indexOf('--json') + 1] : null
+const outPath = flags.out ?? null
+const jsonPath = flags.json ?? null
 
 const engineDir = locateEngine()
-const engine = await import(`file://${path.join(engineDir, 'src', 'index.js')}`)
+const engine = await importEngine(engineDir)
 console.log(`Engine located at: ${engineDir}`)
 
 const spec = JSON.parse(readFileSync(examplesPath, 'utf8'))

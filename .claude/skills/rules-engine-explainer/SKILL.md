@@ -220,7 +220,9 @@ silently. The check-mode early exit makes a no-op run cheap. To automate, use th
 
 ## Files in this skill
 
-- `scripts/engine-facts.mjs` — locates the engine, extracts facts, diffs runs.
+- `scripts/_lib.mjs` — shared engine discovery (`locateEngine`/`importEngine`),
+  used by all three entry scripts.
+- `scripts/engine-facts.mjs` — extracts engine facts, diffs runs.
 - `scripts/run-worked-examples.mjs` — executes the examples, renders tables, fails
   on drift.
 - `scripts/render-charts.mjs` / `scripts/svg-kit.mjs` — the three charts as static
