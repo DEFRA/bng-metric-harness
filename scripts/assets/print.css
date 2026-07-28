@@ -1,0 +1,137 @@
+/*
+ * Print styles. Mermaid emits an SVG sized for the screen, which a browser will
+ * happily slice across a page boundary. Constraining its height and forbidding
+ * internal breaks keeps a diagram whole; `height: auto` plus the SVG's own
+ * viewBox makes it scale proportionally rather than crop.
+ *
+ * The height caps are the tuning knob for how large diagrams print. They only
+ * bite when a diagram is taller than the cap, so a short one is unaffected by
+ * lowering them.
+ */
+@media print {
+  @page {
+    margin: 15mm;
+  }
+
+  /* Drop the site chrome — only the page content should reach the paper. */
+  .md-header,
+  .md-tabs,
+  .md-sidebar,
+  .md-footer,
+  .md-top,
+  .md-dialog,
+  .md-search {
+    display: none !important;
+  }
+
+  .md-main__inner,
+  .md-content,
+  .md-content__inner {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .md-typeset {
+    font-size: 11.5pt;
+    line-height: 1.5;
+  }
+
+  /* Keep a diagram on one page and scale it to fit the printable area. */
+  .mermaid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    text-align: center;
+  }
+
+  /*
+   * Wide flowcharts are constrained by width, not height, so a max-height alone
+   * does nothing for them. Capping width below the full measure is what actually
+   * shrinks them; height stays as a backstop for unusually tall diagrams.
+   */
+  .mermaid svg {
+    max-width: 55% !important;
+    max-height: 17cm !important;
+    width: auto !important;
+    height: auto !important;
+  }
+
+  /* Same treatment for the generated charts. */
+  .md-typeset img {
+    max-width: 100% !important;
+    max-height: 13.6cm !important;
+    height: auto !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /*
+   * Material wraps every table in a horizontally scrolling container, injected by
+   * its JavaScript at runtime rather than present in the HTML. On screen that is
+   * what lets a wide table scroll; on paper it renders as a stray scrollbar or a
+   * clipped edge, so unwrap it and let the table use the full measure instead.
+   */
+  .md-typeset__scrollwrap,
+  .md-typeset__table {
+    overflow: visible !important;
+    display: block !important;
+    margin: 0 !important;
+  }
+
+  /* Tables may span pages, but never split a row, and repeat the header. */
+  .md-typeset table:not([class]) {
+    display: table !important;
+    width: 100% !important;
+    font-size: 9.5pt;
+  }
+
+  /*
+   * Long inline code — the worked examples put a whole argument list in one cell —
+   * is what pushes a table past the page width. Let it wrap rather than scroll.
+   */
+  .md-typeset table code {
+    white-space: normal !important;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .md-typeset table th,
+  .md-typeset table td {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .md-typeset thead {
+    display: table-header-group;
+  }
+
+  .md-typeset tr,
+  .md-typeset blockquote,
+  .md-typeset pre {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Never leave a heading stranded at the foot of a page. */
+  .md-typeset h1,
+  .md-typeset h2,
+  .md-typeset h3,
+  .md-typeset h4 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* Long code blocks scroll on screen; on paper they must wrap, not scroll. */
+  .md-typeset pre,
+  .md-typeset pre > code,
+  .md-typeset .highlight,
+  .md-typeset .highlighttable {
+    overflow: visible !important;
+    max-width: 100% !important;
+  }
+
+  .md-typeset pre > code {
+    white-space: pre-wrap !important;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+  }
+}
