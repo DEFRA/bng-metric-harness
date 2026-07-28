@@ -55,7 +55,7 @@
     "better-sqlite3": "^12.11.1",
     "bng-library": "github:DEFRA/bng-library#2b0af85d8e1fe7349775370b5a745796ae290f2d",
     "husky": "9.1.7",
-    "likec4": "^1.59.0",
+    "likec4": "^1.59.2",
     "remark-parse": "^11.0.0",
     "remark-stringify": "^11.0.0",
     "unified": "^11.0.5",
