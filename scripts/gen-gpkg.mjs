@@ -60,6 +60,7 @@
  *   replaced with out-of-scope values so a single attribute validator fires:
  *     distinctiveness-out-of-scope  HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE
  *     duplicate-habitat-ref         DUPLICATE_HABITAT_REF
+ *     advance-delay-both-set        ADVANCE_AND_DELAY_BOTH_SET
  *
  * --flaw is repeatable; geometric, empty-layer, and attribute-override flaws
  * cannot be mixed with each other.

@@ -122,6 +122,7 @@ Schema and geometry are both valid; attribute values trip a later validator.
 | `Baseline - habitat distinctiveness out of scope.gpkg`  | Habitat rows carry out-of-scope distinctiveness values.                 | `distinctiveness-out-of-scope` | `HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE` |
 | `Baseline - duplicate habitat ref.gpkg`                 | Two habitat rows share a reference.                                     | `duplicate-habitat-ref`        | `DUPLICATE_HABITAT_REF`                |
 | `Post-intervention - missing proposed habitat data.gpkg` | 1 of 12 parcels has null Proposed Habitat Type / Condition / Distinctiveness; 2 of 12 have null creation-delay values. Was `Post-intervention (missing data) - fails validation.gpkg`, which named no validator. **Not minimal.** | — | — |
+| `Post-intervention - advance and delay both set.gpkg`    | One created habitat parcel (H001) carries both advance (2) and delayed (3) creation years — the statutory metric forbids the pair. Upload as the post-intervention half after any valid baseline; the check runs per file, so the baseline pairing doesn't matter. | `advance-delay-both-set` | `ADVANCE_AND_DELAY_BOTH_SET` |
 
 ## bng-500/
 

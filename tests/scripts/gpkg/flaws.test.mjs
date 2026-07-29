@@ -60,6 +60,20 @@ describe("resolveFlawSelection — happy paths", () => {
     expect(refs[0]).toBe(refs[1]);
   });
 
+  it("routes the advance-delay-both-set flaw and pins both years on a created row", () => {
+    const sel = resolveFlawSelection({
+      bad: false,
+      flaws: ["advance-delay-both-set"],
+    });
+    expect(sel.attributeFlawNames).toEqual(["advance-delay-both-set"]);
+    expect(Object.keys(sel.attributeOverrides)).toEqual(["habitats"]);
+    expect(sel.attributeOverrides.habitats).toHaveLength(1);
+    const row = sel.attributeOverrides.habitats[0];
+    expect(row.retention).toBe("Created");
+    expect(Number(row.advanceYears)).toBeGreaterThan(0);
+    expect(Number(row.delayYears)).toBeGreaterThan(0);
+  });
+
   it("allows attribute + empty flaws when they target different layers", () => {
     const sel = resolveFlawSelection({
       bad: false,
