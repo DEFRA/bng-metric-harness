@@ -28,6 +28,13 @@ Regenerate reproducible fixtures with `npm run generate:gpkg` (see
 `scripts/gen-gpkg.mjs` is the authoritative scenario list; the "Flaw" column
 below gives the flag that reproduces a file where one exists.
 
+Synthetic mode emits a single post-intervention-shaped file — `--mode` only
+applies to workbook mode — so a synthetic pair's baseline half is derived from
+its post-intervention half with `deriveBaselineFromSynthetic` (`bng-library`),
+which copies the file and clears the proposed columns. Generating a second
+file instead would randomise fresh geometry and share no redline. Validate any
+pair with `node scripts/check-gpkg-pair.mjs <baseline> <post-intervention>`.
+
 Every fixture here stays within the beta's distinctiveness scope (V.Low, Low,
 Medium) apart from the two deliberate exceptions noted below —
 `attribute-problems/Baseline - habitat distinctiveness out of scope.gpkg`, which
@@ -50,7 +57,7 @@ one.
 | `Post-intervention - complete, bng-500 variant.gpkg` | Structurally identical to the above (12 habitats + RLB) but different bytes. **Suspected stale duplicate** — see Open questions. |
 | `Baseline - retained hedgerow.gpkg` / `Post-intervention - retained hedgerow.gpkg` | A hedgerow retained through the intervention. Baseline 3 habitats / 2 hedgerows; post-intervention 12 habitats / 3 hedgerows. The pair shares one RLB. |
 | `Baseline - retained watercourse.gpkg` / `Post-intervention - retained watercourse.gpkg` | A watercourse retained through the intervention. Both stages carry all five layers (20 habitats, 6 hedgerows, 1 river, 10 trees) and share one RLB. |
-| `Post-intervention - all unit and intervention types.gpkg` | All five layers (120 habitats, 40 hedgerows, 8 rivers, 60 trees, 1 RLB) with every retention category on habitats, hedgerows **and** watercourses — the only fixture that covers a created watercourse. Habitat areas tile the RLB exactly (517,339 m²) and every distinctiveness is in scope. **Has no baseline half**, and its created linear features do not survive an upload — see Gaps. |
+| `Baseline - all unit and intervention types.gpkg` / `Post-intervention - all unit and intervention types.gpkg` | All five layers (120 habitats, 40 hedgerows, 8 rivers, 60 trees, 1 RLB) with every retention category on habitats, hedgerows **and** watercourses — the only fixture that covers a created watercourse. Habitat areas tile the RLB exactly (517,339 m²) and every distinctiveness is in scope. The pair shares one RLB and passes `scripts/check-gpkg-pair.mjs`. Created linear features do not survive an upload — see Gaps. |
 
 ## spatial-problems/
 
