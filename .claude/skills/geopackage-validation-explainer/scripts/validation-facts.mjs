@@ -64,11 +64,27 @@ function extractRegistry(backendDir) {
   const codes = {}
   for (const match of block.matchAll(CODE_KEY_PATTERN)) {
     const [, code] = match
-    const preceding = block.slice(0, match.index)
-    const docMatch = /\/\*\*\s*(.*?)\s*\*\/\s*$/s.exec(preceding)
-    codes[code] = { description: docMatch ? collapse(docMatch[1]) : null }
+    codes[code] = { description: adjacentDocComment(block.slice(0, match.index)) }
   }
   return codes
+}
+
+/**
+ * The doc comment immediately above a code, or null.
+ *
+ * Anchoring a lazy `/** ... *\/` match to the end of the preceding text does
+ * NOT work: the scan starts at the FIRST comment in the file, so every code
+ * inherits every comment above it glued together. Take the last comment and
+ * accept it only when nothing but whitespace separates it from the code.
+ */
+function adjacentDocComment(preceding) {
+  const comments = [...preceding.matchAll(/\/\*\*([\s\S]*?)\*\//g)]
+  const last = comments.at(-1)
+  if (!last) {
+    return null
+  }
+  const between = preceding.slice(last.index + last[0].length)
+  return between.trim() === '' ? collapse(last[1]) : null
 }
 
 function collapse(value) {
@@ -78,19 +94,45 @@ function collapse(value) {
     .trim()
 }
 
-/** The message literal a `makeError(ERROR_CODES.X, '…')` call carries. */
-function messageAfter(text, referenceIndex) {
+const MAKE_ERROR_CALL = 'makeError('
+
+/**
+ * The message literal a `makeError(ERROR_CODES.X, '…')` call carries, or null.
+ *
+ * Two traps, both of which produced wrong messages before they were closed:
+ *
+ *  - Builder maps are keyed `[ERROR_CODES.X]: () => makeError(ERROR_CODES.X,…)`.
+ *    A bare "is there a makeError above me" test matches the *previous* entry's
+ *    call from the map key, so require the reference to be the call's FIRST
+ *    argument — nothing but whitespace between them.
+ *  - Some builders pass a composed message (`redlineInvalidGeometryMessage(p)`)
+ *    rather than a literal. Searching far enough ahead then finds the NEXT
+ *    entry's literal, so stop the search at the next code or call. No literal
+ *    means the message is composed at runtime; null is the honest answer.
+ */
+function messageAfter(text, referenceIndex, referenceLength) {
   const before = text.slice(
     Math.max(0, referenceIndex - MAKE_ERROR_LOOKBEHIND_CHARS),
     referenceIndex
   )
-  if (!before.includes('makeError(')) {
+  const callIndex = before.lastIndexOf(MAKE_ERROR_CALL)
+  const NOT_FOUND = -1
+  if (callIndex === NOT_FOUND) {
     return null
   }
-  const window = text.slice(
-    referenceIndex,
-    referenceIndex + MESSAGE_LOOKAHEAD_CHARS
-  )
+  if (before.slice(callIndex + MAKE_ERROR_CALL.length).trim() !== '') {
+    return null
+  }
+
+  const from = referenceIndex + referenceLength
+  let window = text.slice(from, from + MESSAGE_LOOKAHEAD_CHARS)
+  for (const boundary of ['ERROR_CODES.', MAKE_ERROR_CALL]) {
+    const at = window.indexOf(boundary)
+    if (at !== NOT_FOUND) {
+      window = window.slice(0, at)
+    }
+  }
+
   const literal = /'([^']*)'|`([^`]*)`/s.exec(window)
   if (!literal) {
     return null
@@ -119,7 +161,7 @@ function extractRaiseSites(backendDir, codes) {
       sites[code].push({
         file: relative,
         line: lineOf(text, match.index),
-        message: messageAfter(text, match.index)
+        message: messageAfter(text, match.index, match[0].length)
       })
     }
   }
