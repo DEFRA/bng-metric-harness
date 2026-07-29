@@ -50,6 +50,7 @@ one.
 | `Post-intervention - complete, bng-500 variant.gpkg` | Structurally identical to the above (12 habitats + RLB) but different bytes. **Suspected stale duplicate** — see Open questions. |
 | `Baseline - retained hedgerow.gpkg` / `Post-intervention - retained hedgerow.gpkg` | A hedgerow retained through the intervention. Baseline 3 habitats / 2 hedgerows; post-intervention 12 habitats / 3 hedgerows. The pair shares one RLB. |
 | `Baseline - retained watercourse.gpkg` / `Post-intervention - retained watercourse.gpkg` | A watercourse retained through the intervention. Both stages carry all five layers (20 habitats, 6 hedgerows, 1 river, 10 trees) and share one RLB. |
+| `Baseline - all unit and intervention types.gpkg` / `Post-intervention - all unit and intervention types.gpkg` | All five layers (120 habitats, 40 hedgerows, 8 rivers, 60 trees, 1 RLB) with every retention category on habitats, hedgerows **and** watercourses — the only fixture that covers a created watercourse. Habitat areas tile the RLB exactly (517,339 m²) and every distinctiveness is in scope. The pair shares one RLB and passes `scripts/check-gpkg-pair.mjs`. Created linear features do not survive an upload — see Gaps. |
 
 ## spatial-problems/
 
@@ -192,12 +193,11 @@ will fail schema comparison and never reach the attribute validator.
 Positive coverage is thin relative to negative coverage:
 
 - **The "complete" baseline is not complete.** `valid/Baseline - complete with area refs.gpkg` has no Urban Trees layer — four of five. No fixture in `valid/` has all five layers populated. Fixtures that do exist (`spatial-problems/`, `attribute-problems/Baseline - habitat distinctiveness out of scope.gpkg`) are all deliberately flawed, so there is no clean five-layer baseline to upload.
-- **Post-intervention coverage is thin.** Every post-intervention fixture except `valid/Post-intervention - retained watercourse.gpkg` carries only Habitats + RLB. Further fixtures covering hedgerows, watercourses and trees exist, but only in `journey-tests/test/example-files/`.
 - **The "complete" pair is not a pair.** The two `valid/` "complete" files are different shapes (3 habitats + no trees vs 12 habitats + RLB only) and do not share an RLB, so they cannot model the two-stage journey. The `retained hedgerow` / `retained watercourse` pairs and `bng-500/` do.
 - **No positive controls for the geometry validators.** Every geometric flaw has a negative fixture and no valid twin — near-miss positives (parcels sharing an exact boundary, a hedgerow ending precisely on the RLB, a site just under the area limit) would catch a validator that fires unconditionally.
 - **No in-scope counterpart** to `attribute-problems/Baseline - habitat distinctiveness out of scope.gpkg`.
 - **Three flaws have no fixture**: `area-sum-mismatch`, `redline-too-large`, `no-trees`.
-- **Enhanced and created fates** are not covered. The retained fate is, by the two `valid/retained *` pairs (BMD-723, BMD-724).
+- **Created linear features do not survive an upload.** The generator writes a created hedgerow or watercourse as `Retention Category = Lost` (the NE template has no `Created` value), and the backend strips `Lost` rows from the hedgerow, watercourse and tree layers — the `Lost` → `Created` mapping applies to area habitats only. So the created linear features in `valid/Post-intervention - all unit and intervention types.gpkg` render from the file but are dropped on upload. The `journey-tests` fixtures sidestep this by writing the literal `Created`, which the backend does accept.
 - **Duplicate scenario**: the two `empty-layer/` "no habitats" files cover the same scenario at different scales; one is probably enough.
 
 ## Fixture shapes
