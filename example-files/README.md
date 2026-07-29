@@ -28,13 +28,6 @@ Regenerate reproducible fixtures with `npm run generate:gpkg` (see
 `scripts/gen-gpkg.mjs` is the authoritative scenario list; the "Flaw" column
 below gives the flag that reproduces a file where one exists.
 
-Synthetic mode emits a single post-intervention-shaped file — `--mode` only
-applies to workbook mode — so a synthetic pair's baseline half is derived from
-its post-intervention half with `deriveBaselineFromSynthetic` (`bng-library`),
-which copies the file and clears the proposed columns. Generating a second
-file instead would randomise fresh geometry and share no redline. Validate any
-pair with `node scripts/check-gpkg-pair.mjs <baseline> <post-intervention>`.
-
 Every fixture here stays within the beta's distinctiveness scope (V.Low, Low,
 Medium) apart from the two deliberate exceptions noted below —
 `attribute-problems/Baseline - habitat distinctiveness out of scope.gpkg`, which
