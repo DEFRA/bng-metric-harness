@@ -163,7 +163,7 @@ Two things worth knowing before using the table:
 - **The structural rules run first and stop the upload.** Nothing in the geometry or habitat-data groups is reached until the file format, layer, column and coordinate-system rules all pass. Expect to fix a file in two rounds rather than one.
 - **What you see on screen often does not identify the rule.** Of ${s.total} rules, ${s.dedicatedCopy} have a message of their own, ${s.placeholderCopy} show a placeholder, and ${s.catchAllCopy} fall back to a generic message about layer and column names. Each row records which applies.
 
-Example files are paths under \`example-files/\` in this repository. That directory is a reference corpus for people, not something the service reads, and \`journey-tests\` and \`backend\` keep their own separate copies.
+Example files are paths under \`example-files/\` in this repository, worked out by running the real validation gate over every fixture and recording which rule it reports. That directory is a reference corpus for people, not something the service reads, and \`journey-tests\` and \`backend\` keep their own separate copies — so a rule with an example file here is not necessarily covered by an automated test.
 
 ## The rules
 
@@ -184,12 +184,13 @@ ${facts.exampleFilesClaimedByNoRule.length} \`.gpkg\` files in \`example-files/\
 
 ## Known gaps recorded by this run
 
-- Two rules appear unreachable. The green infrastructure containment rule cannot fire, because that layer is not in the template and a file carrying it is rejected as an unexpected layer first. One layer-type rule cannot fail, because only layers already of the required type are examined.
+- The green infrastructure containment rule cannot fire. Running the real gate over the fixture built to exercise it shows the file rejected as an unexpected layer instead, because that layer is not in the template — so the containment check is never reached. One layer-type rule also cannot fail, because only layers already of the required type are examined.
+- \`example-files/README.md\` states that the green infrastructure fixture demonstrates the containment rule. It does not, per the above, and the entry is stale.
+- One fixture filed under \`invalid-schema/\` passes validation entirely: the one named for a wrong geometry column name. Column names are not compared against the template, only their syntactic validity, so there is nothing for it to trip.
 - The \`Water course enhancement through meanders\` layer is permitted by the template but never read, so no spatial rule is applied to anything in it.
 - Advance and delay values on the Urban Trees layer are silently discarded rather than merely unvalidated, because the column names on that layer differ from the ones the service reads. A five-year head start recorded there earns no credit and produces no warning.
 - The message shown for a gap between parcels tells the reader to redraw the parcel. There is no such parcel — the fault is a gap between two of them.
 - A file with exactly one fault gets the least informative message, because the specific technical detail is only listed when there is more than one error.
-- \`example-files/README.md\` records no error code for \`empty-layer/Baseline - no rlb polygons.gpkg\`, but a Red Line Boundary layer with zero rows does raise the no-boundary rule. The mapping in this document reflects the code.
 
 ## Where this comes from
 

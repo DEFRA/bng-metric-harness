@@ -277,27 +277,53 @@ function extractTolerances(backendDir) {
 
 const EXAMPLE_FILES_DIR = path.join(HARNESS_ROOT, 'example-files')
 const EXAMPLE_README = path.join(EXAMPLE_FILES_DIR, 'README.md')
-const OVERRIDES_FILE = path.join(
-  import.meta.dirname,
-  '..',
-  'references',
-  'fixture-overrides.json'
-)
+
+/** The error-code column of the tables in example-files/README.md. */
+function readmeClaims() {
+  if (!existsSync(EXAMPLE_README)) {
+    return {}
+  }
+  const claims = {}
+  let dir = null
+  for (const line of readTextFile(EXAMPLE_README).split('\n')) {
+    const heading = /^##\s+([\w-]+)\/\s*$/.exec(line)
+    if (heading) {
+      dir = heading[1]
+      continue
+    }
+    if (!dir || !line.startsWith('|')) {
+      continue
+    }
+    const cells = line.split('|').map((cell) => cell.trim())
+    const fileCell = /^`([^`]+\.gpkg)`$/.exec(cells[1] ?? '')
+    const codeCell = /^`([A-Z][A-Z0-9_]+)`$/.exec(cells.at(-2) ?? '')
+    if (fileCell && codeCell) {
+      claims[`${dir}/${fileCell[1]}`] = codeCell[1]
+    }
+  }
+  return claims
+}
 
 /**
- * Which .gpkg in example-files/ demonstrates each rule.
+ * Which .gpkg in example-files/ demonstrates each rule. Nothing here is
+ * hand-authored — an earlier version kept a mapping file that had to be
+ * remembered whenever a fixture was added or renamed.
  *
- * Two sources, because the corpus documents itself unevenly. The
- * spatial-problems, empty-layer and attribute-problems tables in
- * example-files/README.md carry an explicit "Error code" column, so those are
- * read straight off it and stay correct as the corpus changes. invalid-schema
- * and malformed have no such column, so those live in fixture-overrides.json.
+ * Two complementary sources, and the precedence between them matters:
  *
- * Every resolved path is checked against disk: a mapping that rots is reported,
- * never silently dropped. Files present on disk but claimed by no rule are
- * reported too — that gap is the point of the exercise.
+ *  - **Observed** (`fixture-map.json`, from observe-fixtures.mjs) — what the real
+ *    validation gate reports for each file. Authoritative wherever it has an
+ *    opinion, because it is measured rather than claimed.
+ *  - **Claimed** (the error-code columns in example-files/README.md) — used only
+ *    for files the gate passes. Those files are structurally fine and fail later,
+ *    at a stage needing PostGIS that cannot be run here, so the README is the
+ *    only available source.
+ *
+ * Where the README claims a code for a file the gate actually rejects with
+ * something else, the observation wins and the disagreement is reported: it means
+ * the fixture no longer demonstrates what it was built for.
  */
-function extractExampleFixtures() {
+function extractExampleFixtures(observedByCode, observedByFile) {
   const byCode = {}
   const add = (code, file) => {
     byCode[code] ??= []
@@ -306,48 +332,32 @@ function extractExampleFixtures() {
     }
   }
 
-  if (existsSync(EXAMPLE_README)) {
-    let dir = null
-    for (const line of readTextFile(EXAMPLE_README).split('\n')) {
-      const heading = /^##\s+([\w-]+)\/\s*$/.exec(line)
-      if (heading) {
-        dir = heading[1]
-        continue
-      }
-      if (!dir || !line.startsWith('|')) {
-        continue
-      }
-      const cells = line.split('|').map((cell) => cell.trim())
-      const fileCell = /^`([^`]+\.gpkg)`$/.exec(cells[1] ?? '')
-      const codeCell = /^`([A-Z][A-Z0-9_]+)`$/.exec(cells.at(-2) ?? '')
-      if (fileCell && codeCell) {
-        add(codeCell[1], `${dir}/${fileCell[1]}`)
-      }
+  for (const [code, files] of Object.entries(observedByCode)) {
+    for (const file of files) {
+      add(code, file)
     }
   }
 
-  if (existsSync(OVERRIDES_FILE)) {
-    for (const [code, files] of Object.entries(
-      JSON.parse(readTextFile(OVERRIDES_FILE))
-    )) {
-      if (code.startsWith('_')) {
-        continue
-      }
-      for (const file of files) {
-        add(code, file)
-      }
+  const contradicted = []
+  for (const [file, claimedCode] of Object.entries(readmeClaims())) {
+    const observed = observedByFile[file]
+    if (observed === undefined) {
+      add(claimedCode, file)
+      continue
+    }
+    if (observed.length === 0) {
+      add(claimedCode, file)
+      continue
+    }
+    if (!observed.includes(claimedCode)) {
+      contradicted.push(
+        `${file} — README says ${claimedCode}, the gate reports ${observed.join(', ')}`
+      )
     }
   }
 
-  const missingOnDisk = []
-  for (const [code, files] of Object.entries(byCode)) {
-    byCode[code] = files.filter((file) => {
-      const present = existsSync(path.join(EXAMPLE_FILES_DIR, file))
-      if (!present) {
-        missingOnDisk.push(`${code} → ${file}`)
-      }
-      return present
-    })
+  for (const code of Object.keys(byCode)) {
+    byCode[code].sort()
   }
 
   const claimed = new Set(Object.values(byCode).flat())
@@ -359,7 +369,7 @@ function extractExampleFixtures() {
 
   return {
     byCode,
-    missingOnDisk,
+    contradicted,
     unclaimed: onDisk.filter((file) => !claimed.has(file)).sort()
   }
 }
@@ -375,7 +385,12 @@ function buildFacts() {
   const raiseSites = extractRaiseSites(dirs.backend, registry)
   const { dedicated, placeholder } = extractCopyStatus(dirs.frontend)
   const fixtures = extractFixtures(dirs.library)
-  const examples = extractExampleFixtures()
+  const observedPath = argValue('--observed')
+  const observed =
+    observedPath && existsSync(observedPath)
+      ? JSON.parse(readTextFile(observedPath))
+      : { byCode: {}, observed: {} }
+  const examples = extractExampleFixtures(observed.byCode, observed.observed)
   const tolerances = extractTolerances(dirs.backend)
 
   const codes = {}
@@ -415,7 +430,7 @@ function buildFacts() {
     codes,
     tolerances,
     fixturesWithoutCode: Object.keys(fixtures).filter((code) => !codes[code]),
-    exampleFilesMissingOnDisk: examples.missingOnDisk,
+    exampleFilesContradictingReadme: examples.contradicted,
     exampleFilesClaimedByNoRule: examples.unclaimed
   }
 }
@@ -483,9 +498,9 @@ function reportSummary(facts) {
   console.log(`  generic catch-all:      ${s.catchAllCopy}`)
   console.log(`  exercised by a fixture: ${s.withFixture}`)
   console.log(`  has an example .gpkg:   ${s.withExampleFile}`)
-  if (facts.exampleFilesMissingOnDisk.length > 0) {
-    console.log(`\nFixture mappings pointing at a missing file:`)
-    for (const entry of facts.exampleFilesMissingOnDisk) {
+  if (facts.exampleFilesContradictingReadme.length > 0) {
+    console.log(`\nFixtures that no longer demonstrate what the README claims:`)
+    for (const entry of facts.exampleFilesContradictingReadme) {
       console.log(`  ${entry}`)
     }
   }

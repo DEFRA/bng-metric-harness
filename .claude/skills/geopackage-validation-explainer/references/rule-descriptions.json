@@ -170,7 +170,7 @@
   },
   "IGGIS_OUTSIDE_REDLINE": {
     "group": "How the shapes fit together",
-    "checks": "Green infrastructure area escaping past the boundary. Believed unreachable in ordinary use: that layer is not in the template, so a file carrying it is rejected as an unexpected layer first.",
+    "checks": "Green infrastructure area escaping past the boundary. Unreachable in ordinary use, and demonstrably so: that layer is not in the template, so the fixture built to exercise this rule is rejected as an unexpected layer before the containment check runs.",
     "tolerance": "PARCEL_OUTSIDE_TOLERANCE_SQ_M",
     "toleranceIs": "Tolerance"
   },

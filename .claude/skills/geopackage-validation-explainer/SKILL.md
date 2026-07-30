@@ -26,7 +26,7 @@ The document is a table, assembled deterministically from three inputs:
 | --- | --- |
 | `bng-metric-backend` | Which rules exist, where each is enforced, the message it raises |
 | `bng-metric-frontend` | Whether the user sees a bespoke message, a placeholder, or a generic catch-all |
-| `bng-library` + `example-files/` | Which generator flaw and which `.gpkg` exercise each rule |
+| `bng-library` + `example-files/` | Which generator flaw exercises each rule, and — by running the real gate over every fixture — which `.gpkg` demonstrates it |
 | `references/rule-descriptions.json` | What each rule checks, in plain English — checked in, not regenerated. Names the constant for any threshold rather than stating the number |
 
 The gap between them is the point. A rule with no example file, that reaches the user as a generic message, is exactly what the document must not imply is well covered.
@@ -54,7 +54,7 @@ Resolve from the first argument. With none, use **check** if a document already 
 
 ## Prerequisites
 
-Run from the harness root with Node 24 (`nvm use` first). The scripts read source only — nothing is installed, no database is needed, and nothing is executed from the repositories under inspection.
+Run from the harness root with Node 24 (`nvm use` first). No database is needed and nothing is installed. Most steps read source only; the one exception is the fixture-observation step, which loads the backend's validation gate and therefore needs the backend's dependencies present (`npm run install:be`).
 
 **Check the siblings are on the branch you mean to describe.** They are frequently left on feature branches, and the document will faithfully describe whatever is checked out. `npm run branch` shows all four at once. To describe what is deployed, put all three siblings on `main` and pull first — note `npm run pull` fast-forwards the *current* branch rather than switching, so an explicit checkout is needed.
 
@@ -72,11 +72,25 @@ grep -qxF '/.geopackage-validation-explainer/' .gitignore 2>/dev/null || \
 
 Only the finished document goes into `docs/`.
 
-## Step 1 — Extract and diff the facts
+## Step 1 — Observe which fixture demonstrates which rule
+
+```bash
+LOG_LEVEL=silent node .claude/skills/geopackage-validation-explainer/scripts/observe-fixtures.mjs \
+  --out .geopackage-validation-explainer/fixture-map.json
+```
+
+Runs the real validation gate over every `.gpkg` in `example-files/` and records what it reports. `LOG_LEVEL=silent` suppresses the backend's own logging, which would otherwise drown the output.
+
+This is measured rather than authored, so it needs no upkeep when fixtures are added or renamed — and it catches fixtures that have quietly stopped demonstrating what they were built for.
+
+The gate covers the file-format, layer, column, coordinate-system and shape-presence rules. It cannot reach the spatial rules, which need PostGIS, or the habitat-data rules, which run later; for those the next step falls back to the error-code columns in `example-files/README.md`.
+
+## Step 2 — Extract and diff the facts
 
 ```bash
 node .claude/skills/geopackage-validation-explainer/scripts/validation-facts.mjs \
   --out .geopackage-validation-explainer/facts.json \
+  --observed .geopackage-validation-explainer/fixture-map.json \
   --compare .geopackage-validation-explainer/facts.json
 ```
 
@@ -87,16 +101,16 @@ Writes every rule with its raise sites and message, the copy status the user exp
 **In check mode, act on the diff:**
 
 - *NO CHANGE* — the document is still accurate. Say so, name the commits, stop. This is the expected outcome of most runs.
-- *Codes added* — new rules the document does not describe. This is the case the skill exists to catch. Step 2 will name them.
+- *Codes added* — new rules the document does not describe. This is the case the skill exists to catch. Step 3 will name them.
 - *Codes removed* — delete their entries from `rule-descriptions.json`; the build fails until you do.
 - *Codes changed* — the message, copy status or fixture coverage moved. Rebuild; usually no description needs touching. A code graduating from placeholder to bespoke copy changes what the table claims even though the rule itself has not moved.
 
 Also act on these, which are reported separately:
 
-- *Fixture mappings pointing at a missing file* — a fixture was renamed or deleted. Fix `references/fixture-overrides.json`.
+- *Fixtures that no longer demonstrate what the README claims* — the gate rejects that file for a different rule than `example-files/README.md` says. The observation is right; the README entry is stale and worth correcting there.
 - *Codes defined but never raised* — expected for the route-level ones; investigate any others.
 
-## Step 2 — Build the document
+## Step 3 — Build the document
 
 ```bash
 node .claude/skills/geopackage-validation-explainer/scripts/build-document.mjs \
@@ -110,7 +124,7 @@ Deterministic: same inputs, byte-identical output.
 
 Do not weaken the check to get past it. A rule with no description is a rule the document silently stops covering, which is the failure this gate exists to prevent.
 
-## Step 3 — Verify
+## Step 4 — Verify
 
 ```bash
 node .claude/skills/geopackage-validation-explainer/scripts/doc-coverage.mjs \
@@ -124,13 +138,13 @@ Then read the rows you added or changed, as the audience would. Any sentence nee
 
 **Do not restate what the user is shown** in a description — the script generates that sentence from the facts file, and a hand-written version will contradict it as soon as the copy changes.
 
-## Step 4 — Publish to Confluence
+## Step 5 — Publish to Confluence
 
 Confluence is where this document lives, so the run is not finished when the markdown is written. Paste it and check the tables kept their columns and that no raw HTML shows as literal text. There is no Mermaid and no images, so nothing else needs attention.
 
 This step is manual. The skill has no Confluence credentials and must not attempt to publish on its own.
 
-## Step 5 — Report
+## Step 6 — Report
 
 Say what changed: the output path, the three commits it reflects, how many rules are documented, how many have an example file, and how many reach the user as a generic message. In check mode, lead with whether the document was still accurate.
 
@@ -147,11 +161,11 @@ The drift this catches is quiet: a rule added without documentation, a placehold
 ## Files in this skill
 
 - `scripts/_lib.mjs` — locates the three repositories by probing for the file each must supply, plus git provenance and shared parsing helpers.
+- `scripts/observe-fixtures.mjs` — runs the real validation gate over every `.gpkg` in `example-files/` and records which rule each one trips. Nothing about the fixture mapping is hand-authored.
 - `scripts/validation-facts.mjs` — extracts the rule list, reconciles it across the repositories and the example corpus, diffs runs.
 - `scripts/build-document.mjs` — assembles the document; fails on an undescribed rule.
 - `scripts/doc-coverage.mjs` — verifies the document on disk against the facts.
 - `references/rule-descriptions.json` — what each rule checks. The only authored prose.
-- `references/fixture-overrides.json` — rule-to-fixture mappings that `example-files/README.md` does not state itself.
 - `references/output-spec.md` — document shape and the house style for descriptions.
 
 ## Gotchas
@@ -159,7 +173,8 @@ The drift this catches is quiet: a rule added without documentation, a placehold
 - **Node 24.** `nvm use` first.
 - **The document is generated, never hand-edited.** A fix applied to the output is overwritten on the next run; change the generator, the descriptions or the spec.
 - **`docs/` is published.** Intermediates stay in `.geopackage-validation-explainer/`.
-- **Fixture mapping has two sources.** The `spatial-problems`, `empty-layer` and `attribute-problems` tables in `example-files/README.md` carry an explicit error-code column and are parsed directly. `invalid-schema` and `malformed` do not, so those live in `fixture-overrides.json`. Add a mapping there only where the fixture's condition maps unambiguously to one rule — an honest "no geopackage fixture" beats a guess.
+- **Fixture mapping is observed, not authored, and observation wins.** `observe-fixtures.mjs` runs the real gate over every fixture; whatever it reports is authoritative. The error-code columns in `example-files/README.md` are used only for files the gate *passes*, since those fail later at a stage needing PostGIS that cannot be run here. Where the README claims a code for a file the gate rejects with something else, the run reports the disagreement — that means the fixture has stopped demonstrating what it was built for. This replaced a hand-written mapping file, which had to be remembered and which silently degraded a renamed fixture into a false "no geopackage fixture" claim.
+- **The observe step needs the backend's dependencies installed**, because it loads the native SQLite binding. It exits with guidance if they are missing rather than producing an empty mapping that would strip every fixture from the document.
 - **The example corpus is nobody's dependency.** `example-files/` is a reference corpus for people; `journey-tests` and `backend` keep their own copies, already differing byte-for-byte in places. A rule with an example file here is not necessarily covered by an automated test.
 - **Flaw keys in the library are inconsistently quoted.** Most are quoted, `sliver` is not. The extractor handles both; if fixture attribution ever looks wrong, suspect that pattern first — a missed key silently attributes every later fixture to the previous one.
 - **Some codes are raised indirectly**, passed as configuration rather than to `makeError` at the call site, and some messages are composed at runtime. Both show a `null` message in the facts file. That is correct extraction, not a failure.
