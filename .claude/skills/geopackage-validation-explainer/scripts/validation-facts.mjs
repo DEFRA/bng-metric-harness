@@ -235,6 +235,44 @@ function extractFixtures(libraryDir) {
   return byCode
 }
 
+// ------------------------------------------------------------------ tolerances
+
+const POSTGIS_INDEX = path.join(
+  'src',
+  'validation',
+  'baseline',
+  'postgis',
+  'index.js'
+)
+
+/**
+ * The numeric thresholds the spatial checks compare against.
+ *
+ * Extracted rather than written down, because a tolerance is the single most
+ * rot-prone thing a description can state: the value lives in a constant, not in
+ * any error message, so nothing else in this skill would notice it moving. The
+ * document renders these, so no sentence has to assert a number.
+ *
+ * Only plain numeric declarations are read, including simple products such as
+ * `100 * 1000 * 1000`. Anything else is left out rather than guessed at.
+ */
+function extractTolerances(backendDir) {
+  const file = path.join(backendDir, POSTGIS_INDEX)
+  if (!existsSync(file)) {
+    return {}
+  }
+  const tolerances = {}
+  const pattern = /^const ([A-Z][A-Z0-9_]*)\s*=\s*([\d.\s*]+?)\s*$/gm
+  for (const [, name, expression] of readTextFile(file).matchAll(pattern)) {
+    const factors = expression.split('*').map((part) => Number(part.trim()))
+    if (factors.some(Number.isNaN)) {
+      continue
+    }
+    tolerances[name] = factors.reduce((a, b) => a * b, 1)
+  }
+  return tolerances
+}
+
 // ------------------------------------------------------- example-file fixtures
 
 const EXAMPLE_FILES_DIR = path.join(HARNESS_ROOT, 'example-files')
@@ -338,6 +376,7 @@ function buildFacts() {
   const { dedicated, placeholder } = extractCopyStatus(dirs.frontend)
   const fixtures = extractFixtures(dirs.library)
   const examples = extractExampleFixtures()
+  const tolerances = extractTolerances(dirs.backend)
 
   const codes = {}
   for (const [code, meta] of Object.entries(registry)) {
@@ -374,6 +413,7 @@ function buildFacts() {
       neverRaised: values.filter((c) => c.raisedAt.length === 0).length
     },
     codes,
+    tolerances,
     fixturesWithoutCode: Object.keys(fixtures).filter((code) => !codes[code]),
     exampleFilesMissingOnDisk: examples.missingOnDisk,
     exampleFilesClaimedByNoRule: examples.unclaimed

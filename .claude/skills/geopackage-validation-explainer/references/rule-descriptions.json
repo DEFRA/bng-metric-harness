@@ -1,64 +1,225 @@
 {
-  "_comment": "What each rule checks, in plain English, one entry per code in the backend registry. Checked in deliberately: the document is assembled from this file, so a run that changes nothing produces no model work and no reworded prose. build-document.mjs fails when a code in the registry has no entry here — that is the signal to write one, not to relax the check. Keep each 'checks' to one or two sentences describing the condition; tolerances belong here, remedies and QGIS instructions do not.",
-
-  "GPKG_INVALID_FILE": { "group": "File format", "checks": "The upload cannot be opened as a database at all. Usually something that is not a GeoPackage — a shapefile, a zip, a spreadsheet — or a .gpkg truncated by an interrupted copy." },
-  "GPKG_NOT_A_GEOPACKAGE": { "group": "File format", "checks": "The file opens as a database but is not stamped as a GeoPackage. Typically a SpatiaLite or plain SQLite database given a .gpkg name; the stamp is inside the file, so renaming the extension does not help." },
-  "GPKG_MISSING_SYSTEM_TABLE": { "group": "File format", "checks": "One of the GeoPackage's own internal housekeeping tables is absent, so the file is broken at the format level rather than merely wrong. Reported once per missing table." },
-
-  "GPKG_MISSING_LAYER": { "group": "Layers", "checks": "A layer the template requires is absent. Habitats and Red Line Boundary are both required; a layer that exists under a different name counts as missing." },
-  "GPKG_UNEXPECTED_FEATURE_LAYER": { "group": "Layers", "checks": "The file carries a vector mapping layer the template does not list — a constraints layer, a site plan, a working copy. Raster and tile layers are not examined, so an embedded basemap is not caught." },
-
-  "GPKG_BASELINE_SRS_ID": { "group": "Coordinate reference system", "checks": "A layer is not in British National Grid (EPSG:27700), or no usable coordinate system number can be read for it. Latitude and longitude and Web Mercator are both rejected. Reported once per layer." },
-  "GPKG_BASELINE_GPKG_SRS_INCONSISTENT": { "group": "Coordinate reference system", "checks": "The file records one layer's coordinate system in two places and the two disagree. A GIS package will display such a layer without complaint." },
-
-  "GPKG_BASELINE_CONTENTS_DATA_TYPE": { "group": "Geometry registration and declared type", "checks": "A layer is registered as something other than a vector mapping layer. Believed unreachable in practice: only layers already registered as mapping layers are ever examined." },
-  "GPKG_BASELINE_INVALID_GEOMETRY_COLUMN_NAME": { "group": "Geometry registration and declared type", "checks": "The column holding a layer's shapes has a name containing something other than letters, digits and underscores. The name itself is not compared against the template — only its validity." },
-  "GPKG_BASELINE_MULTIPLE_GEOMETRY_COLUMNS": { "group": "Geometry registration and declared type", "checks": "A layer has more than one column holding shapes, either in its registration or in the table itself. Usually the result of a merge or join carrying a second geometry across." },
-  "GPKG_BASELINE_GEOMETRY_TYPE_NAME": { "group": "Geometry registration and declared type", "checks": "A layer's declared shape type differs from the template, regardless of what was actually drawn. Habitats must be declared MultiPolygon and Red Line Boundary Polygon — the two required layers want opposite things." },
-  "GPKG_BASELINE_GEOMETRY_REGISTRATION_MISSING": { "group": "Geometry registration and declared type", "checks": "A layer is listed as a mapping layer but the file never records which of its columns holds the shapes, so no GIS tool can draw it. Applies to the optional layers; the two required layers have their own rules." },
-  "GPKG_HABITATS_NO_GEOMETRY_COLUMN": { "group": "Geometry registration and declared type", "checks": "The same missing registration, reported specifically for the Habitats layer." },
-  "GPKG_RLB_NO_GEOMETRY_COLUMN": { "group": "Geometry registration and declared type", "checks": "The same missing registration, reported specifically for the Red Line Boundary layer." },
-
-  "GPKG_BASELINE_MISSING_COLUMN": { "group": "Columns", "checks": "A column the template defines is absent, which includes any template column that has been renamed. Reported once per missing column per layer, so a stripped-down layer produces many at once." },
-  "GPKG_BASELINE_COLUMN_SQLITE_TYPE": { "group": "Columns", "checks": "A column exists with the right name but holds the wrong kind of value — text where a number is expected, or the reverse. Column length is never compared, so a text field of any size passes." },
-  "GPKG_BASELINE_COLUMN_NOT_NULL": { "group": "Columns", "checks": "A column's must-always-have-a-value setting differs from the template. Only the row identifier is required to carry one, so this fires either because it lost that setting or because another column gained it." },
-  "GPKG_BASELINE_COLUMN_PRIMARY_KEY": { "group": "Columns", "checks": "The column acting as the layer's unique row identifier is not the one the template expects." },
-
-  "NO_REDLINE": { "group": "Shapes present and of the right kind", "checks": "No red line boundary reached the geometry stage. In ordinary use the equivalent structural rule fires first; both are shown to the user as the same message." },
-  "GPKG_RLB_NO_POLYGON": { "group": "Shapes present and of the right kind", "checks": "The Red Line Boundary layer contains no area shape. Rows with nothing drawn, and rows holding a line or point, do not count towards the total." },
-  "GPKG_RLB_TOO_MANY_POLYGONS": { "group": "Shapes present and of the right kind", "checks": "The Red Line Boundary layer holds more than one row. What is counted is rows, not separate pieces of land, so a site of several detached areas stored as one multi-part feature passes." },
-  "NO_HABITAT_AREAS": { "group": "Shapes present and of the right kind", "checks": "The Habitats layer contains no area shape at all. Also fires when every shape in the layer is the wrong kind, which reads as though the layer were empty." },
-  "GPKG_HABITATS_WRONG_GEOMETRY_TYPE": { "group": "Shapes present and of the right kind", "checks": "The Habitats layer holds at least one valid area shape and also something that is not one — a stray line or point mixed into the same layer." },
-  "GPKG_HEDGEROWS_NO_LINESTRING_GEOMETRY": { "group": "Shapes present and of the right kind", "checks": "The Hedgerows layer has rows but not one usable line among them. An entirely empty optional layer passes; a layer of rows with nothing drawn does not." },
-  "GPKG_HEDGEROWS_WRONG_GEOMETRY_TYPE": { "group": "Shapes present and of the right kind", "checks": "The Hedgerows layer holds at least one valid line and also something that is not a line." },
-  "GPKG_RIVERS_NO_LINESTRING_GEOMETRY": { "group": "Shapes present and of the right kind", "checks": "The Rivers layer has rows but not one usable line among them, on the same terms as Hedgerows." },
-  "GPKG_RIVERS_WRONG_GEOMETRY_TYPE": { "group": "Shapes present and of the right kind", "checks": "The Rivers layer holds at least one valid line and also something that is not a line." },
-
-  "GPKG_RLB_UNREADABLE_GEOMETRY": { "group": "Unreadable shape data", "checks": "A row in the Red Line Boundary layer holds shape data that cannot be interpreted at all — truncated or corrupt, rather than badly drawn. One such row stops the rest of that layer's checks." },
-  "GPKG_HABITATS_UNREADABLE_GEOMETRY": { "group": "Unreadable shape data", "checks": "A row in the Habitats layer holds shape data that cannot be interpreted at all." },
-  "GPKG_HEDGEROWS_UNREADABLE_GEOMETRY": { "group": "Unreadable shape data", "checks": "A row in the Hedgerows layer holds shape data that cannot be interpreted at all." },
-  "GPKG_RIVERS_UNREADABLE_GEOMETRY": { "group": "Unreadable shape data", "checks": "A row in the Rivers layer holds shape data that cannot be interpreted at all." },
-
-  "REDLINE_INVALID_GEOMETRY": { "group": "Valid shapes", "checks": "The red line boundary is recognisable as an area but is not a legal one — most often a bowtie where the outline crosses itself, leaving no consistent answer to what is inside the site. Only the first fault is reported, with its map location." },
-  "AREA_PARCELS_INVALID_GEOMETRY": { "group": "Valid shapes", "checks": "A habitat parcel is not a legal area shape, for the same reasons. Unlike the boundary check, every offending parcel is named, up to fifty." },
-
-  "PARCEL_OVERLAPS": { "group": "How the shapes fit together", "checks": "Two habitat parcels claim the same ground. Parcels that merely touch along a shared edge always pass; an overlap up to 0.5 m² is tolerated." },
-  "SLIVERS_INSIDE_REDLINE": { "group": "How the shapes fit together", "checks": "A gap inside the boundary that no habitat parcel covers, up to a ceiling of 1 m². There is no tolerance beyond the millimetre at which the service stops distinguishing shapes, so hairline gaps between unsnapped parcels fail. Larger gaps surface as an area mismatch instead." },
-  "SLIVERS_OUTSIDE_REDLINE": { "group": "How the shapes fit together", "checks": "Habitat parcel material escaping past the boundary, measured on the parcels as a whole rather than per parcel, above 0.5 m². Reports a location rather than naming a parcel." },
-  "AREA_PARCELS_OUTSIDE_REDLINE": { "group": "How the shapes fit together", "checks": "A single habitat parcel escaping past the boundary by more than 0.5 m². Measures escaping area rather than testing containment, so parcels sharing an edge with the boundary are not flagged." },
-  "HEDGEROWS_OUTSIDE_REDLINE": { "group": "How the shapes fit together", "checks": "Hedgerow length falling outside the boundary, above 0.1 m. The tolerance is a total across every excursion, not an allowance per excursion." },
-  "WATERCOURSES_OUTSIDE_REDLINE": { "group": "How the shapes fit together", "checks": "Watercourse length falling outside the boundary, above 0.1 m, on the same terms as hedgerows." },
-  "IGGIS_OUTSIDE_REDLINE": { "group": "How the shapes fit together", "checks": "Green infrastructure area escaping past the boundary by more than 0.5 m². Believed unreachable in ordinary use: that layer is not in the template, so a file carrying it is rejected as an unexpected layer first." },
-  "TREES_OUTSIDE_REDLINE": { "group": "How the shapes fit together", "checks": "A tree sits more than 0.1 m outside the boundary. Unlike the line rules this is a straight-line distance per tree, so a tree inside or exactly on the boundary passes." },
-  "AREA_SUM_MISMATCH": { "group": "How the shapes fit together", "checks": "The total area of the habitat parcels differs from the boundary area by more than 0.5 m². The tolerance is absolute rather than proportional, so large sites are harder to pass. Both totals are plain sums, so a gap and an overlap of similar size cancel out and the check stays silent." },
-  "REDLINE_OUTSIDE_ENGLAND": { "group": "How the shapes fit together", "checks": "More than 0.5 m² of the boundary falls outside a reference outline of England. That outline is heavily generalised, so genuinely English coastal and border sites can fail it." },
-  "REDLINE_AREA_TOO_LARGE": { "group": "How the shapes fit together", "checks": "The boundary encloses more than 100 km². Far larger than any real site, so in practice it catches a coordinate system error or a stray vertex." },
-
-  "HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE": { "group": "Habitat data", "checks": "A habitat falls in the High or Very High distinctiveness band, which this service does not yet handle. Applies to area habitats, hedgerows and watercourses, and to habitats proposed as well as existing. Around half of all area habitat types are affected, and an ordinary river or stream always is." },
-  "DUPLICATE_HABITAT_REF": { "group": "Habitat data", "checks": "Two rows in the Habitats layer share a parcel reference. Blank references are ignored, and matching is exact, so references differing only by capitalisation or a trailing space are treated as distinct." },
-  "ADVANCE_AND_DELAY_BOTH_SET": { "group": "Habitat data", "checks": "One feature carries both advance years and delay years, which the statutory metric forbids as they are opposite directions on the same timeline. Applies to area habitats, hedgerows and watercourses; urban trees are excluded because the service does not read those columns on that layer." },
-
-  "SIZING_FAILED": { "group": "Service faults, not your file", "checks": "The database call that measures habitat sizes failed, after the file had already passed every check. Nothing about the upload was wrong." },
-  "INVALID_FILE_METADATA": { "group": "Service faults, not your file", "checks": "Covers two unrelated situations. The filename or file size reported for the upload is out of bounds — over 255 characters, not ending .gpkg, or over 100 MB — which is the reader's to fix. Or the record built internally from an already-valid file failed its own schema, which is not." },
-  "VALIDATION_FAILED": { "group": "Service faults, not your file", "checks": "An unexpected fault anywhere in the validation run. Every real rule violation returns its own code instead, so this always indicates a service problem rather than a file problem." }
+  "_comment": "What each rule checks, in plain English, one entry per code in the backend registry. Checked in deliberately: the document is assembled from this file, so a run that changes nothing does no model work and rewords nothing. build-document.mjs fails when a registry code has no entry here — that is the signal to write one, not to relax the check. Keep 'checks' to one or two sentences on the condition; no remedies, no code identifiers, and no numbers. State a threshold by naming the constant in 'tolerance' (optionally with wording in 'toleranceIs') and the build extracts the value from the code and appends the sentence — so a tolerance can never drift, and a renamed constant fails the build instead of publishing a stale figure.",
+  "GPKG_INVALID_FILE": {
+    "group": "File format",
+    "checks": "The upload cannot be opened as a database at all. Usually something that is not a GeoPackage — a shapefile, a zip, a spreadsheet — or a .gpkg truncated by an interrupted copy."
+  },
+  "GPKG_NOT_A_GEOPACKAGE": {
+    "group": "File format",
+    "checks": "The file opens as a database but is not stamped as a GeoPackage. Typically a SpatiaLite or plain SQLite database given a .gpkg name; the stamp is inside the file, so renaming the extension does not help."
+  },
+  "GPKG_MISSING_SYSTEM_TABLE": {
+    "group": "File format",
+    "checks": "One of the GeoPackage's own internal housekeeping tables is absent, so the file is broken at the format level rather than merely wrong. Reported once per missing table."
+  },
+  "GPKG_MISSING_LAYER": {
+    "group": "Layers",
+    "checks": "A layer the template requires is absent. Habitats and Red Line Boundary are both required; a layer that exists under a different name counts as missing."
+  },
+  "GPKG_UNEXPECTED_FEATURE_LAYER": {
+    "group": "Layers",
+    "checks": "The file carries a vector mapping layer the template does not list — a constraints layer, a site plan, a working copy. Raster and tile layers are not examined, so an embedded basemap is not caught."
+  },
+  "GPKG_BASELINE_SRS_ID": {
+    "group": "Coordinate reference system",
+    "checks": "A layer is not in British National Grid (EPSG:27700), or no usable coordinate system number can be read for it. Latitude and longitude and Web Mercator are both rejected. Reported once per layer."
+  },
+  "GPKG_BASELINE_GPKG_SRS_INCONSISTENT": {
+    "group": "Coordinate reference system",
+    "checks": "The file records one layer's coordinate system in two places and the two disagree. A GIS package will display such a layer without complaint."
+  },
+  "GPKG_BASELINE_CONTENTS_DATA_TYPE": {
+    "group": "Geometry registration and declared type",
+    "checks": "A layer is registered as something other than a vector mapping layer. Believed unreachable in practice: only layers already registered as mapping layers are ever examined."
+  },
+  "GPKG_BASELINE_INVALID_GEOMETRY_COLUMN_NAME": {
+    "group": "Geometry registration and declared type",
+    "checks": "The column holding a layer's shapes has a name containing something other than letters, digits and underscores. The name itself is not compared against the template — only its validity."
+  },
+  "GPKG_BASELINE_MULTIPLE_GEOMETRY_COLUMNS": {
+    "group": "Geometry registration and declared type",
+    "checks": "A layer has more than one column holding shapes, either in its registration or in the table itself. Usually the result of a merge or join carrying a second geometry across."
+  },
+  "GPKG_BASELINE_GEOMETRY_TYPE_NAME": {
+    "group": "Geometry registration and declared type",
+    "checks": "A layer's declared shape type differs from the template, regardless of what was actually drawn. Habitats must be declared MultiPolygon and Red Line Boundary Polygon — the two required layers want opposite things."
+  },
+  "GPKG_BASELINE_GEOMETRY_REGISTRATION_MISSING": {
+    "group": "Geometry registration and declared type",
+    "checks": "A layer is listed as a mapping layer but the file never records which of its columns holds the shapes, so no GIS tool can draw it. Applies to the optional layers; the two required layers have their own rules."
+  },
+  "GPKG_HABITATS_NO_GEOMETRY_COLUMN": {
+    "group": "Geometry registration and declared type",
+    "checks": "The same missing registration, reported specifically for the Habitats layer."
+  },
+  "GPKG_RLB_NO_GEOMETRY_COLUMN": {
+    "group": "Geometry registration and declared type",
+    "checks": "The same missing registration, reported specifically for the Red Line Boundary layer."
+  },
+  "GPKG_BASELINE_MISSING_COLUMN": {
+    "group": "Columns",
+    "checks": "A column the template defines is absent, which includes any template column that has been renamed. Reported once per missing column per layer, so a stripped-down layer produces many at once."
+  },
+  "GPKG_BASELINE_COLUMN_SQLITE_TYPE": {
+    "group": "Columns",
+    "checks": "A column exists with the right name but holds the wrong kind of value — text where a number is expected, or the reverse. Column length is never compared, so a text field of any size passes."
+  },
+  "GPKG_BASELINE_COLUMN_NOT_NULL": {
+    "group": "Columns",
+    "checks": "A column's must-always-have-a-value setting differs from the template. Only the row identifier is required to carry one, so this fires either because it lost that setting or because another column gained it."
+  },
+  "GPKG_BASELINE_COLUMN_PRIMARY_KEY": {
+    "group": "Columns",
+    "checks": "The column acting as the layer's unique row identifier is not the one the template expects."
+  },
+  "NO_REDLINE": {
+    "group": "Shapes present and of the right kind",
+    "checks": "No red line boundary reached the geometry stage. In ordinary use the equivalent structural rule fires first; both are shown to the user as the same message."
+  },
+  "GPKG_RLB_NO_POLYGON": {
+    "group": "Shapes present and of the right kind",
+    "checks": "The Red Line Boundary layer contains no area shape. Rows with nothing drawn, and rows holding a line or point, do not count towards the total."
+  },
+  "GPKG_RLB_TOO_MANY_POLYGONS": {
+    "group": "Shapes present and of the right kind",
+    "checks": "The Red Line Boundary layer holds more than one row. What is counted is rows, not separate pieces of land, so a site of several detached areas stored as one multi-part feature passes."
+  },
+  "NO_HABITAT_AREAS": {
+    "group": "Shapes present and of the right kind",
+    "checks": "The Habitats layer contains no area shape at all. Also fires when every shape in the layer is the wrong kind, which reads as though the layer were empty."
+  },
+  "GPKG_HABITATS_WRONG_GEOMETRY_TYPE": {
+    "group": "Shapes present and of the right kind",
+    "checks": "The Habitats layer holds at least one valid area shape and also something that is not one — a stray line or point mixed into the same layer."
+  },
+  "GPKG_HEDGEROWS_NO_LINESTRING_GEOMETRY": {
+    "group": "Shapes present and of the right kind",
+    "checks": "The Hedgerows layer has rows but not one usable line among them. An entirely empty optional layer passes; a layer of rows with nothing drawn does not."
+  },
+  "GPKG_HEDGEROWS_WRONG_GEOMETRY_TYPE": {
+    "group": "Shapes present and of the right kind",
+    "checks": "The Hedgerows layer holds at least one valid line and also something that is not a line."
+  },
+  "GPKG_RIVERS_NO_LINESTRING_GEOMETRY": {
+    "group": "Shapes present and of the right kind",
+    "checks": "The Rivers layer has rows but not one usable line among them, on the same terms as Hedgerows."
+  },
+  "GPKG_RIVERS_WRONG_GEOMETRY_TYPE": {
+    "group": "Shapes present and of the right kind",
+    "checks": "The Rivers layer holds at least one valid line and also something that is not a line."
+  },
+  "GPKG_RLB_UNREADABLE_GEOMETRY": {
+    "group": "Unreadable shape data",
+    "checks": "A row in the Red Line Boundary layer holds shape data that cannot be interpreted at all — truncated or corrupt, rather than badly drawn. One such row stops the rest of that layer's checks."
+  },
+  "GPKG_HABITATS_UNREADABLE_GEOMETRY": {
+    "group": "Unreadable shape data",
+    "checks": "A row in the Habitats layer holds shape data that cannot be interpreted at all."
+  },
+  "GPKG_HEDGEROWS_UNREADABLE_GEOMETRY": {
+    "group": "Unreadable shape data",
+    "checks": "A row in the Hedgerows layer holds shape data that cannot be interpreted at all."
+  },
+  "GPKG_RIVERS_UNREADABLE_GEOMETRY": {
+    "group": "Unreadable shape data",
+    "checks": "A row in the Rivers layer holds shape data that cannot be interpreted at all."
+  },
+  "REDLINE_INVALID_GEOMETRY": {
+    "group": "Valid shapes",
+    "checks": "The red line boundary is recognisable as an area but is not a legal one — most often a bowtie where the outline crosses itself, leaving no consistent answer to what is inside the site. Only the first fault is reported, with its map location."
+  },
+  "AREA_PARCELS_INVALID_GEOMETRY": {
+    "group": "Valid shapes",
+    "checks": "A habitat parcel is not a legal area shape, for the same reasons. Unlike the boundary check, every offending parcel is named, up to fifty."
+  },
+  "PARCEL_OVERLAPS": {
+    "group": "How the shapes fit together",
+    "checks": "Two habitat parcels claim the same ground. Parcels that merely touch along a shared edge always pass.",
+    "tolerance": "OVERLAP_TOLERANCE_SQ_M",
+    "toleranceIs": "An overlap is tolerated up to"
+  },
+  "SLIVERS_INSIDE_REDLINE": {
+    "group": "How the shapes fit together",
+    "checks": "A gap inside the boundary that no habitat parcel covers. There is no lower tolerance beyond the millimetre at which the service stops distinguishing shapes, so hairline gaps between unsnapped parcels fail; larger gaps surface as an area mismatch instead.",
+    "tolerance": "SLIVER_THRESHOLD_SQ_M",
+    "toleranceIs": "Reported only below a ceiling of"
+  },
+  "SLIVERS_OUTSIDE_REDLINE": {
+    "group": "How the shapes fit together",
+    "checks": "Habitat parcel material escaping past the boundary, measured on the parcels as a whole rather than per parcel. Reports a location rather than naming a parcel.",
+    "tolerance": "PARCEL_OUTSIDE_TOLERANCE_SQ_M",
+    "toleranceIs": "Tolerance"
+  },
+  "AREA_PARCELS_OUTSIDE_REDLINE": {
+    "group": "How the shapes fit together",
+    "checks": "A single habitat parcel escaping past the boundary. Measures escaping area rather than testing containment, so parcels sharing an edge with the boundary are not flagged.",
+    "tolerance": "PARCEL_OUTSIDE_TOLERANCE_SQ_M",
+    "toleranceIs": "Tolerance"
+  },
+  "HEDGEROWS_OUTSIDE_REDLINE": {
+    "group": "How the shapes fit together",
+    "checks": "Hedgerow length falling outside the boundary. The tolerance is a total across every excursion, not an allowance per excursion.",
+    "tolerance": "OUTSIDE_BOUNDARY_TOLERANCE_M",
+    "toleranceIs": "Tolerance"
+  },
+  "WATERCOURSES_OUTSIDE_REDLINE": {
+    "group": "How the shapes fit together",
+    "checks": "Watercourse length falling outside the boundary, on the same terms as hedgerows.",
+    "tolerance": "OUTSIDE_BOUNDARY_TOLERANCE_M",
+    "toleranceIs": "Tolerance"
+  },
+  "IGGIS_OUTSIDE_REDLINE": {
+    "group": "How the shapes fit together",
+    "checks": "Green infrastructure area escaping past the boundary. Believed unreachable in ordinary use: that layer is not in the template, so a file carrying it is rejected as an unexpected layer first.",
+    "tolerance": "PARCEL_OUTSIDE_TOLERANCE_SQ_M",
+    "toleranceIs": "Tolerance"
+  },
+  "TREES_OUTSIDE_REDLINE": {
+    "group": "How the shapes fit together",
+    "checks": "A tree sits outside the boundary. Unlike the line rules this is a straight-line distance per tree, so a tree inside or exactly on the boundary passes.",
+    "tolerance": "OUTSIDE_BOUNDARY_TOLERANCE_M",
+    "toleranceIs": "Tolerance"
+  },
+  "AREA_SUM_MISMATCH": {
+    "group": "How the shapes fit together",
+    "checks": "The total area of the habitat parcels differs from the boundary area. The tolerance is absolute rather than proportional, so large sites are harder to pass. Both totals are plain sums, so a gap and an overlap of similar size cancel out and the check stays silent.",
+    "tolerance": "AREA_SUM_TOLERANCE_SQ_M",
+    "toleranceIs": "Tolerance"
+  },
+  "REDLINE_OUTSIDE_ENGLAND": {
+    "group": "How the shapes fit together",
+    "checks": "Part of the boundary falls outside a reference outline of England. That outline is heavily generalised, so genuinely English coastal and border sites can fail it.",
+    "tolerance": "REDLINE_OUTSIDE_ENGLAND_TOLERANCE_SQ_M",
+    "toleranceIs": "Tolerance"
+  },
+  "REDLINE_AREA_TOO_LARGE": {
+    "group": "How the shapes fit together",
+    "checks": "The boundary encloses more land than any real site plausibly would, so in practice this catches a coordinate system error or a stray vertex.",
+    "tolerance": "MAX_REDLINE_AREA_SQ_M",
+    "toleranceIs": "The cap is"
+  },
+  "HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE": {
+    "group": "Habitat data",
+    "checks": "A habitat falls in the High or Very High distinctiveness band, which this service does not yet handle. Applies to area habitats, hedgerows and watercourses, and to habitats proposed as well as existing. Around half of all area habitat types are affected, and an ordinary river or stream always is."
+  },
+  "DUPLICATE_HABITAT_REF": {
+    "group": "Habitat data",
+    "checks": "Two rows in the Habitats layer share a parcel reference. Blank references are ignored, and matching is exact, so references differing only by capitalisation or a trailing space are treated as distinct."
+  },
+  "ADVANCE_AND_DELAY_BOTH_SET": {
+    "group": "Habitat data",
+    "checks": "One feature carries both advance years and delay years, which the statutory metric forbids as they are opposite directions on the same timeline. Applies to area habitats, hedgerows and watercourses; urban trees are excluded because the service does not read those columns on that layer."
+  },
+  "SIZING_FAILED": {
+    "group": "Service faults, not your file",
+    "checks": "The database call that measures habitat sizes failed, after the file had already passed every check. Nothing about the upload was wrong."
+  },
+  "INVALID_FILE_METADATA": {
+    "group": "Service faults, not your file",
+    "checks": "Covers two unrelated situations. The filename or file size reported for the upload is outside the allowed bounds, which is the reader's to fix. Or the record built internally from an already-valid file failed its own schema, which is not."
+  },
+  "VALIDATION_FAILED": {
+    "group": "Service faults, not your file",
+    "checks": "An unexpected fault anywhere in the validation run. Every real rule violation returns its own code instead, so this always indicates a service problem rather than a file problem."
+  }
 }

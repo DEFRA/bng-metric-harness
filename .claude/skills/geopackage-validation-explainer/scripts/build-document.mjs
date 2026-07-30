@@ -72,7 +72,45 @@ function ruleCell(code, entry) {
   return `\`${code}\` — *${cell(shown)}*`
 }
 
-function buildTable(codes, descriptions) {
+const SQ_M_PER_SQ_KM = 1000000
+
+/**
+ * Render an extracted constant in the reader's units.
+ *
+ * The unit comes from the constant's own name suffix, so a renamed constant
+ * fails the lookup loudly rather than being rendered with the wrong unit.
+ */
+function formatTolerance(name, value) {
+  if (name.endsWith('_SQ_M')) {
+    return value >= SQ_M_PER_SQ_KM
+      ? `${value / SQ_M_PER_SQ_KM} km²`
+      : `${value} m²`
+  }
+  if (name.endsWith('_M')) {
+    return `${value} m`
+  }
+  return String(value)
+}
+
+/** The generated sentence carrying a rule's threshold, or '' when it has none. */
+function toleranceSentence(entry, description, tolerances) {
+  const name = description.tolerance
+  if (!name) {
+    return ''
+  }
+  if (!(name in tolerances)) {
+    console.error(
+      `\nDescription for a rule names the tolerance constant ${name}, which was not found in the code.\n` +
+        `It has probably been renamed. Update the 'tolerance' field in references/rule-descriptions.json.`
+    )
+    process.exit(1)
+  }
+  const shown = formatTolerance(name, tolerances[name])
+  const wording = description.toleranceIs ?? 'Tolerance'
+  return ` ${wording} ${shown}.`
+}
+
+function buildTable(codes, descriptions, tolerances) {
   // Row order follows rule-descriptions.json, not the registry. The registry is
   // ordered by how the code grew, which puts "the same rule, for this layer"
   // rows ahead of the general rule they refer back to.
@@ -88,10 +126,11 @@ function buildTable(codes, descriptions) {
     lines.push('| Rule and example file | What it checks |')
     lines.push('| --- | --- |')
     for (const [code, entry] of byGroup.get(group)) {
-      const checks = descriptions[code].checks
+      const description = descriptions[code]
+      const threshold = toleranceSentence(entry, description, tolerances)
       const seen = SEEN[entry.copy]
       lines.push(
-        `| ${ruleCell(code, entry)} | ${cell(checks)} The user sees ${seen}. |`
+        `| ${ruleCell(code, entry)} | ${cell(description.checks)}${threshold} The user sees ${seen}. |`
       )
     }
     lines.push('')
@@ -128,7 +167,7 @@ Example files are paths under \`example-files/\` in this repository. That direct
 
 ## The rules
 
-${buildTable(facts.codes, descriptions)}## Coverage
+${buildTable(facts.codes, descriptions, facts.tolerances ?? {})}## Coverage
 
 | Measure | Count |
 | --- | --- |

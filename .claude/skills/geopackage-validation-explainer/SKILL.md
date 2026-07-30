@@ -27,7 +27,7 @@ The document is a table, assembled deterministically from three inputs:
 | `bng-metric-backend` | Which rules exist, where each is enforced, the message it raises |
 | `bng-metric-frontend` | Whether the user sees a bespoke message, a placeholder, or a generic catch-all |
 | `bng-library` + `example-files/` | Which generator flaw and which `.gpkg` exercise each rule |
-| `references/rule-descriptions.json` | What each rule checks, in plain English — checked in, not regenerated |
+| `references/rule-descriptions.json` | What each rule checks, in plain English — checked in, not regenerated. Names the constant for any threshold rather than stating the number |
 
 The gap between them is the point. A rule with no example file, that reaches the user as a generic message, is exactly what the document must not imply is well covered.
 
@@ -42,6 +42,8 @@ The first version had the model trace all 50 rules with four parallel agents, wr
 - **A genuinely new code** → the build fails naming it, and *that one code* needs a description written.
 
 If you find yourself adding a narrative section, a remedy column or an adversarial verification sweep, you are rebuilding the slow version. The prose that was cut is in git history if it is ever wanted.
+
+**Descriptions state no numbers.** Every threshold is named by its constant and extracted at build time, so tolerances cannot drift and a tolerance change needs no model attention at all. This replaced a proposal to hash the upstream facts and track per-description staleness — extracting the volatile values was simpler and covered the same ground.
 
 ## Modes
 
