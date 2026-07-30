@@ -226,9 +226,9 @@ const orphaned = Object.keys(descriptions).filter((code) => !facts.codes[code])
 
 if (undescribed.length > 0) {
   console.error(
-    `\n${undescribed.length} rule(s) in the registry have no description in references/rule-descriptions.json:\n` +
+    `\n${undescribed.length} rule(s) have no description at all:\n` +
       undescribed.map((code) => `  - ${code}`).join('\n') +
-      `\n\nWrite a description for each, then re-run. Do not remove the check.`
+      `\n\nRun draft-descriptions.mjs first — it creates an entry for every rule.`
   )
   process.exit(1)
 }
@@ -236,10 +236,17 @@ if (orphaned.length > 0) {
   console.error(
     `\n${orphaned.length} description(s) name a rule that no longer exists:\n` +
       orphaned.map((code) => `  - ${code}`).join('\n') +
-      `\n\nDelete them from references/rule-descriptions.json.`
+      `\n\nRun draft-descriptions.mjs, which prunes them.`
   )
   process.exit(1)
 }
+
+// Drafts are machine-generated from developer-facing text. The document still
+// builds — a run must be able to complete — but publishing one unrewritten
+// defeats the point of the story, so say so loudly rather than in passing.
+const stillDrafted = Object.keys(facts.codes).filter(
+  (code) => descriptions[code].drafted
+)
 
 mkdirSync(path.dirname(path.resolve(outPath)), { recursive: true })
 writeFileSync(outPath, buildDocument(facts, descriptions))
@@ -250,3 +257,12 @@ const withFile = Object.values(facts.codes).filter(
 console.log(`Wrote ${outPath}`)
 console.log(`  ${Object.keys(facts.codes).length} rules, all described`)
 console.log(`  ${withFile} with an example .gpkg`)
+
+if (stillDrafted.length > 0) {
+  console.log(
+    `\nNOT READY TO PUBLISH — ${stillDrafted.length} description(s) are still machine drafts:\n` +
+      stillDrafted.map((code) => `  ${code}`).join('\n') +
+      `\n\nRewrite each for a non-technical reader per references/output-spec.md, remove its\n` +
+      `"drafted" flag, and rebuild.`
+  )
+}

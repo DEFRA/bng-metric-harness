@@ -1,6 +1,8 @@
 # Output specification — `geopackage-validation-explained.md`
 
-The document is **assembled by `build-document.mjs`**, not written by the model. This file therefore specifies two things: the shape of the document the script produces, and the house style for the one thing a human or a model still authors — the `checks` text in `references/rule-descriptions.json`.
+The document is **assembled by `build-document.mjs`**, not written by the model. This file therefore specifies two things: the shape of the document the script produces, and the house style for the one thing the model still writes — the `checks` text in `references/rule-descriptions.json`.
+
+That file is created and topped up by `draft-descriptions.mjs`, so it is never maintained by hand. Every rule always has an entry; a new one arrives as a machine draft marked `"drafted": true`, lifted from the registry's doc comment or the literal message the rule raises. Those drafts are developer-facing and not publishable. Rewriting them is the model's job, and removing the flag is what marks one settled. Settled entries are never regenerated.
 
 An earlier version of this skill had the model write the whole document on every run. That cost 20–40 minutes, produced several thousand words of prose nobody asked for, and reworded everything even when the code had not changed. If you are tempted to reintroduce narrative sections, read the runtime note in `SKILL.md` first.
 
@@ -36,9 +38,11 @@ Two columns, and the left one carries both identifiers:
 
 Row order within a group follows `rule-descriptions.json`, not the registry. The registry is ordered by how the code grew, which puts "the same rule, for this layer" rows ahead of the general rule they refer back to.
 
-## Writing a `checks` description
+## Rewriting a drafted `checks` description
 
-This is the only prose that needs authoring, and only for a code that has no entry yet.
+This is the only prose the model writes, and only for entries still marked `"drafted": true`.
+
+Start from the draft's evidence, not the draft's wording. "Layer … baseline mismatch: missing column …" tells you the condition; it is not a sentence a planning consultant can use.
 
 - **One or two sentences.** State the condition that triggers the rule. Stop.
 - **No code.** No function names, file paths, table names or SQL. The error code appears in the left column; it does not belong in the sentence.
