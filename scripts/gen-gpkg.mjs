@@ -41,7 +41,7 @@
  *     bowtie-parcel               AREA_PARCELS_INVALID_GEOMETRY
  *     overlapping-parcels         PARCEL_OVERLAPS
  *     parcel-outside-redline      AREA_PARCELS_OUTSIDE_REDLINE
- *     sliver                      SLIVERS_INSIDE_REDLINE
+ *     sliver                      AREA_PARCELS_TOO_SMALL
  *     hedgerow-outside            HEDGEROWS_OUTSIDE_REDLINE
  *     watercourse-outside         WATERCOURSES_OUTSIDE_REDLINE
  *     tree-outside                TREES_OUTSIDE_REDLINE
