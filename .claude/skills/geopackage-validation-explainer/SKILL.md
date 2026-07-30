@@ -1,14 +1,14 @@
 ---
 name: geopackage-validation-explainer
 description: >-
-  Generate (or refresh) a plain-English explanation of the validation rules the
-  BNG Metric service enforces when checking an uploaded GeoPackage — what makes a
-  file be rejected, and what to change to make it pass. Produces a documentation
-  page whose rule list is reconciled against the backend error registry, the
-  frontend error copy and the library's test fixtures, so it cannot drift out of
-  step with the code. Use when asked to explain or document GeoPackage validation,
-  upload errors, why a file was rejected, or the baseline file checks; or to re-run
-  it periodically to check the published documentation still matches the code.
+  Generate (or refresh) a plain-English table of the validation rules the BNG
+  Metric service enforces when checking an uploaded GeoPackage — what each rule
+  checks, and which example .gpkg demonstrates it. The rule list, the message the
+  user sees and the fixture mapping are all extracted from the code on every run,
+  so the document cannot drift out of step with it. Use when asked to explain or
+  document GeoPackage validation, upload errors, why a file was rejected, the
+  baseline file checks, or which fixtures cover which rules; or to re-run it
+  periodically to check the published documentation still matches the code.
   Delivers BMD-887.
 userInvocable: true
 arguments: "[generate|check] [output-path]  — mode defaults to check when a document already exists, generate otherwise"
@@ -16,51 +16,51 @@ arguments: "[generate|check] [output-path]  — mode defaults to check when a do
 
 # Plain-English GeoPackage validation explainer
 
-Produce documentation that answers **BMD-887**: which rules cause an uploaded
-GeoPackage to be rejected, and what a non-technical reader would change in their
-file to make it pass.
+Produce the document that answers **BMD-887**: which rules cause an uploaded GeoPackage to be rejected, what each one checks, and which example file demonstrates it.
 
-**The model writes the prose, the code supplies the rule list.** Every rule in the
-document is reconciled against the backend's error registry, so the document cannot
-quietly omit a rule or describe one that no longer exists. The model's job is
-explanation and grouping, never deciding what the rules are.
+**The scripts do the work. The model only writes descriptions for rules that do not have one.**
 
-This is the sibling of `rules-engine-explainer`, which explains how units are
-*calculated*. That skill proves itself by executing the engine. There is nothing
-equivalent to execute here — the spatial checks need a live PostGIS — so this skill
-proves itself by **reconciliation across three repos** instead:
+The document is a table, assembled deterministically from three inputs:
 
-| Repo | Supplies |
+| Input | Supplies |
 | --- | --- |
-| `bng-metric-backend` | Which rules exist, where each is enforced, the literal message it raises |
+| `bng-metric-backend` | Which rules exist, where each is enforced, the message it raises |
 | `bng-metric-frontend` | Whether the user sees a bespoke message, a placeholder, or a generic catch-all |
-| `bng-library` | Which rules a test fixture actually exercises |
+| `bng-library` + `example-files/` | Which generator flaw and which `.gpkg` exercise each rule |
+| `references/rule-descriptions.json` | What each rule checks, in plain English — checked in, not regenerated |
 
-The gap between those three is the story. A rule that no fixture tests and that
-reaches the user as a generic message is exactly what the document must not imply
-is well covered.
+The gap between them is the point. A rule with no example file, that reaches the user as a generic message, is exactly what the document must not imply is well covered.
+
+## Runtime — read before changing anything
+
+A full run is **under a second** and spawns no agents. That is deliberate and was expensive to achieve.
+
+The first version had the model trace all 50 rules with four parallel agents, write ~4,700 words of prose, and verify it with two more agents: 20–40 minutes per run, and a document that reworded itself even when the code had not changed. Descriptions now live in `references/rule-descriptions.json`, so:
+
+- **Nothing changed** → facts diff reports `NO CHANGE`, stop. No document rebuild, no agents.
+- **Codes changed but all still described** → rebuild, no agents.
+- **A genuinely new code** → the build fails naming it, and *that one code* needs a description written.
+
+If you find yourself adding a narrative section, a remedy column or an adversarial verification sweep, you are rebuilding the slow version. The prose that was cut is in git history if it is ever wanted.
 
 ## Modes
 
-- **generate** — full run: extract facts, trace the rules, write the document.
-- **check** — the periodic re-run: extract facts, diff against the last run,
-  regenerate only what changed. If nothing changed, say so and stop.
+- **generate** — extract facts, build the document, verify.
+- **check** — extract facts, diff against the last run, stop early if nothing changed.
 
-Resolve from the first argument. With none, use **check** if a document already
-exists at the output path, otherwise **generate**.
+Resolve from the first argument. With none, use **check** if a document already exists at the output path, otherwise **generate**.
 
 ## Prerequisites
 
-Run from the harness root with Node 24 (`nvm use` first). The scripts locate the
-three repos themselves and read source only — nothing is installed, no database is
-needed, and nothing is executed from the repos under inspection.
+Run from the harness root with Node 24 (`nvm use` first). The scripts read source only — nothing is installed, no database is needed, and nothing is executed from the repositories under inspection.
+
+**Check the siblings are on the branch you mean to describe.** They are frequently left on feature branches, and the document will faithfully describe whatever is checked out. `npm run branch` shows all four at once. To describe what is deployed, put all three siblings on `main` and pull first — note `npm run pull` fast-forwards the *current* branch rather than switching, so an explicit checkout is needed.
 
 ---
 
 ## Step 0 — Scaffold the working directory (idempotent)
 
-`build-docs.mjs` sweeps every `.md` under `docs/` into the published site, so
-intermediates must live elsewhere and stay gitignored:
+`build-docs.mjs` sweeps every `.md` under `docs/` into the published site, so intermediates must live elsewhere and stay gitignored:
 
 ```bash
 mkdir -p .geopackage-validation-explainer
@@ -78,70 +78,37 @@ node .claude/skills/geopackage-validation-explainer/scripts/validation-facts.mjs
   --compare .geopackage-validation-explainer/facts.json
 ```
 
-Writes every code in the registry with its raise sites and literal message, the
-copy status the user experiences, the fixtures that exercise it, and the commit of
-each repo. Passing the same path to `--compare` diffs against the previous run
-before overwriting.
+Writes every rule with its raise sites and message, the copy status the user experiences, the generator flaw and example `.gpkg` that exercise it, and the commit of each repository. Passing the same path to `--compare` diffs against the previous run before overwriting.
 
-**Read the summary before going further.** It reports how many rules reach the user
-as a generic message and how many no fixture covers. Those counts are content, not
-diagnostics — section 4 and section 10 of the document depend on them.
+**Read the summary.** The counts are content — the document's coverage section is built from them.
 
 **In check mode, act on the diff:**
 
-- *NO CHANGE* — the document is still accurate. Say so, name the commits checked
-  against, stop. This is the expected outcome of most runs.
-- *Codes added* — new rules exist that the document does not describe. This is the
-  case the skill exists to catch. Trace the new ones and write them up.
-- *Codes removed* — the document describes a rule the service no longer enforces.
-  Remove it; do not leave it in as history.
-- *Codes changed* — the message, the copy status or the fixture coverage moved. A
-  code graduating from placeholder to bespoke copy changes what section 4 and the
-  rule index claim, even though the rule itself is unchanged.
+- *NO CHANGE* — the document is still accurate. Say so, name the commits, stop. This is the expected outcome of most runs.
+- *Codes added* — new rules the document does not describe. This is the case the skill exists to catch. Step 2 will name them.
+- *Codes removed* — delete their entries from `rule-descriptions.json`; the build fails until you do.
+- *Codes changed* — the message, copy status or fixture coverage moved. Rebuild; usually no description needs touching. A code graduating from placeholder to bespoke copy changes what the table claims even though the rule itself has not moved.
 
-## Step 2 — Trace the rules
+Also act on these, which are reported separately:
 
-Spawn `Explore` agents **in parallel** (one message, multiple tool calls). In
-generate mode run all four; in check mode only those the diff touches.
+- *Fixture mappings pointing at a missing file* — a fixture was renamed or deleted. Fix `references/fixture-overrides.json`.
+- *Codes defined but never raised* — expected for the route-level ones; investigate any others.
 
-1. **File and schema checks.** What the upload is compared against, and what makes
-   a layer, column or coordinate reference system fail. The largest group by count
-   and the least visible to users — establish what a reader could actually do about
-   each one.
-2. **Geometry checks.** Red line boundary count, polygon and linestring
-   expectations per layer, and what "invalid geometry" means concretely. Note which
-   layers are optional and what an empty optional layer does.
-3. **Spatial relationship checks.** Containment, overlaps, slivers, area
-   reconciliation — and **every tolerance, with its units**. Tolerances are the
-   detail readers most need and the one most often lost in translation.
-4. **Attribute checks.** Distinctiveness scope, duplicate parcel references,
-   advance and delay both set. Include why each rule exists where the code says so.
+## Step 2 — Build the document
 
-Require **a file:line citation for every claim**, in plain English, and ask each
-agent to flag anything that would surprise someone assuming the obvious reading.
-Those surprises inform section 8.
+```bash
+node .claude/skills/geopackage-validation-explainer/scripts/build-document.mjs \
+  --facts .geopackage-validation-explainer/facts.json \
+  --out docs/geopackage-validation-explained.md
+```
 
-**Do not ask an agent what the rules are.** The rule list comes from the facts file.
-Agents explain rules that are already enumerated; anything an agent reports that is
-not in the facts file is a finding to investigate, not a row to add.
+Deterministic: same inputs, byte-identical output.
 
-## Step 3 — Write the document
+**If it fails naming undescribed rules, that is the model's only job in this run.** For each one, read the check site from the facts file, then write a `checks` entry in `references/rule-descriptions.json` following `references/output-spec.md` — one or two sentences on what the rule checks, tolerances in the reader's units, no remedies, no code identifiers. Assign a `group` from the existing set unless the rule genuinely belongs to a new one. Then re-run.
 
-Follow `references/output-spec.md` exactly; it defines the audience, the required
-sections in order, and the style contract. Write to the output path (default
-`docs/geopackage-validation-explained.md`).
+Do not weaken the check to get past it. A rule with no description is a rule the document silently stops covering, which is the failure this gate exists to prevent.
 
-Two constraints that fight each other, and how they resolve:
-
-- The body must contain **no error codes** — a reader never sees one, so a document
-  organised around them answers a question nobody asked.
-- Coverage must be **mechanically checkable** — otherwise "every rule is
-  documented" is an opinion.
-
-The rule index in section 10 resolves both. It is the only place codes appear, it
-is what Step 4 checks, and it is explicitly labelled as being for maintainers.
-
-## Step 4 — Verify coverage
+## Step 3 — Verify
 
 ```bash
 node .claude/skills/geopackage-validation-explainer/scripts/doc-coverage.mjs \
@@ -149,98 +116,50 @@ node .claude/skills/geopackage-validation-explainer/scripts/doc-coverage.mjs \
   --doc docs/geopackage-validation-explained.md
 ```
 
-Fails when a rule in the registry has no index entry, when an index entry names a
-code that no longer exists, or when an index entry points at a section heading that
-is not in the document.
+Fails when a rule has no row, when a row names a rule that no longer exists, or when a referenced example file is not on disk.
 
-**A non-zero exit is a signal, not an obstacle.** Do not delete an index row to make
-it pass — that is precisely the failure this gate exists to prevent. Write the
-missing rule up.
+Then read the rows you added or changed, as the audience would. Any sentence needing programming knowledge gets rewritten. Check the tolerance against the facts file and confirm the description says what passes as well as what fails.
 
-## Step 5 — Verify the prose
+**Do not restate what the user is shown** in a description — the script generates that sentence from the facts file, and a hand-written version will contradict it as soon as the copy changes.
 
-The coverage check proves *every*. It cannot prove *understandable*. Do not skip
-this.
+## Step 4 — Publish to Confluence
 
-1. **Read the whole document as the audience** — someone who works in QGIS and has
-   never opened the codebase. Any sentence needing programming knowledge gets
-   rewritten.
-2. **Check every rule ends with a remedy.** The user story is about knowing what to
-   change. A rule with no fix has been transcribed, not explained.
-3. **Check every tolerance against the facts file**, with its units, and confirm the
-   document says what passes as well as what fails.
-4. **Adversarially re-check the surprises.** Spawn an agent to *refute* each one by
-   reading the code. A surprise that cannot be defended comes out.
-5. **Confirm the coverage claims match the facts file.** If the document implies a
-   rejection is clearly explained on screen, the facts file must show bespoke copy
-   for it.
+Confluence is where this document lives, so the run is not finished when the markdown is written. Paste it and check the tables kept their columns and that no raw HTML shows as literal text. There is no Mermaid and no images, so nothing else needs attention.
 
-## Step 6 — Publish to Confluence
+This step is manual. The skill has no Confluence credentials and must not attempt to publish on its own.
 
-Confluence is where this document lives, so the run is not finished when the
-markdown is written. It renders tables well but does **not** render Mermaid and
-cannot resolve relative image paths.
+## Step 5 — Report
 
-1. **Check the paste.** Tables kept their columns, no raw HTML showing as literal
-   text, no nested bullets collapsed.
-2. **Any Mermaid diagram will not render.** Whatever it carried must also exist as
-   prose or a table.
+Say what changed: the output path, the three commits it reflects, how many rules are documented, how many have an example file, and how many reach the user as a generic message. In check mode, lead with whether the document was still accurate.
 
-These steps are manual. This skill has no Confluence credentials and must not
-attempt to publish on its own.
-
-## Step 7 — Report
-
-Say what was produced or what changed: output path, the three commits it reflects,
-how many rules are documented, and how many of those reach the user as a generic
-message. In check mode, lead with whether the document was still accurate.
-
-Offer to raise tickets for gaps the run exposed — a rule with no fixture, a
-placeholder that has been pending long enough to look permanent, or a rule whose
-remedy nobody could state.
+Offer to raise tickets for gaps the run exposed — a rule with no example file, a placeholder pending long enough to look permanent, or a fixture mapping that has rotted.
 
 ---
 
 ## Cadence
 
-Monthly in check mode, plus an ad-hoc run after any change to the validation
-pipeline or the error copy. The check-mode early exit makes a no-op run cheap. To
-automate, use the `schedule` skill and report only when the diff is non-empty.
+Monthly in check mode, plus an ad-hoc run after any change to the validation pipeline, the error copy or the example corpus. A no-op run is now cheap enough that there is no reason to skip it. To automate, use the `schedule` skill and report only when the diff is non-empty.
 
-The drift this catches is specific and quiet: a rule added without documentation, a
-placeholder message graduating to real copy, or a fixture removed so a rule silently
-stops being tested. None of those announce themselves.
+The drift this catches is quiet: a rule added without documentation, a placeholder graduating to real copy, or a fixture renamed so a rule silently stops being demonstrated.
 
 ## Files in this skill
 
-- `scripts/_lib.mjs` — locates the three repos by probing for the file each one
-  must supply, plus git provenance and shared parsing helpers.
-- `scripts/validation-facts.mjs` — extracts the rule list and reconciles it across
-  the three repos; diffs runs.
-- `scripts/doc-coverage.mjs` — reconciles the published document's rule index
-  against the facts; exits non-zero on a gap.
-- `references/output-spec.md` — audience, required sections, style contract.
+- `scripts/_lib.mjs` — locates the three repositories by probing for the file each must supply, plus git provenance and shared parsing helpers.
+- `scripts/validation-facts.mjs` — extracts the rule list, reconciles it across the repositories and the example corpus, diffs runs.
+- `scripts/build-document.mjs` — assembles the document; fails on an undescribed rule.
+- `scripts/doc-coverage.mjs` — verifies the document on disk against the facts.
+- `references/rule-descriptions.json` — what each rule checks. The only authored prose.
+- `references/fixture-overrides.json` — rule-to-fixture mappings that `example-files/README.md` does not state itself.
+- `references/output-spec.md` — document shape and the house style for descriptions.
 
 ## Gotchas
 
 - **Node 24.** `nvm use` first.
-- **The document is generated, never hand-edited.** A fix applied to the output is
-  overwritten on the next run; change the generator or the spec. The provenance
-  block at the top says so — keep it.
-- **`docs/` is published.** Intermediates stay in
-  `.geopackage-validation-explainer/`.
-- **Flaw keys in the library are inconsistently quoted.** Most are quoted, `sliver`
-  is not. The extractor handles both; if fixture attribution ever looks wrong,
-  suspect that pattern first — a missed key silently attributes every later fixture
-  to the previous one.
-- **Some codes are raised indirectly**, passed as configuration rather than to
-  `makeError` at the call site. Those show a `null` message in the facts file. That
-  is correct extraction, not a failure — describe the condition instead of quoting a
-  message.
-- **Codes are raised outside `src/validation`.** The route and persistence codes
-  live under `src/services` and `src/routes`, which is why the scan covers all of
-  `src`.
-- **Statutory language is precise.** *Distinctiveness*, *condition* and *red line
-  boundary* come from the Natural England metric and the template. Explain them in
-  plain words but keep the terms intact, so readers can match this document against
-  the guidance and the template.
+- **The document is generated, never hand-edited.** A fix applied to the output is overwritten on the next run; change the generator, the descriptions or the spec.
+- **`docs/` is published.** Intermediates stay in `.geopackage-validation-explainer/`.
+- **Fixture mapping has two sources.** The `spatial-problems`, `empty-layer` and `attribute-problems` tables in `example-files/README.md` carry an explicit error-code column and are parsed directly. `invalid-schema` and `malformed` do not, so those live in `fixture-overrides.json`. Add a mapping there only where the fixture's condition maps unambiguously to one rule — an honest "no geopackage fixture" beats a guess.
+- **The example corpus is nobody's dependency.** `example-files/` is a reference corpus for people; `journey-tests` and `backend` keep their own copies, already differing byte-for-byte in places. A rule with an example file here is not necessarily covered by an automated test.
+- **Flaw keys in the library are inconsistently quoted.** Most are quoted, `sliver` is not. The extractor handles both; if fixture attribution ever looks wrong, suspect that pattern first — a missed key silently attributes every later fixture to the previous one.
+- **Some codes are raised indirectly**, passed as configuration rather than to `makeError` at the call site, and some messages are composed at runtime. Both show a `null` message in the facts file. That is correct extraction, not a failure.
+- **Codes are raised outside `src/validation`.** The route and persistence codes live under `src/services` and `src/routes`, which is why the scan covers all of `src`.
+- **Two extraction traps, both fixed, both easy to reintroduce.** Doc comments must be matched to the *last* comment adjacent to a code, not the first one an anchored lazy match finds, or every code inherits every comment above it. And a message literal counts only when the code is the first argument to `makeError`, or builder-map keys pick up the previous entry's call and grab the next entry's message.

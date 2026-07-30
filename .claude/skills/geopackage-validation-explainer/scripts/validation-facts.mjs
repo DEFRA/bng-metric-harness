@@ -20,6 +20,7 @@
 import { writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
 import {
+  HARNESS_ROOT,
   SOURCES,
   locateSource,
   sourceFile,
@@ -234,6 +235,97 @@ function extractFixtures(libraryDir) {
   return byCode
 }
 
+// ------------------------------------------------------- example-file fixtures
+
+const EXAMPLE_FILES_DIR = path.join(HARNESS_ROOT, 'example-files')
+const EXAMPLE_README = path.join(EXAMPLE_FILES_DIR, 'README.md')
+const OVERRIDES_FILE = path.join(
+  import.meta.dirname,
+  '..',
+  'references',
+  'fixture-overrides.json'
+)
+
+/**
+ * Which .gpkg in example-files/ demonstrates each rule.
+ *
+ * Two sources, because the corpus documents itself unevenly. The
+ * spatial-problems, empty-layer and attribute-problems tables in
+ * example-files/README.md carry an explicit "Error code" column, so those are
+ * read straight off it and stay correct as the corpus changes. invalid-schema
+ * and malformed have no such column, so those live in fixture-overrides.json.
+ *
+ * Every resolved path is checked against disk: a mapping that rots is reported,
+ * never silently dropped. Files present on disk but claimed by no rule are
+ * reported too — that gap is the point of the exercise.
+ */
+function extractExampleFixtures() {
+  const byCode = {}
+  const add = (code, file) => {
+    byCode[code] ??= []
+    if (!byCode[code].includes(file)) {
+      byCode[code].push(file)
+    }
+  }
+
+  if (existsSync(EXAMPLE_README)) {
+    let dir = null
+    for (const line of readTextFile(EXAMPLE_README).split('\n')) {
+      const heading = /^##\s+([\w-]+)\/\s*$/.exec(line)
+      if (heading) {
+        dir = heading[1]
+        continue
+      }
+      if (!dir || !line.startsWith('|')) {
+        continue
+      }
+      const cells = line.split('|').map((cell) => cell.trim())
+      const fileCell = /^`([^`]+\.gpkg)`$/.exec(cells[1] ?? '')
+      const codeCell = /^`([A-Z][A-Z0-9_]+)`$/.exec(cells.at(-2) ?? '')
+      if (fileCell && codeCell) {
+        add(codeCell[1], `${dir}/${fileCell[1]}`)
+      }
+    }
+  }
+
+  if (existsSync(OVERRIDES_FILE)) {
+    for (const [code, files] of Object.entries(
+      JSON.parse(readTextFile(OVERRIDES_FILE))
+    )) {
+      if (code.startsWith('_')) {
+        continue
+      }
+      for (const file of files) {
+        add(code, file)
+      }
+    }
+  }
+
+  const missingOnDisk = []
+  for (const [code, files] of Object.entries(byCode)) {
+    byCode[code] = files.filter((file) => {
+      const present = existsSync(path.join(EXAMPLE_FILES_DIR, file))
+      if (!present) {
+        missingOnDisk.push(`${code} → ${file}`)
+      }
+      return present
+    })
+  }
+
+  const claimed = new Set(Object.values(byCode).flat())
+  const onDisk = existsSync(EXAMPLE_FILES_DIR)
+    ? walkSourceFiles(EXAMPLE_FILES_DIR, ['.gpkg']).map((file) =>
+        path.relative(EXAMPLE_FILES_DIR, file)
+      )
+    : []
+
+  return {
+    byCode,
+    missingOnDisk,
+    unclaimed: onDisk.filter((file) => !claimed.has(file)).sort()
+  }
+}
+
 // ------------------------------------------------------------------ assembly
 
 function buildFacts() {
@@ -245,6 +337,7 @@ function buildFacts() {
   const raiseSites = extractRaiseSites(dirs.backend, registry)
   const { dedicated, placeholder } = extractCopyStatus(dirs.frontend)
   const fixtures = extractFixtures(dirs.library)
+  const examples = extractExampleFixtures()
 
   const codes = {}
   for (const [code, meta] of Object.entries(registry)) {
@@ -259,7 +352,8 @@ function buildFacts() {
       description: meta.description,
       copy,
       raisedAt: raiseSites[code] ?? [],
-      fixtures: fixtures[code] ?? []
+      fixtures: fixtures[code] ?? [],
+      exampleFiles: examples.byCode[code] ?? []
     }
   }
 
@@ -276,10 +370,13 @@ function buildFacts() {
         .length,
       catchAllCopy: values.filter((c) => c.copy === COPY_STATUS.CATCH_ALL).length,
       withFixture: values.filter((c) => c.fixtures.length > 0).length,
+      withExampleFile: values.filter((c) => c.exampleFiles.length > 0).length,
       neverRaised: values.filter((c) => c.raisedAt.length === 0).length
     },
     codes,
-    fixturesWithoutCode: Object.keys(fixtures).filter((code) => !codes[code])
+    fixturesWithoutCode: Object.keys(fixtures).filter((code) => !codes[code]),
+    exampleFilesMissingOnDisk: examples.missingOnDisk,
+    exampleFilesClaimedByNoRule: examples.unclaimed
   }
 }
 
@@ -335,6 +432,13 @@ function reportSummary(facts) {
   console.log(`  placeholder copy:       ${s.placeholderCopy}`)
   console.log(`  generic catch-all:      ${s.catchAllCopy}`)
   console.log(`  exercised by a fixture: ${s.withFixture}`)
+  console.log(`  has an example .gpkg:   ${s.withExampleFile}`)
+  if (facts.exampleFilesMissingOnDisk.length > 0) {
+    console.log(`\nFixture mappings pointing at a missing file:`)
+    for (const entry of facts.exampleFilesMissingOnDisk) {
+      console.log(`  ${entry}`)
+    }
+  }
   if (s.neverRaised > 0) {
     const orphans = Object.entries(facts.codes)
       .filter(([, entry]) => entry.raisedAt.length === 0)
