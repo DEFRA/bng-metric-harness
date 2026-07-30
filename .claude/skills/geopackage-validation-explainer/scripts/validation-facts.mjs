@@ -382,13 +382,23 @@ function buildFacts() {
 
 // ---------------------------------------------------------------------- diff
 
+/**
+ * Everything about a rule that the document renders. If it appears in the
+ * document it has to appear here, or check mode reports NO CHANGE and stops
+ * without rebuilding, leaving the published document stale.
+ */
 function fingerprint(entry) {
   const messages = entry.raisedAt
     .map((site) => site.message)
     .filter(Boolean)
     .sort()
   const fixtureNames = entry.fixtures.map((fixture) => fixture.name).sort()
-  return JSON.stringify([entry.copy, messages, fixtureNames])
+  return JSON.stringify([
+    entry.copy,
+    messages,
+    fixtureNames,
+    [...entry.exampleFiles].sort()
+  ])
 }
 
 function diffFacts(previous, next) {
