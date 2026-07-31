@@ -106,7 +106,7 @@ Example files are paths under `example-files/` in this repository, worked out by
 | `AREA_SUM_MISMATCH` — *no geopackage fixture* | The total area of the habitat parcels differs from the boundary area. The tolerance is absolute rather than proportional, so large sites are harder to pass. Both totals are plain sums, so a gap and an overlap of similar size cancel out and the check stays silent. Tolerance 0.5 m². The user sees a placeholder. |
 | `REDLINE_OUTSIDE_ENGLAND` — *spatial-problems/Baseline - redline not in england.gpkg* | Part of the boundary falls outside a reference outline of England. That outline is heavily generalised, so genuinely English coastal and border sites can fail it. Tolerance 0.5 m². The user sees a placeholder. |
 | `REDLINE_AREA_TOO_LARGE` — *no geopackage fixture* | The boundary encloses more land than any real site plausibly would, so in practice this catches a coordinate system error or a stray vertex. The cap is 100 km². The user sees a placeholder. |
-| `AREA_PARCELS_TOO_SMALL` — *no geopackage fixture* | A single habitat parcel covers less ground than the smallest area a genuine parcel is expected to occupy, marking it as a stray digitising artefact rather than a real habitat. It is judged on area alone, so a long, thin parcel passes as long as its total footprint is large enough. The minimum parcel area is 1 m². The user sees its own message. |
+| `AREA_PARCELS_TOO_SMALL` — *spatial-problems/Baseline - sliver.gpkg* | A single habitat parcel covers less ground than the smallest area a genuine parcel is expected to occupy, marking it as a stray digitising artefact rather than a real habitat. It is judged on area alone, so a long, thin parcel passes as long as its total footprint is large enough. The minimum parcel area is 1 m². The user sees its own message. |
 
 ### Habitat data
 
@@ -131,10 +131,10 @@ Example files are paths under `example-files/` in this repository, worked out by
 | With a message written for them | 14 |
 | Showing a placeholder message | 5 |
 | Falling back to a generic message | 31 |
-| With an example .gpkg in this repository | 23 |
+| With an example .gpkg in this repository | 24 |
 | With a generator flaw that reproduces them | 16 |
 
-**27 of 50 rules have no example file.** Almost all are structural — the file format, layer, column and coordinate-system rules — which is also the group the user is told least about. The generator has no schema flaw family, so those fixtures cannot be produced with `npm run generate:gpkg` and would have to be built by hand.
+**26 of 50 rules have no example file.** Almost all are structural — the file format, layer, column and coordinate-system rules — which is also the group the user is told least about. The generator has no schema flaw family, so those fixtures cannot be produced with `npm run generate:gpkg` and would have to be built by hand.
 
 26 `.gpkg` files in `example-files/` are not mapped to any rule. Most are valid fixtures or real survey data rather than rule demonstrations, so that is expected rather than a gap.
 

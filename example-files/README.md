@@ -62,13 +62,12 @@ Each file is a minimal fixture targeting one geometry validator.
 | `Baseline - bowtie parcel.gpkg`               | One habitat parcel drawn as a bowtie                    | `bowtie-parcel`             | `AREA_PARCELS_INVALID_GEOMETRY`  |
 | `Baseline - overlapping parcels.gpkg`         | Two habitat parcels overlap each other                  | `overlapping-parcels`       | `PARCEL_OVERLAPS`                |
 | `Baseline - parcel outside redline.gpkg`      | A habitat parcel sits entirely outside the RLB          | `parcel-outside-redline`    | `AREA_PARCELS_OUTSIDE_REDLINE`   |
-| `Baseline - sliver.gpkg`                      | Two parcels almost tile the RLB, leaving a hairline gap | `sliver`                    | `SLIVERS_INSIDE_REDLINE`         |
+| `Baseline - sliver.gpkg`                      | A habitat parcel below the 1 m² minimum area            | `sliver`                    | `AREA_PARCELS_TOO_SMALL`         |
 | `Baseline - hedgerow outside.gpkg`            | A hedgerow lies outside the RLB                         | `hedgerow-outside`          | `HEDGEROWS_OUTSIDE_REDLINE`      |
 | `Baseline - watercourse outside.gpkg`         | A river lies outside the RLB                            | `watercourse-outside`       | `WATERCOURSES_OUTSIDE_REDLINE`   |
 | `Baseline - tree outside.gpkg`                | An urban tree sits outside the RLB                      | `tree-outside`              | `TREES_OUTSIDE_REDLINE`          |
 | `Baseline - iggi outside.gpkg`                | An IGGI feature sits outside the RLB. Carries a non-standard `iggis` layer. | `iggi-outside` | `IGGIS_OUTSIDE_REDLINE` |
 | `Baseline - redline not in england.gpkg`      | RLB placed outside England                              | `redline-not-in-england`    | `REDLINE_OUTSIDE_ENGLAND`        |
-| `Post-intervention - slivers.gpkg`            | Slivers inside the RLB, post-intervention stage. Was `Post-intervention - complete with slivers.gpkg` — the old name claimed both complete and flawed. | `sliver` | `SLIVERS_INSIDE_REDLINE` |
 
 ## invalid-schema/
 
