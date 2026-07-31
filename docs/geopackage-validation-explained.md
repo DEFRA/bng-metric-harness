@@ -2,7 +2,7 @@
 
 Every rule the BNG Metric service applies to an uploaded GeoPackage: what each one checks, and which example file demonstrates it.
 
-**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `54e83dd`, frontend `6390b12` and bng-library `4be1743`, all on `main`, and was generated on 2026-07-31.
+**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `54e83dd`, frontend `6a5a82b` and bng-library `4a6d14e`, all on `main`, and was generated on 2026-07-31.
 
 For how biodiversity units are calculated once a file is accepted, see [rules-engine-explained.md](rules-engine-explained.md).
 
@@ -114,7 +114,7 @@ Example files are paths under `example-files/` in this repository, worked out by
 | --- | --- |
 | `HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE` — *attribute-problems/Baseline - habitat distinctiveness out of scope.gpkg* | A habitat falls in the High or Very High distinctiveness band, which this service does not yet handle. Applies to area habitats, hedgerows and watercourses, and to habitats proposed as well as existing. Around half of all area habitat types are affected, and an ordinary river or stream always is. The user sees its own message. |
 | `DUPLICATE_HABITAT_REF` — *attribute-problems/Baseline - duplicate habitat ref.gpkg* | Two rows in the Habitats layer share a parcel reference. Blank references are ignored, and matching is exact, so references differing only by capitalisation or a trailing space are treated as distinct. The user sees a generic message. |
-| `ADVANCE_AND_DELAY_BOTH_SET` — *no geopackage fixture* | One feature carries both advance years and delay years, which the statutory metric forbids as they are opposite directions on the same timeline. Applies to area habitats, hedgerows and watercourses; urban trees are excluded because the service does not read those columns on that layer. The user sees its own message. |
+| `ADVANCE_AND_DELAY_BOTH_SET` — *attribute-problems/Post-intervention - advance and delay both set.gpkg* | One feature carries both advance years and delay years, which the statutory metric forbids as they are opposite directions on the same timeline. Applies to area habitats, hedgerows and watercourses; urban trees are excluded because the service does not read those columns on that layer. The user sees its own message. |
 
 ### Service faults, not your file
 
@@ -131,10 +131,10 @@ Example files are paths under `example-files/` in this repository, worked out by
 | With a message written for them | 14 |
 | Showing a placeholder message | 5 |
 | Falling back to a generic message | 31 |
-| With an example .gpkg in this repository | 24 |
+| With an example .gpkg in this repository | 25 |
 | With a generator flaw that reproduces them | 16 |
 
-**26 of 50 rules have no example file.** Almost all are structural — the file format, layer, column and coordinate-system rules — which is also the group the user is told least about. The generator has no schema flaw family, so those fixtures cannot be produced with `npm run generate:gpkg` and would have to be built by hand.
+**25 of 50 rules have no example file.** Almost all are structural — the file format, layer, column and coordinate-system rules — which is also the group the user is told least about. The generator has no schema flaw family, so those fixtures cannot be produced with `npm run generate:gpkg` and would have to be built by hand.
 
 26 `.gpkg` files in `example-files/` are not mapped to any rule. Most are valid fixtures or real survey data rather than rule demonstrations, so that is expected rather than a gap.
 
@@ -153,7 +153,7 @@ Example files are paths under `example-files/` in this repository, worked out by
 | Repository | Commit | Supplies |
 | --- | --- | --- |
 | bng-metric-backend | `54e83dd` | The rules, and the message each one raises |
-| bng-metric-frontend | `6390b12` | What the user is shown for each rule |
-| bng-library | `4be1743` | The generator flaws that reproduce fixtures |
+| bng-metric-frontend | `6a5a82b` | What the user is shown for each rule |
+| bng-library | `4a6d14e` | The generator flaws that reproduce fixtures |
 
 Rule descriptions are held in `references/rule-descriptions.json` in the skill; the rule list, message status and fixture mapping are extracted from the three repositories on every run.
