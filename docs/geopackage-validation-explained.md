@@ -2,7 +2,7 @@
 
 Every rule the BNG Metric service applies to an uploaded GeoPackage: what each one checks, and which example file demonstrates it.
 
-**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `8da3743`, frontend `27e3154` and bng-library `c3f6968`, all on `main`, and was generated on 2026-07-30.
+**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `54e83dd`, frontend `6390b12` and bng-library `4be1743`, all on `main`, and was generated on 2026-07-31.
 
 For how biodiversity units are calculated once a file is accepted, see [rules-engine-explained.md](rules-engine-explained.md).
 
@@ -13,7 +13,7 @@ Every rule below **rejects the upload**: nothing is saved and the file must be c
 Two things worth knowing before using the table:
 
 - **The structural rules run first and stop the upload.** Nothing in the geometry or habitat-data groups is reached until the file format, layer, column and coordinate-system rules all pass. Expect to fix a file in two rounds rather than one.
-- **What you see on screen often does not identify the rule.** Of 50 rules, 13 have a message of their own, 5 show a placeholder, and 32 fall back to a generic message about layer and column names. Each row records which applies.
+- **What you see on screen often does not identify the rule.** Of 50 rules, 14 have a message of their own, 5 show a placeholder, and 31 fall back to a generic message about layer and column names. Each row records which applies.
 
 Example files are paths under `example-files/` in this repository, worked out by running the real validation gate over every fixture and recording which rule it reports. That directory is a reference corpus for people, not something the service reads, and `journey-tests` and `backend` keep their own separate copies — so a rule with an example file here is not necessarily covered by an automated test.
 
@@ -97,7 +97,6 @@ Example files are paths under `example-files/` in this repository, worked out by
 | Rule and example file | What it checks |
 | --- | --- |
 | `PARCEL_OVERLAPS` — *spatial-problems/Baseline - overlapping parcels.gpkg* | Two habitat parcels claim the same ground. Parcels that merely touch along a shared edge always pass. An overlap is tolerated up to 0.5 m². The user sees its own message. |
-| `SLIVERS_INSIDE_REDLINE` — *spatial-problems/Baseline - sliver.gpkg; spatial-problems/Post-intervention - slivers.gpkg* | A gap inside the boundary that no habitat parcel covers. There is no lower tolerance beyond the millimetre at which the service stops distinguishing shapes, so hairline gaps between unsnapped parcels fail; larger gaps surface as an area mismatch instead. Reported only below a ceiling of 1 m². The user sees its own message. |
 | `SLIVERS_OUTSIDE_REDLINE` — *no geopackage fixture* | Habitat parcel material escaping past the boundary, measured on the parcels as a whole rather than per parcel. Reports a location rather than naming a parcel. Tolerance 0.5 m². The user sees its own message. |
 | `AREA_PARCELS_OUTSIDE_REDLINE` — *spatial-problems/Baseline - parcel outside redline.gpkg* | A single habitat parcel escaping past the boundary. Measures escaping area rather than testing containment, so parcels sharing an edge with the boundary are not flagged. Tolerance 0.5 m². The user sees its own message. |
 | `HEDGEROWS_OUTSIDE_REDLINE` — *spatial-problems/Baseline - hedgerow outside.gpkg* | Hedgerow length falling outside the boundary. The tolerance is a total across every excursion, not an allowance per excursion. Tolerance 0.1 m. The user sees its own message. |
@@ -107,6 +106,7 @@ Example files are paths under `example-files/` in this repository, worked out by
 | `AREA_SUM_MISMATCH` — *no geopackage fixture* | The total area of the habitat parcels differs from the boundary area. The tolerance is absolute rather than proportional, so large sites are harder to pass. Both totals are plain sums, so a gap and an overlap of similar size cancel out and the check stays silent. Tolerance 0.5 m². The user sees a placeholder. |
 | `REDLINE_OUTSIDE_ENGLAND` — *spatial-problems/Baseline - redline not in england.gpkg* | Part of the boundary falls outside a reference outline of England. That outline is heavily generalised, so genuinely English coastal and border sites can fail it. Tolerance 0.5 m². The user sees a placeholder. |
 | `REDLINE_AREA_TOO_LARGE` — *no geopackage fixture* | The boundary encloses more land than any real site plausibly would, so in practice this catches a coordinate system error or a stray vertex. The cap is 100 km². The user sees a placeholder. |
+| `AREA_PARCELS_TOO_SMALL` — *no geopackage fixture* | A single habitat parcel covers less ground than the smallest area a genuine parcel is expected to occupy, marking it as a stray digitising artefact rather than a real habitat. It is judged on area alone, so a long, thin parcel passes as long as its total footprint is large enough. The minimum parcel area is 1 m². The user sees its own message. |
 
 ### Habitat data
 
@@ -114,7 +114,7 @@ Example files are paths under `example-files/` in this repository, worked out by
 | --- | --- |
 | `HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE` — *attribute-problems/Baseline - habitat distinctiveness out of scope.gpkg* | A habitat falls in the High or Very High distinctiveness band, which this service does not yet handle. Applies to area habitats, hedgerows and watercourses, and to habitats proposed as well as existing. Around half of all area habitat types are affected, and an ordinary river or stream always is. The user sees its own message. |
 | `DUPLICATE_HABITAT_REF` — *attribute-problems/Baseline - duplicate habitat ref.gpkg* | Two rows in the Habitats layer share a parcel reference. Blank references are ignored, and matching is exact, so references differing only by capitalisation or a trailing space are treated as distinct. The user sees a generic message. |
-| `ADVANCE_AND_DELAY_BOTH_SET` — *no geopackage fixture* | One feature carries both advance years and delay years, which the statutory metric forbids as they are opposite directions on the same timeline. Applies to area habitats, hedgerows and watercourses; urban trees are excluded because the service does not read those columns on that layer. The user sees a generic message. |
+| `ADVANCE_AND_DELAY_BOTH_SET` — *no geopackage fixture* | One feature carries both advance years and delay years, which the statutory metric forbids as they are opposite directions on the same timeline. Applies to area habitats, hedgerows and watercourses; urban trees are excluded because the service does not read those columns on that layer. The user sees its own message. |
 
 ### Service faults, not your file
 
@@ -128,15 +128,15 @@ Example files are paths under `example-files/` in this repository, worked out by
 | Measure | Count |
 | --- | --- |
 | Rules that can reject an upload | 50 |
-| With a message written for them | 13 |
+| With a message written for them | 14 |
 | Showing a placeholder message | 5 |
-| Falling back to a generic message | 32 |
-| With an example .gpkg in this repository | 24 |
+| Falling back to a generic message | 31 |
+| With an example .gpkg in this repository | 23 |
 | With a generator flaw that reproduces them | 16 |
 
-**26 of 50 rules have no example file.** Almost all are structural — the file format, layer, column and coordinate-system rules — which is also the group the user is told least about. The generator has no schema flaw family, so those fixtures cannot be produced with `npm run generate:gpkg` and would have to be built by hand.
+**27 of 50 rules have no example file.** Almost all are structural — the file format, layer, column and coordinate-system rules — which is also the group the user is told least about. The generator has no schema flaw family, so those fixtures cannot be produced with `npm run generate:gpkg` and would have to be built by hand.
 
-37 `.gpkg` files in `example-files/` are not mapped to any rule. Most are valid fixtures or real survey data rather than rule demonstrations, so that is expected rather than a gap.
+26 `.gpkg` files in `example-files/` are not mapped to any rule. Most are valid fixtures or real survey data rather than rule demonstrations, so that is expected rather than a gap.
 
 ## Known gaps recorded by this run
 
@@ -152,8 +152,8 @@ Example files are paths under `example-files/` in this repository, worked out by
 
 | Repository | Commit | Supplies |
 | --- | --- | --- |
-| bng-metric-backend | `8da3743` | The rules, and the message each one raises |
-| bng-metric-frontend | `27e3154` | What the user is shown for each rule |
-| bng-library | `c3f6968` | The generator flaws that reproduce fixtures |
+| bng-metric-backend | `54e83dd` | The rules, and the message each one raises |
+| bng-metric-frontend | `6390b12` | What the user is shown for each rule |
+| bng-library | `4be1743` | The generator flaws that reproduce fixtures |
 
 Rule descriptions are held in `references/rule-descriptions.json` in the skill; the rule list, message status and fixture mapping are extracted from the three repositories on every run.

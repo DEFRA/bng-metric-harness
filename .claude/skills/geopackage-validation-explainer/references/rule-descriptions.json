@@ -138,12 +138,6 @@
     "tolerance": "OVERLAP_TOLERANCE_SQ_M",
     "toleranceIs": "An overlap is tolerated up to"
   },
-  "SLIVERS_INSIDE_REDLINE": {
-    "group": "How the shapes fit together",
-    "checks": "A gap inside the boundary that no habitat parcel covers. There is no lower tolerance beyond the millimetre at which the service stops distinguishing shapes, so hairline gaps between unsnapped parcels fail; larger gaps surface as an area mismatch instead.",
-    "tolerance": "SLIVER_THRESHOLD_SQ_M",
-    "toleranceIs": "Reported only below a ceiling of"
-  },
   "SLIVERS_OUTSIDE_REDLINE": {
     "group": "How the shapes fit together",
     "checks": "Habitat parcel material escaping past the boundary, measured on the parcels as a whole rather than per parcel. Reports a location rather than naming a parcel.",
@@ -221,5 +215,11 @@
   "VALIDATION_FAILED": {
     "group": "Service faults, not your file",
     "checks": "An unexpected fault anywhere in the validation run. Every real rule violation returns its own code instead, so this always indicates a service problem rather than a file problem."
+  },
+  "AREA_PARCELS_TOO_SMALL": {
+    "group": "How the shapes fit together",
+    "checks": "A single habitat parcel covers less ground than the smallest area a genuine parcel is expected to occupy, marking it as a stray digitising artefact rather than a real habitat. It is judged on area alone, so a long, thin parcel passes as long as its total footprint is large enough.",
+    "tolerance": "MIN_PARCEL_AREA_SQ_M",
+    "toleranceIs": "The minimum parcel area is"
   }
 }
