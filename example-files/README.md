@@ -62,11 +62,11 @@ Each file is a minimal fixture targeting one geometry validator.
 | `Baseline - bowtie parcel.gpkg`               | One habitat parcel drawn as a bowtie                    | `bowtie-parcel`             | `AREA_PARCELS_INVALID_GEOMETRY`  |
 | `Baseline - overlapping parcels.gpkg`         | Two habitat parcels overlap each other                  | `overlapping-parcels`       | `PARCEL_OVERLAPS`                |
 | `Baseline - parcel outside redline.gpkg`      | A habitat parcel sits entirely outside the RLB          | `parcel-outside-redline`    | `AREA_PARCELS_OUTSIDE_REDLINE`   |
-| `Baseline - sliver.gpkg`                      | A habitat parcel below the 1 m² minimum area            | `sliver`                    | `AREA_PARCELS_TOO_SMALL`         |
+| `Baseline - sliver.gpkg`                      | One habitat parcel is smaller than the 1 m² minimum area | `sliver`                    | `AREA_PARCELS_TOO_SMALL`         |
 | `Baseline - hedgerow outside.gpkg`            | A hedgerow lies outside the RLB                         | `hedgerow-outside`          | `HEDGEROWS_OUTSIDE_REDLINE`      |
 | `Baseline - watercourse outside.gpkg`         | A river lies outside the RLB                            | `watercourse-outside`       | `WATERCOURSES_OUTSIDE_REDLINE`   |
 | `Baseline - tree outside.gpkg`                | An urban tree sits outside the RLB                      | `tree-outside`              | `TREES_OUTSIDE_REDLINE`          |
-| `Baseline - iggi outside.gpkg`                | An IGGI feature sits outside the RLB. Carries a non-standard `iggis` layer. | `iggi-outside` | `IGGIS_OUTSIDE_REDLINE` |
+| `Baseline - iggi outside.gpkg`                | Carries a non-standard `iggis` layer, which the baseline template schema does not list, so the file is rejected as an unexpected layer **before** the spatial check runs. `IGGIS_OUTSIDE_REDLINE` is currently unreachable via upload — see Gaps. | `iggi-outside` | `GPKG_UNEXPECTED_FEATURE_LAYER` |
 | `Baseline - redline not in england.gpkg`      | RLB placed outside England                              | `redline-not-in-england`    | `REDLINE_OUTSIDE_ENGLAND`        |
 
 ## invalid-schema/
@@ -196,6 +196,8 @@ Positive coverage is thin relative to negative coverage:
 - **No positive controls for the geometry validators.** Every geometric flaw has a negative fixture and no valid twin — near-miss positives (parcels sharing an exact boundary, a hedgerow ending precisely on the RLB, a site just under the area limit) would catch a validator that fires unconditionally.
 - **No in-scope counterpart** to `attribute-problems/Baseline - habitat distinctiveness out of scope.gpkg`.
 - **Three flaws have no fixture**: `area-sum-mismatch`, `redline-too-large`, `no-trees`.
+- **`IGGIS_OUTSIDE_REDLINE` is unreachable via upload.** The spatial engine computes it, but `iggis` is not in the baseline template schema, so any file carrying that layer is rejected as `GPKG_UNEXPECTED_FEATURE_LAYER` before the spatial checks run. `Baseline - iggi outside.gpkg` therefore demonstrates the unexpected-layer rejection, not the outside-redline check. Reaching the check needs `iggis` added to the template schema (backend).
+- **No post-intervention fixture for `AREA_PARCELS_TOO_SMALL`.** The old `Post-intervention - slivers.gpkg` was dropped when the derived-sliver check was replaced by the too-small-parcel check: the generator can only apply `--flaw sliver` to a baseline-shaped synthetic file, not to a post-intervention one, so a faithful post-intervention twin cannot currently be produced. `Baseline - sliver.gpkg` covers the rule.
 - **Created linear features do not survive an upload.** The generator writes a created hedgerow or watercourse as `Retention Category = Lost` (the NE template has no `Created` value), and the backend strips `Lost` rows from the hedgerow, watercourse and tree layers — the `Lost` → `Created` mapping applies to area habitats only. So the created linear features in `valid/Post-intervention - all unit and intervention types.gpkg` render from the file but are dropped on upload. The `journey-tests` fixtures sidestep this by writing the literal `Created`, which the backend does accept.
 - **Duplicate scenario**: the two `empty-layer/` "no habitats" files cover the same scenario at different scales; one is probably enough.
 

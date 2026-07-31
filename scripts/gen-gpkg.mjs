@@ -41,11 +41,14 @@
  *     bowtie-parcel               AREA_PARCELS_INVALID_GEOMETRY
  *     overlapping-parcels         PARCEL_OVERLAPS
  *     parcel-outside-redline      AREA_PARCELS_OUTSIDE_REDLINE
- *     sliver                      SLIVERS_INSIDE_REDLINE
+ *     sliver                      AREA_PARCELS_TOO_SMALL
  *     hedgerow-outside            HEDGEROWS_OUTSIDE_REDLINE
  *     watercourse-outside         WATERCOURSES_OUTSIDE_REDLINE
  *     tree-outside                TREES_OUTSIDE_REDLINE
- *     iggi-outside                IGGIS_OUTSIDE_REDLINE
+ *     iggi-outside                GPKG_UNEXPECTED_FEATURE_LAYER
+ *                                 (iggis is not in the baseline template
+ *                                 schema, so the file is rejected before the
+ *                                 spatial IGGIS_OUTSIDE_REDLINE check runs)
  *     area-sum-mismatch           AREA_SUM_MISMATCH
  *     redline-not-in-england      REDLINE_OUTSIDE_ENGLAND   (standalone)
  *     redline-too-large           REDLINE_AREA_TOO_LARGE    (standalone)
