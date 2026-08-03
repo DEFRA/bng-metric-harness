@@ -91,9 +91,9 @@ describe("resolveFlawSelection — happy paths", () => {
     expect(sel.geometricFlawNames.length).toBeGreaterThan(0);
     expect(sel.emptyFlawNames).toEqual([]);
     expect(sel.attributeFlawNames).toEqual([]);
-    // sliver is part of the default set: the too-small parcel it now adds no
-    // longer conflicts with the other parcel-modifying flaws (BMD-882)
-    expect(sel.geometricFlawNames).toContain("sliver");
+    // parcel-too-small is part of the default set: the too-small parcel it now
+    // adds no longer conflicts with the other parcel-modifying flaws (BMD-882)
+    expect(sel.geometricFlawNames).toContain("parcel-too-small");
     // Standalone flaws are excluded
     expect(sel.geometricFlawNames).not.toContain("redline-not-in-england");
     // Non-geometric flaws are excluded
@@ -155,8 +155,8 @@ describe("resolveFlawSelection — conflicts", () => {
   });
 
   it("rejects pairwise-conflicting geometric flaws", () => {
-    // Since sliver became a standalone too-small parcel (BMD-882) no shipped
-    // geometric flaws conflict, so inject a mutually-conflicting pair.
+    // Since parcel-too-small became a standalone too-small parcel (BMD-882) no
+    // shipped geometric flaws conflict, so inject a mutually-conflicting pair.
     const FLAW_A = "__test_conflict_a";
     const FLAW_B = "__test_conflict_b";
     FLAWS[FLAW_A] = {

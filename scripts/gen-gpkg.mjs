@@ -32,41 +32,15 @@
  * "Test data generation" section for end-user docs and worked examples.
  *
  * --bad / --flaw deliberately produce invalid fixtures used to exercise the
- * backend's geometry validation. --bad is a shorthand for "apply every
- * composable geometric flaw"; a single --flaw <name> produces a minimal
- * fixture targeting one validator. Two families:
+ * backend's validation. --bad applies every composable geometric flaw at once;
+ * a single --flaw <name> produces a minimal fixture targeting one validator.
+ * --flaw is repeatable, and flaws fall into three categories — geometric,
+ * empty-layer and attribute-override — that cannot be mixed with each other.
  *
- *   Geometric flaws — each maps to a backend validation error code:
- *     self-intersecting-redline   REDLINE_INVALID_GEOMETRY
- *     bowtie-parcel               AREA_PARCELS_INVALID_GEOMETRY
- *     overlapping-parcels         PARCEL_OVERLAPS
- *     parcel-outside-redline      AREA_PARCELS_OUTSIDE_REDLINE
- *     sliver                      AREA_PARCELS_TOO_SMALL
- *     hedgerow-outside            HEDGEROWS_OUTSIDE_REDLINE
- *     watercourse-outside         WATERCOURSES_OUTSIDE_REDLINE
- *     tree-outside                TREES_OUTSIDE_REDLINE
- *     iggi-outside                GPKG_UNEXPECTED_FEATURE_LAYER
- *                                 (iggis is not in the baseline template
- *                                 schema, so the file is rejected before the
- *                                 spatial IGGIS_OUTSIDE_REDLINE check runs)
- *     area-sum-mismatch           AREA_SUM_MISMATCH
- *     redline-not-in-england      REDLINE_OUTSIDE_ENGLAND   (standalone)
- *     redline-too-large           REDLINE_AREA_TOO_LARGE    (standalone)
- *
- *   Empty-layer flaws — structurally valid full-size fixture with one
- *   feature layer present but containing zero rows:
- *     no-habitats                 NO_HABITAT_AREAS
- *     no-hedgerows / no-rivers / no-trees   (no specific backend error)
- *
- *   Attribute-override flaws — fixture is structurally valid AND geometrically
- *   valid; specific column values on the first few rows of one layer are
- *   replaced with out-of-scope values so a single attribute validator fires:
- *     distinctiveness-out-of-scope  HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE
- *     duplicate-habitat-ref         DUPLICATE_HABITAT_REF
- *     advance-delay-both-set        ADVANCE_AND_DELAY_BOTH_SET
- *
- * --flaw is repeatable; geometric, empty-layer, and attribute-override flaws
- * cannot be mixed with each other.
+ * The flaw catalogue itself is defined once, in bng-library's FLAWS registry;
+ * this CLI renders it on demand rather than restating it. Run
+ * `node scripts/gen-gpkg.mjs --help` for the current flaw names, their backend
+ * error codes and descriptions.
  *
  * This file is the CLI: argument parsing, URL/LFS resolution, file naming,
  * the overwrite prompt and the --from-list loop. The actual GeoPackage
@@ -95,6 +69,7 @@ import {
   VALID_MODES,
   generateFromWorkbook,
   generateOne,
+  listFlaws,
   readMetricWorkbook,
   resolveFlawSelection,
 } from "#bng-lib";
@@ -120,12 +95,13 @@ const { values: args } = parseArgs({
     // end-state, --mode both (default) writes both side by side from the
     // same workbook.
     mode: { type: "string" },
+    help: { type: "boolean", short: "h", default: false },
   },
   allowPositionals: false,
 });
 
 const selectedMode = args.mode ?? MODE_BOTH;
-if (!VALID_MODES.has(selectedMode)) {
+if (!args.help && !VALID_MODES.has(selectedMode)) {
   console.error(`--mode must be one of: ${[...VALID_MODES].join(", ")} (got: ${args.mode})`);
   process.exit(1);
 }
@@ -382,8 +358,8 @@ function syntheticFilename(flawSuffix, suffix, stamp) {
 
 // Output basename suffix following `bng-test-data`. Examples:
 //   --bad                                  → "-bad"
-//   --flaw sliver (no --bad)               → "-bad-sliver"
-//   --bad --flaw sliver                    → "-bad"
+//   --flaw parcel-too-small (no --bad)     → "-bad-parcel-too-small"
+//   --bad --flaw parcel-too-small          → "-bad"
 //   --flaw no-habitats                     → "-no-habitats"
 //   --flaw no-habitats no-rivers           → "-no-habitats-no-rivers"
 //   --flaw distinctiveness-out-of-scope    → "-distinctiveness-out-of-scope"
@@ -444,7 +420,82 @@ async function runSynthetic(centre) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// --help. The flaw catalogue is rendered from the library's listFlaws() so it
+// can never drift from the FLAWS registry that actually drives generation.
+// ---------------------------------------------------------------------------
+
+// Categories in the order they read most naturally in help output, each with a
+// one-line gloss. Keyed by the categoryLabel listFlaws() returns.
+const FLAW_CATEGORY_HEADINGS = [
+  ["geometric", "Geometric flaws (each targets one backend validation error):"],
+  ["empty-layer", "Empty-layer flaws (a feature layer present with zero rows):"],
+  ["attribute-override", "Attribute-override flaws (valid geometry; out-of-scope column values):"],
+];
+
+function renderFlawCatalogue() {
+  const flaws = listFlaws();
+  const nameWidth = Math.max(...flaws.map((f) => f.name.length));
+  const codeWidth = Math.max(...flaws.map((f) => f.errorCode.length));
+  const lines = [];
+  for (const [label, heading] of FLAW_CATEGORY_HEADINGS) {
+    const group = flaws.filter((f) => f.categoryLabel === label);
+    if (group.length === 0) {
+      continue;
+    }
+    lines.push("", heading);
+    for (const f of group) {
+      const standalone = f.standalone ? "  (standalone)" : "";
+      lines.push(
+        `  ${f.name.padEnd(nameWidth)}  ${f.errorCode.padEnd(codeWidth)}  ${f.description}${standalone}`,
+      );
+    }
+  }
+  return lines.join("\n");
+}
+
+function printHelp() {
+  console.log(
+    `Usage: node scripts/gen-gpkg.mjs [options]
+
+Generates BNG GeoPackage fixtures matching the Natural England statutory
+biodiversity metric QGIS template schema (all 5 feature layers per file).
+
+Modes:
+  Synthetic (default)   Randomised geometry + attributes. Use --size / --count.
+  Workbook-driven       --from / --from-list reads a real Defra metric workbook
+                        and emits a baseline + post-intervention pair.
+
+Options:
+  --size N            Parcels per synthetic fixture (default ${DEFAULT_SYNTHETIC_SIZE}).
+  --count N           Number of synthetic files to emit (default ${DEFAULT_RUN_COUNT}).
+  --outdir DIR        Output directory (default: <harness>/test-data).
+  --bad               Apply every composable geometric flaw at once.
+  --flaw NAME         Emit a fixture targeting one flaw. Repeatable; see below.
+  --from PATH|URL     Generate from a Defra metric workbook (xlsx/xlsm).
+  --from-list FILE    Generate from every workbook path/URL listed in FILE.
+  --mode MODE         ${[...VALID_MODES].join(" | ")} (workbook mode; default ${MODE_BOTH}).
+  --centre E,N        RLB centre, BNG/EPSG:27700 (default ${DEFAULT_CENTRE_E},${DEFAULT_CENTRE_N}).
+  --strict-habitats   Fail on unmapped habitat types instead of warning.
+  --inspect           Print a workbook summary as JSON (requires --from).
+  -h, --help          Show this help and exit.
+
+Flaw catalogue (--flaw values; defined in bng-library):
+${renderFlawCatalogue()}
+
+Flaws of different categories cannot be mixed. Examples:
+  node scripts/gen-gpkg.mjs --size 30
+  node scripts/gen-gpkg.mjs --bad
+  node scripts/gen-gpkg.mjs --flaw parcel-too-small
+  node scripts/gen-gpkg.mjs --from ./metric.xlsm --mode baseline`,
+  );
+}
+
 async function main() {
+  if (args.help) {
+    printHelp();
+    return;
+  }
   if (args.inspect && !args.from) {
     error("--inspect requires --from <path-or-url>");
     process.exit(1);
