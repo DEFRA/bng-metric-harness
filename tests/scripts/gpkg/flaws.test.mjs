@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CATEGORY_ATTRIBUTE,
+  CATEGORY_GEOMETRIC,
   FLAWS,
   FlawSelectionError,
   resolveFlawSelection,
@@ -90,8 +91,9 @@ describe("resolveFlawSelection — happy paths", () => {
     expect(sel.geometricFlawNames.length).toBeGreaterThan(0);
     expect(sel.emptyFlawNames).toEqual([]);
     expect(sel.attributeFlawNames).toEqual([]);
-    // sliver is excluded because it conflicts with the parcel-modifying flaws
-    expect(sel.geometricFlawNames).not.toContain("sliver");
+    // parcel-too-small is part of the default set: the too-small parcel it now
+    // adds no longer conflicts with the other parcel-modifying flaws (BMD-882)
+    expect(sel.geometricFlawNames).toContain("parcel-too-small");
     // Standalone flaws are excluded
     expect(sel.geometricFlawNames).not.toContain("redline-not-in-england");
     // Non-geometric flaws are excluded
@@ -153,10 +155,30 @@ describe("resolveFlawSelection — conflicts", () => {
   });
 
   it("rejects pairwise-conflicting geometric flaws", () => {
-    expectConflict(
-      { bad: false, flaws: ["sliver", "bowtie-parcel"] },
-      "conflict and cannot be combined",
-    );
+    // Since parcel-too-small became a standalone too-small parcel (BMD-882) no
+    // shipped geometric flaws conflict, so inject a mutually-conflicting pair.
+    const FLAW_A = "__test_conflict_a";
+    const FLAW_B = "__test_conflict_b";
+    FLAWS[FLAW_A] = {
+      description: "test-only conflicting flaw A",
+      errorCode: "TEST_A",
+      category: CATEGORY_GEOMETRIC,
+      conflictsWith: [FLAW_B],
+    };
+    FLAWS[FLAW_B] = {
+      description: "test-only conflicting flaw B",
+      errorCode: "TEST_B",
+      category: CATEGORY_GEOMETRIC,
+    };
+    try {
+      expectConflict(
+        { bad: false, flaws: [FLAW_A, FLAW_B] },
+        "conflict and cannot be combined",
+      );
+    } finally {
+      delete FLAWS[FLAW_A];
+      delete FLAWS[FLAW_B];
+    }
   });
 
   it("rejects unknown flaw names", () => {

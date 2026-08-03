@@ -31,3 +31,6 @@ mkdocs.generated.yml
 
 # Rules-engine explainer working state — intermediates, not deliverables
 /.rules-engine-explainer/
+
+# GeoPackage validation explainer working state — intermediates, not deliverables
+/.geopackage-validation-explainer/

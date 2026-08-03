@@ -17,7 +17,9 @@ const SITE_SRC = path.resolve(HARNESS_ROOT, "site_src", "docs");
 const GENERATED_YAML = path.resolve(HARNESS_ROOT, "mkdocs.generated.yml");
 
 // Every repo is treated uniformly. README is always pulled. `docs/` is included
-// when present — the harness has none today, but will be picked up automatically.
+// when present. The harness is resolved to HARNESS_ROOT rather than a sibling
+// path (see repoRoot), so its own docs/ — e.g. the generated validation and
+// rules-engine explainers — are aggregated alongside the siblings'.
 const REPOS = [
   { slug: "harness", name: "bng-metric-harness", title: "Harness" },
   { slug: "frontend", name: "bng-metric-frontend", title: "Frontend" },
@@ -36,6 +38,10 @@ const IMAGE_EXTENSIONS = new Set([
 ]);
 
 function repoRoot(repo) {
+  // The harness is where this script runs, not a sibling under SIBLING_ROOT.
+  if (repo.slug === "harness") {
+    return HARNESS_ROOT;
+  }
   return path.resolve(SIBLING_ROOT, repo.name);
 }
 
