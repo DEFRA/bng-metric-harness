@@ -23,15 +23,26 @@ the two server-side layers are the guarantees (they cannot be skipped).
 
 ## Coverage
 
-All five repositories carry all three layers:
+Every repository carries the two **server-side** layers (push protection + CI),
+which are the guarantees that cannot be skipped. Three repos also carry the local
+gitleaks hooks; the remaining two are in progress (see below).
 
 | Repository | GitHub push protection | CI `secret-scan.yml` | Local gitleaks hooks |
 | --- | --- | --- | --- |
 | `bng-metric-harness` | ✅ | ✅ | ✅ |
 | `bng-metric-frontend` | ✅ | ✅ | ✅ |
 | `bng-metric-backend` | ✅ | ✅ | ✅ |
-| `bng-metric-journey-tests` | ✅ | ✅ | ✅ |
-| `bng-library` | ✅ | ✅ | ✅ |
+| `bng-metric-journey-tests` | ✅ | ✅ | 🚧 in progress |
+| `bng-library` | ✅ | ✅ | 🚧 in progress |
+
+The local hooks are a fast-feedback convenience, not a gate: because they run on
+the developer's machine they can be bypassed with `--no-verify`, so the two
+server-side layers — which apply to every repo above — are what actually
+guarantee no secret reaches `main`. Rollout of the local layer to the two
+remaining repos is tracked under BMD-811:
+
+- `bng-library` — [PR #27](https://github.com/DEFRA/bng-library/pull/27) (awaiting review).
+- `bng-metric-journey-tests` — hooks staged on branch `BMD-811-secret-scanning-hardening`; PR not yet raised.
 
 GitHub secret scanning, push protection, and non-provider pattern detection are
 enabled on each repo under **Settings → Code security**. The state can be
@@ -98,10 +109,11 @@ the early warning.
 
 - **2026-07-31 (BMD-811):** Full-history TruffleHog scan (`--only-verified`) run
   across all five repositories — **zero verified and zero unverified secrets** in
-  any repo's history. The three defence layers were confirmed present on every
-  repo; the harness CI scan gained its missing `merge_group` trigger, and local
-  gitleaks hooks were added to `bng-metric-journey-tests` and `bng-library` to
-  bring them to parity with the frontend/backend/harness.
+  any repo's history. The two server-side layers (push protection + CI) were
+  confirmed present on every repo, and the harness CI scan gained its missing
+  `merge_group` trigger. Adding the local gitleaks hooks to
+  `bng-metric-journey-tests` and `bng-library` — to bring them to parity with the
+  frontend/backend/harness — is still in progress (see Coverage above).
 
 ### Re-running the history scan
 
