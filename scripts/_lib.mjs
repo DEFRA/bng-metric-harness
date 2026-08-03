@@ -1,7 +1,8 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseEnv } from "node:util";
 
 const ansi = {
   reset: "\x1b[0m",
@@ -88,6 +89,22 @@ export function runCapture(cmd, args, { cwd = process.cwd() } = {}) {
     child.on("close", (code) => resolve({ code: code ?? 0, stdout, stderr }));
     child.on("error", () => resolve({ code: 1, stdout, stderr }));
   });
+}
+
+// Reads a .env file and returns its parsed key/value pairs, or null if the file
+// is absent or unreadable. Uses node:util's built-in parseEnv (Node 20.12+) so
+// the harness stays dependency-free — the siblings use `dotenv`, but the harness
+// only needs to hand values to a child process, not populate its own process.env.
+export function loadEnvFile(filePath) {
+  if (!existsSync(filePath)) {
+    return null;
+  }
+  try {
+    return parseEnv(readFileSync(filePath, "utf8"));
+  } catch (err) {
+    warn(`Could not read ${filePath}: ${err.message}`);
+    return null;
+  }
 }
 
 export function requireSibling(name) {
