@@ -43,6 +43,7 @@ Everything here is pure npm + Node — no submodules, no workspaces, no shared l
 | `npm run install:fe` / `install:be` | `npm install` in one sibling                                                                         |
 | `npm run dev`                       | Starts both apps in parallel via `concurrently` (`[fe]` cyan, `[be]` magenta) — any crash kills both |
 | `npm run dev:fe` / `dev:be`         | Starts a single app                                                                                  |
+| `npm run dev:b2c` / `dev:fe:b2c`    | Same, but against **real Defra ID (B2C)** instead of the stub — see below                            |
 | `npm run status`                    | `git status --short` in all three repos, with headers                                                |
 | `npm run pull`                      | `git pull --ff-only` in all three; warns (never errors) on ff failure                                |
 | `npm run branch`                    | Current branch of each repo, side-by-side                                                            |
@@ -52,6 +53,30 @@ Everything here is pure npm + Node — no submodules, no workspaces, no shared l
 | `npm run lint`                      | Runs lint in both repos (sequential)                                                                 |
 | `npm run test`                      | Runs tests in both repos (sequential)                                                                |
 | `npm run test:fe` / `test:be`       | Individual test run                                                                                  |
+
+### Real Defra ID (B2C) login — `npm run dev:b2c`
+
+Plain `npm run dev` always uses the **stub**: the frontend's own `dev` script pins
+`OIDC_USE_STUB=true` via `cross-env`, which beats anything a `.env` could set. Use
+`npm run dev:b2c` (→ the frontend's `dev:b2c`, `OIDC_USE_STUB=false`) for real B2C.
+
+The B2C credentials live in a **gitignored `.env` in the harness root** — the harness
+reads it and injects it into both children (`scripts/dev.mjs`, `--b2c` only; plain
+`npm run dev` is untouched). It falls back to `bng-metric-backend/.env` if the harness
+root has none, and logs which file it used plus the key names (never the values).
+
+This indirection exists because the two siblings load env differently:
+
+- **backend** — has `dotenv`; `src/config.js` calls `configDotenv()` when
+  `NODE_ENV=development`, so `bng-metric-backend/.env` is picked up on its own.
+- **frontend** — has **no** `dotenv` and never passes `node --env-file`, so it cannot
+  read a `.env` at all. It only ever sees real process env vars. Injection is what
+  fills that gap (and is what a JetBrains run configuration does natively).
+
+The frontend is the side that actually performs the login, so it is the side that needs
+`OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` / `OIDC_REDIRECT_URI` / `OIDC_DISCOVERY_URL`
+(`src/config/config.js`). The backend only *verifies* the resulting token
+(`OIDC_DISCOVERY_URL` / `OIDC_AUDIENCE` / `OIDC_ISSUER`).
 
 ### Supporting services (Docker Compose)
 
