@@ -52,7 +52,7 @@
     "concurrently": "^10.0.4"
   },
   "devDependencies": {
-    "better-sqlite3": "^12.11.1",
+    "better-sqlite3": "^13.0.1",
     "bng-library": "github:DEFRA/bng-library#1c82e6a90ba147e9ed4fad19e073b3f27af79de3",
     "husky": "9.1.7",
     "likec4": "^1.59.2",
