@@ -64,6 +64,7 @@
     "xlsx": "^0.18.5"
   },
   "overrides": {
-    "vite": "8.1.4"
+    "vite": "8.1.4",
+    "better-sqlite3": "$better-sqlite3"
   }
 }
