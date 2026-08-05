@@ -609,8 +609,10 @@ function renderFlawCatalogue() {
 }
 
 function printHelp() {
+  // String.raw so the shell line-continuation in the examples below stays a
+  // single backslash without escaping it.
   console.log(
-    `Usage: node scripts/gen-gpkg.mjs [options]
+    String.raw`Usage: node scripts/gen-gpkg.mjs [options]
 
 Generates BNG GeoPackage fixtures matching the Natural England statutory
 biodiversity metric QGIS template schema (all 5 feature layers per file).
@@ -648,9 +650,27 @@ Flaws of different categories cannot be mixed. Examples:
   node scripts/gen-gpkg.mjs --bad
   node scripts/gen-gpkg.mjs --flaw parcel-too-small
   node scripts/gen-gpkg.mjs --from ./metric.xlsm --mode baseline
-  node scripts/gen-gpkg.mjs --size 3 --pair \\
+  node scripts/gen-gpkg.mjs --size 3 --pair \
     --habitat "Intertidal hard structures - Artificial hard structures with integrated greening of grey infrastructure (IGGI)"`,
   );
+}
+
+// Flag combinations parseArgs can't express on its own. Lives outside main()
+// so neither function carries the whole argument surface's branching.
+function assertFlagCombinationsValid() {
+  if (args.inspect && !args.from) {
+    error("--inspect requires --from <path-or-url>");
+    process.exit(1);
+  }
+  const syntheticOnlyFlags = args.pair || args.habitat.length > 0;
+  const workbookMode = args.from || args["from-list"];
+  if (syntheticOnlyFlags && workbookMode) {
+    error(
+      "--pair and --habitat are synthetic-mode only; workbook mode already emits a " +
+        "pair and takes its habitats from the workbook (see --mode)",
+    );
+    process.exit(1);
+  }
 }
 
 async function main() {
@@ -658,17 +678,7 @@ async function main() {
     printHelp();
     return;
   }
-  if (args.inspect && !args.from) {
-    error("--inspect requires --from <path-or-url>");
-    process.exit(1);
-  }
-  if ((args.pair || args.habitat.length > 0) && (args.from || args["from-list"])) {
-    error(
-      "--pair and --habitat are synthetic-mode only; workbook mode already emits a " +
-        "pair and takes its habitats from the workbook (see --mode)",
-    );
-    process.exit(1);
-  }
+  assertFlagCombinationsValid();
   const centre = parseCentre(args.centre) ?? [DEFAULT_CENTRE_E, DEFAULT_CENTRE_N];
 
   if (args["from-list"]) {
