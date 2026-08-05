@@ -50,7 +50,21 @@ one.
 | `Post-intervention - complete, bng-500 variant.gpkg` | Structurally identical to the above (12 habitats + RLB) but different bytes. **Suspected stale duplicate** — see Open questions. |
 | `Baseline - retained hedgerow.gpkg` / `Post-intervention - retained hedgerow.gpkg` | A hedgerow retained through the intervention. Baseline 3 habitats / 2 hedgerows; post-intervention 12 habitats / 3 hedgerows. The pair shares one RLB. |
 | `Baseline - retained watercourse.gpkg` / `Post-intervention - retained watercourse.gpkg` | A watercourse retained through the intervention. Both stages carry all five layers (20 habitats, 6 hedgerows, 1 river, 10 trees) and share one RLB. |
+| `Baseline - IGGI habitat.gpkg` / `Post-intervention - IGGI habitat.gpkg` | The only fixture carrying an **IGGI** parcel — `Intertidal hard structures - Artificial hard structures with integrated greening of grey infrastructure (IGGI)`, V.Low, Retained — alongside two ordinary in-scope area habitats (Urban / Bioswale, Sparsely vegetated land / Other inland rock and scree). All five layers (3 habitats, 3 hedgerows, 2 rivers, 5 trees, 1 RLB); the pair shares one RLB and passes `scripts/check-gpkg-pair.mjs`. Reproduced by the command under this table. Note IGGI scores 0 units — V.Low is worth 0 in the area distinctiveness table. |
 | `Baseline - all unit and intervention types.gpkg` / `Post-intervention - all unit and intervention types.gpkg` | All five layers (120 habitats, 40 hedgerows, 8 rivers, 60 trees, 1 RLB) with every retention category on habitats, hedgerows **and** watercourses — the only fixture that covers a created watercourse. Habitat areas tile the RLB exactly (517,339 m²) and every distinctiveness is in scope. The pair shares one RLB and passes `scripts/check-gpkg-pair.mjs`. Predates the created-linear fix, so its created hedgerows and watercourses are dropped on upload — see Gaps. |
+
+The IGGI pair is the one fixture here with an exact recipe. `--pair` derives the
+baseline half from the post-intervention half, so both stages share a redline;
+`--habitat` pins the first parcel to a habitat the random pools never draw (they
+are inland-only). Rename the two timestamped outputs to the names above:
+
+```sh
+npm run generate:gpkg -- --size 3 --pair --outdir example-files/valid \
+  --habitat "Intertidal hard structures - Artificial hard structures with integrated greening of grey infrastructure (IGGI)"
+```
+
+The other two parcels are randomised, so a regenerated pair will not carry the
+same two companion habitats — only the IGGI parcel is guaranteed.
 
 ## spatial-problems/
 
