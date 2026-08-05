@@ -11,7 +11,11 @@
  *   1. Synthetic (default).
  *      Both geometry AND attributes are randomised on each run, so repeat
  *      runs produce different files. Use --size to scale the fixture and
- *      --count to produce N varied files at once. Emits one file per run.
+ *      --count to produce N varied files at once. Emits one file per run,
+ *      or a baseline / post-intervention pair per run with --pair. --habitat
+ *      pins individual parcels to named habitats, which is the only way to
+ *      put a non-inland habitat (IGGI) into a synthetic fixture — the random
+ *      pools are inland-only.
  *
  *   2. Workbook-driven (--from / --from-list).
  *      Attributes are read from a real Defra Statutory Biodiversity Metric
@@ -59,6 +63,7 @@ import path from "node:path";
 import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
 import { error, info, warn } from "./_lib.mjs";
+import { HABITATS_LAYER, resolveHabitatPins } from "./gen-gpkg-habitat-pins.mjs";
 import {
   FEATURE_REF_PAD,
   FEATURE_REF_PAD_CHAR,
@@ -67,6 +72,7 @@ import {
   MODE_BOTH,
   MODE_POST_INTERVENTION,
   VALID_MODES,
+  deriveBaselineFromSynthetic,
   generateFromWorkbook,
   generateOne,
   listFlaws,
@@ -85,6 +91,13 @@ const { values: args } = parseArgs({
     outdir: { type: "string", default: "" },
     bad: { type: "boolean", default: false },
     flaw: { type: "string", multiple: true, default: [] },
+    // Synthetic mode: pin the baseline habitat of the first N parcels, one
+    // --habitat per parcel. Lets a fixture carry a habitat the random pools
+    // never draw (they are inland-only) — IGGI being the motivating case.
+    habitat: { type: "string", multiple: true, default: [] },
+    // Synthetic mode: emit a baseline / post-intervention pair sharing one
+    // redline, the way workbook mode already does.
+    pair: { type: "boolean", default: false },
     from: { type: "string", default: "" },
     "from-list": { type: "string", default: "" },
     "strict-habitats": { type: "boolean", default: false },
@@ -356,6 +369,34 @@ function syntheticFilename(flawSuffix, suffix, stamp) {
   return `bng-test-data${flawSuffix}${suffix}-${stamp}.gpkg`;
 }
 
+// --pair names its two halves like workbook mode does, so a directory listing
+// groups the stage with the run that produced it.
+function syntheticPairFilenames(flawSuffix, suffix, stamp) {
+  return {
+    baseline: `bng-test-data${flawSuffix}${suffix}-baseline-${stamp}.gpkg`,
+    postIntervention: `bng-test-data${flawSuffix}${suffix}-post-intervention-${stamp}.gpkg`,
+  };
+}
+
+/**
+ * Write one synthetic file as the post-intervention half, then derive the
+ * baseline half from it. Deriving rather than generating twice is what makes
+ * the redline, the parcel partition and every feature ref identical across
+ * the pair.
+ */
+async function writeSyntheticPair(paths, centre, plan, isBatch) {
+  await clearExistingSyntheticOutput(paths.postIntervention, isBatch);
+  await clearExistingSyntheticOutput(paths.baseline, isBatch);
+  generateOne(paths.postIntervention, centre, plan);
+  const cleared = deriveBaselineFromSynthetic(
+    paths.postIntervention,
+    paths.baseline,
+  );
+  const summary = cleared.map((c) => `${c.table} ${c.cleared}`).join(", ");
+  info(`  baseline derived — proposed columns cleared on ${summary}`);
+  info(`  → ${paths.baseline}`);
+}
+
 // Output basename suffix following `bng-test-data`. Examples:
 //   --bad                                  → "-bad"
 //   --flaw parcel-too-small (no --bad)     → "-bad-parcel-too-small"
@@ -408,15 +449,37 @@ async function runSynthetic(centre) {
   const numParcels = Number.parseInt(args.size, PARSE_INT_BASE_10) || DEFAULT_SYNTHETIC_SIZE;
   const total = Math.max(1, Number.parseInt(args.count, PARSE_INT_BASE_10) || DEFAULT_RUN_COUNT);
   const selection = resolveFlawSelection({ bad: args.bad, flaws: args.flaw, numParcels });
+  const habitatPins = resolveHabitatPins(args.habitat, numParcels, selection);
+  const plan = { numParcels, ...selection };
+  if (habitatPins) {
+    plan.attributeOverrides = {
+      ...selection.attributeOverrides,
+      [HABITATS_LAYER]: habitatPins,
+    };
+  }
   const flawSuffix = buildFlawFilenameSuffix({ selection, flagBad: args.bad });
   if (!existsSync(OUT_DIR)) {
     mkdirSync(OUT_DIR, { recursive: true });
   }
   for (let i = 1; i <= total; i++) {
     const suffix = total > 1 ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}` : "";
-    const outPath = path.join(OUT_DIR, syntheticFilename(flawSuffix, suffix, timestampSuffix()));
+    const stamp = timestampSuffix();
+    if (args.pair) {
+      const names = syntheticPairFilenames(flawSuffix, suffix, stamp);
+      await writeSyntheticPair(
+        {
+          baseline: path.join(OUT_DIR, names.baseline),
+          postIntervention: path.join(OUT_DIR, names.postIntervention),
+        },
+        centre,
+        plan,
+        total > 1,
+      );
+      continue;
+    }
+    const outPath = path.join(OUT_DIR, syntheticFilename(flawSuffix, suffix, stamp));
     await clearExistingSyntheticOutput(outPath, total > 1);
-    generateOne(outPath, centre, { numParcels, ...selection });
+    generateOne(outPath, centre, plan);
   }
 }
 
@@ -455,8 +518,10 @@ function renderFlawCatalogue() {
 }
 
 function printHelp() {
+  // String.raw so the shell line-continuation in the examples below stays a
+  // single backslash without escaping it.
   console.log(
-    `Usage: node scripts/gen-gpkg.mjs [options]
+    String.raw`Usage: node scripts/gen-gpkg.mjs [options]
 
 Generates BNG GeoPackage fixtures matching the Natural England statutory
 biodiversity metric QGIS template schema (all 5 feature layers per file).
@@ -470,6 +535,12 @@ Options:
   --size N            Parcels per synthetic fixture (default ${DEFAULT_SYNTHETIC_SIZE}).
   --count N           Number of synthetic files to emit (default ${DEFAULT_RUN_COUNT}).
   --outdir DIR        Output directory (default: <harness>/test-data).
+  --pair              Synthetic mode: emit a baseline + post-intervention pair
+                      sharing one redline, instead of a single file.
+  --habitat "B - T"   Synthetic mode: pin the baseline habitat of the next
+                      parcel to "<Broad habitat type> - <Habitat type>".
+                      Repeatable — the Nth --habitat pins the Nth parcel; the
+                      rest stay randomised. Pinned rows are Retained.
   --bad               Apply every composable geometric flaw at once.
   --flaw NAME         Emit a fixture targeting one flaw. Repeatable; see below.
   --from PATH|URL     Generate from a Defra metric workbook (xlsx/xlsm).
@@ -487,8 +558,28 @@ Flaws of different categories cannot be mixed. Examples:
   node scripts/gen-gpkg.mjs --size 30
   node scripts/gen-gpkg.mjs --bad
   node scripts/gen-gpkg.mjs --flaw parcel-too-small
-  node scripts/gen-gpkg.mjs --from ./metric.xlsm --mode baseline`,
+  node scripts/gen-gpkg.mjs --from ./metric.xlsm --mode baseline
+  node scripts/gen-gpkg.mjs --size 3 --pair \
+    --habitat "Intertidal hard structures - Artificial hard structures with integrated greening of grey infrastructure (IGGI)"`,
   );
+}
+
+// Flag combinations parseArgs can't express on its own. Lives outside main()
+// so neither function carries the whole argument surface's branching.
+function assertFlagCombinationsValid() {
+  if (args.inspect && !args.from) {
+    error("--inspect requires --from <path-or-url>");
+    process.exit(1);
+  }
+  const syntheticOnlyFlags = args.pair || args.habitat.length > 0;
+  const workbookMode = args.from || args["from-list"];
+  if (syntheticOnlyFlags && workbookMode) {
+    error(
+      "--pair and --habitat are synthetic-mode only; workbook mode already emits a " +
+        "pair and takes its habitats from the workbook (see --mode)",
+    );
+    process.exit(1);
+  }
 }
 
 async function main() {
@@ -496,10 +587,7 @@ async function main() {
     printHelp();
     return;
   }
-  if (args.inspect && !args.from) {
-    error("--inspect requires --from <path-or-url>");
-    process.exit(1);
-  }
+  assertFlagCombinationsValid();
   const centre = parseCentre(args.centre) ?? [DEFAULT_CENTRE_E, DEFAULT_CENTRE_N];
 
   if (args["from-list"]) {

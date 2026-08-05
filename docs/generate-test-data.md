@@ -19,6 +19,50 @@ npm run generate:gpkg -- --count 10         # ten different files in one run
 
 Output goes to `test-data/` by default; override with `--outdir <dir>`. All files include the five layers the prototype expects (Red Line Boundary, Habitats, Hedgerows, Rivers, Urban Trees) and are pre-validated against the prototype's `(habitat, condition)` lookup table so they upload cleanly.
 
+### Synthetic baseline / post-intervention pair (`--pair`)
+
+Synthetic mode normally emits a single file carrying both the baseline and the
+proposed state on every row. `--pair` splits that into the two files the service
+actually asks for, the same way workbook mode does:
+
+```sh
+npm run generate:gpkg -- --size 3 --pair
+# → test-data/bng-test-data-baseline-<YYYYMMDD-HHMM-SS>.gpkg
+# → test-data/bng-test-data-post-intervention-<YYYYMMDD-HHMM-SS>.gpkg
+```
+
+The post-intervention half is generated first and the baseline half is derived
+from it by clearing the proposed columns, so the redline, the parcel partition
+and every feature ref are identical across the pair by construction. Verify one
+with `node scripts/check-gpkg-pair.mjs <baseline> <post-intervention>`.
+
+### Pinning a habitat type (`--habitat`)
+
+Synthetic habitats are drawn at random from the **inland** broad types, so
+coastal and intertidal habitats never appear on their own. `--habitat` pins one
+parcel to a named habitat, spelled `"<Broad habitat type> - <Habitat type>"`
+exactly as the statutory metric spells it. It is repeatable — the Nth
+`--habitat` pins the Nth parcel, and the remaining parcels stay randomised:
+
+```sh
+npm run generate:gpkg -- --size 3 --pair \
+  --habitat "Intertidal hard structures - Artificial hard structures with integrated greening of grey infrastructure (IGGI)"
+```
+
+That is the only way to get an **IGGI** parcel into a fixture: the metric files
+integrated greening of grey infrastructure as a single habitat *type* under the
+`Intertidal hard structures` broad type. It is not a separate layer — a fixture
+carrying an `iggis` table is rejected as `GPKG_UNEXPECTED_FEATURE_LAYER`, since
+that layer is not in the baseline template schema.
+
+Pinned rows are written as `Retained`, so their proposed columns mirror the
+baseline and the row stays coherent whichever broad type was pinned. A misspelt
+name is rejected before any file is written, with near-miss suggestions.
+
+Note that IGGI is `V.Low` distinctiveness, which scores **0 units** in the area
+habitat table — the parcel is complete and valid, it just contributes nothing to
+the site's baseline units.
+
 ### Running in Docker
 
 For convenience and to avoid having to set up the NodeJS environment on your host machine the same script can be run inside a docker container as shown below. Note this approach requires Docker (Desktop or Engine).
@@ -159,6 +203,8 @@ Combines with `--count` for multiple bad files at once.
 | `--size <n>`        | 50                 | Synthetic mode only — habitat parcel count; scales other layers    |
 | `--count <n>`       | 1                  | Generate n files in one run; each has different randomised layout  |
 | `--outdir <dir>`    | `test-data/`       | Output directory                                                   |
+| `--pair`            | off                | Synthetic mode only — emit a baseline + post-intervention pair     |
+| `--habitat "B - T"` | —                  | Synthetic mode only — pin the next parcel's habitat; repeatable    |
 | `--centre <e,n>`    | 530000,180000      | RLB centre in BNG eastings/northings; must be inside England       |
 | `--from <ref>`      | —                  | Local path or HTTPS URL of a Defra metric workbook                 |
 | `--from-list <f>`   | —                  | Newline-delimited list of paths/URLs (one per line, `#` comments)  |
