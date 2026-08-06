@@ -2,7 +2,7 @@
 
 Every rule the BNG Metric service applies to an uploaded GeoPackage: what each one checks, and which example file demonstrates it.
 
-**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `54e83dd`, frontend `6a5a82b` and bng-library `4a6d14e`, all on `main`, and was generated on 2026-07-31.
+**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `ee38918`, frontend `fb6bbda` and bng-library `c281fd3`, all on `main`, and was generated on 2026-08-06.
 
 For how biodiversity units are calculated once a file is accepted, see [rules-engine-explained.md](rules-engine-explained.md).
 
@@ -103,7 +103,7 @@ Example files are paths under `example-files/` in this repository, worked out by
 | `WATERCOURSES_OUTSIDE_REDLINE` — *spatial-problems/Baseline - watercourse outside.gpkg* | Watercourse length falling outside the boundary, on the same terms as hedgerows. Tolerance 0.1 m. The user sees its own message. |
 | `IGGIS_OUTSIDE_REDLINE` — *no geopackage fixture* | Green infrastructure area escaping past the boundary. Unreachable in ordinary use, and demonstrably so: that layer is not in the template, so the fixture built to exercise this rule is rejected as an unexpected layer before the containment check runs. Tolerance 0.5 m². The user sees a placeholder. |
 | `TREES_OUTSIDE_REDLINE` — *spatial-problems/Baseline - tree outside.gpkg* | A tree sits outside the boundary. Unlike the line rules this is a straight-line distance per tree, so a tree inside or exactly on the boundary passes. Tolerance 0.1 m. The user sees a placeholder. |
-| `AREA_SUM_MISMATCH` — *no geopackage fixture* | The total area of the habitat parcels differs from the boundary area. The tolerance is absolute rather than proportional, so large sites are harder to pass. Both totals are plain sums, so a gap and an overlap of similar size cancel out and the check stays silent. Tolerance 0.5 m². The user sees a placeholder. |
+| `AREA_SUM_MISMATCH` — *spatial-problems/Baseline - area sum mismatch.gpkg* | The total area of the habitat parcels differs from the boundary area. The tolerance is absolute rather than proportional, so large sites are harder to pass. Both totals are plain sums, so a gap and an overlap of similar size cancel out and the check stays silent. Tolerance 0.5 m². The user sees a placeholder. |
 | `REDLINE_OUTSIDE_ENGLAND` — *spatial-problems/Baseline - redline not in england.gpkg* | Part of the boundary falls outside a reference outline of England. That outline is heavily generalised, so genuinely English coastal and border sites can fail it. Tolerance 0.5 m². The user sees a placeholder. |
 | `REDLINE_AREA_TOO_LARGE` — *no geopackage fixture* | The boundary encloses more land than any real site plausibly would, so in practice this catches a coordinate system error or a stray vertex. The cap is 100 km². The user sees a placeholder. |
 | `AREA_PARCELS_TOO_SMALL` — *spatial-problems/Baseline - parcel too small.gpkg* | A single habitat parcel covers less ground than the smallest area a genuine parcel is expected to occupy, marking it as a stray digitising artefact rather than a real habitat. It is judged on area alone, so a long, thin parcel passes as long as its total footprint is large enough. The minimum parcel area is 1 m². The user sees its own message. |
@@ -131,12 +131,12 @@ Example files are paths under `example-files/` in this repository, worked out by
 | With a message written for them | 14 |
 | Showing a placeholder message | 5 |
 | Falling back to a generic message | 31 |
-| With an example .gpkg in this repository | 25 |
+| With an example .gpkg in this repository | 26 |
 | With a generator flaw that reproduces them | 16 |
 
-**25 of 50 rules have no example file.** Almost all are structural — the file format, layer, column and coordinate-system rules — which is also the group the user is told least about. The generator has no schema flaw family, so those fixtures cannot be produced with `npm run generate:gpkg` and would have to be built by hand.
+**24 of 50 rules have no example file.** Almost all are structural — the file format, layer, column and coordinate-system rules — which is also the group the user is told least about. The generator has no schema flaw family, so those fixtures cannot be produced with `npm run generate:gpkg` and would have to be built by hand.
 
-26 `.gpkg` files in `example-files/` are not mapped to any rule. Most are valid fixtures or real survey data rather than rule demonstrations, so that is expected rather than a gap.
+29 `.gpkg` files in `example-files/` are not mapped to any rule. Most are valid fixtures or real survey data rather than rule demonstrations, so that is expected rather than a gap.
 
 ## Known gaps recorded by this run
 
@@ -152,8 +152,8 @@ Example files are paths under `example-files/` in this repository, worked out by
 
 | Repository | Commit | Supplies |
 | --- | --- | --- |
-| bng-metric-backend | `54e83dd` | The rules, and the message each one raises |
-| bng-metric-frontend | `6a5a82b` | What the user is shown for each rule |
-| bng-library | `4a6d14e` | The generator flaws that reproduce fixtures |
+| bng-metric-backend | `ee38918` | The rules, and the message each one raises |
+| bng-metric-frontend | `fb6bbda` | What the user is shown for each rule |
+| bng-library | `c281fd3` | The generator flaws that reproduce fixtures |
 
 Rule descriptions are held in `references/rule-descriptions.json` in the skill; the rule list, message status and fixture mapping are extracted from the three repositories on every run.
