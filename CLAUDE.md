@@ -8,11 +8,13 @@ This repo is a **meta-repo / harness** that orchestrates two sibling repos check
 │   ├── frontend       →  ../bng-metric-frontend         (symlink)
 │   ├── backend        →  ../bng-metric-backend          (symlink)
 │   ├── journey-tests  →  ../bng-metric-journey-tests    (symlink)
-│   └── library        →  ../bng-library                 (symlink)
+│   ├── library        →  ../bng-library                 (symlink)
+│   └── perf-tests     →  ../bng-perf-tests              (symlink)
 ├── bng-metric-frontend/            ← Hapi + Nunjucks + GOV.UK, port 3000
 ├── bng-metric-backend/             ← Hapi API, port 3001
 ├── bng-metric-journey-tests/       ← Playwright suite, triggered from Tilt
-└── bng-library/                    ← shared BNG library (engine, gen-gpkg, etc.)
+├── bng-library/                    ← shared BNG library (engine, gen-gpkg, etc.)
+└── bng-perf-tests/                 ← JMeter performance-test suite, run from the CDP Portal
 ```
 
 The harness owns no application code. Its only job is to give a developer a single place to run `npm install`, `npm run dev`, `npm run test`, `npm run status`, etc. across the pair.
@@ -25,6 +27,7 @@ Symlinks live in the harness root so the siblings are reachable from a Claude Co
 - `./backend` → `../bng-metric-backend`
 - `./journey-tests` → `../bng-metric-journey-tests`
 - `./library` → `../bng-library`
+- `./perf-tests` → `../bng-perf-tests`
 
 Read and edit sibling files through those symlinks — e.g. `frontend/src/server/index.js`, `backend/src/api/routes.js`, `journey-tests/test/...`. The `.claude/settings.json` also lists each sibling under `permissions.additionalDirectories`, so tool permissions resolve correctly against the real paths (symlinks alone wouldn't be enough because the trust boundary checks canonical paths).
 
