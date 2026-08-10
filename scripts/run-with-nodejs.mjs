@@ -1,10 +1,10 @@
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { error, info, loadEnvFile, repoPath, requireSibling } from "./_lib.mjs";
+import { error, info, repoPath, requireSibling } from "./_lib.mjs";
 
 const USAGE =
-  "Usage: run-with-nodejs.mjs <sibling> [--env KEY=VAL]... [--env-file PATH]... <npm-args...>";
+  "Usage: run-with-nodejs.mjs <sibling> [--env KEY=VAL]... <npm-args...>";
 
 const argv = process.argv.slice(2);
 const sibling = argv.shift();
@@ -15,26 +15,7 @@ if (!sibling) {
 requireSibling(sibling);
 
 const env = { ...process.env };
-// Two ways to hand extra env to the child: inline `--env KEY=VAL` (small, visible
-// values) and `--env-file PATH` (a dotenv file — used for large/awkward values
-// like a JWKS JSON that would need fragile shell-quoting inline). File values are
-// merged in the order given; a later --env of the same key still wins.
-while (argv[0] === "--env" || argv[0] === "--env-file") {
-  if (argv[0] === "--env-file") {
-    const file = argv[1];
-    if (!file) {
-      error("Missing path after --env-file");
-      process.exit(1);
-    }
-    const vars = loadEnvFile(path.resolve(file));
-    if (!vars) {
-      error(`Env file not found or unreadable: ${file}`);
-      process.exit(1);
-    }
-    Object.assign(env, vars);
-    argv.splice(0, 2);
-    continue;
-  }
+while (argv[0] === "--env") {
   const [k, ...v] = (argv[1] ?? "").split("=");
   if (!k || v.length === 0) {
     error(`Invalid --env value: ${argv[1]}`);

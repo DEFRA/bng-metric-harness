@@ -161,20 +161,17 @@ The **`journey-tests`** resource is a manual one-shot button in the Tilt dashboa
 
 ### Perf tests (CLI)
 
-Perf tests are run from the command line, **not** a Tilt button — they only work in "perf mode", and a button that silently depends on a mode proved more confusing than helpful.
-
-The perf endpoints require a Defra ID token, which JMeter can't obtain through the interactive stub login. So the suite (`bng-perf-tests/scenarios/project-list-payload.jmx`, covering [BMD-933](https://eaflood.atlassian.net/browse/BMD-933)) runs against a backend that trusts a **local dev key**. Two steps:
+Perf tests are run from the command line — no Tilt button, no special mode. With the stack up (`tilt up`), just:
 
 ```sh
-npm run perf:up    # start the stack in perf mode (= BNG_PERF_AUTH=1 tilt up, cross-platform)
-npm run perf       # mint a token, seed a big-baseline project, run JMeter, print a per-endpoint summary
+npm run perf
 ```
 
-`perf:up` generates a throwaway local dev keypair (`scripts/perf-auth.mjs`, kept in the gitignored `.perf/`) and starts the **backend** with the matching `OIDC_LOCAL_JWKS`, so `npm run perf` can mint tokens the backend accepts. This **bypasses the stub**, so interactive frontend/journey login won't work while perf mode is on — use a plain `tilt up` for that. In short: `tilt up` for app/login work, `npm run perf:up` + `npm run perf` for perf work.
+The suite is `bng-perf-tests/scenarios/project-list-payload.jmx` (covering [BMD-933](https://eaflood.atlassian.net/browse/BMD-933)). Because the list endpoints need a Defra ID token, `npm run perf` obtains a **real one from the cdp-defra-id-stub** — the same login the app performs, just headless (`scripts/get-stub-token.mjs`: register → finish → login → code → token). The normal `tilt up` backend already trusts stub tokens, so there's **no backend change and no perf mode**. It then seeds one big-baseline project for that token's user, runs JMeter, and prints a per-endpoint pass/fail summary.
 
-Run `npm run perf` against a backend that _wasn't_ started in perf mode and it fails fast with a clear message telling you to start with `npm run perf:up`.
+Everything it needs — the backend, the stub, Postgres — is already part of a plain `tilt up`, so there's nothing special to remember.
 
-Pre-fix, the assertions **fail by design** — they encode the BMD-933 acceptance criteria — so the run reports failures but exits 0. Set `PERF_FAIL_ON_ASSERT=1` to make it exit non-zero once the fix lands (e.g. in CI). Other knobs: `PERF_PARCELS` (baseline size, default 2000), `PERF_THREADS` / `PERF_LOOPS` / `PERF_RAMP` (load profile). `npm run perf:keys` generates just the keypair if you want to start the backend yourself.
+Pre-fix, the assertions **fail by design** — they encode the BMD-933 acceptance criteria — so the run reports failures but exits 0. Set `PERF_FAIL_ON_ASSERT=1` to make it exit non-zero once the fix lands (e.g. in CI). Other knobs: `PERF_PARCELS` (baseline size, default 2000), `PERF_THREADS` / `PERF_LOOPS` / `PERF_RAMP` (load profile).
 
 ## Supporting services (Docker Compose)
 

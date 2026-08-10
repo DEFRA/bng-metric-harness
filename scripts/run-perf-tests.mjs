@@ -1,20 +1,20 @@
-// Manual Tilt trigger: run the JMeter perf suite against the locally-running
-// backend. Mirrors run-journey-tests.mjs — a one-shot you fire from the Tilt UI.
+// Run the JMeter perf suite against the locally-running backend. Invoked by
+// `npm run perf` — no Tilt resource, no perf mode. Just `tilt up` then this.
 //
 // The suite targets BMD-933 (bng-perf-tests/scenarios/project-list-payload.jmx):
 // the project list endpoints ship the whole project document. To exercise them we
 // need (a) a token the backend accepts and (b) a project with a big baseline:
 //
-//   1. Mint a dev token (scripts/perf-auth.mjs). This only works when the backend
-//      was started in perf mode — `BNG_PERF_AUTH=1 tilt up` — which loads the
-//      matching OIDC_LOCAL_JWKS. If not, the auth probe below 401s and we say so.
-//   2. Idempotently seed one big-baseline project owned by the token's sub,
+//   1. Get a REAL token from the cdp-defra-id-stub (scripts/get-stub-token.mjs) —
+//      the same login the app does, just headless. The normal `tilt up` backend
+//      already trusts stub tokens, so there is no backend change and no perf mode.
+//   2. Idempotently seed one big-baseline project owned by that token's sub,
 //      straight into Postgres (fixed id + ON CONFLICT, so re-runs don't pile up).
 //   3. Run JMeter (the multi-arch alpine/jmeter image) against the backend and
 //      summarise the assertion results.
 //
 // Pre-fix, the assertions FAIL by design — they encode the BMD-933 acceptance
-// criteria. That is reported clearly and does not fail the Tilt resource unless
+// criteria. That is reported clearly and does not fail the run unless
 // PERF_FAIL_ON_ASSERT is set (so CI can gate on it once the fix lands).
 import {
   existsSync,
@@ -36,7 +36,7 @@ import {
   runCapture,
   warn,
 } from "./_lib.mjs";
-import { mint, PERF_SUB } from "./perf-auth.mjs";
+import { getStubToken } from "./get-stub-token.mjs";
 
 const cfg = {
   host: process.env.PERF_BACKEND_HOST ?? "localhost",
@@ -85,8 +85,8 @@ async function waitForHealth() {
   return false;
 }
 
-// Probe the list endpoint with a minted token. A 401 means the backend is not
-// trusting our dev key — i.e. it was not started in perf mode.
+// Probe the list endpoint with the token. A 401 means the backend rejected it
+// (e.g. the stub issued something the backend won't accept).
 async function probeAuth(token) {
   try {
     const res = await fetch(`${baseUrl}/projects`, {
@@ -124,9 +124,11 @@ async function findPostgresContainer() {
   return byName.stdout.trim().split("\n")[0] || null;
 }
 
-function seedSql(parcels) {
+// A fresh stub user (new `sub`) is registered each run, so the upsert re-points
+// the single fixed project row at the current owner rather than piling up rows.
+function seedSql(parcels, sub) {
   return `INSERT INTO bng.projects (id, user_id, relationship_id, org_id, project)
-VALUES ('${PROJECT_ID}', '${PERF_SUB}', NULL, NULL,
+VALUES ('${PROJECT_ID}', '${sub}', NULL, NULL,
   jsonb_build_object(
     'name', 'BMD-933 perf big baseline',
     'baseline', jsonb_build_object('habitats', (
@@ -137,10 +139,11 @@ VALUES ('${PROJECT_ID}', '${PERF_SUB}', NULL, NULL,
         'areaHectares', 0.5,
         'condition', 'Moderate'
       )) FROM generate_series(1, ${parcels}) g))))
-ON CONFLICT (id) DO UPDATE SET project = EXCLUDED.project, updated_at = now();`;
+ON CONFLICT (id) DO UPDATE
+  SET user_id = EXCLUDED.user_id, project = EXCLUDED.project, updated_at = now();`;
 }
 
-async function seedBigProject() {
+async function seedBigProject(sub) {
   const container = await findPostgresContainer();
   if (!container) {
     error(
@@ -148,7 +151,7 @@ async function seedBigProject() {
     );
     return false;
   }
-  info(`▸ seeding a ${cfg.parcels}-parcel baseline project (idempotent upsert)…`);
+  info(`▸ seeding a ${cfg.parcels}-parcel baseline project for ${sub} (idempotent upsert)…`);
   const code = await run("docker", [
     "exec",
     "-i",
@@ -161,7 +164,7 @@ async function seedBigProject() {
     "-v",
     "ON_ERROR_STOP=1",
     "-c",
-    seedSql(cfg.parcels),
+    seedSql(cfg.parcels, sub),
   ]);
   if (code !== 0) {
     error("Seeding failed — see psql output above.");
@@ -170,7 +173,7 @@ async function seedBigProject() {
   return true;
 }
 
-async function runJmeter(token, outDir) {
+async function runJmeter(token, sub, outDir) {
   const scenariosDir = path.join(repoPath("bng-perf-tests"), "scenarios");
   // Hand the token to JMeter via a properties file (-q) rather than a
   // -JbearerToken= arg, so the secret never lands in the container's process
@@ -203,7 +206,7 @@ async function runJmeter(token, outDir) {
       "-Jprotocol=http",
       `-Jdomain=${jmeterDomain}`,
       `-Jport=${cfg.port}`,
-      `-JuserId=${PERF_SUB}`,
+      `-JuserId=${sub}`,
       `-Jthreads=${cfg.threads}`,
       `-Jloops=${cfg.loops}`,
       `-JrampSeconds=${cfg.ramp}`,
@@ -299,22 +302,23 @@ async function main() {
     process.exit(1);
   }
 
-  const token = mint();
-  const status = await probeAuth(token);
+  const { idToken, sub } = await getStubToken();
+  info(`▸ got a stub token for ${sub}`);
+
+  const status = await probeAuth(idToken);
   if (status === HTTP_UNAUTHORIZED) {
     error(
-      "Backend rejected the dev token (401). It is not running in perf mode.",
+      "Backend rejected the stub token (401). Check the stub and backend share an OIDC config.",
     );
-    info("  → Restart the stack with:  BNG_PERF_AUTH=1 tilt up");
     process.exit(1);
   }
   if (status !== HTTP_OK) {
     error(`Unexpected status ${status} from ${baseUrl}/projects — aborting.`);
     process.exit(1);
   }
-  info("▸ dev token accepted by the backend");
+  info("▸ token accepted by the backend");
 
-  if (!(await seedBigProject())) {
+  if (!(await seedBigProject(sub))) {
     process.exit(1);
   }
 
@@ -323,7 +327,7 @@ async function main() {
   mkdirSync(outDir, { recursive: true });
 
   header(`Running JMeter (${cfg.scenario}) against ${baseUrl}`);
-  const jmeterCode = await runJmeter(token, outDir);
+  const jmeterCode = await runJmeter(idToken, sub, outDir);
   if (jmeterCode !== 0) {
     warn(`JMeter exited ${jmeterCode} — this is expected while assertions fail.`);
   }
