@@ -19,6 +19,7 @@ const GITHUB_REPOS = [
   "bng-metric-digital-prototype",
   "bng-library",
   "bng-metric-journey-tests",
+  "bng-perf-tests",
 ];
 
 const PR_LIST_FIELDS =
