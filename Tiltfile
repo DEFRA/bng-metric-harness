@@ -61,16 +61,9 @@ local_resource(
     labels=['tests'],
 )
 
-# Perf tests — manual one-shot trigger. Mints a dev token, seeds a big-baseline
-# project, and runs the JMeter BMD-933 suite against the local backend. Requires
-# perf mode: start the stack with `BNG_PERF_AUTH=1 tilt up`, then click the
-# button. Pre-fix the assertions fail by design (they encode the acceptance
-# criteria); the run reports them but stays green unless PERF_FAIL_ON_ASSERT=1.
-local_resource(
-    'perf-tests',
-    cmd='node ./scripts/run-perf-tests.mjs',
-    auto_init=False,
-    trigger_mode=TRIGGER_MODE_MANUAL,
-    resource_deps=['backend'],
-    labels=['tests'],
-)
+# Perf tests are deliberately NOT a Tilt resource — they run from the CLI
+# (`npm run perf`). They only work when the backend is in perf mode, so a button
+# would either be misleading on a normal `tilt up` or vanish confusingly. The
+# perf-mode wiring above is all Tilt needs to provide; the run itself is:
+#   npm run perf:up   # start the stack in perf mode (BNG_PERF_AUTH=1 tilt up)
+#   npm run perf      # mint a token, seed data, run JMeter, print a summary

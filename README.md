@@ -155,31 +155,26 @@ The `Tiltfile` in this repo references the backend's `compose.yml` for infrastru
 
 If you prefer not to install Tilt, the manual approach below works identically.
 
-### Manual test triggers
+### Journey tests (Tilt button)
 
-Two resources are wired as **manual one-shot buttons** in the Tilt dashboard — they don't run on `tilt up`; you click them when you want a run:
+The **`journey-tests`** resource is a manual one-shot button in the Tilt dashboard — it doesn't run on `tilt up`; click it to run the full Playwright suite against the running apps.
 
-- **`journey-tests`** — the full Playwright suite against the running apps.
-- **`perf-tests`** — the JMeter perf suite (`bng-perf-tests/scenarios/project-list-payload.jmx`, covering [BMD-933](https://eaflood.atlassian.net/browse/BMD-933)) against the local backend. It mints a dev token, seeds one big-baseline project, runs JMeter, and prints a per-endpoint pass/fail summary.
+### Perf tests (CLI)
 
-#### Perf mode
+Perf tests are run from the command line, **not** a Tilt button — they only work in "perf mode", and a button that silently depends on a mode proved more confusing than helpful.
 
-The perf endpoints require a Defra ID token, which JMeter can't obtain through the interactive stub login. So the `perf-tests` trigger needs **perf mode** — start the stack with:
-
-```sh
-BNG_PERF_AUTH=1 tilt up
-```
-
-In perf mode the Tiltfile generates a throwaway local dev keypair (`scripts/perf-auth.mjs`, kept in the gitignored `.perf/`) and starts the **backend** with the matching `OIDC_LOCAL_JWKS`, so the trigger can mint tokens the backend accepts. This **bypasses the stub**, so interactive frontend/journey login won't work while perf mode is on — use a plain `tilt up` for that. Then click **`perf-tests`** in the dashboard.
-
-Pre-fix, the assertions **fail by design** — they encode the BMD-933 acceptance criteria — so the run reports failures but stays green. Set `PERF_FAIL_ON_ASSERT=1` to make it exit non-zero once the fix lands (e.g. in CI). Other knobs: `PERF_PARCELS` (baseline size, default 2000), `PERF_THREADS` / `PERF_LOOPS` / `PERF_RAMP` (load profile).
-
-You can also run it outside Tilt against an already-running perf-mode backend:
+The perf endpoints require a Defra ID token, which JMeter can't obtain through the interactive stub login. So the suite (`bng-perf-tests/scenarios/project-list-payload.jmx`, covering [BMD-933](https://eaflood.atlassian.net/browse/BMD-933)) runs against a backend that trusts a **local dev key**. Two steps:
 
 ```sh
-npm run perf:keys   # generate the dev keypair (then start the backend with .perf/backend.env)
-npm run perf        # mint, seed, run JMeter, summarise
+npm run perf:up    # start the stack in perf mode (= BNG_PERF_AUTH=1 tilt up, cross-platform)
+npm run perf       # mint a token, seed a big-baseline project, run JMeter, print a per-endpoint summary
 ```
+
+`perf:up` generates a throwaway local dev keypair (`scripts/perf-auth.mjs`, kept in the gitignored `.perf/`) and starts the **backend** with the matching `OIDC_LOCAL_JWKS`, so `npm run perf` can mint tokens the backend accepts. This **bypasses the stub**, so interactive frontend/journey login won't work while perf mode is on — use a plain `tilt up` for that. In short: `tilt up` for app/login work, `npm run perf:up` + `npm run perf` for perf work.
+
+Run `npm run perf` against a backend that _wasn't_ started in perf mode and it fails fast with a clear message telling you to start with `npm run perf:up`.
+
+Pre-fix, the assertions **fail by design** — they encode the BMD-933 acceptance criteria — so the run reports failures but exits 0. Set `PERF_FAIL_ON_ASSERT=1` to make it exit non-zero once the fix lands (e.g. in CI). Other knobs: `PERF_PARCELS` (baseline size, default 2000), `PERF_THREADS` / `PERF_LOOPS` / `PERF_RAMP` (load profile). `npm run perf:keys` generates just the keypair if you want to start the backend yourself.
 
 ## Supporting services (Docker Compose)
 

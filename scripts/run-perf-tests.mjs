@@ -16,7 +16,13 @@
 // Pre-fix, the assertions FAIL by design — they encode the BMD-933 acceptance
 // criteria. That is reported clearly and does not fail the Tilt resource unless
 // PERF_FAIL_ON_ASSERT is set (so CI can gate on it once the fix lands).
-import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import {
   color,
@@ -164,36 +170,47 @@ async function seedBigProject() {
   return true;
 }
 
-function runJmeter(token, outDir) {
+async function runJmeter(token, outDir) {
   const scenariosDir = path.join(repoPath("bng-perf-tests"), "scenarios");
-  return run("docker", [
-    "run",
-    "--rm",
-    "--add-host=host.docker.internal:host-gateway",
-    "-v",
-    `${scenariosDir}:/scenarios`,
-    "-v",
-    `${outDir}:/out`,
-    cfg.jmeterImage,
-    "-n",
-    "-t",
-    `/scenarios/${cfg.scenario}.jmx`,
-    "-l",
-    "/out/out.jtl",
-    "-e",
-    "-o",
-    "/out/report",
-    "-f",
-    "-Jenv=local",
-    "-Jprotocol=http",
-    `-Jdomain=${jmeterDomain}`,
-    `-Jport=${cfg.port}`,
-    `-JbearerToken=${token}`,
-    `-JuserId=${PERF_SUB}`,
-    `-Jthreads=${cfg.threads}`,
-    `-Jloops=${cfg.loops}`,
-    `-JrampSeconds=${cfg.ramp}`,
-  ]);
+  // Hand the token to JMeter via a properties file (-q) rather than a
+  // -JbearerToken= arg, so the secret never lands in the container's process
+  // args (visible to `ps`) or in the Tilt logs. The file lives in the gitignored
+  // .perf/ output dir and is deleted right after the run.
+  const propsPath = path.join(outDir, "perf.properties");
+  writeFileSync(propsPath, `bearerToken=${token}\n`);
+  try {
+    return await run("docker", [
+      "run",
+      "--rm",
+      "--add-host=host.docker.internal:host-gateway",
+      "-v",
+      `${scenariosDir}:/scenarios`,
+      "-v",
+      `${outDir}:/out`,
+      cfg.jmeterImage,
+      "-n",
+      "-t",
+      `/scenarios/${cfg.scenario}.jmx`,
+      "-q",
+      "/out/perf.properties",
+      "-l",
+      "/out/out.jtl",
+      "-e",
+      "-o",
+      "/out/report",
+      "-f",
+      "-Jenv=local",
+      "-Jprotocol=http",
+      `-Jdomain=${jmeterDomain}`,
+      `-Jport=${cfg.port}`,
+      `-JuserId=${PERF_SUB}`,
+      `-Jthreads=${cfg.threads}`,
+      `-Jloops=${cfg.loops}`,
+      `-JrampSeconds=${cfg.ramp}`,
+    ]);
+  } finally {
+    rmSync(propsPath, { force: true });
+  }
 }
 
 // Minimal RFC-4180-ish CSV line splitter — JMeter quotes fields containing commas
