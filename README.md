@@ -155,6 +155,32 @@ The `Tiltfile` in this repo references the backend's `compose.yml` for infrastru
 
 If you prefer not to install Tilt, the manual approach below works identically.
 
+### Manual test triggers
+
+Two resources are wired as **manual one-shot buttons** in the Tilt dashboard — they don't run on `tilt up`; you click them when you want a run:
+
+- **`journey-tests`** — the full Playwright suite against the running apps.
+- **`perf-tests`** — the JMeter perf suite (`bng-perf-tests/scenarios/project-list-payload.jmx`, covering [BMD-933](https://eaflood.atlassian.net/browse/BMD-933)) against the local backend. It mints a dev token, seeds one big-baseline project, runs JMeter, and prints a per-endpoint pass/fail summary.
+
+#### Perf mode
+
+The perf endpoints require a Defra ID token, which JMeter can't obtain through the interactive stub login. So the `perf-tests` trigger needs **perf mode** — start the stack with:
+
+```sh
+BNG_PERF_AUTH=1 tilt up
+```
+
+In perf mode the Tiltfile generates a throwaway local dev keypair (`scripts/perf-auth.mjs`, kept in the gitignored `.perf/`) and starts the **backend** with the matching `OIDC_LOCAL_JWKS`, so the trigger can mint tokens the backend accepts. This **bypasses the stub**, so interactive frontend/journey login won't work while perf mode is on — use a plain `tilt up` for that. Then click **`perf-tests`** in the dashboard.
+
+Pre-fix, the assertions **fail by design** — they encode the BMD-933 acceptance criteria — so the run reports failures but stays green. Set `PERF_FAIL_ON_ASSERT=1` to make it exit non-zero once the fix lands (e.g. in CI). Other knobs: `PERF_PARCELS` (baseline size, default 2000), `PERF_THREADS` / `PERF_LOOPS` / `PERF_RAMP` (load profile).
+
+You can also run it outside Tilt against an already-running perf-mode backend:
+
+```sh
+npm run perf:keys   # generate the dev keypair (then start the backend with .perf/backend.env)
+npm run perf        # mint, seed, run JMeter, summarise
+```
+
 ## Supporting services (Docker Compose)
 
 The apps themselves run in Node, but the backend talks to a handful of infrastructure services. Only the **backend** repo ships a `compose.yml` — the harness does not duplicate it, and the frontend does not need its own stack.

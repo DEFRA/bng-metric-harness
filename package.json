@@ -25,6 +25,8 @@
     "pull": "node scripts/pull.mjs",
     "queue-deps": "node scripts/queue-dependabot.mjs",
     "branch": "node scripts/branch.mjs",
+    "perf": "node scripts/run-perf-tests.mjs",
+    "perf:keys": "node scripts/perf-auth.mjs ensure",
     "fe": "node scripts/proxy.mjs fe",
     "be": "node scripts/proxy.mjs be",
     "lint": "node scripts/lint.mjs",

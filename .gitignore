@@ -15,6 +15,10 @@ test-data/
 .env.*
 !.env.example
 
+# Perf-mode working dir: generated dev keypair, JWKS, backend env, JMeter output.
+# Local-only, never committed (the private key is regenerated on demand).
+/.perf/
+
 # Private keys / certs
 *.pem
 *.key
