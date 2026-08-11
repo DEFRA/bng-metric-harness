@@ -68,9 +68,8 @@ function deterministicUuid(name) {
   return id.toString("hex").replace(UUID_HYPHEN_SHAPE, "$1-$2-$3-$4-$5");
 }
 
-// The sub the stub will issue for the perf user — exported so the seeder
-// (seed-perf-project.mjs) can default to seeding for this user.
-export const PERF_USER_SUB = deterministicUuid(PERF_USER_EMAIL);
+// The sub the stub will issue for the perf user.
+const PERF_USER_SUB = deterministicUuid(PERF_USER_EMAIL);
 
 // ── tiny cookie jar ────────────────────────────────────────────────────────
 function makeJar() {

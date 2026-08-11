@@ -3,9 +3,10 @@
 // PERF_SCENARIO=<name> picks one. What the harness prepares is inferred from
 // the properties each scenario reads:
 //
-//   - reads bearerToken -> mint a stub token (get-stub-token.mjs), seed the
-//     perf project (seed-perf-project.mjs), target the backend.
-//   - otherwise -> nothing to prepare; target the public frontend.
+//   - reads bearerToken -> mint a stub token (get-stub-token.mjs) and target
+//     the backend; otherwise target the public frontend.
+//   - a scenarios/<name>.seed.mjs beside the .jmx (owned by bng-perf-tests)
+//     is run first to seed the scenario's data, passed --sub for the token.
 //
 // Assertion failures warn but do not fail the run — a suite that encodes
 // unshipped acceptance criteria fails by design until the fix lands. Set
@@ -31,7 +32,6 @@ import {
   warn,
 } from "./_lib.mjs";
 import { getStubToken } from "./get-stub-token.mjs";
-import { seedPerfProject } from "./seed-perf-project.mjs";
 
 const cfg = {
   host: process.env.PERF_HOST ?? process.env.PERF_BACKEND_HOST ?? "localhost",
@@ -67,9 +67,11 @@ const jmeterDomain = isLocalHost ? "host.docker.internal" : cfg.host;
 function describeScenario(name) {
   const jmx = readFileSync(path.join(scenariosDir, `${name}.jmx`), "utf8");
   const needsAuth = jmx.includes("__P(bearerToken");
+  const seedScript = path.join(scenariosDir, `${name}.seed.mjs`);
   return {
     name,
     needsAuth,
+    seedScript: existsSync(seedScript) ? seedScript : null,
     port: needsAuth ? cfg.backendPort : cfg.frontendPort,
   };
 }
@@ -206,9 +208,9 @@ function summariseReport(scenarioName, outDir) {
   };
 }
 
-// Any authenticated scenario needs a real stub token (accepted by the backend)
-// and the seeded project its assertions exercise. Returns { idToken, sub }.
-async function prepareAuthAndSeed() {
+// Any authenticated scenario needs a real stub token accepted by the backend.
+// Returns { idToken, sub }.
+async function prepareAuth() {
   const { idToken, sub } = await getStubToken();
   info(`▸ got a stub token for ${sub}`);
 
@@ -224,11 +226,19 @@ async function prepareAuthAndSeed() {
     process.exit(1);
   }
   info("▸ token accepted by the backend");
+  return { idToken, sub };
+}
 
-  if (!(await seedPerfProject(sub))) {
+// Seed data is owned by the scenario: a scenarios/<name>.seed.mjs beside the
+// .jmx is run before it, passed the token's sub when one was minted.
+async function runSeedScript(scenario, sub) {
+  info(`▸ seeding data for ${scenario.name} (${path.basename(scenario.seedScript)})`);
+  const args = [scenario.seedScript, ...(sub ? [`--sub=${sub}`] : [])];
+  const code = await run("node", args);
+  if (code !== 0) {
+    error(`Seed script for ${scenario.name} failed — aborting.`);
     process.exit(1);
   }
-  return { idToken, sub };
 }
 
 function reportOutcome(total, failed) {
@@ -265,7 +275,7 @@ async function main() {
   }
 
   const { idToken, sub } = scenarios.some((s) => s.needsAuth)
-    ? await prepareAuthAndSeed()
+    ? await prepareAuth()
     : { idToken: null, sub: null };
 
   const outRoot = path.join(HARNESS_ROOT, ".perf", "perf-out");
@@ -276,6 +286,9 @@ async function main() {
   for (const scenario of scenarios) {
     const outDir = path.join(outRoot, scenario.name);
     mkdirSync(outDir, { recursive: true });
+    if (scenario.seedScript) {
+      await runSeedScript(scenario, sub);
+    }
     header(`Running JMeter (${scenario.name}) against http://${cfg.host}:${scenario.port}`);
     const jmeterCode = await runJmeter(
       scenario,
