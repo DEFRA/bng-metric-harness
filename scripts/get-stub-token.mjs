@@ -39,31 +39,33 @@ const PERF_USER_EMAIL = "bng-perf@bng.example.com";
 // user with no relationships — see seed-stub-users.mjs, which hit the same rule.
 const MIN_ENROLMENT_COUNT = 1;
 
+// Cap the response-body excerpt quoted in thrown error messages.
+const ERROR_SNIPPET_MAX = 200;
+
 const b64url = (buf) => Buffer.from(buf).toString("base64url");
 const rand = () => b64url(randomBytes(32));
 
-// ── deterministic UUIDv5 (copied from frontend/scripts/seed-stub-users.mjs) ──
+// ── deterministic UUID (same idea as frontend/scripts/seed-stub-users.mjs) ──
+// Not RFC-4122 v5 — that mandates SHA-1, which SonarCloud rejects as a weak
+// hash — but the same shape: SHA-256 truncated to 16 bytes with the version
+// and variant bits set, so the same name always yields the same UUID-shaped id.
 const UUID_NAMESPACE = "1b671a64-40d5-491e-99b0-da01ff1f3341";
+const UUID_BYTE_LENGTH = 16;
+const UUID_VERSION_INDEX = 6;
 const UUID_VERSION_MASK = 0x0f;
-const UUID_VERSION_5 = 0x50;
+const UUID_VERSION_BITS = 0x50;
+const UUID_VARIANT_INDEX = 8;
 const UUID_VARIANT_MASK = 0x3f;
 const UUID_VARIANT_RFC = 0x80;
-const UUID_HYPHENS = [
-  [0, 8],
-  [8, 12],
-  [12, 16],
-  [16, 20],
-  [20, 32],
-];
+const UUID_HYPHEN_SHAPE = /^(.{8})(.{4})(.{4})(.{4})(.{12})$/;
 
 function deterministicUuid(name) {
   const namespace = Buffer.from(UUID_NAMESPACE.replaceAll("-", ""), "hex");
-  const bytes = createHash("sha1").update(namespace).update(name).digest();
-  const id = bytes.subarray(0, 16);
-  id[6] = (id[6] & UUID_VERSION_MASK) | UUID_VERSION_5;
-  id[8] = (id[8] & UUID_VARIANT_MASK) | UUID_VARIANT_RFC;
-  const hex = id.toString("hex");
-  return UUID_HYPHENS.map(([from, to]) => hex.slice(from, to)).join("-");
+  const digest = createHash("sha256").update(namespace).update(name).digest();
+  const id = digest.subarray(0, UUID_BYTE_LENGTH);
+  id[UUID_VERSION_INDEX] = (id[UUID_VERSION_INDEX] & UUID_VERSION_MASK) | UUID_VERSION_BITS;
+  id[UUID_VARIANT_INDEX] = (id[UUID_VARIANT_INDEX] & UUID_VARIANT_MASK) | UUID_VARIANT_RFC;
+  return id.toString("hex").replace(UUID_HYPHEN_SHAPE, "$1-$2-$3-$4-$5");
 }
 
 // ── tiny cookie jar ────────────────────────────────────────────────────────
@@ -142,7 +144,7 @@ async function registerPerfUser() {
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
     throw new Error(
-      `API/register returned HTTP ${res.status}: ${detail.slice(0, 200)} — is the cdp-defra-id-stub up?`,
+      `API/register returned HTTP ${res.status}: ${detail.slice(0, ERROR_SNIPPET_MAX)} — is the cdp-defra-id-stub up?`,
     );
   }
   return userId;
@@ -192,7 +194,9 @@ async function exchangeCode(code, verifier) {
   });
   const text = await res.text();
   if (!res.ok) {
-    throw new Error(`Token endpoint returned HTTP ${res.status}: ${text.slice(0, 200)}`);
+    throw new Error(
+      `Token endpoint returned HTTP ${res.status}: ${text.slice(0, ERROR_SNIPPET_MAX)}`,
+    );
   }
   return JSON.parse(text);
 }
@@ -223,7 +227,9 @@ export async function getStubToken() {
   const tokens = await exchangeCode(code, verifier);
   const idToken = tokens.id_token ?? tokens.access_token;
   if (!idToken) {
-    throw new Error(`Token response had no id_token: ${JSON.stringify(tokens).slice(0, 200)}`);
+    throw new Error(
+      `Token response had no id_token: ${JSON.stringify(tokens).slice(0, ERROR_SNIPPET_MAX)}`,
+    );
   }
   return { idToken, sub: decodeSub(idToken) };
 }
@@ -233,14 +239,13 @@ const isMain =
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isMain) {
-  getStubToken()
-    .then(({ idToken, sub }) => {
-      // Token to stdout (for piping); sub to stderr so it doesn't pollute stdout.
-      process.stderr.write(`sub=${sub}\n`);
-      process.stdout.write(idToken);
-    })
-    .catch((err) => {
-      error(`stub-token: ${err.message}`);
-      process.exit(1);
-    });
+  try {
+    const { idToken, sub } = await getStubToken();
+    // Token to stdout (for piping); sub to stderr so it doesn't pollute stdout.
+    process.stderr.write(`sub=${sub}\n`);
+    process.stdout.write(idToken);
+  } catch (err) {
+    error(`stub-token: ${err.message}`);
+    process.exit(1);
+  }
 }

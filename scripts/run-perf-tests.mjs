@@ -274,21 +274,42 @@ function parseCsvRecords(text) {
     fields = [];
   };
 
-  for (let i = 0; i < text.length; i += 1) {
-    const ch = text[i];
-    if (ch === '"') {
-      if (inQuotes && text[i + 1] === '"') {
-        field += '"';
-        i += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (ch === "," && !inQuotes) {
-      endField();
-    } else if (ch === "\n" && !inQuotes) {
-      endRecord();
-    } else if (ch !== "\r" || inQuotes) {
+  // Inside quotes everything is literal except '"': doubled means an escaped
+  // quote (consume both), single closes the field. Returns the chars consumed.
+  const takeQuoted = (ch, next) => {
+    if (ch !== '"') {
       field += ch;
+      return 1;
+    }
+    if (next === '"') {
+      field += '"';
+      return 2;
+    }
+    inQuotes = false;
+    return 1;
+  };
+
+  const takeBare = (ch) => {
+    if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ",") {
+      endField();
+    } else if (ch === "\n") {
+      endRecord();
+    } else if (ch === "\r") {
+      // swallow the CR of a CRLF line ending
+    } else {
+      field += ch;
+    }
+  };
+
+  let i = 0;
+  while (i < text.length) {
+    if (inQuotes) {
+      i += takeQuoted(text[i], text[i + 1]);
+    } else {
+      takeBare(text[i]);
+      i += 1;
     }
   }
   if (field.length > 0 || fields.length > 0) {
@@ -448,7 +469,9 @@ async function main() {
   reportOutcome(total, failed);
 }
 
-main().catch((err) => {
+try {
+  await main();
+} catch (err) {
   error(err.stack ?? String(err));
   process.exit(1);
-});
+}
