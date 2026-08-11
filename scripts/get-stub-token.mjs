@@ -68,6 +68,10 @@ function deterministicUuid(name) {
   return id.toString("hex").replace(UUID_HYPHEN_SHAPE, "$1-$2-$3-$4-$5");
 }
 
+// The sub the stub will issue for the perf user — exported so the seeder
+// (seed-perf-project.mjs) can default to seeding for this user.
+export const PERF_USER_SUB = deterministicUuid(PERF_USER_EMAIL);
+
 // ── tiny cookie jar ────────────────────────────────────────────────────────
 function makeJar() {
   const jar = new Map();
@@ -124,7 +128,7 @@ function buildAuthorizeUrl(challenge, state, nonce, email) {
 // relationships -> the token carries no org context, so the backend's
 // visibility check matches the seeded legacy (relationship-less) project.
 async function registerPerfUser() {
-  const userId = deterministicUuid(PERF_USER_EMAIL);
+  const userId = PERF_USER_SUB;
   note(`▸ stub-token: registering perf user ${userId} via ${STUB}/API/register`);
   const res = await fetch(`${STUB}/API/register`, {
     method: "POST",

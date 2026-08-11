@@ -8,9 +8,9 @@
 //
 //   - reads bearerToken -> mint a REAL token from the cdp-defra-id-stub
 //     (get-stub-token.mjs; the normal `tilt up` backend already trusts stub
-//     tokens), verify the backend accepts it, and idempotently seed a
-//     big-baseline project owned by the token's sub (fixed id + ON CONFLICT,
-//     so re-runs don't pile up). Authenticated scenarios target the backend.
+//     tokens), verify the backend accepts it, and idempotently seed the
+//     big-baseline perf project for the token's sub (seed-perf-project.mjs).
+//     Authenticated scenarios target the backend.
 //   - otherwise -> nothing to mint or seed; the scenario targets the public
 //     frontend.
 //
@@ -35,26 +35,23 @@ import {
   repoPath,
   requireSibling,
   run,
-  runCapture,
   warn,
 } from "./_lib.mjs";
 import { getStubToken } from "./get-stub-token.mjs";
+import { seedPerfProject } from "./seed-perf-project.mjs";
 
 const cfg = {
   host: process.env.PERF_HOST ?? process.env.PERF_BACKEND_HOST ?? "localhost",
   backendPort: process.env.PERF_BACKEND_PORT ?? "3001",
   frontendPort: process.env.PERF_FRONTEND_PORT ?? "3000",
-  parcels: Number(process.env.PERF_PARCELS ?? "2000"),
   threads: process.env.PERF_THREADS ?? "5",
   loops: process.env.PERF_LOOPS ?? "3",
   ramp: process.env.PERF_RAMP ?? "2",
   scenario: process.env.PERF_SCENARIO ?? null, // null = run every scenario found
   jmeterImage: process.env.PERF_JMETER_IMAGE ?? "alpine/jmeter:latest",
-  postgresImage: process.env.PERF_POSTGRES_IMAGE ?? "postgis/postgis:16-3.5",
   failOnAssert: Boolean(process.env.PERF_FAIL_ON_ASSERT),
 };
 
-const PROJECT_ID = "00000000-0000-4000-8000-000000000933";
 const HEALTH_ATTEMPTS = 30;
 const HEALTH_INTERVAL_MS = 1000;
 const HTTP_UNAUTHORIZED = 401;
@@ -137,79 +134,6 @@ async function probeAuth(token) {
     error(`Could not reach ${backendUrl}/projects: ${err.message}`);
     return null;
   }
-}
-
-// Find the running Postgres container by image so we don't depend on the
-// compose project name Tilt happens to use.
-async function findPostgresContainer() {
-  const byImage = await runCapture("docker", [
-    "ps",
-    "--filter",
-    `ancestor=${cfg.postgresImage}`,
-    "--format",
-    "{{.ID}}",
-  ]);
-  const id = byImage.stdout.trim().split("\n")[0];
-  if (id) {
-    return id;
-  }
-  const byName = await runCapture("docker", [
-    "ps",
-    "--filter",
-    "name=postgres",
-    "--format",
-    "{{.ID}}",
-  ]);
-  return byName.stdout.trim().split("\n")[0] || null;
-}
-
-// The stub user is deterministic (same sub every run), and the upsert re-points
-// the single fixed project row at that owner rather than piling up rows.
-function seedSql(parcels, sub) {
-  return `INSERT INTO bng.projects (id, user_id, relationship_id, org_id, project)
-VALUES ('${PROJECT_ID}', '${sub}', NULL, NULL,
-  jsonb_build_object(
-    'name', 'BMD-933 perf big baseline',
-    'baseline', jsonb_build_object('habitats', (
-      SELECT jsonb_agg(jsonb_build_object(
-        'featureId', gen_random_uuid(),
-        'parcelRef', 'p' || g,
-        'habitat', 'Mixed scrub',
-        'areaHectares', 0.5,
-        'condition', 'Moderate'
-      )) FROM generate_series(1, ${parcels}) g))))
-ON CONFLICT (id) DO UPDATE
-  SET user_id = EXCLUDED.user_id, project = EXCLUDED.project, updated_at = now();`;
-}
-
-async function seedBigProject(sub) {
-  const container = await findPostgresContainer();
-  if (!container) {
-    error(
-      `Could not find a running Postgres container (image ${cfg.postgresImage}). Is the Tilt stack up?`,
-    );
-    return false;
-  }
-  info(`▸ seeding a ${cfg.parcels}-parcel baseline project for ${sub} (idempotent upsert)…`);
-  const code = await run("docker", [
-    "exec",
-    "-i",
-    container,
-    "psql",
-    "-U",
-    "dev",
-    "-d",
-    "bng_metric_backend",
-    "-v",
-    "ON_ERROR_STOP=1",
-    "-c",
-    seedSql(cfg.parcels, sub),
-  ]);
-  if (code !== 0) {
-    error("Seeding failed — see psql output above.");
-    return false;
-  }
-  return true;
 }
 
 async function runJmeter(scenario, token, sub, outDir) {
@@ -400,7 +324,7 @@ async function prepareAuthAndSeed() {
   }
   info("▸ token accepted by the backend");
 
-  if (!(await seedBigProject(sub))) {
+  if (!(await seedPerfProject(sub))) {
     process.exit(1);
   }
   return { idToken, sub };
