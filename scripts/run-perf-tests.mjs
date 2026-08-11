@@ -75,6 +75,10 @@ function describeScenario(name) {
 }
 
 function loadScenarios() {
+  if (!existsSync(scenariosDir)) {
+    error(`No scenarios directory at ${scenariosDir} — is bng-perf-tests on the right branch?`);
+    process.exit(1);
+  }
   const available = readdirSync(scenariosDir)
     .filter((f) => f.endsWith(".jmx"))
     .map((f) => f.replace(/\.jmx$/, ""))
