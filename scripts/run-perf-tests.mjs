@@ -346,6 +346,8 @@ async function main() {
     }
   } else if (total > 0) {
     console.log(color("green", `✔ All ${total} samples passed — BMD-933 looks fixed.`));
+  } else {
+    warn("No samples were recorded — check the JMeter run produced results.");
   }
 }
 

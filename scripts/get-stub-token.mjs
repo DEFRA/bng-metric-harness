@@ -78,7 +78,9 @@ async function postForm(url, jar, fields) {
 // ── HTML scraping helpers (best-effort, both attribute orders) ───────────────
 function inputValue(html, name) {
   const a = html.match(new RegExp(`name="${name}"[^>]*value="([^"]*)"`, "i"));
-  if (a) return a[1];
+  if (a) {
+    return a[1];
+  }
   const b = html.match(new RegExp(`value="([^"]*)"[^>]*name="${name}"`, "i"));
   return b ? b[1] : null;
 }
@@ -220,7 +222,9 @@ export async function getStubToken() {
     const body = await page.text();
     loginHref =
       linkHref(body, "Login") ?? linkHref(body, "Sign in") ?? linkHref(body, "Continue");
-    if (loginHref) break;
+    if (loginHref) {
+      break;
+    }
     const finishHref = linkHref(body, "Finish") ?? linkHref(body, "Continue");
     if (!finishHref) {
       throw new Error(
