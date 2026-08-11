@@ -1,22 +1,15 @@
-// Run the JMeter perf scenarios against the locally-running stack. Invoked by
-// `npm run perf` — no Tilt resource, no perf mode. Just `tilt up` then this.
+// Run the JMeter perf scenarios against the locally-running stack (`npm run
+// perf`). Every .jmx in bng-perf-tests/scenarios runs by default;
+// PERF_SCENARIO=<name> picks one. What the harness prepares is inferred from
+// the properties each scenario reads:
 //
-// The scenarios are whatever .jmx files the checked-out bng-perf-tests branch
-// carries: all of them run by default; PERF_SCENARIO=<name> picks one. Nothing
-// is keyed to scenario names or branches — what the harness prepares is
-// inferred from the properties each scenario actually reads:
+//   - reads bearerToken -> mint a stub token (get-stub-token.mjs), seed the
+//     perf project (seed-perf-project.mjs), target the backend.
+//   - otherwise -> nothing to prepare; target the public frontend.
 //
-//   - reads bearerToken -> mint a REAL token from the cdp-defra-id-stub
-//     (get-stub-token.mjs; the normal `tilt up` backend already trusts stub
-//     tokens), verify the backend accepts it, and idempotently seed the
-//     big-baseline perf project for the token's sub (seed-perf-project.mjs).
-//     Authenticated scenarios target the backend.
-//   - otherwise -> nothing to mint or seed; the scenario targets the public
-//     frontend.
-//
-// Assertion failures warn but do not fail the run: a suite that encodes
-// unshipped acceptance criteria (like BMD-933's list-payload one) fails by
-// design until the fix lands. Set PERF_FAIL_ON_ASSERT to gate on failures.
+// Assertion failures warn but do not fail the run — a suite that encodes
+// unshipped acceptance criteria fails by design until the fix lands. Set
+// PERF_FAIL_ON_ASSERT to gate on failures.
 import {
   existsSync,
   mkdirSync,
