@@ -178,131 +178,35 @@ async function runJmeter(scenario, token, sub, outDir) {
   }
 }
 
-// JMeter writes the JTL as quoted CSV whose failureMessage can contain commas
-// AND newlines (multi-line assertion messages), so records cannot be found by
-// splitting the file on "\n" — the quote state must carry across line breaks.
-// One character walk over the whole file yields the true records.
-function parseCsvRecords(text) {
-  const records = [];
-  let fields = [];
-  let field = "";
-  let inQuotes = false;
-
-  const endField = () => {
-    fields.push(field);
-    field = "";
-  };
-  const endRecord = () => {
-    endField();
-    records.push(fields);
-    fields = [];
-  };
-
-  // Inside quotes everything is literal except '"': doubled means an escaped
-  // quote (consume both), single closes the field. Returns the chars consumed.
-  const takeQuoted = (ch, next) => {
-    if (ch !== '"') {
-      field += ch;
-      return 1;
-    }
-    if (next === '"') {
-      field += '"';
-      return 2;
-    }
-    inQuotes = false;
-    return 1;
-  };
-
-  const takeBare = (ch) => {
-    if (ch === '"') {
-      inQuotes = true;
-    } else if (ch === ",") {
-      endField();
-    } else if (ch === "\n") {
-      endRecord();
-    } else if (ch === "\r") {
-      // swallow the CR of a CRLF line ending
-    } else {
-      field += ch;
-    }
-  };
-
-  let i = 0;
-  while (i < text.length) {
-    if (inQuotes) {
-      i += takeQuoted(text[i], text[i + 1]);
-    } else {
-      takeBare(text[i]);
-      i += 1;
-    }
-  }
-  if (field.length > 0 || fields.length > 0) {
-    endRecord();
-  }
-  return records;
-}
-
-function accumulateSample(perLabel, f, cols) {
-  const label = f[cols.iLabel];
-  const ok = f[cols.iSuccess] === "true";
-  const entry = perLabel.get(label) ?? { total: 0, failed: 0, messages: new Set() };
-  entry.total += 1;
-  if (!ok) {
-    entry.failed += 1;
-    if (cols.iMsg >= 0 && f[cols.iMsg]) {
-      // Multi-line assertion messages print as one line in the summary.
-      entry.messages.add(f[cols.iMsg].replaceAll(/\s+/g, " ").trim());
-    }
-  }
-  perLabel.set(label, entry);
-  return ok;
-}
-
-function printPerfResults(scenarioName, perLabel) {
+function printPerfResults(scenarioName, labels) {
   header(`Perf results (${scenarioName})`);
-  for (const [label, e] of perLabel) {
+  for (const s of labels) {
     const status =
-      e.failed === 0
+      s.errorCount === 0
         ? color("green", "PASS")
-        : color("red", `FAIL (${e.failed}/${e.total})`);
-    console.log(`  ${status}  ${label}`);
-    for (const msg of e.messages) {
-      console.log(color("dim", `        ↳ ${msg}`));
-    }
+        : color("red", `FAIL (${s.errorCount}/${s.sampleCount})`);
+    // pct2ResTime is the dashboard's second percentile — 95th by default.
+    const latency = `avg ${Math.round(s.meanResTime)} ms · p95 ${Math.round(s.pct2ResTime)} ms`;
+    console.log(`  ${status}  ${s.transaction}  ${color("dim", latency)}`);
   }
 }
 
-function summariseJtl(scenarioName, outDir) {
-  const jtlPath = path.join(outDir, "out.jtl");
-  if (!existsSync(jtlPath)) {
-    error("No JTL produced — the JMeter run did not complete.");
+// Per-label pass/fail and latency come from the statistics.json JMeter writes
+// alongside its HTML dashboard — no JTL parsing. The WHY of a failure (the
+// assertion messages) lives in the HTML report.
+function summariseReport(scenarioName, outDir) {
+  const statsPath = path.join(outDir, "report", "statistics.json");
+  if (!existsSync(statsPath)) {
+    error("No report statistics produced — the JMeter run did not complete.");
     return { total: 0, failed: 0 };
   }
-  const records = parseCsvRecords(readFileSync(jtlPath, "utf8"));
-  if (records.length === 0) {
-    error("The JTL was empty — the JMeter run did not produce samples.");
-    return { total: 0, failed: 0 };
-  }
-  const headerCols = records[0];
-  const cols = {
-    iLabel: headerCols.indexOf("label"),
-    iSuccess: headerCols.indexOf("success"),
-    iMsg: headerCols.indexOf("failureMessage"),
+  const stats = JSON.parse(readFileSync(statsPath, "utf8"));
+  const labels = Object.values(stats).filter((s) => s.transaction !== "Total");
+  printPerfResults(scenarioName, labels);
+  return {
+    total: labels.reduce((sum, s) => sum + s.sampleCount, 0),
+    failed: labels.reduce((sum, s) => sum + s.errorCount, 0),
   };
-
-  const perLabel = new Map();
-  let total = 0;
-  let failed = 0;
-  for (const record of records.slice(1)) {
-    const ok = accumulateSample(perLabel, record, cols);
-    total += 1;
-    if (!ok) {
-      failed += 1;
-    }
-  }
-
-  printPerfResults(scenarioName, perLabel);
-  return { total, failed };
 }
 
 // Any authenticated scenario needs a real stub token (accepted by the backend)
@@ -341,7 +245,8 @@ function reportOutcome(total, failed) {
     return;
   }
   warn(
-    `${failed}/${total} samples failed their assertions. A suite that encodes ` +
+    `${failed}/${total} samples failed their assertions — see the per-scenario ` +
+      "HTML reports above for the failing assertion detail. A suite that encodes " +
       "unshipped acceptance criteria (like BMD-933's list-payload one) fails by " +
       "design until the fix lands; set PERF_FAIL_ON_ASSERT to gate on failures.",
   );
@@ -384,7 +289,7 @@ async function main() {
     if (jmeterCode !== 0) {
       warn(`JMeter exited ${jmeterCode} — see the assertion summary below.`);
     }
-    const result = summariseJtl(scenario.name, outDir);
+    const result = summariseReport(scenario.name, outDir);
     info(`Report: ${path.join(outDir, "report", "index.html")}`);
     total += result.total;
     failed += result.failed;
