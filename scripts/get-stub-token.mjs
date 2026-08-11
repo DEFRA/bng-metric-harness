@@ -1,24 +1,30 @@
 // Obtain a REAL Defra ID token from the local cdp-defra-id-stub, headlessly, so
 // the perf suite can call the authenticated backend endpoints without a browser
-// login and without the backend having to trust any special key. This replays
-// the same flow the journey-tests drive via Playwright — register -> finish ->
-// login -> code -> token — but over plain HTTP.
+// login and without the backend having to trust any special key.
 //
-// The token is a genuine stub-issued id_token, so the normal `tilt up` backend
-// accepts it as-is: no perf mode, no OIDC_LOCAL_JWKS, no backend change.
+// Registration uses the stub's JSON API (`POST <stub>/API/register`) — the same
+// endpoint the frontend's scripts/seed-stub-users.mjs uses — rather than
+// scraping the HTML registration wizard. The API accepts a user with NO
+// relationships (the wizard does not: its Finish link only appears once a
+// relationship is added, and it rejects enrolmentCount=0 outright), which is
+// exactly what we want: a token with no org context, matching the legacy
+// (relationship-less) project the perf runner seeds.
 //
-// We register a fresh user each run (the stub pre-generates its `userId`, which
-// becomes the token `sub`); the caller seeds a project for that sub. We add no
-// relationships (enrolmentCount=0), so the token carries no org context and the
-// backend's visibility check matches a legacy (relationship-less) project — the
-// simplest thing to seed.
+// Login is then one GET: the stub's login page links each user as
+// `<authorizeUrl>&user=<email>`, which 302s straight back to the redirect_uri
+// with the code. We exchange that for tokens at `<stub>/token` (PKCE).
 //
-// NOTE: coupled to the stub's shape (same coupling the journey-tests already
-// carry). Each step logs what it did so a mismatch is easy to pinpoint.
+// The user id is a deterministic UUIDv5 of the email (same technique as
+// seed-stub-users.mjs), so re-runs replace the one perf user in place instead
+// of accumulating throwaway registrations.
 import { createHash, randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { error, info } from "./_lib.mjs";
+import { color, error } from "./_lib.mjs";
+
+// Progress goes to stderr, never stdout: in CLI mode stdout carries ONLY the
+// token (for piping), and _lib's info() would interleave log lines into it.
+const note = (msg) => process.stderr.write(`${color("dim", msg)}\n`);
 
 const STUB = process.env.STUB_BASE_URL ?? "http://localhost:3200/cdp-defra-id-stub";
 const CLIENT_ID = process.env.OIDC_CLIENT_ID ?? "63983fc2-cfff-45bb-8ec2-959e21062b9a";
@@ -27,8 +33,38 @@ const REDIRECT_URI = process.env.OIDC_REDIRECT_URI ?? "http://localhost:3000/aut
 const SCOPE = process.env.OIDC_SCOPES ?? "openid profile email offline_access";
 const MAX_REDIRECTS = 10;
 
+const PERF_USER_EMAIL = "bng-perf@bng.example.com";
+
+// The stub validates enrolment counts as POSITIVE integers (>= 1), even for a
+// user with no relationships — see seed-stub-users.mjs, which hit the same rule.
+const MIN_ENROLMENT_COUNT = 1;
+
 const b64url = (buf) => Buffer.from(buf).toString("base64url");
 const rand = () => b64url(randomBytes(32));
+
+// ── deterministic UUIDv5 (copied from frontend/scripts/seed-stub-users.mjs) ──
+const UUID_NAMESPACE = "1b671a64-40d5-491e-99b0-da01ff1f3341";
+const UUID_VERSION_MASK = 0x0f;
+const UUID_VERSION_5 = 0x50;
+const UUID_VARIANT_MASK = 0x3f;
+const UUID_VARIANT_RFC = 0x80;
+const UUID_HYPHENS = [
+  [0, 8],
+  [8, 12],
+  [12, 16],
+  [16, 20],
+  [20, 32],
+];
+
+function deterministicUuid(name) {
+  const namespace = Buffer.from(UUID_NAMESPACE.replaceAll("-", ""), "hex");
+  const bytes = createHash("sha1").update(namespace).update(name).digest();
+  const id = bytes.subarray(0, 16);
+  id[6] = (id[6] & UUID_VERSION_MASK) | UUID_VERSION_5;
+  id[8] = (id[8] & UUID_VARIANT_MASK) | UUID_VARIANT_RFC;
+  const hex = id.toString("hex");
+  return UUID_HYPHENS.map(([from, to]) => hex.slice(from, to)).join("-");
+}
 
 // ── tiny cookie jar ────────────────────────────────────────────────────────
 function makeJar() {
@@ -61,42 +97,11 @@ async function get(url, jar) {
   return res;
 }
 
-async function postForm(url, jar, fields) {
-  const res = await fetch(url, {
-    method: "POST",
-    redirect: "manual",
-    headers: {
-      cookie: jar.header(),
-      "content-type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams(fields).toString(),
-  });
-  jar.absorb(res);
-  return res;
-}
-
-// ── HTML scraping helpers (best-effort, both attribute orders) ───────────────
-function inputValue(html, name) {
-  const a = html.match(new RegExp(`name="${name}"[^>]*value="([^"]*)"`, "i"));
-  if (a) {
-    return a[1];
-  }
-  const b = html.match(new RegExp(`value="([^"]*)"[^>]*name="${name}"`, "i"));
-  return b ? b[1] : null;
-}
-
-function linkHref(html, text) {
-  const m = html.match(
-    new RegExp(`<a\\b[^>]*href="([^"]*)"[^>]*>[^<]*${text}[^<]*</a>`, "i"),
-  );
-  return m ? m[1] : null;
-}
-
 function abs(location, base) {
   return new URL(location, base).href;
 }
 
-function buildAuthorizeUrl(challenge, state, nonce) {
+function buildAuthorizeUrl(challenge, state, nonce, email) {
   const q = new URLSearchParams({
     response_type: "code",
     client_id: CLIENT_ID,
@@ -106,12 +111,45 @@ function buildAuthorizeUrl(challenge, state, nonce) {
     code_challenge_method: "S256",
     state,
     nonce,
+    // Selects the user directly — the stub's login page links each registered
+    // user as this same authorize URL plus `user=<email>`.
+    user: email,
   });
   return `${STUB}/authorize?${q.toString()}`;
 }
 
-// Follow redirects (carrying cookies) until one lands back on our redirect_uri
-// carrying the authorization code.
+// 1. Register (or replace) the perf user via the stub's JSON API. No
+// relationships -> the token carries no org context, so the backend's
+// visibility check matches the seeded legacy (relationship-less) project.
+async function registerPerfUser() {
+  const userId = deterministicUuid(PERF_USER_EMAIL);
+  note(`▸ stub-token: registering perf user ${userId} via ${STUB}/API/register`);
+  const res = await fetch(`${STUB}/API/register`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      userId,
+      email: PERF_USER_EMAIL,
+      firstName: "BNG",
+      lastName: "Perf",
+      loa: "1",
+      aal: "1",
+      enrolmentCount: MIN_ENROLMENT_COUNT,
+      enrolmentRequestCount: MIN_ENROLMENT_COUNT,
+      relationships: [],
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(
+      `API/register returned HTTP ${res.status}: ${detail.slice(0, 200)} — is the cdp-defra-id-stub up?`,
+    );
+  }
+  return userId;
+}
+
+// 2. Follow authorize -> callback (carrying cookies) until one hop lands back
+// on our redirect_uri carrying the authorization code.
 async function followToCode(startUrl, jar, expectedState) {
   let url = startUrl;
   for (let hop = 0; hop < MAX_REDIRECTS; hop += 1) {
@@ -165,75 +203,9 @@ function decodeSub(idToken) {
   return JSON.parse(json).sub;
 }
 
-// 1. Load the register page (seeds cookie + csrfToken + the pre-generated ids).
-async function loadRegisterForm(jar, authorizeUrl) {
-  info("▸ stub-token: loading register form");
-  const regPage = await get(
-    `${STUB}/register?redirect_uri=${encodeURIComponent(authorizeUrl)}`,
-    jar,
-  );
-  const html = await regPage.text();
-  const form = {
-    csrfToken: inputValue(html, "csrfToken"),
-    userId: inputValue(html, "userId"),
-    contactId: inputValue(html, "contactId"),
-    uniqueReference: inputValue(html, "uniqueReference"),
-  };
-  if (!form.csrfToken || !form.userId) {
-    throw new Error(
-      "Could not scrape csrfToken/userId from the register form — the stub's form shape may have changed.",
-    );
-  }
-  return form;
-}
-
-// 2. Submit the registration (no enrolments -> no org context in the token).
-async function submitRegistration(jar, form, authorizeUrl) {
-  info(`▸ stub-token: registering user ${form.userId}`);
-  const reg = await postForm(`${STUB}/register`, jar, {
-    csrfToken: form.csrfToken,
-    redirect_uri: authorizeUrl,
-    userId: form.userId,
-    contactId: form.contactId ?? "",
-    email: `bng-perf-${Date.now()}@example.com`,
-    firstName: "BNG",
-    lastName: "Perf",
-    uniqueReference: form.uniqueReference ?? "",
-    loa: "1",
-    aal: "1",
-    enrolmentCount: "0",
-    enrolmentRequestCount: "0",
-  });
-  if (reg.status >= 400) {
-    throw new Error(`Register POST failed: HTTP ${reg.status}`);
-  }
-  return reg;
-}
-
-// 3. Walk register -> Finish -> Login by following the on-page links.
-async function walkToLogin(jar, startUrl) {
-  let pageUrl = startUrl;
-  for (let step = 0; step < MAX_REDIRECTS; step += 1) {
-    const page = await get(pageUrl, jar);
-    const body = await page.text();
-    const loginHref =
-      linkHref(body, "Login") ?? linkHref(body, "Sign in") ?? linkHref(body, "Continue");
-    if (loginHref) {
-      return abs(loginHref, pageUrl);
-    }
-    const finishHref = linkHref(body, "Finish") ?? linkHref(body, "Continue");
-    if (!finishHref) {
-      throw new Error(
-        `No Finish/Login link on ${pageUrl} — the stub's post-register pages may differ.`,
-      );
-    }
-    pageUrl = abs(finishHref, pageUrl);
-  }
-  throw new Error("Never found the Login link in the stub flow.");
-}
-
 /**
- * Register a throwaway user against the stub and complete the OIDC flow.
+ * Register (or reuse) the deterministic perf user against the stub and complete
+ * the OIDC flow.
  * @returns {Promise<{ idToken: string, sub: string }>}
  */
 export async function getStubToken() {
@@ -242,17 +214,12 @@ export async function getStubToken() {
   const challenge = b64url(createHash("sha256").update(verifier).digest());
   const state = rand();
   const nonce = rand();
-  const authorizeUrl = buildAuthorizeUrl(challenge, state, nonce);
 
-  const form = await loadRegisterForm(jar, authorizeUrl);
-  const reg = await submitRegistration(jar, form, authorizeUrl);
+  await registerPerfUser();
 
-  const startUrl = abs(reg.headers.get("location") ?? `${STUB}/relationship`, `${STUB}/register`);
-  const loginUrl = await walkToLogin(jar, startUrl);
-
-  // 4. Follow Login -> authorize -> callback, capture the code, exchange it.
-  info("▸ stub-token: completing login and exchanging the code");
-  const code = await followToCode(loginUrl, jar, state);
+  note("▸ stub-token: logging in and exchanging the code");
+  const authorizeUrl = buildAuthorizeUrl(challenge, state, nonce, PERF_USER_EMAIL);
+  const code = await followToCode(authorizeUrl, jar, state);
   const tokens = await exchangeCode(code, verifier);
   const idToken = tokens.id_token ?? tokens.access_token;
   if (!idToken) {
