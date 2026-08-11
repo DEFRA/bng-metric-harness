@@ -44,8 +44,3 @@ local_resource(
     resource_deps=['frontend', 'backend'],
     labels=['tests'],
 )
-
-# Perf tests are run from the CLI, not a Tilt resource: `npm run perf`. It gets a
-# real token from the cdp-defra-id-stub (already part of this stack), seeds a
-# big-baseline project, and runs the JMeter BMD-933 suite — so a plain `tilt up`
-# is all that's needed, with no perf mode or backend change.
