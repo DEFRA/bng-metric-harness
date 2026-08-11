@@ -246,41 +246,22 @@ function parseCsvLine(line) {
   return fields;
 }
 
-function summariseJtl(outDir) {
-  const jtlPath = path.join(outDir, "out.jtl");
-  if (!existsSync(jtlPath)) {
-    error("No JTL produced — the JMeter run did not complete.");
-    return { total: 0, failed: 0 };
-  }
-  const lines = readFileSync(jtlPath, "utf8").trim().split("\n");
-  const cols = parseCsvLine(lines[0]);
-  const idx = (name) => cols.indexOf(name);
-  const iLabel = idx("label");
-  const iSuccess = idx("success");
-  const iMsg = idx("failureMessage");
-
-  const perLabel = new Map();
-  let total = 0;
-  let failed = 0;
-  for (const line of lines.slice(1)) {
-    const f = parseCsvLine(line);
-    const label = f[iLabel];
-    const ok = f[iSuccess] === "true";
-    total += 1;
-    if (!ok) {
-      failed += 1;
+function accumulateSample(perLabel, f, cols) {
+  const label = f[cols.iLabel];
+  const ok = f[cols.iSuccess] === "true";
+  const entry = perLabel.get(label) ?? { total: 0, failed: 0, messages: new Set() };
+  entry.total += 1;
+  if (!ok) {
+    entry.failed += 1;
+    if (cols.iMsg >= 0 && f[cols.iMsg]) {
+      entry.messages.add(f[cols.iMsg]);
     }
-    const entry = perLabel.get(label) ?? { total: 0, failed: 0, messages: new Set() };
-    entry.total += 1;
-    if (!ok) {
-      entry.failed += 1;
-      if (iMsg >= 0 && f[iMsg]) {
-        entry.messages.add(f[iMsg]);
-      }
-    }
-    perLabel.set(label, entry);
   }
+  perLabel.set(label, entry);
+  return ok;
+}
 
+function printPerfResults(perLabel) {
   header("Perf results (BMD-933)");
   for (const [label, e] of perLabel) {
     const status =
@@ -292,6 +273,34 @@ function summariseJtl(outDir) {
       console.log(color("dim", `        ↳ ${msg}`));
     }
   }
+}
+
+function summariseJtl(outDir) {
+  const jtlPath = path.join(outDir, "out.jtl");
+  if (!existsSync(jtlPath)) {
+    error("No JTL produced — the JMeter run did not complete.");
+    return { total: 0, failed: 0 };
+  }
+  const lines = readFileSync(jtlPath, "utf8").trim().split("\n");
+  const headerCols = parseCsvLine(lines[0]);
+  const cols = {
+    iLabel: headerCols.indexOf("label"),
+    iSuccess: headerCols.indexOf("success"),
+    iMsg: headerCols.indexOf("failureMessage"),
+  };
+
+  const perLabel = new Map();
+  let total = 0;
+  let failed = 0;
+  for (const line of lines.slice(1)) {
+    const ok = accumulateSample(perLabel, parseCsvLine(line), cols);
+    total += 1;
+    if (!ok) {
+      failed += 1;
+    }
+  }
+
+  printPerfResults(perLabel);
   return { total, failed };
 }
 

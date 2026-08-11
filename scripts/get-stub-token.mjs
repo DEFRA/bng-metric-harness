@@ -165,6 +165,73 @@ function decodeSub(idToken) {
   return JSON.parse(json).sub;
 }
 
+// 1. Load the register page (seeds cookie + csrfToken + the pre-generated ids).
+async function loadRegisterForm(jar, authorizeUrl) {
+  info("▸ stub-token: loading register form");
+  const regPage = await get(
+    `${STUB}/register?redirect_uri=${encodeURIComponent(authorizeUrl)}`,
+    jar,
+  );
+  const html = await regPage.text();
+  const form = {
+    csrfToken: inputValue(html, "csrfToken"),
+    userId: inputValue(html, "userId"),
+    contactId: inputValue(html, "contactId"),
+    uniqueReference: inputValue(html, "uniqueReference"),
+  };
+  if (!form.csrfToken || !form.userId) {
+    throw new Error(
+      "Could not scrape csrfToken/userId from the register form — the stub's form shape may have changed.",
+    );
+  }
+  return form;
+}
+
+// 2. Submit the registration (no enrolments -> no org context in the token).
+async function submitRegistration(jar, form, authorizeUrl) {
+  info(`▸ stub-token: registering user ${form.userId}`);
+  const reg = await postForm(`${STUB}/register`, jar, {
+    csrfToken: form.csrfToken,
+    redirect_uri: authorizeUrl,
+    userId: form.userId,
+    contactId: form.contactId ?? "",
+    email: `bng-perf-${Date.now()}@example.com`,
+    firstName: "BNG",
+    lastName: "Perf",
+    uniqueReference: form.uniqueReference ?? "",
+    loa: "1",
+    aal: "1",
+    enrolmentCount: "0",
+    enrolmentRequestCount: "0",
+  });
+  if (reg.status >= 400) {
+    throw new Error(`Register POST failed: HTTP ${reg.status}`);
+  }
+  return reg;
+}
+
+// 3. Walk register -> Finish -> Login by following the on-page links.
+async function walkToLogin(jar, startUrl) {
+  let pageUrl = startUrl;
+  for (let step = 0; step < MAX_REDIRECTS; step += 1) {
+    const page = await get(pageUrl, jar);
+    const body = await page.text();
+    const loginHref =
+      linkHref(body, "Login") ?? linkHref(body, "Sign in") ?? linkHref(body, "Continue");
+    if (loginHref) {
+      return abs(loginHref, pageUrl);
+    }
+    const finishHref = linkHref(body, "Finish") ?? linkHref(body, "Continue");
+    if (!finishHref) {
+      throw new Error(
+        `No Finish/Login link on ${pageUrl} — the stub's post-register pages may differ.`,
+      );
+    }
+    pageUrl = abs(finishHref, pageUrl);
+  }
+  throw new Error("Never found the Login link in the stub flow.");
+}
+
 /**
  * Register a throwaway user against the stub and complete the OIDC flow.
  * @returns {Promise<{ idToken: string, sub: string }>}
@@ -177,69 +244,15 @@ export async function getStubToken() {
   const nonce = rand();
   const authorizeUrl = buildAuthorizeUrl(challenge, state, nonce);
 
-  // 1. Load the register page (seeds cookie + csrfToken + the pre-generated ids).
-  info("▸ stub-token: loading register form");
-  const regPage = await get(
-    `${STUB}/register?redirect_uri=${encodeURIComponent(authorizeUrl)}`,
-    jar,
-  );
-  const html = await regPage.text();
-  const csrfToken = inputValue(html, "csrfToken");
-  const userId = inputValue(html, "userId");
-  const contactId = inputValue(html, "contactId");
-  const uniqueReference = inputValue(html, "uniqueReference");
-  if (!csrfToken || !userId) {
-    throw new Error(
-      "Could not scrape csrfToken/userId from the register form — the stub's form shape may have changed.",
-    );
-  }
+  const form = await loadRegisterForm(jar, authorizeUrl);
+  const reg = await submitRegistration(jar, form, authorizeUrl);
 
-  // 2. Submit the registration (no enrolments -> no org context in the token).
-  info(`▸ stub-token: registering user ${userId}`);
-  const reg = await postForm(`${STUB}/register`, jar, {
-    csrfToken,
-    redirect_uri: authorizeUrl,
-    userId,
-    contactId: contactId ?? "",
-    email: `bng-perf-${Date.now()}@example.com`,
-    firstName: "BNG",
-    lastName: "Perf",
-    uniqueReference: uniqueReference ?? "",
-    loa: "1",
-    aal: "1",
-    enrolmentCount: "0",
-    enrolmentRequestCount: "0",
-  });
-  if (reg.status >= 400) {
-    throw new Error(`Register POST failed: HTTP ${reg.status}`);
-  }
-
-  // 3. Walk register -> Finish -> Login by following the on-page links.
-  let pageUrl = abs(reg.headers.get("location") ?? `${STUB}/relationship`, `${STUB}/register`);
-  let loginHref = null;
-  for (let step = 0; step < MAX_REDIRECTS && !loginHref; step += 1) {
-    const page = await get(pageUrl, jar);
-    const body = await page.text();
-    loginHref =
-      linkHref(body, "Login") ?? linkHref(body, "Sign in") ?? linkHref(body, "Continue");
-    if (loginHref) {
-      break;
-    }
-    const finishHref = linkHref(body, "Finish") ?? linkHref(body, "Continue");
-    if (!finishHref) {
-      throw new Error(
-        `No Finish/Login link on ${pageUrl} — the stub's post-register pages may differ.`,
-      );
-    }
-    pageUrl = abs(finishHref, pageUrl);
-  }
-  if (!loginHref) {
-    throw new Error("Never found the Login link in the stub flow.");
-  }
+  const startUrl = abs(reg.headers.get("location") ?? `${STUB}/relationship`, `${STUB}/register`);
+  const loginUrl = await walkToLogin(jar, startUrl);
 
   // 4. Follow Login -> authorize -> callback, capture the code, exchange it.
   info("▸ stub-token: completing login and exchanging the code");
-  const code = await followToCode(abs(loginHref, pageUrl), jar, state);
+  const code = await followToCode(loginUrl, jar, state);
   const tokens = await exchangeCode(code, verifier);
   const idToken = tokens.id_token ?? tokens.access_token;
   if (!idToken) {
