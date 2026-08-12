@@ -66,6 +66,15 @@ structures with integrated greening, and watercourse footprint. Any parcel of th
 is worth zero units no matter how large or how well maintained, and the engine
 reports that without complaint.
 
+That zero belongs to **area habitats only**. Hedgerows and watercourses each have
+their own distinctiveness table, and the three tables disagree at the bottom of the
+scale. A V.Low hedgerow scores **1**, not 0, so even the poorest hedge still
+generates some units. The watercourse table has **no V.Low band at all** — its scale
+stops at Low. So "V.Low scores zero" is true only of area habitats; quoting it
+without saying which table it came from is the easiest way to misread this document.
+The hedgerow and watercourse tables are shown in full in the section on habitat
+types beyond area habitats.
+
 ### Condition — what state this particular parcel is in
 
 An assessment of this specific parcel against criteria for its habitat type. The
@@ -412,6 +421,32 @@ the curve.
 Hedgerows and watercourses are measured in kilometres rather than hectares and have
 their own complete set of lookup tables. The size term changes and the tables change,
 but the shape of the calculation is the same.
+
+The distinctiveness bands show how real the difference between the tables is. These
+are the hedgerow bands:
+
+| Band | Score |
+| --- | --- |
+| V.High | 8 |
+| High | 6 |
+| Medium | 4 |
+| Low | 2 |
+| V.Low | 1 |
+
+The bottom band scores 1 where the area habitat table scores 0. Only one hedgerow
+type sits there — non-native and ornamental hedgerow — and it still earns units.
+
+The watercourse bands stop one band higher:
+
+| Band | Score |
+| --- | --- |
+| V.High | 8 |
+| High | 6 |
+| Medium | 4 |
+| Low | 2 |
+
+There is no V.Low watercourse. The lowest-valued watercourse type, a culvert, sits
+in Low and scores 2.
 
 The **time** multiplier is chosen by exactly the same rule, using the same shared
 arithmetic. The **difficulty** multiplier is not — the linear path implements its own
