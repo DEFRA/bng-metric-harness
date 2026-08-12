@@ -156,9 +156,10 @@ report showing these values needs them explained:
   advance or delay is applied. It is the calculation's starting point, not its
   result. Say this plainly — a reader seeing "standard time to target: 10 years"
   beside a time multiplier of 0.49 will otherwise assume one is wrong.
-- Both fields are returned for **enhancement only**. Created and retained habitat do
-  not carry them. Note the asymmetry rather than letting a reader infer it is
-  universal.
+- Not every path returns these fields. State which paths carry them and which do
+  not, taken from the trace of the current code — never from memory or from a
+  previous edition of this document. Note the asymmetry rather than letting a
+  reader infer it is universal.
 
 ### 8. Things that surprise people
 
