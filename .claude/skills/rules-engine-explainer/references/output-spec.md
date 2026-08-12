@@ -22,6 +22,14 @@ as a subject. They do not read JavaScript and should never need to.
 - **Every number is traceable.** Any figure that appears in the prose must come
   from the facts file or the worked-example run. Never round, restate, or infer a
   multiplier from memory.
+- **A quoted band or score names its table.** The engine keeps parallel lookup
+  tables for different kinds of habitat, and they are not guaranteed to agree.
+  Never present one table's values as if they were the only ones — say which
+  table they come from, and where sibling tables disagree on a band, surface the
+  disagreement beside the value rather than pages later. Which tables exist and
+  what they hold is discovered from the facts file at run time, never stated
+  here. This rule exists because a reader once quoted a band score without its
+  table and drew the wrong conclusion.
 - **Explain the why, not just the what.** "Habitat that takes longer to establish
   is worth less now, because there is more chance it never gets there" beats
   "a time multiplier is applied".
@@ -48,17 +56,6 @@ One subsection each for **distinctiveness**, **condition**, **time**, and
 from, and the actual bands with their numbers as a small table. Distinctiveness
 and condition set the headline value; time and difficulty are the two **risk**
 multipliers that discount it.
-
-The distinctiveness subsection must say explicitly which kind of habitat the band
-table shown applies to, and that it is not the only such table — every kind of
-habitat the engine covers has its own. Right beside the table, compare the bottom
-of the scale across all of them: each table's lowest band and that band's score.
-The list of tables and every value come from the facts file; this spec asserts
-none of it — not which tables exist, not the values, not whether they differ.
-Report whatever the current tables say, and call out a disagreement only if the
-facts file actually shows one. The requirement exists because readers quote a
-band score without saying which table it came from, so the comparison must sit
-beside the table rather than pages later.
 
 ### 4. How the engine picks the time multiplier
 
@@ -178,9 +175,9 @@ How hedgerows and watercourses differ: measured by length rather than area, thei
 own lookup tables, and for watercourses the extra encroachment adjustment. Keep it
 brief and say clearly that the rule for *choosing* multipliers is the same one.
 
-Include each non-area distinctiveness band table here in full — they are small,
-and they are what backs the comparison promised in section 3. Every score comes
-from the facts file.
+This is the natural home for these habitat kinds' own band tables, shown in
+full — they are small, and the register rule on parallel tables needs somewhere
+the labelled tables actually live.
 
 ### 10. What the engine deliberately does not do
 
