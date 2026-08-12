@@ -7,7 +7,7 @@
 > generator — an edit made directly to this page will be overwritten the next time
 > it runs.
 >
-> Engine version 0.0.0, from commit `d02823c` (27 July 2026). Generated 27 July 2026.
+> Engine version 0.0.0, from commit `dc54cfc` (6 August 2026). Generated 12 August 2026.
 
 ## In one paragraph
 
@@ -113,9 +113,12 @@ condition. For enhancement it depends on the starting condition as well, because
 improving poor grassland to good is a different journey from improving moderate
 grassland to good.
 
-**Step two — add delay, subtract advance.** Delay years push the finish line further
-out; advance years mean the habitat was established early and is further along. They
-combine into a single figure: the reference years, plus any delay, minus any advance.
+**Step two — add delay, or subtract advance.** Delay years push the finish line
+further out; advance years mean the habitat was established early and is further
+along. A habitat can carry one or the other, never both: the engine rejects a parcel
+that has both advance and delay years, and asks for the habitat to be split into two
+parcels instead. Whichever one is present is applied to the reference years — added
+for delay, subtracted for advance.
 
 **Step three — apply the limits.** The result can never go below zero. Anything
 beyond 30 years falls into a single "more than 30 years" band, so a 31-year wait and
@@ -174,11 +177,12 @@ that **the difficulty penalty disappears at roughly half the reference time, not
 full amount**. Creating coastal saltmarsh in good condition has a reference time of
 15 years, so the penalty vanishes at 8 years of advance rather than 15.
 
-It also means advance and delay do not trade evenly. For the *time* multiplier one
-year of advance cancels exactly one year of delay. For the *difficulty* multiplier,
-because advance is counted twice and delay only once, **one year of advance offsets
-two years of delay**. Two different exchange rates operate inside the same
-calculation.
+It also means advance works harder than delay, year for year. On the *time*
+multiplier a year of advance helps exactly as much as a year of delay hurts. On
+*difficulty*, because advance is counted twice, each year of advance moves the
+habitat twice as fast towards losing the penalty as a year of delay moves it away.
+The two cannot be weighed against each other directly — a habitat is either advanced
+or delayed, never both — but comparing scenarios side by side shows the asymmetry.
 
 ![Bar chart of units against years of advance creation, showing a gentle rise from 3.5 to 9.1 units over the first seven years then a jump to 14.0 units at eight years, with bars coloured by which difficulty rule applied](charts/rules-engine/advance-sensitivity.svg)
 
@@ -233,7 +237,8 @@ flowchart TD
 | Created, advance enough to reach poor condition but not the target | From the adjusted years | Enhancement band for the habitat |
 | Enhanced, no advance | From the adjusted years | Enhancement band for the habitat |
 | Enhanced, advance covers the remaining wait | 1, or close to it | Low band — no reduction |
-| Anything delayed | Lower, compounding at 3.5% per year | Unchanged unless the advance test flips |
+| Anything delayed | Lower, compounding at 3.5% per year | Unchanged — delay never moves the band |
+| Advanced and delayed at once | Rejected — split the habitat into two parcels | Rejected |
 
 ## How enhancement protects existing value
 
@@ -266,7 +271,7 @@ Habitat already on site is scored on what it is and what state it is in. Nothing
 
 ### The effect of delay and advance on a created habitat
 
-One habitat, one target condition, one hectare — only the timing changes. Creating coastal saltmarsh in good condition normally takes 15 years to reach the target, and reaching merely poor condition takes 1 year. Watch both multipliers move as years are added or removed. Two things to note: the difficulty penalty disappears at 8 years of advance rather than the 15 you might expect, because the advance is subtracted from the target before being compared against it and so counts twice; and advance and delay cancel exactly for time but not for difficulty.
+One habitat, one target condition, one hectare — only the timing changes. Creating coastal saltmarsh in good condition normally takes 15 years to reach the target, and reaching merely poor condition takes 1 year. Watch both multipliers move as years are added or removed. Two things to note: the difficulty penalty disappears at 8 years of advance rather than the 15 you might expect, because the advance is subtracted from the target before being compared against it and so counts twice; and a habitat cannot be both advanced and delayed — the engine rejects the combination outright and asks for the habitat to be split into two parcels, as the last row shows.
 
 | Scenario | Inputs | Units | Distinctiveness | Condition | Time multiplier | Difficulty multiplier |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -277,7 +282,7 @@ One habitat, one target condition, one hectare — only the timing changes. Crea
 | Advanced by 7 years — 8 years of growing still to go, so difficulty still applies | `1, Coastal saltmarsh - Saltmarshes and saline reedbeds, Good, 7, 0` | 9.06913391121 | 6 | 3 | 0.7520011535 | 0.67 |
 | Advanced by 8 years — head start now exceeds the 7 years remaining, so difficulty drops away entirely | `1, Coastal saltmarsh - Saltmarshes and saline reedbeds, Good, 8, 0` | 14.0269645206 | 6 | 3 | 0.7792758067 | 1 |
 | Advanced by 15 years — fully mature at the point of assessment, so no risk discount at all | `1, Coastal saltmarsh - Saltmarshes and saline reedbeds, Good, 15, 0` | 18 | 6 | 3 | 1 | 1 |
-| Advanced 5 and delayed 5 — the time multiplier cancels back to the as-planned value, but difficulty does not | `1, Coastal saltmarsh - Saltmarshes and saline reedbeds, Good, 5, 5` | 7.06735664433 | 6 | 3 | 0.5860163055 | 0.67 |
+| Advanced 5 and delayed 5 — rejected: a habitat cannot be both advanced and delayed | `1, Coastal saltmarsh - Saltmarshes and saline reedbeds, Good, 5, 5` | Rejected — Advance (5) and delay (5) years cannot both be used on the same habitat. Use one or the other, or split the habitat across two parcels. | — | — | — | — |
 
 ### Difficulty depends on the habitat, not just the timing
 
@@ -340,13 +345,15 @@ Hedgerows and watercourses are measured in kilometres rather than hectares and u
 
 ### Watercourses do not get the advance discount on difficulty
 
-For an area habitat, enough advance removes the difficulty penalty entirely — the band is forced to low and the multiplier becomes 1. Watercourses never get that. However far a watercourse is advanced, the difficulty multiplier stops at the enhancement band and never reaches 1, even once the time multiplier has reached 1. For a ditch it gets worse rather than better: creating one is banded low difficulty, but three years of advance switches the lookup to the enhancement band, which is medium.
+For an area habitat, enough advance removes the difficulty penalty entirely — the band is forced to low and the multiplier becomes 1. Watercourses never get that rule. However far a watercourse is advanced, the difficulty multiplier stops at the enhancement band for that watercourse type. For a river the enhancement band is medium, so a penalty remains forever, even once the time multiplier has reached 1. For a ditch the enhancement band is low, so the penalty happens to disappear — the same outcome as the area habitat rule, arrived at by a different route.
 
 | Scenario | Inputs | Time multiplier | Difficulty multiplier | Units |
 | --- | --- | --- | --- | --- |
-| Created ditch, as planned | `1, Ditches, Good, No Encroachment, No Encroachment/No Encroachment, 0, 0` | 0.7002822742 | 1 | 8.4033872904 |
-| Created ditch, advanced 3 years — difficulty gets worse, not better | `1, Ditches, Good, No Encroachment, No Encroachment/No Encroachment, 3, 0` | 0.7792758067 | 0.67 | 6.265377485868 |
-| Created ditch, advanced 30 years — time risk gone, difficulty penalty remains | `1, Ditches, Good, No Encroachment, No Encroachment/No Encroachment, 30, 0` | 1 | 0.67 | 8.04 |
+| Created river, as planned | `1, Other rivers and streams, Good, No Encroachment, No Encroachment/No Encroachment, 0, 0` | 0.7002822742 | 0.33 | 4.159676708748 |
+| Created river, advanced 3 years — switches to the enhancement band | `1, Other rivers and streams, Good, No Encroachment, No Encroachment/No Encroachment, 3, 0` | 0.7792758067 | 0.67 | 9.398066228802 |
+| Created river, advanced 30 years — time risk gone, difficulty penalty remains | `1, Other rivers and streams, Good, No Encroachment, No Encroachment/No Encroachment, 30, 0` | 1 | 0.67 | 12.06 |
+| Created ditch, as planned | `1, Ditches, Good, No Encroachment, No Encroachment/No Encroachment, 0, 0` | 0.7002822742 | 0.67 | 5.630269484568 |
+| Created ditch, advanced 3 years — its enhancement band is low, penalty gone | `1, Ditches, Good, No Encroachment, No Encroachment/No Encroachment, 3, 0` | 0.7792758067 | 1 | 9.3513096804 |
 | For comparison — an area habitat advanced 30 years loses both penalties | `1, Grassland - Traditional orchards, Good, 30, 0` | 1 | 1 | 18 |
 
 ### Combinations the engine refuses that it arguably should not
@@ -361,8 +368,9 @@ Before choosing a difficulty band for a created habitat, the engine checks how l
 
 ## What the engine reports back
 
-For enhanced habitat the engine returns more than a unit total. It also names the
-**difficulty band** it chose, in words, and the **standard time to target**.
+For created and enhanced habitat the engine returns more than a unit total. It also
+names the **difficulty band** it chose, in words, and the **standard time to
+target**.
 
 The difficulty band label is simply the reasoning behind the number, made visible —
 it always agrees with the multiplier.
@@ -374,9 +382,9 @@ multiplier moves between 1 and 0.49. Anyone seeing "standard time to target: 10
 years" displayed beside a time multiplier of 0.49 will reasonably assume one of them
 is wrong — they are both correct, and they are answering different questions.
 
-Both of these are reported for **enhancement only**. Created and retained habitat do
-not carry them, even though the engine works out the same values internally on the
-way to the multipliers.
+Both fields travel with the two risk-carrying paths only. **Created and enhanced
+results carry them; baseline and retained results do not** — for habitat that is
+simply there or simply kept, there is no risk reasoning to report.
 
 ## Things that surprise people
 
@@ -385,9 +393,10 @@ is subtracted from the time to target before being compared against it, it count
 twice. Fifteen years of reference time means the penalty goes at eight years of
 advance, not fifteen.
 
-**Advance and delay trade at different rates for the two multipliers.** One year of
-advance cancels one year of delay for time, but offsets two years of delay for
-difficulty.
+**A habitat cannot be both advanced and delayed.** Entering advance years and delay
+years on the same habitat is rejected outright — the two are never netted against
+each other. Work that is genuinely staggered has to be recorded as two separate
+parcels, one advanced and one delayed.
 
 **For a few habitats, advancing the work makes the difficulty worse.** Five of the
 132 area habitats are banded harder to enhance than to create. For those, the rule
@@ -396,12 +405,14 @@ band. A traditional orchard created with no advance gets the low band; created w
 five years of advance it drops to medium. Enough advance eventually rescues it, but
 the middle of the range is worse than either end.
 
-**Watercourses never lose the difficulty penalty, however far ahead they are built.**
-The rule that forces the low band exists on the area path but not the linear one. A
-watercourse advanced by 30 years reaches a time multiplier of 1 while its difficulty
-multiplier stays at 0.67. For a ditch it is worse than that: creating one is banded
-low difficulty, but three years of advance switches it to the enhancement band, which
-is medium, and it never recovers.
+**Watercourses never get the rule that switches the difficulty penalty off.** The
+rule that forces the low band for well-advanced work exists on the area path but not
+the linear one. What advance does instead is move the lookup from the creation band
+to the enhancement band — so where the penalty ends up depends entirely on the
+watercourse type. A river advanced by 30 years reaches a time multiplier of 1 while
+its difficulty multiplier is still parked at the enhancement band, 0.67. A ditch
+lands luckier: its enhancement band is low, so three years of advance removes the
+penalty entirely — the same outcome as the area rule, reached by a different route.
 
 **Some valid inputs are rejected because of a question the engine did not need to
 ask.** Before choosing a difficulty band for created habitat, the engine checks how
@@ -496,6 +507,6 @@ notional area for their size band rather than a measured one.
 | Input validation and the year limits | `src/validate.js` | — |
 
 The engine is the `bng-metric-engine` package, currently at
-`bng-metric-backend/bng-metric-engine`. It holds 19 source files and 23 reference
+`bng-metric-backend/bng-metric-engine`. It holds 22 source files and 23 reference
 tables, all extracted from the Statutory Biodiversity Metric published by Natural
 England.
