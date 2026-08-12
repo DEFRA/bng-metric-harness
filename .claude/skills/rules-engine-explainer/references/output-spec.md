@@ -37,9 +37,9 @@ should be able to explain it to someone else in a sentence.
 
 The common form all unit calculations take — size, multiplied by what the habitat
 is worth, multiplied by what state it is in, then adjusted for risk. Establish the
-vocabulary the rest of the document uses. State plainly that baseline and retained
-habitat carry **no** risk adjustment, and why: nothing is being predicted about
-the future, so there is nothing to discount.
+vocabulary the rest of the document uses. State plainly which situations carry
+**no** risk adjustment — take the list from the trace — and why: where nothing is
+being predicted about the future, there is nothing to discount.
 
 ### 3. The four inputs that set the value
 
@@ -49,48 +49,51 @@ from, and the actual bands with their numbers as a small table. Distinctiveness
 and condition set the headline value; time and difficulty are the two **risk**
 multipliers that discount it.
 
-The distinctiveness subsection must say explicitly that the band table shown is
-the **area habitat** table and that hedgerows and watercourses each have their
-own, then compare the bottom of the scale across the three modules right beside
-it: for each module, its lowest band and that band's score, taken from the facts
-file. Do not assert in this spec what those values are or whether they differ —
-report whatever the current tables say, and call out a disagreement only if the
+The distinctiveness subsection must say explicitly which kind of habitat the band
+table shown applies to, and that it is not the only such table — every kind of
+habitat the engine covers has its own. Right beside the table, compare the bottom
+of the scale across all of them: each table's lowest band and that band's score.
+The list of tables and every value come from the facts file; this spec asserts
+none of it — not which tables exist, not the values, not whether they differ.
+Report whatever the current tables say, and call out a disagreement only if the
 facts file actually shows one. The requirement exists because readers quote a
-band score without saying which module's table it came from, so the comparison
-must sit beside the table rather than pages later.
+band score without saying which table it came from, so the comparison must sit
+beside the table rather than pages later.
 
 ### 4. How the engine picks the time multiplier
 
-This is a core deliverable of the story. Cover in order:
+This is a core deliverable of the story. The trace, not this spec, is the authority
+on the rules — an earlier edition of this spec narrated the arithmetic itself and
+went stale when the engine changed. Answer these questions in order, from what the
+trace found:
 
-1. Looking up how many years the habitat takes to reach the target condition —
-   noting that creation and enhancement use different tables, and that enhancement
-   depends on the starting condition as well as the target.
-2. Adding delay years and subtracting advance years to get the actual number of
-   years of waiting.
-3. Clamping the result: never below zero, and anything beyond the 30-year ceiling
-   falls into a single "more than 30 years" band.
-4. Reading the multiplier off the year count.
+1. Where does the number of years come from? Which situations use which lookup, and
+   what does each lookup depend on?
+2. How do advance and delay years change that number — including any rules about
+   whether and how the two can be combined?
+3. What limits apply, to the inputs and to the result, and what happens at each
+   extreme — is an out-of-range value rejected, trimmed, or capped?
+4. How does the final year count become a multiplier?
 
-Explain the shape of the curve in plain terms — each additional year of waiting
-removes a fixed small percentage of the value, so the discount compounds.
+Explain the shape of the relationship between waiting and value in plain terms — if
+the discount compounds, say so and give the rate, taking it from the facts file or
+the example run.
 
 ### 5. How the engine picks the difficulty multiplier
 
-The second core deliverable, and the subtler of the two. Cover:
+The second core deliverable, and the subtler of the two. Again the trace is the
+authority. Cover:
 
-1. The habitat's own difficulty band, which differs for creating a habitat from
-   scratch versus improving one that is already there.
-2. **The advance-time override**: if the head start already covers the remaining
-   years to target, difficulty stops applying altogether.
-3. **The partial-advance rule**: a created habitat with enough head start to have
-   reached poor condition is scored using the *enhancement* difficulty band rather
-   than the creation one, because in practice it is now being improved rather than
-   made from nothing.
-
-State explicitly that these comparisons are made against the time-to-target *after*
-advance has been applied, not the original figure — this is what produces the sharp
-step in the worked examples, and it will confuse anyone who assumes otherwise.
+1. Where the habitat's difficulty band comes from, and everything it depends on.
+2. Every rule that can override or reclassify that band — in particular whatever
+   effect advance years have. These overrides are the behaviour the story exists to
+   explain, so describe each one the trace found precisely, rather than assuming
+   the statutory guidance's version of the rule.
+3. For every comparison inside those rules, exactly which value it is made
+   against — the figure from the table, or one that has already been adjusted. If
+   it is an adjusted figure, call that out plainly: details like this produce the
+   sharp steps in the worked examples and will confuse anyone who assumes
+   otherwise.
 
 ### 6. Decision diagram and decision table
 
@@ -98,11 +101,11 @@ step in the worked examples, and it will confuse anyone who assumes otherwise.
 
 A Mermaid `flowchart TD` showing the path from a habitat parcel to its two risk
 multipliers. Keep the node labels in the same plain English as the prose — a reader
-should be able to follow the diagram without having read section 5. Include the
-retained/baseline short-circuit, the advance override, and the partial-advance
-branch. Split it into **two flowcharts** — one for the time multiplier, one for
-difficulty — rather than one chart carrying both; a single diagram holding the
-advance override *and* the partial-advance branch becomes unfollowable.
+should be able to follow the diagram without having read section 5. Include every
+branch the trace found — the paths that skip risk entirely, and each rule that
+overrides or reclassifies a band. Split it into **two flowcharts** — one for the
+time multiplier, one for difficulty — rather than one chart carrying both; a
+single diagram holding every difficulty override becomes unfollowable.
 
 **Keep every node label under about 30 characters.** Mermaid does not wrap them, so
 a long label makes the whole diagram wide, and a wide diagram prints small or spills
@@ -175,9 +178,9 @@ How hedgerows and watercourses differ: measured by length rather than area, thei
 own lookup tables, and for watercourses the extra encroachment adjustment. Keep it
 brief and say clearly that the rule for *choosing* multipliers is the same one.
 
-Include the hedgerow and watercourse distinctiveness band tables here in full —
-they are small, and they are what backs the per-module comparison promised in
-section 3. Every score comes from the facts file.
+Include each non-area distinctiveness band table here in full — they are small,
+and they are what backs the comparison promised in section 3. Every score comes
+from the facts file.
 
 ### 10. What the engine deliberately does not do
 
