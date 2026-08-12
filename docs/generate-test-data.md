@@ -196,20 +196,23 @@ npm run generate:gpkg -- --bad
 
 Combines with `--count` for multiple bad files at once.
 
-## Permutations runner — a pre-built scenario library
+## Permutations mode — a pre-built scenario library
 
 Rather than hand-craft a one-off GeoPackage every time a specific case needs
-testing, the **permutations runner** emits a whole library of paired baseline /
-post-intervention fixtures in one go, each covering a distinct BNG scenario and
-organised into a folder per purpose:
+testing, the **permutations mode** (`gen-gpkg.mjs --permutations`) emits a whole
+library of paired baseline / post-intervention fixtures in one go, each covering
+a distinct BNG scenario and organised into a folder per purpose:
 
 ```sh
-npm run generate:gpkg:permutations
+npm run generate:gpkg:permutations          # alias for: gen-gpkg.mjs --permutations
 # → test-data/permutations/<purpose>/<scenario>-baseline.gpkg
 # → test-data/permutations/<purpose>/<scenario>-post-intervention.gpkg
 # → test-data/permutations/manifest.json   (machine-readable)
 # → test-data/permutations/index.md        (human-readable table)
 ```
+
+It is a mode of the same `gen-gpkg` script (alongside synthetic and
+workbook-driven), so it shares the `--outdir` and `--centre` flags.
 
 The catalogue covers the axes from BMD-934:
 

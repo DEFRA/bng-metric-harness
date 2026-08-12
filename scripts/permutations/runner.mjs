@@ -90,7 +90,7 @@ function priceGain(engine, scenario, piFile) {
   return gain;
 }
 
-function runScenario(engine, scenario, outRoot) {
+function runScenario(engine, scenario, outRoot, centre) {
   const size = scenario.size ?? DEFAULT_SIZE;
   const purposeDir = path.join(outRoot, scenario.purpose);
   mkdirSync(purposeDir, { recursive: true });
@@ -99,7 +99,7 @@ function runScenario(engine, scenario, outRoot) {
   const piFile = path.join(purposeDir, names.postIntervention);
   const baselineFile = path.join(purposeDir, names.baseline);
 
-  generateOne(piFile, DEFAULT_CENTRE, {
+  generateOne(piFile, centre, {
     numParcels: size,
     attributeOverrides: scenario.overrides ?? {},
   });
@@ -136,9 +136,14 @@ function runScenario(engine, scenario, outRoot) {
  * @param {object} opts
  * @param {string} opts.outRoot output root directory
  * @param {string} [opts.only] restrict to a single purpose
+ * @param {[number, number]} [opts.centre] RLB centre (BNG easting,northing)
  * @returns {Promise<object[]>}
  */
-export async function runPermutations({ outRoot, only }) {
+export async function runPermutations({
+  outRoot,
+  only,
+  centre = DEFAULT_CENTRE,
+}) {
   const scenarios = only
     ? SCENARIOS.filter((s) => s.purpose === only)
     : SCENARIOS;
@@ -165,7 +170,7 @@ export async function runPermutations({ outRoot, only }) {
 
   const entries = [];
   for (const scenario of scenarios) {
-    entries.push(runScenario(engine, scenario, outRoot));
+    entries.push(runScenario(engine, scenario, outRoot, centre));
   }
   setMode("cli");
   return entries;

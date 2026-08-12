@@ -6,7 +6,7 @@
  * layers per file: Red Line Boundary, Habitats, Hedgerows, Rivers,
  * Urban Trees.
  *
- * Two modes:
+ * Three modes:
  *
  *   1. Synthetic (default).
  *      Both geometry AND attributes are randomised on each run, so repeat
@@ -28,6 +28,15 @@
  *      so they can be uploaded sequentially to model the two-stage BNG
  *      service workflow. Use --mode baseline or --mode post-intervention
  *      to emit only one of the pair.
+ *
+ *   3. Permutations (--permutations).
+ *      Emits a whole library of paired fixtures covering the BMD-934 scenario
+ *      catalogue (intervention types, conditions, strategic significance,
+ *      met/unmet 10% net gain, trading rules, advance/delay, data
+ *      completeness), organised one sub-folder per purpose under
+ *      test-data/permutations/ with a manifest.json + index.md. The catalogue
+ *      and generation logic live in scripts/permutations/*; --only restricts
+ *      to one purpose and --list prints the catalogue without generating.
  *
  * In either mode --centre <easting,northing> positions the RLB anywhere in
  * Britain (BNG, EPSG:27700). Defaults to Maidenhead (530000,180000).
@@ -62,8 +71,11 @@ import {
 import path from "node:path";
 import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
-import { error, info, warn } from "./_lib.mjs";
-import { HABITATS_LAYER, resolveHabitatPins } from "./gen-gpkg-habitat-pins.mjs";
+import { error, header, info, warn } from "./_lib.mjs";
+import {
+  HABITATS_LAYER,
+  resolveHabitatPins,
+} from "./gen-gpkg-habitat-pins.mjs";
 import {
   FEATURE_REF_PAD,
   FEATURE_REF_PAD_CHAR,
@@ -108,6 +120,12 @@ const { values: args } = parseArgs({
     // end-state, --mode both (default) writes both side by side from the
     // same workbook.
     mode: { type: "string" },
+    // Permutations mode (BMD-934): emit the whole scenario catalogue as paired
+    // fixtures organised by purpose. --only restricts to one purpose; --list
+    // prints the catalogue without generating. Honours --outdir and --centre.
+    permutations: { type: "boolean", default: false },
+    only: { type: "string", default: "" },
+    list: { type: "boolean", default: false },
     help: { type: "boolean", short: "h", default: false },
   },
   allowPositionals: false,
@@ -115,7 +133,9 @@ const { values: args } = parseArgs({
 
 const selectedMode = args.mode ?? MODE_BOTH;
 if (!args.help && !VALID_MODES.has(selectedMode)) {
-  console.error(`--mode must be one of: ${[...VALID_MODES].join(", ")} (got: ${args.mode})`);
+  console.error(
+    `--mode must be one of: ${[...VALID_MODES].join(", ")} (got: ${args.mode})`,
+  );
   process.exit(1);
 }
 
@@ -221,7 +241,9 @@ function timestampSuffix(d = new Date()) {
 function workbookOutputNames(source) {
   // Strip trailing query/hash, keep last path segment, replace extension.
   const url = source.replace(/[?#].*$/, "");
-  const base = path.basename(url).replace(/\.(xlsx|xlsm|xls)$/i, "") || "bng-from-workbook";
+  const base =
+    path.basename(url).replace(/\.(xlsx|xlsm|xls)$/i, "") ||
+    "bng-from-workbook";
   const ts = timestampSuffix();
   return {
     baseline: `${base}-baseline-${ts}.gpkg`,
@@ -437,7 +459,9 @@ async function clearExistingSyntheticOutput(outPath, isBatch) {
     unlinkSync(outPath);
     return;
   }
-  const overwrite = await confirm(`${outPath} already exists. Overwrite? (y/N) `);
+  const overwrite = await confirm(
+    `${outPath} already exists. Overwrite? (y/N) `,
+  );
   if (!overwrite) {
     console.log("Aborted.");
     process.exit(0);
@@ -446,9 +470,17 @@ async function clearExistingSyntheticOutput(outPath, isBatch) {
 }
 
 async function runSynthetic(centre) {
-  const numParcels = Number.parseInt(args.size, PARSE_INT_BASE_10) || DEFAULT_SYNTHETIC_SIZE;
-  const total = Math.max(1, Number.parseInt(args.count, PARSE_INT_BASE_10) || DEFAULT_RUN_COUNT);
-  const selection = resolveFlawSelection({ bad: args.bad, flaws: args.flaw, numParcels });
+  const numParcels =
+    Number.parseInt(args.size, PARSE_INT_BASE_10) || DEFAULT_SYNTHETIC_SIZE;
+  const total = Math.max(
+    1,
+    Number.parseInt(args.count, PARSE_INT_BASE_10) || DEFAULT_RUN_COUNT,
+  );
+  const selection = resolveFlawSelection({
+    bad: args.bad,
+    flaws: args.flaw,
+    numParcels,
+  });
   const habitatPins = resolveHabitatPins(args.habitat, numParcels, selection);
   const plan = { numParcels, ...selection };
   if (habitatPins) {
@@ -462,7 +494,10 @@ async function runSynthetic(centre) {
     mkdirSync(OUT_DIR, { recursive: true });
   }
   for (let i = 1; i <= total; i++) {
-    const suffix = total > 1 ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}` : "";
+    const suffix =
+      total > 1
+        ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`
+        : "";
     const stamp = timestampSuffix();
     if (args.pair) {
       const names = syntheticPairFilenames(flawSuffix, suffix, stamp);
@@ -477,10 +512,69 @@ async function runSynthetic(centre) {
       );
       continue;
     }
-    const outPath = path.join(OUT_DIR, syntheticFilename(flawSuffix, suffix, stamp));
+    const outPath = path.join(
+      OUT_DIR,
+      syntheticFilename(flawSuffix, suffix, stamp),
+    );
     await clearExistingSyntheticOutput(outPath, total > 1);
     generateOne(outPath, centre, plan);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Permutations mode (BMD-934). The catalogue and generation logic live in
+// scripts/permutations/*; this just wires the shared CLI flags to them. The
+// modules are imported lazily so a normal single-file run never loads the
+// engine glue they pull in.
+// ---------------------------------------------------------------------------
+
+function printPermutationsCatalogue(PURPOSES, SCENARIOS) {
+  header("Permutations catalogue", "cyan");
+  for (const purpose of PURPOSES) {
+    info(`\n${purpose}`);
+    for (const scenario of SCENARIOS.filter((s) => s.purpose === purpose)) {
+      info(`  ${scenario.id.padEnd(34)} ${scenario.title}`);
+    }
+  }
+  info(`\n${SCENARIOS.length} scenarios across ${PURPOSES.length} purposes.`);
+}
+
+async function runPermutationsMode(centre) {
+  const [{ runPermutations }, { writeManifest }, { PURPOSES, SCENARIOS }] =
+    await Promise.all([
+      import("./permutations/runner.mjs"),
+      import("./permutations/manifest.mjs"),
+      import("./permutations/catalogue.mjs"),
+    ]);
+
+  if (args.list) {
+    printPermutationsCatalogue(PURPOSES, SCENARIOS);
+    return;
+  }
+
+  const only = args.only || undefined;
+  if (only && !PURPOSES.includes(only)) {
+    error(`Unknown purpose "${only}". Known: ${PURPOSES.join(", ")}`);
+    process.exit(1);
+  }
+
+  const permsRoot = args.outdir
+    ? path.resolve(args.outdir)
+    : path.resolve(HARNESS_ROOT, "test-data", "permutations");
+
+  const entries = await runPermutations({ outRoot: permsRoot, only, centre });
+  if (entries.length === 0) {
+    return;
+  }
+  const purposes = PURPOSES.filter((p) => entries.some((e) => e.purpose === p));
+  const { manifestPath, indexPath } = writeManifest(
+    permsRoot,
+    entries,
+    purposes,
+  );
+  info(`\n✔ ${entries.length} scenario pair(s) written to ${permsRoot}`);
+  info(`  manifest: ${manifestPath}`);
+  info(`  index:    ${indexPath}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -492,8 +586,14 @@ async function runSynthetic(centre) {
 // one-line gloss. Keyed by the categoryLabel listFlaws() returns.
 const FLAW_CATEGORY_HEADINGS = [
   ["geometric", "Geometric flaws (each targets one backend validation error):"],
-  ["empty-layer", "Empty-layer flaws (a feature layer present with zero rows):"],
-  ["attribute-override", "Attribute-override flaws (valid geometry; out-of-scope column values):"],
+  [
+    "empty-layer",
+    "Empty-layer flaws (a feature layer present with zero rows):",
+  ],
+  [
+    "attribute-override",
+    "Attribute-override flaws (valid geometry; out-of-scope column values):",
+  ],
 ];
 
 function renderFlawCatalogue() {
@@ -530,6 +630,9 @@ Modes:
   Synthetic (default)   Randomised geometry + attributes. Use --size / --count.
   Workbook-driven       --from / --from-list reads a real Defra metric workbook
                         and emits a baseline + post-intervention pair.
+  Permutations          --permutations emits a whole library of paired fixtures
+                        covering the BMD-934 scenario catalogue, organised by
+                        purpose with a manifest.json + index.md.
 
 Options:
   --size N            Parcels per synthetic fixture (default ${DEFAULT_SYNTHETIC_SIZE}).
@@ -549,6 +652,9 @@ Options:
   --centre E,N        RLB centre, BNG/EPSG:27700 (default ${DEFAULT_CENTRE_E},${DEFAULT_CENTRE_N}).
   --strict-habitats   Fail on unmapped habitat types instead of warning.
   --inspect           Print a workbook summary as JSON (requires --from).
+  --permutations      Emit the BMD-934 scenario catalogue (see Modes above).
+  --only PURPOSE      Permutations mode: restrict to one purpose.
+  --list              Permutations mode: print the catalogue without generating.
   -h, --help          Show this help and exit.
 
 Flaw catalogue (--flaw values; defined in bng-library):
@@ -559,6 +665,9 @@ Flaws of different categories cannot be mixed. Examples:
   node scripts/gen-gpkg.mjs --bad
   node scripts/gen-gpkg.mjs --flaw parcel-too-small
   node scripts/gen-gpkg.mjs --from ./metric.xlsm --mode baseline
+  node scripts/gen-gpkg.mjs --permutations
+  node scripts/gen-gpkg.mjs --permutations --only net-gain
+  node scripts/gen-gpkg.mjs --permutations --list
   node scripts/gen-gpkg.mjs --size 3 --pair \
     --habitat "Intertidal hard structures - Artificial hard structures with integrated greening of grey infrastructure (IGGI)"`,
   );
@@ -580,6 +689,29 @@ function assertFlagCombinationsValid() {
     );
     process.exit(1);
   }
+  if (args.permutations && permutationsConflicts()) {
+    error(
+      "--permutations runs the scenario catalogue and can't be combined with " +
+        "workbook / flaw / pair / habitat / mode options; it honours --outdir, " +
+        "--centre, --only and --list only",
+    );
+    process.exit(1);
+  }
+}
+
+// The single-file / workbook options that make no sense alongside --permutations
+// (which drives its fixtures from the catalogue, not these flags).
+function permutationsConflicts() {
+  return Boolean(
+    args.from ||
+    args["from-list"] ||
+    args.bad ||
+    args.flaw.length > 0 ||
+    args.habitat.length > 0 ||
+    args.pair ||
+    args.inspect ||
+    args.mode !== undefined,
+  );
 }
 
 async function main() {
@@ -588,8 +720,15 @@ async function main() {
     return;
   }
   assertFlagCombinationsValid();
-  const centre = parseCentre(args.centre) ?? [DEFAULT_CENTRE_E, DEFAULT_CENTRE_N];
+  const centre = parseCentre(args.centre) ?? [
+    DEFAULT_CENTRE_E,
+    DEFAULT_CENTRE_N,
+  ];
 
+  if (args.permutations) {
+    await runPermutationsMode(centre);
+    return;
+  }
   if (args["from-list"]) {
     await runFromList(args["from-list"], centre);
     return;
