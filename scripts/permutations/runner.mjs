@@ -59,6 +59,31 @@ function verifyPair(baselineFile, piFile) {
   }
 }
 
+/**
+ * Assert the scenario's subject feature actually landed in the fixture. Area
+ * habitats always do (the parcel count equals the requested size), but a
+ * hedgerow/watercourse subject depends on the rejection sampler producing at
+ * least one linear feature — so fail the run loudly if geometry starved the
+ * layer, rather than shipping a fixture that silently misses its category.
+ */
+function verifySubject(piFile, subject) {
+  const db = openGeoPackageReadonly(piFile);
+  try {
+    const found = db
+      .prepare(
+        `SELECT count(*) AS n FROM "${subject.layer}" WHERE "Parcel Ref" = ?`,
+      )
+      .get(subject.ref).n;
+    if (found === 0) {
+      throw new Error(
+        `subject ${subject.layer} "${subject.ref}" is missing — the layer generated too few features`,
+      );
+    }
+  } finally {
+    db.close();
+  }
+}
+
 function assertGain(scenario, gain) {
   const met = meetsNetGain(gain.percentage);
   const expectedMet = scenario.expectGain === "met";
@@ -105,6 +130,7 @@ function runScenario(engine, scenario, outRoot, centre) {
   });
   deriveBaselineFromSynthetic(piFile, baselineFile);
   verifyPair(baselineFile, piFile);
+  verifySubject(piFile, scenario.subject);
   const gain = priceGain(engine, scenario, piFile);
 
   info(

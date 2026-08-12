@@ -14,6 +14,7 @@ import {
   priceHabitats,
 } from "../../../scripts/permutations/engine-units.mjs";
 import { loadEngine } from "../../../scripts/permutations/engine.mjs";
+import { runPermutations } from "../../../scripts/permutations/runner.mjs";
 
 const KNOWN_LAYERS = new Set(["habitats", "hedgerows", "rivers"]);
 const CENTRE = [530000, 180000];
@@ -120,5 +121,30 @@ describeEngine("engine-accurate net gain", () => {
     expect(priced.skipped).toBe(0);
     expect(priced.netGainPercentage).toBeGreaterThan(10);
     expect(meetsNetGain(priced.netGainPercentage)).toBe(true);
+  });
+});
+
+describeEngine("full-catalogue coverage", () => {
+  let outRoot;
+
+  beforeAll(() => {
+    setMode("silent");
+    outRoot = mkdtempSync(path.join(tmpdir(), "perm-cover-"));
+  });
+
+  afterAll(() => {
+    setMode("cli");
+    rmSync(outRoot, { recursive: true, force: true });
+  });
+
+  it("generates every scenario with its subject present", async () => {
+    // runScenario throws if a subject is missing or a gain expectation is not
+    // met, so a full run returning every entry is the coverage guarantee — the
+    // randomised geometry cannot silently drop a scenario's category.
+    const entries = await runPermutations({ outRoot });
+    expect(entries.length).toBe(SCENARIOS.length);
+    expect(new Set(entries.map((e) => e.id))).toEqual(
+      new Set(SCENARIOS.map((s) => s.id)),
+    );
   });
 });
