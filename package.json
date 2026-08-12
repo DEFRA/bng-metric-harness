@@ -31,6 +31,7 @@
     "test:scripts": "vitest run tests/scripts/gpkg",
     "test:scripts:watch": "vitest tests/scripts/gpkg",
     "generate:gpkg": "node scripts/gen-gpkg.mjs",
+    "generate:gpkg:permutations": "node scripts/gen-gpkg-permutations.mjs",
     "generate:gpkg:docker": "docker compose -f compose.gen-gpkg.yml run --rm --build gen-gpkg",
     "lib:link": "npm link ../bng-library",
     "lib:unlink": "npm uninstall --no-save bng-library && npm install",

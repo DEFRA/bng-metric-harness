@@ -196,6 +196,49 @@ npm run generate:gpkg -- --bad
 
 Combines with `--count` for multiple bad files at once.
 
+## Permutations runner — a pre-built scenario library
+
+Rather than hand-craft a one-off GeoPackage every time a specific case needs
+testing, the **permutations runner** emits a whole library of paired baseline /
+post-intervention fixtures in one go, each covering a distinct BNG scenario and
+organised into a folder per purpose:
+
+```sh
+npm run generate:gpkg:permutations
+# → test-data/permutations/<purpose>/<scenario>-baseline.gpkg
+# → test-data/permutations/<purpose>/<scenario>-post-intervention.gpkg
+# → test-data/permutations/manifest.json   (machine-readable)
+# → test-data/permutations/index.md        (human-readable table)
+```
+
+The catalogue covers the axes from BMD-934:
+
+- **intervention** — Retained / Enhanced / Created across all three habitat
+  types (area, hedgerow, watercourse).
+- **conditions** — one parcel per condition band (Good → Poor).
+- **strategic-significance** — one parcel per multiplier band, incl. "Low (1)".
+- **net-gain** — Met (≥ 10%) and Unmet (< 10%) fixtures. The runner prices the
+  habitats through the real `bng-metric-engine` and **fails** if a fixture does
+  not actually land on its expected side of the 10% threshold, so the labels
+  can never drift from the arithmetic. The computed percentage is recorded in
+  the manifest.
+- **trading-rules** — a Low → Medium distinctiveness enhancement.
+- **advance-delay** — created habitats with advance vs delay years.
+- **data-completeness** — a complete file and one with incomplete (blank
+  proposed) rows.
+
+Each `index.md` row names the exact feature to open (e.g. `H001`) to exercise
+the scenario. Useful options:
+
+```sh
+npm run generate:gpkg:permutations -- --list          # print the catalogue, generate nothing
+npm run generate:gpkg:permutations -- --only net-gain # one purpose only
+npm run generate:gpkg:permutations -- --outdir /tmp/p # write elsewhere
+```
+
+The net-gain scenarios need the **backend sibling** checked out (that is where
+the metric engine lives); run `npm run bootstrap` first if it is missing.
+
 ### Full option reference
 
 | Option              | Default            | Notes                                                              |
