@@ -7,34 +7,31 @@
 
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
-import { deriveBaselineFromSynthetic, generateOne, setMode } from "#bng-lib";
+import {
+  deriveBaselineFromSynthetic,
+  derivePermutationSeed,
+  generateOne,
+  PERMUTATION_DEFAULT_SIZE,
+  PERMUTATION_PURPOSES,
+  PERMUTATION_SCENARIOS,
+  setMode,
+} from "#bng-lib";
 import { openGeoPackageReadonly } from "#gpkg-io";
 import { header, info, warn } from "../_lib.mjs";
-import { DEFAULT_SIZE, PURPOSES, SCENARIOS } from "./catalogue.mjs";
 import { loadEngine } from "./engine.mjs";
 import { meetsNetGain, priceHabitats } from "./engine-units.mjs";
+
+// The catalogue is defined once, in bng-library, so the CLI and the prototype
+// share it. This runner adds the engine-accurate net-gain check and the
+// purpose-organised, manifest-backed file layout on top of it.
+const DEFAULT_SIZE = PERMUTATION_DEFAULT_SIZE;
+const PURPOSES = PERMUTATION_PURPOSES;
+const SCENARIOS = PERMUTATION_SCENARIOS;
 
 // BNG/EPSG:27700 coords of Maidenhead — the same default centre gen-gpkg uses.
 // Geometry layout is irrelevant to these attribute-driven scenarios, so every
 // fixture shares one centre.
 const DEFAULT_CENTRE = [530000, 180000];
-
-// FNV-1a constants, used to fold a scenario id into its per-file seed so each
-// fixture is independently reproducible and stable to catalogue reordering.
-const FNV_OFFSET_BASIS = 0x811c9dc5;
-const FNV_PRIME = 0x01000193;
-
-// Combine the run seed with a scenario id → a stable 32-bit per-scenario seed,
-// so `--seed S` reproduces every file regardless of how many scenarios run or
-// in what order.
-function deriveSeed(baseSeed, id) {
-  let hash = FNV_OFFSET_BASIS ^ (baseSeed >>> 0);
-  for (let i = 0; i < id.length; i += 1) {
-    hash ^= id.charCodeAt(i);
-    hash = Math.imul(hash, FNV_PRIME);
-  }
-  return hash >>> 0;
-}
 
 function scenarioFilenames(scenario) {
   return {
@@ -146,7 +143,7 @@ function runScenario(engine, scenario, outRoot, centre, seed) {
     attributeOverrides: scenario.overrides ?? {},
   };
   if (seed !== null && seed !== undefined) {
-    plan.seed = deriveSeed(seed, scenario.id);
+    plan.seed = derivePermutationSeed(seed, scenario.id);
   }
   generateOne(piFile, centre, plan);
   deriveBaselineFromSynthetic(piFile, baselineFile);

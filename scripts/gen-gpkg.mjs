@@ -564,12 +564,15 @@ function printPermutationsCatalogue(PURPOSES, SCENARIOS) {
 }
 
 async function runPermutationsMode(centre, seed) {
-  const [{ runPermutations }, { writeManifest }, { PURPOSES, SCENARIOS }] =
-    await Promise.all([
-      import("./permutations/runner.mjs"),
-      import("./permutations/manifest.mjs"),
-      import("./permutations/catalogue.mjs"),
-    ]);
+  const [
+    { runPermutations },
+    { writeManifest },
+    { PERMUTATION_PURPOSES: PURPOSES, PERMUTATION_SCENARIOS: SCENARIOS },
+  ] = await Promise.all([
+    import("./permutations/runner.mjs"),
+    import("./permutations/manifest.mjs"),
+    import("#bng-lib"),
+  ]);
 
   if (args.list) {
     printPermutationsCatalogue(PURPOSES, SCENARIOS);

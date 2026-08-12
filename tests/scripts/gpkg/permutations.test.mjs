@@ -5,10 +5,10 @@ import { createHash } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { generateOne, setMode } from "#bng-lib";
 import {
-  DEFAULT_SIZE,
-  PURPOSES,
-  SCENARIOS,
-} from "../../../scripts/permutations/catalogue.mjs";
+  PERMUTATION_DEFAULT_SIZE as DEFAULT_SIZE,
+  PERMUTATION_PURPOSES as PURPOSES,
+  PERMUTATION_SCENARIOS as SCENARIOS,
+} from "#bng-lib";
 import { repoPath } from "../../../scripts/_lib.mjs";
 import {
   meetsNetGain,
