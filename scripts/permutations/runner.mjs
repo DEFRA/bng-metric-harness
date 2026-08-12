@@ -19,6 +19,23 @@ import { meetsNetGain, priceHabitats } from "./engine-units.mjs";
 // fixture shares one centre.
 const DEFAULT_CENTRE = [530000, 180000];
 
+// FNV-1a constants, used to fold a scenario id into its per-file seed so each
+// fixture is independently reproducible and stable to catalogue reordering.
+const FNV_OFFSET_BASIS = 0x811c9dc5;
+const FNV_PRIME = 0x01000193;
+
+// Combine the run seed with a scenario id → a stable 32-bit per-scenario seed,
+// so `--seed S` reproduces every file regardless of how many scenarios run or
+// in what order.
+function deriveSeed(baseSeed, id) {
+  let hash = FNV_OFFSET_BASIS ^ (baseSeed >>> 0);
+  for (let i = 0; i < id.length; i += 1) {
+    hash ^= id.charCodeAt(i);
+    hash = Math.imul(hash, FNV_PRIME);
+  }
+  return hash >>> 0;
+}
+
 function scenarioFilenames(scenario) {
   return {
     baseline: `${scenario.id}-baseline.gpkg`,
@@ -115,7 +132,7 @@ function priceGain(engine, scenario, piFile) {
   return gain;
 }
 
-function runScenario(engine, scenario, outRoot, centre) {
+function runScenario(engine, scenario, outRoot, centre, seed) {
   const size = scenario.size ?? DEFAULT_SIZE;
   const purposeDir = path.join(outRoot, scenario.purpose);
   mkdirSync(purposeDir, { recursive: true });
@@ -124,10 +141,14 @@ function runScenario(engine, scenario, outRoot, centre) {
   const piFile = path.join(purposeDir, names.postIntervention);
   const baselineFile = path.join(purposeDir, names.baseline);
 
-  generateOne(piFile, centre, {
+  const plan = {
     numParcels: size,
     attributeOverrides: scenario.overrides ?? {},
-  });
+  };
+  if (seed !== null && seed !== undefined) {
+    plan.seed = deriveSeed(seed, scenario.id);
+  }
+  generateOne(piFile, centre, plan);
   deriveBaselineFromSynthetic(piFile, baselineFile);
   verifyPair(baselineFile, piFile);
   verifySubject(piFile, scenario.subject);
@@ -163,12 +184,15 @@ function runScenario(engine, scenario, outRoot, centre) {
  * @param {string} opts.outRoot output root directory
  * @param {string} [opts.only] restrict to a single purpose
  * @param {[number, number]} [opts.centre] RLB centre (BNG easting,northing)
+ * @param {number} [opts.seed] run seed; each scenario derives a stable seed
+ *   from it, making every fixture byte-reproducible
  * @returns {Promise<object[]>}
  */
 export async function runPermutations({
   outRoot,
   only,
   centre = DEFAULT_CENTRE,
+  seed,
 }) {
   const scenarios = only
     ? SCENARIOS.filter((s) => s.purpose === only)
@@ -196,7 +220,7 @@ export async function runPermutations({
 
   const entries = [];
   for (const scenario of scenarios) {
-    entries.push(runScenario(engine, scenario, outRoot, centre));
+    entries.push(runScenario(engine, scenario, outRoot, centre, seed));
   }
   setMode("cli");
   return entries;

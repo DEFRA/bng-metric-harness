@@ -126,6 +126,10 @@ const { values: args } = parseArgs({
     permutations: { type: "boolean", default: false },
     only: { type: "string", default: "" },
     list: { type: "boolean", default: false },
+    // Reproducibility: with an integer --seed, every random draw is
+    // deterministic, so a given seed + options yields byte-identical files.
+    // Applies to synthetic and permutations modes.
+    seed: { type: "string", default: "" },
     help: { type: "boolean", short: "h", default: false },
   },
   allowPositionals: false,
@@ -341,6 +345,22 @@ function parseCentre(value) {
   return [e, n];
 }
 
+/**
+ * Parse the --seed CLI value. Returns null when the flag wasn't given, or the
+ * integer seed when valid. Exits on a non-integer value.
+ */
+function parseSeed(value) {
+  if (!value) {
+    return null;
+  }
+  const n = Number.parseInt(value, PARSE_INT_BASE_10);
+  if (!Number.isInteger(n) || String(n) !== value.trim()) {
+    error(`--seed must be an integer (got: ${value})`);
+    return process.exit(1);
+  }
+  return n;
+}
+
 // ---------------------------------------------------------------------------
 // Synthetic-mode interactive overwrite prompt
 // ---------------------------------------------------------------------------
@@ -469,7 +489,7 @@ async function clearExistingSyntheticOutput(outPath, isBatch) {
   unlinkSync(outPath);
 }
 
-async function runSynthetic(centre) {
+async function runSynthetic(centre, seed) {
   const numParcels =
     Number.parseInt(args.size, PARSE_INT_BASE_10) || DEFAULT_SYNTHETIC_SIZE;
   const total = Math.max(
@@ -499,6 +519,10 @@ async function runSynthetic(centre) {
         ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`
         : "";
     const stamp = timestampSuffix();
+    // Each file in a --count batch gets its own seed so the batch stays varied
+    // yet reproducible: same --seed always yields the same N files.
+    const iterationPlan =
+      seed === null ? plan : { ...plan, seed: seed + (i - 1) };
     if (args.pair) {
       const names = syntheticPairFilenames(flawSuffix, suffix, stamp);
       await writeSyntheticPair(
@@ -507,7 +531,7 @@ async function runSynthetic(centre) {
           postIntervention: path.join(OUT_DIR, names.postIntervention),
         },
         centre,
-        plan,
+        iterationPlan,
         total > 1,
       );
       continue;
@@ -517,7 +541,7 @@ async function runSynthetic(centre) {
       syntheticFilename(flawSuffix, suffix, stamp),
     );
     await clearExistingSyntheticOutput(outPath, total > 1);
-    generateOne(outPath, centre, plan);
+    generateOne(outPath, centre, iterationPlan);
   }
 }
 
@@ -539,7 +563,7 @@ function printPermutationsCatalogue(PURPOSES, SCENARIOS) {
   info(`\n${SCENARIOS.length} scenarios across ${PURPOSES.length} purposes.`);
 }
 
-async function runPermutationsMode(centre) {
+async function runPermutationsMode(centre, seed) {
   const [{ runPermutations }, { writeManifest }, { PURPOSES, SCENARIOS }] =
     await Promise.all([
       import("./permutations/runner.mjs"),
@@ -562,7 +586,12 @@ async function runPermutationsMode(centre) {
     ? path.resolve(args.outdir)
     : path.resolve(HARNESS_ROOT, "test-data", "permutations");
 
-  const entries = await runPermutations({ outRoot: permsRoot, only, centre });
+  const entries = await runPermutations({
+    outRoot: permsRoot,
+    only,
+    centre,
+    seed,
+  });
   if (entries.length === 0) {
     return;
   }
@@ -655,6 +684,8 @@ Options:
   --permutations      Emit the BMD-934 scenario catalogue (see Modes above).
   --only PURPOSE      Permutations mode: restrict to one purpose.
   --list              Permutations mode: print the catalogue without generating.
+  --seed N            Deterministic output: same seed → byte-identical files
+                      (synthetic and permutations modes).
   -h, --help          Show this help and exit.
 
 Flaw catalogue (--flaw values; defined in bng-library):
@@ -668,6 +699,8 @@ Flaws of different categories cannot be mixed. Examples:
   node scripts/gen-gpkg.mjs --permutations
   node scripts/gen-gpkg.mjs --permutations --only net-gain
   node scripts/gen-gpkg.mjs --permutations --list
+  node scripts/gen-gpkg.mjs --seed 42
+  node scripts/gen-gpkg.mjs --permutations --seed 42
   node scripts/gen-gpkg.mjs --size 3 --pair \
     --habitat "Intertidal hard structures - Artificial hard structures with integrated greening of grey infrastructure (IGGI)"`,
   );
@@ -694,6 +727,13 @@ function assertFlagCombinationsValid() {
       "--permutations runs the scenario catalogue and can't be combined with " +
         "workbook / flaw / pair / habitat / mode options; it honours --outdir, " +
         "--centre, --only and --list only",
+    );
+    process.exit(1);
+  }
+  if (args.seed && (args.from || args["from-list"])) {
+    error(
+      "--seed is not supported in workbook mode yet; it applies to synthetic " +
+        "and permutations generation",
     );
     process.exit(1);
   }
@@ -724,9 +764,10 @@ async function main() {
     DEFAULT_CENTRE_E,
     DEFAULT_CENTRE_N,
   ];
+  const seed = parseSeed(args.seed);
 
   if (args.permutations) {
-    await runPermutationsMode(centre);
+    await runPermutationsMode(centre, seed);
     return;
   }
   if (args["from-list"]) {
@@ -742,7 +783,7 @@ async function main() {
     });
     return;
   }
-  await runSynthetic(centre);
+  await runSynthetic(centre, seed);
 }
 
 main().catch((err) => {

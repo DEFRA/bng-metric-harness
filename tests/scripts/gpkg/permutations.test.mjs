@@ -1,6 +1,7 @@
-import { mkdtempSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { generateOne, setMode } from "#bng-lib";
 import {
@@ -146,5 +147,38 @@ describeEngine("full-catalogue coverage", () => {
     expect(new Set(entries.map((e) => e.id))).toEqual(
       new Set(SCENARIOS.map((s) => s.id)),
     );
+  });
+});
+
+describeEngine("seeded reproducibility", () => {
+  let root;
+
+  beforeAll(() => {
+    setMode("silent");
+    root = mkdtempSync(path.join(tmpdir(), "perm-seed-"));
+  });
+
+  afterAll(() => {
+    setMode("cli");
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  const hashRun = async (dir, seed) => {
+    const outRoot = path.join(root, dir);
+    await runPermutations({ outRoot, only: "conditions", seed });
+    const file = path.join(
+      outRoot,
+      "conditions",
+      "conditions-area-spread-post-intervention.gpkg",
+    );
+    return createHash("sha256").update(readFileSync(file)).digest("hex");
+  };
+
+  it("produces byte-identical fixtures for the same seed", async () => {
+    expect(await hashRun("a", 7)).toBe(await hashRun("b", 7));
+  });
+
+  it("produces different fixtures for a different seed", async () => {
+    expect(await hashRun("c", 7)).not.toBe(await hashRun("d", 8));
   });
 });

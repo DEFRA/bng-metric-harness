@@ -242,6 +242,24 @@ npm run generate:gpkg:permutations -- --outdir /tmp/p # write elsewhere
 The net-gain scenarios need the **backend sibling** checked out (that is where
 the metric engine lives); run `npm run bootstrap` first if it is missing.
 
+## Reproducible output (`--seed`)
+
+By default every run randomises geometry (and any unpinned attribute), so files
+differ each time. Pass an integer `--seed` to make the output **deterministic** —
+the same seed plus the same options yields **byte-identical** files, which is
+handy for committing fixtures or diffing them in CI:
+
+```sh
+npm run generate:gpkg -- --size 20 --seed 42            # same file every run
+npm run generate:gpkg:permutations -- --seed 42          # whole catalogue reproducible
+```
+
+It works in both synthetic and permutations modes. In a `--count` batch each
+file gets its own derived seed (so the batch stays varied but reproducible), and
+in permutations mode each scenario derives a stable seed from `--seed` and its
+id, so a fixture reproduces regardless of how many scenarios you run. (`--seed`
+is not yet supported in workbook mode.)
+
 ### Full option reference
 
 | Option              | Default            | Notes                                                              |
@@ -258,3 +276,7 @@ the metric engine lives); run `npm run bootstrap` first if it is missing.
 | `--strict-habitats` | off                | Drop workbook rows the prototype's validator would reject          |
 | `--mode <m>`        | `both`             | Workbook mode: `baseline`, `post-intervention`, or `both`          |
 | `--bad`             | off                | Emit an intentionally invalid GeoPackage                           |
+| `--permutations`    | off                | Emit the scenario catalogue (see "Permutations mode" above)        |
+| `--only <purpose>`  | —                  | Permutations mode — restrict to one purpose                        |
+| `--list`            | off                | Permutations mode — print the catalogue without generating         |
+| `--seed <n>`        | —                  | Deterministic output; same seed → byte-identical files             |
