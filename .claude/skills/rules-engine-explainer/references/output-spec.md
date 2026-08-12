@@ -50,14 +50,14 @@ and condition set the headline value; time and difficulty are the two **risk**
 multipliers that discount it.
 
 The distinctiveness subsection must say explicitly that the band table shown is
-the **area habitat** table, and that hedgerows and watercourses each have their
-own — and that the three disagree at the bottom band. State the contrast in the
-prose right beside the table: V.Low scores 0 for an area habitat, but a V.Low
-hedgerow scores a different, non-zero value, and the watercourse table has no
-V.Low band at all (its lowest band is Low). Take each of those values from the
-facts file, never from memory. "V.Low = 0" quoted without the module qualifier
-is the single most common misreading of this document, so the qualifier is not
-optional colour — it is the point.
+the **area habitat** table and that hedgerows and watercourses each have their
+own, then compare the bottom of the scale across the three modules right beside
+it: for each module, its lowest band and that band's score, taken from the facts
+file. Do not assert in this spec what those values are or whether they differ —
+report whatever the current tables say, and call out a disagreement only if the
+facts file actually shows one. The requirement exists because readers quote a
+band score without saying which module's table it came from, so the comparison
+must sit beside the table rather than pages later.
 
 ### 4. How the engine picks the time multiplier
 
@@ -175,9 +175,8 @@ own lookup tables, and for watercourses the extra encroachment adjustment. Keep 
 brief and say clearly that the rule for *choosing* multipliers is the same one.
 
 Include the hedgerow and watercourse distinctiveness band tables here in full —
-they are small, and they are where the per-module V.Low difference promised in
-section 3 is actually shown: the hedgerow table carries a non-zero V.Low score,
-and the watercourse table stops at Low. Every score comes from the facts file.
+they are small, and they are what backs the per-module comparison promised in
+section 3. Every score comes from the facts file.
 
 ### 10. What the engine deliberately does not do
 
