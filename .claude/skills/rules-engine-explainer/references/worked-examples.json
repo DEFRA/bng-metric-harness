@@ -28,7 +28,7 @@
     },
     {
       "title": "The effect of delay and advance on a created habitat",
-      "intro": "One habitat, one target condition, one hectare — only the timing changes. Creating coastal saltmarsh in good condition normally takes 15 years to reach the target, and reaching merely poor condition takes 1 year. Watch both multipliers move as years are added or removed. Two things to note: the difficulty penalty disappears at 8 years of advance rather than the 15 you might expect, because the advance is subtracted from the target before being compared against it and so counts twice; and advance and delay cancel exactly for time but not for difficulty.",
+      "intro": "One habitat, one target condition, one hectare — only the timing changes. Creating coastal saltmarsh in good condition normally takes 15 years to reach the target, and reaching merely poor condition takes 1 year. Watch both multipliers move as years are added or removed. Two things to note: the difficulty penalty disappears at 8 years of advance rather than the 15 you might expect, because the advance is subtracted from the target before being compared against it and so counts twice; and a habitat cannot be both advanced and delayed — the engine rejects the combination outright and asks for the habitat to be split into two parcels, as the last row shows.",
       "examples": [
         {
           "name": "Created as planned (no delay, no advance)",
@@ -73,10 +73,10 @@
           "expect": { "timeMultiplier": 1, "difficultyMultiplier": 1, "units": 18 }
         },
         {
-          "name": "Advanced 5 and delayed 5 — the time multiplier cancels back to the as-planned value, but difficulty does not",
+          "name": "Advanced 5 and delayed 5 — rejected: a habitat cannot be both advanced and delayed",
           "fn": "calculateCreatedAreaHabitatPostIntervention",
           "args": [1, "Coastal saltmarsh - Saltmarshes and saline reedbeds", "Good", 5, 5],
-          "expect": { "timeMultiplier": 0.5860163055, "difficultyMultiplier": 0.67 }
+          "expectThrow": true
         }
       ]
     },
@@ -225,7 +225,7 @@
     },
     {
       "title": "Watercourses do not get the advance discount on difficulty",
-      "intro": "For an area habitat, enough advance removes the difficulty penalty entirely — the band is forced to low and the multiplier becomes 1. Watercourses never get that. However far a watercourse is advanced, the difficulty multiplier stops at the enhancement band and never reaches 1, even once the time multiplier has reached 1. For a ditch it gets worse rather than better: creating one is banded low difficulty, but three years of advance switches the lookup to the enhancement band, which is medium.",
+      "intro": "For an area habitat, enough advance removes the difficulty penalty entirely — the band is forced to low and the multiplier becomes 1. Watercourses never get that rule. However far a watercourse is advanced, the difficulty multiplier stops at the enhancement band for that watercourse type. For a river the enhancement band is medium, so a penalty remains forever, even once the time multiplier has reached 1. For a ditch the enhancement band is low, so the penalty happens to disappear — the same outcome as the area habitat rule, arrived at by a different route.",
       "columns": [
         { "key": "timeMultiplier", "label": "Time multiplier" },
         { "key": "difficultyMultiplier", "label": "Difficulty multiplier" },
@@ -233,22 +233,34 @@
       ],
       "examples": [
         {
-          "name": "Created ditch, as planned",
+          "name": "Created river, as planned",
           "fn": "calculateCreatedWatercoursePostIntervention",
-          "args": [1, "Ditches", "Good", "No Encroachment", "No Encroachment/No Encroachment", 0, 0],
-          "expect": { "difficultyMultiplier": 1 }
+          "args": [1, "Other rivers and streams", "Good", "No Encroachment", "No Encroachment/No Encroachment", 0, 0],
+          "expect": { "difficultyMultiplier": 0.33 }
         },
         {
-          "name": "Created ditch, advanced 3 years — difficulty gets worse, not better",
+          "name": "Created river, advanced 3 years — switches to the enhancement band",
           "fn": "calculateCreatedWatercoursePostIntervention",
-          "args": [1, "Ditches", "Good", "No Encroachment", "No Encroachment/No Encroachment", 3, 0],
+          "args": [1, "Other rivers and streams", "Good", "No Encroachment", "No Encroachment/No Encroachment", 3, 0],
           "expect": { "difficultyMultiplier": 0.67 }
         },
         {
-          "name": "Created ditch, advanced 30 years — time risk gone, difficulty penalty remains",
+          "name": "Created river, advanced 30 years — time risk gone, difficulty penalty remains",
           "fn": "calculateCreatedWatercoursePostIntervention",
-          "args": [1, "Ditches", "Good", "No Encroachment", "No Encroachment/No Encroachment", 30, 0],
+          "args": [1, "Other rivers and streams", "Good", "No Encroachment", "No Encroachment/No Encroachment", 30, 0],
           "expect": { "timeMultiplier": 1, "difficultyMultiplier": 0.67 }
+        },
+        {
+          "name": "Created ditch, as planned",
+          "fn": "calculateCreatedWatercoursePostIntervention",
+          "args": [1, "Ditches", "Good", "No Encroachment", "No Encroachment/No Encroachment", 0, 0],
+          "expect": { "difficultyMultiplier": 0.67 }
+        },
+        {
+          "name": "Created ditch, advanced 3 years — its enhancement band is low, penalty gone",
+          "fn": "calculateCreatedWatercoursePostIntervention",
+          "args": [1, "Ditches", "Good", "No Encroachment", "No Encroachment/No Encroachment", 3, 0],
+          "expect": { "difficultyMultiplier": 1 }
         },
         {
           "name": "For comparison — an area habitat advanced 30 years loses both penalties",

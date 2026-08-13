@@ -22,6 +22,14 @@ as a subject. They do not read JavaScript and should never need to.
 - **Every number is traceable.** Any figure that appears in the prose must come
   from the facts file or the worked-example run. Never round, restate, or infer a
   multiplier from memory.
+- **A quoted band or score names its table.** The engine keeps parallel lookup
+  tables for different kinds of habitat, and they are not guaranteed to agree.
+  Never present one table's values as if they were the only ones — say which
+  table they come from, and where sibling tables disagree on a band, surface the
+  disagreement beside the value rather than pages later. Which tables exist and
+  what they hold is discovered from the facts file at run time, never stated
+  here. This rule exists because a reader once quoted a band score without its
+  table and drew the wrong conclusion.
 - **Explain the why, not just the what.** "Habitat that takes longer to establish
   is worth less now, because there is more chance it never gets there" beats
   "a time multiplier is applied".
@@ -37,9 +45,9 @@ should be able to explain it to someone else in a sentence.
 
 The common form all unit calculations take — size, multiplied by what the habitat
 is worth, multiplied by what state it is in, then adjusted for risk. Establish the
-vocabulary the rest of the document uses. State plainly that baseline and retained
-habitat carry **no** risk adjustment, and why: nothing is being predicted about
-the future, so there is nothing to discount.
+vocabulary the rest of the document uses. State plainly which situations carry
+**no** risk adjustment — take the list from the trace — and why: where nothing is
+being predicted about the future, there is nothing to discount.
 
 ### 3. The four inputs that set the value
 
@@ -51,36 +59,38 @@ multipliers that discount it.
 
 ### 4. How the engine picks the time multiplier
 
-This is a core deliverable of the story. Cover in order:
+This is a core deliverable of the story. The trace, not this spec, is the authority
+on the rules — an earlier edition of this spec narrated the arithmetic itself and
+went stale when the engine changed. Answer these questions in order, from what the
+trace found:
 
-1. Looking up how many years the habitat takes to reach the target condition —
-   noting that creation and enhancement use different tables, and that enhancement
-   depends on the starting condition as well as the target.
-2. Adding delay years and subtracting advance years to get the actual number of
-   years of waiting.
-3. Clamping the result: never below zero, and anything beyond the 30-year ceiling
-   falls into a single "more than 30 years" band.
-4. Reading the multiplier off the year count.
+1. Where does the number of years come from? Which situations use which lookup, and
+   what does each lookup depend on?
+2. How do advance and delay years change that number — including any rules about
+   whether and how the two can be combined?
+3. What limits apply, to the inputs and to the result, and what happens at each
+   extreme — is an out-of-range value rejected, trimmed, or capped?
+4. How does the final year count become a multiplier?
 
-Explain the shape of the curve in plain terms — each additional year of waiting
-removes a fixed small percentage of the value, so the discount compounds.
+Explain the shape of the relationship between waiting and value in plain terms — if
+the discount compounds, say so and give the rate, taking it from the facts file or
+the example run.
 
 ### 5. How the engine picks the difficulty multiplier
 
-The second core deliverable, and the subtler of the two. Cover:
+The second core deliverable, and the subtler of the two. Again the trace is the
+authority. Cover:
 
-1. The habitat's own difficulty band, which differs for creating a habitat from
-   scratch versus improving one that is already there.
-2. **The advance-time override**: if the head start already covers the remaining
-   years to target, difficulty stops applying altogether.
-3. **The partial-advance rule**: a created habitat with enough head start to have
-   reached poor condition is scored using the *enhancement* difficulty band rather
-   than the creation one, because in practice it is now being improved rather than
-   made from nothing.
-
-State explicitly that these comparisons are made against the time-to-target *after*
-advance has been applied, not the original figure — this is what produces the sharp
-step in the worked examples, and it will confuse anyone who assumes otherwise.
+1. Where the habitat's difficulty band comes from, and everything it depends on.
+2. Every rule that can override or reclassify that band — in particular whatever
+   effect advance years have. These overrides are the behaviour the story exists to
+   explain, so describe each one the trace found precisely, rather than assuming
+   the statutory guidance's version of the rule.
+3. For every comparison inside those rules, exactly which value it is made
+   against — the figure from the table, or one that has already been adjusted. If
+   it is an adjusted figure, call that out plainly: details like this produce the
+   sharp steps in the worked examples and will confuse anyone who assumes
+   otherwise.
 
 ### 6. Decision diagram and decision table
 
@@ -88,11 +98,11 @@ step in the worked examples, and it will confuse anyone who assumes otherwise.
 
 A Mermaid `flowchart TD` showing the path from a habitat parcel to its two risk
 multipliers. Keep the node labels in the same plain English as the prose — a reader
-should be able to follow the diagram without having read section 5. Include the
-retained/baseline short-circuit, the advance override, and the partial-advance
-branch. Split it into **two flowcharts** — one for the time multiplier, one for
-difficulty — rather than one chart carrying both; a single diagram holding the
-advance override *and* the partial-advance branch becomes unfollowable.
+should be able to follow the diagram without having read section 5. Include every
+branch the trace found — the paths that skip risk entirely, and each rule that
+overrides or reclassifies a band. Split it into **two flowcharts** — one for the
+time multiplier, one for difficulty — rather than one chart carrying both; a
+single diagram holding every difficulty override becomes unfollowable.
 
 **Keep every node label under about 30 characters.** Mermaid does not wrap them, so
 a long label makes the whole diagram wide, and a wide diagram prints small or spills
@@ -146,9 +156,10 @@ report showing these values needs them explained:
   advance or delay is applied. It is the calculation's starting point, not its
   result. Say this plainly — a reader seeing "standard time to target: 10 years"
   beside a time multiplier of 0.49 will otherwise assume one is wrong.
-- Both fields are returned for **enhancement only**. Created and retained habitat do
-  not carry them. Note the asymmetry rather than letting a reader infer it is
-  universal.
+- Not every path returns these fields. State which paths carry them and which do
+  not, taken from the trace of the current code — never from memory or from a
+  previous edition of this document. Note the asymmetry rather than letting a
+  reader infer it is universal.
 
 ### 8. Things that surprise people
 
@@ -163,6 +174,10 @@ finds only two genuine surprises, publish two.
 How hedgerows and watercourses differ: measured by length rather than area, their
 own lookup tables, and for watercourses the extra encroachment adjustment. Keep it
 brief and say clearly that the rule for *choosing* multipliers is the same one.
+
+This is the natural home for these habitat kinds' own band tables, shown in
+full — they are small, and the register rule on parallel tables needs somewhere
+the labelled tables actually live.
 
 ### 10. What the engine deliberately does not do
 
