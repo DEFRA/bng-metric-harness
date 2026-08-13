@@ -24,7 +24,7 @@ Total scenarios: **18** across **7** purposes.
 
 | Scenario | Subject | Net gain | Files |
 | --- | --- | --- | --- |
-| **Area habitats across every condition band**<br>Six retained parcels, each pinned to a different condition (Good → Poor), same habitat. | H001 — Good condition (H001) through Poor (H005) | — | `conditions/area-spread-baseline.gpkg` · `conditions/area-spread-post-intervention.gpkg` |
+| **Area habitats across every condition band**<br>Five retained parcels, each pinned to a different condition (Good → Poor), same habitat. | H001 — Good condition (H001) through Poor (H005) | — | `conditions/area-spread-baseline.gpkg` · `conditions/area-spread-post-intervention.gpkg` |
 
 ## strategic-significance
 

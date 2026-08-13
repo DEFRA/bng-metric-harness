@@ -157,7 +157,7 @@
       "id": "conditions-area-spread",
       "purpose": "conditions",
       "title": "Area habitats across every condition band",
-      "description": "Six retained parcels, each pinned to a different condition (Good → Poor), same habitat.",
+      "description": "Five retained parcels, each pinned to a different condition (Good → Poor), same habitat.",
       "size": 5,
       "subject": {
         "layer": "Habitats",
