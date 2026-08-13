@@ -35,10 +35,18 @@ const MAIDENHEAD_EASTING = 530000;
 const MAIDENHEAD_NORTHING = 180000;
 const DEFAULT_CENTRE = [MAIDENHEAD_EASTING, MAIDENHEAD_NORTHING];
 
+// Files live inside a folder named after the purpose, so when a scenario id
+// leads with its purpose, drop it from the filename rather than repeat it:
+// intervention/area-created-baseline.gpkg, not
+// intervention/intervention-area-created-baseline.gpkg.
 function scenarioFilenames(scenario) {
+  const prefix = `${scenario.purpose}-`;
+  const base = scenario.id.startsWith(prefix)
+    ? scenario.id.slice(prefix.length)
+    : scenario.id;
   return {
-    baseline: `${scenario.id}-baseline.gpkg`,
-    postIntervention: `${scenario.id}-post-intervention.gpkg`,
+    baseline: `${base}-baseline.gpkg`,
+    postIntervention: `${base}-post-intervention.gpkg`,
   };
 }
 

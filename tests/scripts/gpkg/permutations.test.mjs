@@ -169,7 +169,7 @@ describeEngine("seeded reproducibility", () => {
     const file = path.join(
       outRoot,
       "conditions",
-      "conditions-area-spread-post-intervention.gpkg",
+      "area-spread-post-intervention.gpkg",
     );
     return createHash("sha256").update(readFileSync(file)).digest("hex");
   };

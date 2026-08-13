@@ -10,34 +10,34 @@ Total scenarios: **18** across **7** purposes.
 
 | Scenario | Subject | Net gain | Files |
 | --- | --- | --- | --- |
-| **Area habitat — Retained**<br>Every area parcel is retained: proposed state mirrors the baseline. | H001 — a retained area habitat | — | `intervention/intervention-area-retained-baseline.gpkg` · `intervention/intervention-area-retained-post-intervention.gpkg` |
-| **Area habitat — Enhanced**<br>Area parcels are enhanced from Moderate to Good condition (same habitat). | H001 — an enhanced area habitat | — | `intervention/intervention-area-enhanced-baseline.gpkg` · `intervention/intervention-area-enhanced-post-intervention.gpkg` |
-| **Area habitat — Created**<br>Area parcels are created (written to the gpkg as the statutory 'Lost' retention). | H001 — a created area habitat | — | `intervention/intervention-area-created-baseline.gpkg` · `intervention/intervention-area-created-post-intervention.gpkg` |
-| **Hedgerow — Retained**<br>The first hedgerow is retained; area parcels tile the redline. | HG001 — a retained hedgerow | — | `intervention/intervention-hedgerow-retained-baseline.gpkg` · `intervention/intervention-hedgerow-retained-post-intervention.gpkg` |
-| **Hedgerow — Enhanced**<br>The first hedgerow is enhanced from Moderate to Good condition. | HG001 — an enhanced hedgerow | — | `intervention/intervention-hedgerow-enhanced-baseline.gpkg` · `intervention/intervention-hedgerow-enhanced-post-intervention.gpkg` |
-| **Hedgerow — Created**<br>The first hedgerow is created; its baseline columns take the template placeholders. | HG001 — a created hedgerow | — | `intervention/intervention-hedgerow-created-baseline.gpkg` · `intervention/intervention-hedgerow-created-post-intervention.gpkg` |
-| **Watercourse — Retained**<br>The first watercourse is retained, with no encroachment. | R001 — a retained watercourse | — | `intervention/intervention-watercourse-retained-baseline.gpkg` · `intervention/intervention-watercourse-retained-post-intervention.gpkg` |
-| **Watercourse — Enhanced**<br>The first watercourse is enhanced from Moderate to Good condition. | R001 — an enhanced watercourse | — | `intervention/intervention-watercourse-enhanced-baseline.gpkg` · `intervention/intervention-watercourse-enhanced-post-intervention.gpkg` |
-| **Watercourse — Created**<br>The first watercourse is created; its baseline columns take the template placeholders. | R001 — a created watercourse | — | `intervention/intervention-watercourse-created-baseline.gpkg` · `intervention/intervention-watercourse-created-post-intervention.gpkg` |
+| **Area habitat — Retained**<br>Every area parcel is retained: proposed state mirrors the baseline. | H001 — a retained area habitat | — | `intervention/area-retained-baseline.gpkg` · `intervention/area-retained-post-intervention.gpkg` |
+| **Area habitat — Enhanced**<br>Area parcels are enhanced from Moderate to Good condition (same habitat). | H001 — an enhanced area habitat | — | `intervention/area-enhanced-baseline.gpkg` · `intervention/area-enhanced-post-intervention.gpkg` |
+| **Area habitat — Created**<br>Area parcels are created (written to the gpkg as the statutory 'Lost' retention). | H001 — a created area habitat | — | `intervention/area-created-baseline.gpkg` · `intervention/area-created-post-intervention.gpkg` |
+| **Hedgerow — Retained**<br>The first hedgerow is retained; area parcels tile the redline. | HG001 — a retained hedgerow | — | `intervention/hedgerow-retained-baseline.gpkg` · `intervention/hedgerow-retained-post-intervention.gpkg` |
+| **Hedgerow — Enhanced**<br>The first hedgerow is enhanced from Moderate to Good condition. | HG001 — an enhanced hedgerow | — | `intervention/hedgerow-enhanced-baseline.gpkg` · `intervention/hedgerow-enhanced-post-intervention.gpkg` |
+| **Hedgerow — Created**<br>The first hedgerow is created; its baseline columns take the template placeholders. | HG001 — a created hedgerow | — | `intervention/hedgerow-created-baseline.gpkg` · `intervention/hedgerow-created-post-intervention.gpkg` |
+| **Watercourse — Retained**<br>The first watercourse is retained, with no encroachment. | R001 — a retained watercourse | — | `intervention/watercourse-retained-baseline.gpkg` · `intervention/watercourse-retained-post-intervention.gpkg` |
+| **Watercourse — Enhanced**<br>The first watercourse is enhanced from Moderate to Good condition. | R001 — an enhanced watercourse | — | `intervention/watercourse-enhanced-baseline.gpkg` · `intervention/watercourse-enhanced-post-intervention.gpkg` |
+| **Watercourse — Created**<br>The first watercourse is created; its baseline columns take the template placeholders. | R001 — a created watercourse | — | `intervention/watercourse-created-baseline.gpkg` · `intervention/watercourse-created-post-intervention.gpkg` |
 
 ## conditions
 
 | Scenario | Subject | Net gain | Files |
 | --- | --- | --- | --- |
-| **Area habitats across every condition band**<br>Six retained parcels, each pinned to a different condition (Good → Poor), same habitat. | H001 — Good condition (H001) through Poor (H005) | — | `conditions/conditions-area-spread-baseline.gpkg` · `conditions/conditions-area-spread-post-intervention.gpkg` |
+| **Area habitats across every condition band**<br>Six retained parcels, each pinned to a different condition (Good → Poor), same habitat. | H001 — Good condition (H001) through Poor (H005) | — | `conditions/area-spread-baseline.gpkg` · `conditions/area-spread-post-intervention.gpkg` |
 
 ## strategic-significance
 
 | Scenario | Subject | Net gain | Files |
 | --- | --- | --- | --- |
-| **Area habitats across every strategic-significance band**<br>Three retained parcels pinned to Low (1), Medium and High strategic significance. | H001 — H001 Low (1), H002 Medium, H003 High strategic significance | — | `strategic-significance/strategic-significance-spread-baseline.gpkg` · `strategic-significance/strategic-significance-spread-post-intervention.gpkg` |
+| **Area habitats across every strategic-significance band**<br>Three retained parcels pinned to Low (1), Medium and High strategic significance. | H001 — H001 Low (1), H002 Medium, H003 High strategic significance | — | `strategic-significance/spread-baseline.gpkg` · `strategic-significance/spread-post-intervention.gpkg` |
 
 ## net-gain
 
 | Scenario | Subject | Net gain | Files |
 | --- | --- | --- | --- |
-| **Net gain met (≥ 10%)**<br>Every parcel enhanced from Low-distinctiveness/Poor to Medium-distinctiveness/Good — a large, unambiguous gain. | H001 — enhanced parcels driving a net gain over 10% | met (293.0%) | `net-gain/net-gain-met-baseline.gpkg` · `net-gain/net-gain-met-post-intervention.gpkg` |
-| **Net gain unmet (< 10%)**<br>Every parcel retained unchanged — zero net change, so the 10% gain is not met. | H001 — retained parcels with no net gain | unmet (0.0%) | `net-gain/net-gain-unmet-baseline.gpkg` · `net-gain/net-gain-unmet-post-intervention.gpkg` |
+| **Net gain met (≥ 10%)**<br>Every parcel enhanced from Low-distinctiveness/Poor to Medium-distinctiveness/Good — a large, unambiguous gain. | H001 — enhanced parcels driving a net gain over 10% | met (293.0%) | `net-gain/met-baseline.gpkg` · `net-gain/met-post-intervention.gpkg` |
+| **Net gain unmet (< 10%)**<br>Every parcel retained unchanged — zero net change, so the 10% gain is not met. | H001 — retained parcels with no net gain | unmet (0.0%) | `net-gain/unmet-baseline.gpkg` · `net-gain/unmet-post-intervention.gpkg` |
 
 ## trading-rules
 
@@ -49,8 +49,8 @@ Total scenarios: **18** across **7** purposes.
 
 | Scenario | Subject | Net gain | Files |
 | --- | --- | --- | --- |
-| **Created habitat — advance years**<br>Created parcels with habitat creation started 5 years in advance (delay 0). | H001 — created parcel with 5 advance years | — | `advance-delay/advance-delay-created-advance-baseline.gpkg` · `advance-delay/advance-delay-created-advance-post-intervention.gpkg` |
-| **Created habitat — delay years**<br>Created parcels with habitat creation delayed by 3 years (advance 0). | H001 — created parcel with 3 delay years | — | `advance-delay/advance-delay-created-delay-baseline.gpkg` · `advance-delay/advance-delay-created-delay-post-intervention.gpkg` |
+| **Created habitat — advance years**<br>Created parcels with habitat creation started 5 years in advance (delay 0). | H001 — created parcel with 5 advance years | — | `advance-delay/created-advance-baseline.gpkg` · `advance-delay/created-advance-post-intervention.gpkg` |
+| **Created habitat — delay years**<br>Created parcels with habitat creation delayed by 3 years (advance 0). | H001 — created parcel with 3 delay years | — | `advance-delay/created-delay-baseline.gpkg` · `advance-delay/created-delay-post-intervention.gpkg` |
 
 ## data-completeness
 

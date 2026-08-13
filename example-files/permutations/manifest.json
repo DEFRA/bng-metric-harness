@@ -12,8 +12,8 @@
         "note": "a retained area habitat"
       },
       "files": {
-        "baseline": "intervention/intervention-area-retained-baseline.gpkg",
-        "postIntervention": "intervention/intervention-area-retained-post-intervention.gpkg"
+        "baseline": "intervention/area-retained-baseline.gpkg",
+        "postIntervention": "intervention/area-retained-post-intervention.gpkg"
       },
       "gain": null
     },
@@ -29,8 +29,8 @@
         "note": "an enhanced area habitat"
       },
       "files": {
-        "baseline": "intervention/intervention-area-enhanced-baseline.gpkg",
-        "postIntervention": "intervention/intervention-area-enhanced-post-intervention.gpkg"
+        "baseline": "intervention/area-enhanced-baseline.gpkg",
+        "postIntervention": "intervention/area-enhanced-post-intervention.gpkg"
       },
       "gain": null
     },
@@ -46,8 +46,8 @@
         "note": "a created area habitat"
       },
       "files": {
-        "baseline": "intervention/intervention-area-created-baseline.gpkg",
-        "postIntervention": "intervention/intervention-area-created-post-intervention.gpkg"
+        "baseline": "intervention/area-created-baseline.gpkg",
+        "postIntervention": "intervention/area-created-post-intervention.gpkg"
       },
       "gain": null
     },
@@ -63,8 +63,8 @@
         "note": "a retained hedgerow"
       },
       "files": {
-        "baseline": "intervention/intervention-hedgerow-retained-baseline.gpkg",
-        "postIntervention": "intervention/intervention-hedgerow-retained-post-intervention.gpkg"
+        "baseline": "intervention/hedgerow-retained-baseline.gpkg",
+        "postIntervention": "intervention/hedgerow-retained-post-intervention.gpkg"
       },
       "gain": null
     },
@@ -80,8 +80,8 @@
         "note": "an enhanced hedgerow"
       },
       "files": {
-        "baseline": "intervention/intervention-hedgerow-enhanced-baseline.gpkg",
-        "postIntervention": "intervention/intervention-hedgerow-enhanced-post-intervention.gpkg"
+        "baseline": "intervention/hedgerow-enhanced-baseline.gpkg",
+        "postIntervention": "intervention/hedgerow-enhanced-post-intervention.gpkg"
       },
       "gain": null
     },
@@ -97,8 +97,8 @@
         "note": "a created hedgerow"
       },
       "files": {
-        "baseline": "intervention/intervention-hedgerow-created-baseline.gpkg",
-        "postIntervention": "intervention/intervention-hedgerow-created-post-intervention.gpkg"
+        "baseline": "intervention/hedgerow-created-baseline.gpkg",
+        "postIntervention": "intervention/hedgerow-created-post-intervention.gpkg"
       },
       "gain": null
     },
@@ -114,8 +114,8 @@
         "note": "a retained watercourse"
       },
       "files": {
-        "baseline": "intervention/intervention-watercourse-retained-baseline.gpkg",
-        "postIntervention": "intervention/intervention-watercourse-retained-post-intervention.gpkg"
+        "baseline": "intervention/watercourse-retained-baseline.gpkg",
+        "postIntervention": "intervention/watercourse-retained-post-intervention.gpkg"
       },
       "gain": null
     },
@@ -131,8 +131,8 @@
         "note": "an enhanced watercourse"
       },
       "files": {
-        "baseline": "intervention/intervention-watercourse-enhanced-baseline.gpkg",
-        "postIntervention": "intervention/intervention-watercourse-enhanced-post-intervention.gpkg"
+        "baseline": "intervention/watercourse-enhanced-baseline.gpkg",
+        "postIntervention": "intervention/watercourse-enhanced-post-intervention.gpkg"
       },
       "gain": null
     },
@@ -148,8 +148,8 @@
         "note": "a created watercourse"
       },
       "files": {
-        "baseline": "intervention/intervention-watercourse-created-baseline.gpkg",
-        "postIntervention": "intervention/intervention-watercourse-created-post-intervention.gpkg"
+        "baseline": "intervention/watercourse-created-baseline.gpkg",
+        "postIntervention": "intervention/watercourse-created-post-intervention.gpkg"
       },
       "gain": null
     },
@@ -165,8 +165,8 @@
         "note": "Good condition (H001) through Poor (H005)"
       },
       "files": {
-        "baseline": "conditions/conditions-area-spread-baseline.gpkg",
-        "postIntervention": "conditions/conditions-area-spread-post-intervention.gpkg"
+        "baseline": "conditions/area-spread-baseline.gpkg",
+        "postIntervention": "conditions/area-spread-post-intervention.gpkg"
       },
       "gain": null
     },
@@ -182,8 +182,8 @@
         "note": "H001 Low (1), H002 Medium, H003 High strategic significance"
       },
       "files": {
-        "baseline": "strategic-significance/strategic-significance-spread-baseline.gpkg",
-        "postIntervention": "strategic-significance/strategic-significance-spread-post-intervention.gpkg"
+        "baseline": "strategic-significance/spread-baseline.gpkg",
+        "postIntervention": "strategic-significance/spread-post-intervention.gpkg"
       },
       "gain": null
     },
@@ -199,8 +199,8 @@
         "note": "enhanced parcels driving a net gain over 10%"
       },
       "files": {
-        "baseline": "net-gain/net-gain-met-baseline.gpkg",
-        "postIntervention": "net-gain/net-gain-met-post-intervention.gpkg"
+        "baseline": "net-gain/met-baseline.gpkg",
+        "postIntervention": "net-gain/met-post-intervention.gpkg"
       },
       "gain": {
         "expected": "met",
@@ -225,8 +225,8 @@
         "note": "retained parcels with no net gain"
       },
       "files": {
-        "baseline": "net-gain/net-gain-unmet-baseline.gpkg",
-        "postIntervention": "net-gain/net-gain-unmet-post-intervention.gpkg"
+        "baseline": "net-gain/unmet-baseline.gpkg",
+        "postIntervention": "net-gain/unmet-post-intervention.gpkg"
       },
       "gain": {
         "expected": "unmet",
@@ -268,8 +268,8 @@
         "note": "created parcel with 5 advance years"
       },
       "files": {
-        "baseline": "advance-delay/advance-delay-created-advance-baseline.gpkg",
-        "postIntervention": "advance-delay/advance-delay-created-advance-post-intervention.gpkg"
+        "baseline": "advance-delay/created-advance-baseline.gpkg",
+        "postIntervention": "advance-delay/created-advance-post-intervention.gpkg"
       },
       "gain": null
     },
@@ -285,8 +285,8 @@
         "note": "created parcel with 3 delay years"
       },
       "files": {
-        "baseline": "advance-delay/advance-delay-created-delay-baseline.gpkg",
-        "postIntervention": "advance-delay/advance-delay-created-delay-post-intervention.gpkg"
+        "baseline": "advance-delay/created-delay-baseline.gpkg",
+        "postIntervention": "advance-delay/created-delay-post-intervention.gpkg"
       },
       "gain": null
     },
