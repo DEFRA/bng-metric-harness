@@ -1,0 +1,328 @@
+{
+  "scenarios": [
+    {
+      "id": "intervention-area-retained",
+      "purpose": "intervention",
+      "title": "Area habitat — Retained",
+      "description": "Every area parcel is retained: proposed state mirrors the baseline.",
+      "size": 6,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "a retained area habitat"
+      },
+      "files": {
+        "baseline": "intervention/intervention-area-retained-baseline.gpkg",
+        "postIntervention": "intervention/intervention-area-retained-post-intervention.gpkg"
+      },
+      "gain": null
+    },
+    {
+      "id": "intervention-area-enhanced",
+      "purpose": "intervention",
+      "title": "Area habitat — Enhanced",
+      "description": "Area parcels are enhanced from Moderate to Good condition (same habitat).",
+      "size": 6,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "an enhanced area habitat"
+      },
+      "files": {
+        "baseline": "intervention/intervention-area-enhanced-baseline.gpkg",
+        "postIntervention": "intervention/intervention-area-enhanced-post-intervention.gpkg"
+      },
+      "gain": null
+    },
+    {
+      "id": "intervention-area-created",
+      "purpose": "intervention",
+      "title": "Area habitat — Created",
+      "description": "Area parcels are created (written to the gpkg as the statutory 'Lost' retention).",
+      "size": 6,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "a created area habitat"
+      },
+      "files": {
+        "baseline": "intervention/intervention-area-created-baseline.gpkg",
+        "postIntervention": "intervention/intervention-area-created-post-intervention.gpkg"
+      },
+      "gain": null
+    },
+    {
+      "id": "intervention-hedgerow-retained",
+      "purpose": "intervention",
+      "title": "Hedgerow — Retained",
+      "description": "The first hedgerow is retained; area parcels tile the redline.",
+      "size": 6,
+      "subject": {
+        "layer": "Hedgerows",
+        "ref": "HG001",
+        "note": "a retained hedgerow"
+      },
+      "files": {
+        "baseline": "intervention/intervention-hedgerow-retained-baseline.gpkg",
+        "postIntervention": "intervention/intervention-hedgerow-retained-post-intervention.gpkg"
+      },
+      "gain": null
+    },
+    {
+      "id": "intervention-hedgerow-enhanced",
+      "purpose": "intervention",
+      "title": "Hedgerow — Enhanced",
+      "description": "The first hedgerow is enhanced from Moderate to Good condition.",
+      "size": 6,
+      "subject": {
+        "layer": "Hedgerows",
+        "ref": "HG001",
+        "note": "an enhanced hedgerow"
+      },
+      "files": {
+        "baseline": "intervention/intervention-hedgerow-enhanced-baseline.gpkg",
+        "postIntervention": "intervention/intervention-hedgerow-enhanced-post-intervention.gpkg"
+      },
+      "gain": null
+    },
+    {
+      "id": "intervention-hedgerow-created",
+      "purpose": "intervention",
+      "title": "Hedgerow — Created",
+      "description": "The first hedgerow is created; its baseline columns take the template placeholders.",
+      "size": 6,
+      "subject": {
+        "layer": "Hedgerows",
+        "ref": "HG001",
+        "note": "a created hedgerow"
+      },
+      "files": {
+        "baseline": "intervention/intervention-hedgerow-created-baseline.gpkg",
+        "postIntervention": "intervention/intervention-hedgerow-created-post-intervention.gpkg"
+      },
+      "gain": null
+    },
+    {
+      "id": "intervention-watercourse-retained",
+      "purpose": "intervention",
+      "title": "Watercourse — Retained",
+      "description": "The first watercourse is retained, with no encroachment.",
+      "size": 6,
+      "subject": {
+        "layer": "Rivers",
+        "ref": "R001",
+        "note": "a retained watercourse"
+      },
+      "files": {
+        "baseline": "intervention/intervention-watercourse-retained-baseline.gpkg",
+        "postIntervention": "intervention/intervention-watercourse-retained-post-intervention.gpkg"
+      },
+      "gain": null
+    },
+    {
+      "id": "intervention-watercourse-enhanced",
+      "purpose": "intervention",
+      "title": "Watercourse — Enhanced",
+      "description": "The first watercourse is enhanced from Moderate to Good condition.",
+      "size": 6,
+      "subject": {
+        "layer": "Rivers",
+        "ref": "R001",
+        "note": "an enhanced watercourse"
+      },
+      "files": {
+        "baseline": "intervention/intervention-watercourse-enhanced-baseline.gpkg",
+        "postIntervention": "intervention/intervention-watercourse-enhanced-post-intervention.gpkg"
+      },
+      "gain": null
+    },
+    {
+      "id": "intervention-watercourse-created",
+      "purpose": "intervention",
+      "title": "Watercourse — Created",
+      "description": "The first watercourse is created; its baseline columns take the template placeholders.",
+      "size": 6,
+      "subject": {
+        "layer": "Rivers",
+        "ref": "R001",
+        "note": "a created watercourse"
+      },
+      "files": {
+        "baseline": "intervention/intervention-watercourse-created-baseline.gpkg",
+        "postIntervention": "intervention/intervention-watercourse-created-post-intervention.gpkg"
+      },
+      "gain": null
+    },
+    {
+      "id": "conditions-area-spread",
+      "purpose": "conditions",
+      "title": "Area habitats across every condition band",
+      "description": "Six retained parcels, each pinned to a different condition (Good → Poor), same habitat.",
+      "size": 5,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "Good condition (H001) through Poor (H005)"
+      },
+      "files": {
+        "baseline": "conditions/conditions-area-spread-baseline.gpkg",
+        "postIntervention": "conditions/conditions-area-spread-post-intervention.gpkg"
+      },
+      "gain": null
+    },
+    {
+      "id": "strategic-significance-spread",
+      "purpose": "strategic-significance",
+      "title": "Area habitats across every strategic-significance band",
+      "description": "Three retained parcels pinned to Low (1), Medium and High strategic significance.",
+      "size": 3,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "H001 Low (1), H002 Medium, H003 High strategic significance"
+      },
+      "files": {
+        "baseline": "strategic-significance/strategic-significance-spread-baseline.gpkg",
+        "postIntervention": "strategic-significance/strategic-significance-spread-post-intervention.gpkg"
+      },
+      "gain": null
+    },
+    {
+      "id": "net-gain-met",
+      "purpose": "net-gain",
+      "title": "Net gain met (≥ 10%)",
+      "description": "Every parcel enhanced from Low-distinctiveness/Poor to Medium-distinctiveness/Good — a large, unambiguous gain.",
+      "size": 6,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "enhanced parcels driving a net gain over 10%"
+      },
+      "files": {
+        "baseline": "net-gain/net-gain-met-baseline.gpkg",
+        "postIntervention": "net-gain/net-gain-met-post-intervention.gpkg"
+      },
+      "gain": {
+        "expected": "met",
+        "percentage": 293.00815274999957,
+        "netUnitChange": 385.1697650833735,
+        "baselineUnits": 131.45360000000002,
+        "postInterventionUnits": 516.6233650833735,
+        "met": true,
+        "priced": 6,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "net-gain-unmet",
+      "purpose": "net-gain",
+      "title": "Net gain unmet (< 10%)",
+      "description": "Every parcel retained unchanged — zero net change, so the 10% gain is not met.",
+      "size": 6,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "retained parcels with no net gain"
+      },
+      "files": {
+        "baseline": "net-gain/net-gain-unmet-baseline.gpkg",
+        "postIntervention": "net-gain/net-gain-unmet-post-intervention.gpkg"
+      },
+      "gain": {
+        "expected": "unmet",
+        "percentage": 0,
+        "netUnitChange": 0,
+        "baselineUnits": 444.97200000000004,
+        "postInterventionUnits": 444.97200000000004,
+        "met": false,
+        "priced": 6,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "trading-low-to-medium",
+      "purpose": "trading-rules",
+      "title": "Trading rules — Low → Medium distinctiveness",
+      "description": "Parcels enhanced from a Low-distinctiveness habitat to a Medium-distinctiveness one, exercising the low→medium trading rule.",
+      "size": 6,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "Low (baseline) → Medium (proposed) distinctiveness"
+      },
+      "files": {
+        "baseline": "trading-rules/trading-low-to-medium-baseline.gpkg",
+        "postIntervention": "trading-rules/trading-low-to-medium-post-intervention.gpkg"
+      },
+      "gain": null
+    },
+    {
+      "id": "advance-delay-created-advance",
+      "purpose": "advance-delay",
+      "title": "Created habitat — advance years",
+      "description": "Created parcels with habitat creation started 5 years in advance (delay 0).",
+      "size": 6,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "created parcel with 5 advance years"
+      },
+      "files": {
+        "baseline": "advance-delay/advance-delay-created-advance-baseline.gpkg",
+        "postIntervention": "advance-delay/advance-delay-created-advance-post-intervention.gpkg"
+      },
+      "gain": null
+    },
+    {
+      "id": "advance-delay-created-delay",
+      "purpose": "advance-delay",
+      "title": "Created habitat — delay years",
+      "description": "Created parcels with habitat creation delayed by 3 years (advance 0).",
+      "size": 6,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "created parcel with 3 delay years"
+      },
+      "files": {
+        "baseline": "advance-delay/advance-delay-created-delay-baseline.gpkg",
+        "postIntervention": "advance-delay/advance-delay-created-delay-post-intervention.gpkg"
+      },
+      "gain": null
+    },
+    {
+      "id": "data-complete",
+      "purpose": "data-completeness",
+      "title": "Complete post-intervention data",
+      "description": "Every enhanced parcel has all proposed attributes populated — a clean, complete file.",
+      "size": 6,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "a complete enhanced parcel"
+      },
+      "files": {
+        "baseline": "data-completeness/data-complete-baseline.gpkg",
+        "postIntervention": "data-completeness/data-complete-post-intervention.gpkg"
+      },
+      "gain": null
+    },
+    {
+      "id": "data-incomplete-mix",
+      "purpose": "data-completeness",
+      "title": "Mixed complete and incomplete data",
+      "description": "The first three parcels are complete; the last three are incomplete (blank proposed condition and strategic significance).",
+      "size": 6,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H004",
+        "note": "H004–H006 have blank proposed data"
+      },
+      "files": {
+        "baseline": "data-completeness/data-incomplete-mix-baseline.gpkg",
+        "postIntervention": "data-completeness/data-incomplete-mix-post-intervention.gpkg"
+      },
+      "gain": null
+    }
+  ]
+}
