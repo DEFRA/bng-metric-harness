@@ -522,8 +522,8 @@ Flaws of different categories cannot be mixed. Examples:
   node scripts/gen-gpkg.mjs --permutations
   node scripts/gen-gpkg.mjs --permutations --only net-gain
   node scripts/gen-gpkg.mjs --permutations --list
-  node scripts/gen-gpkg.mjs --seed 42
-  node scripts/gen-gpkg.mjs --permutations --seed 42
+  node scripts/gen-gpkg.mjs --seed 7
+  node scripts/gen-gpkg.mjs --permutations --seed 7
   node scripts/gen-gpkg.mjs --size 3 --pair \
     --habitat "Intertidal hard structures - Artificial hard structures with integrated greening of grey infrastructure (IGGI)"`,
   );

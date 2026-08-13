@@ -250,8 +250,8 @@ the same seed plus the same options yields **byte-identical** files, which is
 handy for committing fixtures or diffing them in CI:
 
 ```sh
-npm run generate:gpkg -- --size 20 --seed 42            # same file every run
-npm run generate:gpkg:all -- --seed 42          # whole catalogue reproducible
+npm run generate:gpkg -- --size 20 --seed 7             # same file every run
+npm run generate:gpkg:all -- --seed 7           # whole catalogue reproducible
 ```
 
 It works in both synthetic and permutations modes. In a `--count` batch each
