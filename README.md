@@ -155,6 +155,24 @@ The `Tiltfile` in this repo references the backend's `compose.yml` for infrastru
 
 If you prefer not to install Tilt, the manual approach below works identically.
 
+### Journey tests (Tilt button)
+
+The **`journey-tests`** resource is a manual one-shot button in the Tilt dashboard — it doesn't run on `tilt up`; click it to run the full Playwright suite against the running apps.
+
+### Perf tests (CLI)
+
+Perf tests are run from the command line — no Tilt button, no special mode. With the stack up (`tilt up`), just:
+
+```sh
+npm run perf
+```
+
+The suite is `bng-perf-tests/scenarios/project-list-payload.jmx` (covering [BMD-933](https://eaflood.atlassian.net/browse/BMD-933)). Because the list endpoints need a Defra ID token, `npm run perf` obtains a **real one from the cdp-defra-id-stub** — the same login the app performs, just headless (`scripts/get-stub-token.mjs`: register → finish → login → code → token). The normal `tilt up` backend already trusts stub tokens, so there's **no backend change and no perf mode**. It then seeds one big-baseline project for that token's user, runs JMeter, and prints a per-endpoint pass/fail summary.
+
+Everything it needs — the backend, the stub, Postgres — is already part of a plain `tilt up`, so there's nothing special to remember.
+
+Pre-fix, the assertions **fail by design** — they encode the BMD-933 acceptance criteria — so the run reports failures but exits 0. Set `PERF_FAIL_ON_ASSERT=1` to make it exit non-zero once the fix lands (e.g. in CI). Other knobs: `PERF_PARCELS` (baseline size, default 2000), `PERF_THREADS` / `PERF_LOOPS` / `PERF_RAMP` (load profile).
+
 ## Supporting services (Docker Compose)
 
 The apps themselves run in Node, but the backend talks to a handful of infrastructure services. Only the **backend** repo ships a `compose.yml` — the harness does not duplicate it, and the frontend does not need its own stack.
