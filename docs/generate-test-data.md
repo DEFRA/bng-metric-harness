@@ -204,7 +204,7 @@ library of paired baseline / post-intervention fixtures in one go, each covering
 a distinct BNG scenario and organised into a folder per purpose:
 
 ```sh
-npm run generate:gpkg:permutations          # alias for: gen-gpkg.mjs --permutations
+npm run generate:gpkg:all          # alias for: gen-gpkg.mjs --permutations
 # → test-data/permutations/<purpose>/<scenario>-baseline.gpkg
 # → test-data/permutations/<purpose>/<scenario>-post-intervention.gpkg
 # → test-data/permutations/manifest.json   (machine-readable)
@@ -234,9 +234,9 @@ Each `index.md` row names the exact feature to open (e.g. `H001`) to exercise
 the scenario. Useful options:
 
 ```sh
-npm run generate:gpkg:permutations -- --list          # print the catalogue, generate nothing
-npm run generate:gpkg:permutations -- --only net-gain # one purpose only
-npm run generate:gpkg:permutations -- --outdir /tmp/p # write elsewhere
+npm run generate:gpkg:all -- --list          # print the catalogue, generate nothing
+npm run generate:gpkg:all -- --only net-gain # one purpose only
+npm run generate:gpkg:all -- --outdir /tmp/p # write elsewhere
 ```
 
 The net-gain scenarios need the **backend sibling** checked out (that is where
@@ -251,7 +251,7 @@ handy for committing fixtures or diffing them in CI:
 
 ```sh
 npm run generate:gpkg -- --size 20 --seed 42            # same file every run
-npm run generate:gpkg:permutations -- --seed 42          # whole catalogue reproducible
+npm run generate:gpkg:all -- --seed 42          # whole catalogue reproducible
 ```
 
 It works in both synthetic and permutations modes. In a `--count` batch each

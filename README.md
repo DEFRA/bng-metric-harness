@@ -141,7 +141,7 @@ npm run be -- db:migrate
 This repo contains scripts to generate example GeoPackage files for testing:
 
 - `npm run generate:gpkg` — one synthetic or workbook-driven fixture (or a `--pair`).
-- `npm run generate:gpkg:permutations` — a pre-built library of paired fixtures covering many BNG scenarios (intervention types, conditions, strategic significance, met/unmet 10% net gain, trading rules, advance/delay, data completeness), organised by purpose with a `manifest.json` and `index.md`.
+- `npm run generate:gpkg:all` — a pre-built library of paired fixtures covering many BNG scenarios (intervention types, conditions, strategic significance, met/unmet 10% net gain, trading rules, advance/delay, data completeness), organised by purpose with a `manifest.json` and `index.md`.
 
 See [docs/generate-test-data.md](docs/generate-test-data.md) for details.
 
