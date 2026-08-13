@@ -216,12 +216,18 @@ All three repos (harness + both siblings) scan for secrets at three independent 
 
 ### Setup
 
-`npm install` installs everything:
+`npm install && npm run postinstall` installs everything:
 
 1. `husky` is configured via `postinstall`.
 2. `scripts/install-gitleaks.mjs` downloads a pinned gitleaks binary into `node_modules/.gitleaks/bin/`, verifies its SHA-256, and reuses any system `gitleaks` already on `PATH`.
 
-No manual `brew install` needed. Repeat in each sibling — `npm run install:all` covers all three.
+`.npmrc` sets `ignore-scripts=true` (see below), so `postinstall` no longer fires automatically and has to be run once by hand after installing. No manual `brew install` needed. Repeat in each sibling — `npm run install:all` covers all three, but each sibling's own `postinstall` still needs a manual `npm run postinstall` afterwards (or `npm run fe -- postinstall` / `npm run be -- postinstall` from the harness).
+
+#### Why `ignore-scripts`
+
+`ignore-scripts=true` in `.npmrc` blocks npm from auto-running preinstall/install/postinstall/prepare scripts for this package and every dependency — the mechanism behind npm supply-chain worms (e.g. Shai-Hulud) that execute arbitrary code the moment a compromised package is installed. It applies uniformly to local installs, CI, and Docker builds, since all three read this committed `.npmrc`.
+
+Scripts run explicitly via `npm run <name>` (like `postinstall` above) are unaffected — only npm's automatic triggering during install is disabled. If a dependency genuinely needs its own install script to function (e.g. to build a native addon), run it for just that package with `npm rebuild <package>`, or override for a single command with `npm install --ignore-scripts=false`. Note the override and its justification in the PR, and record any standing exception in Confluence.
 
 If the download fails (firewall/offline), the hook falls back to a system `gitleaks` on `PATH`. Manual install:
 
