@@ -107,7 +107,8 @@ async function resolveWorkbookSource(ref) {
 
 function workbookOutputNames(source) {
   // Strip trailing query/hash, keep last path segment, replace extension.
-  const url = source.replace(/[?#].*$/, "");
+  const cutAt = source.search(/[?#]/);
+  const url = cutAt === -1 ? source : source.slice(0, cutAt);
   const base =
     path.basename(url).replace(/\.(xlsx|xlsm|xls)$/i, "") ||
     "bng-from-workbook";
@@ -149,6 +150,20 @@ function workbookSummary(source, localPath, workbook) {
   };
 }
 
+/**
+ * Join an output filename onto the output directory, refusing anything that
+ * would escape it. The names are built from the workbook source's basename,
+ * so traversal can't normally occur — this guards the invariant explicitly.
+ */
+function joinWithinDir(dir, name) {
+  const joined = path.resolve(dir, name);
+  const rel = path.relative(dir, joined);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) {
+    throw new Error(`Output name would escape ${dir}: ${name}`);
+  }
+  return joined;
+}
+
 export async function runFromWorkbook(
   source,
   { outDir, strict, inspect, centre, mode },
@@ -168,8 +183,8 @@ export async function runFromWorkbook(
 
   const names = workbookOutputNames(source);
   const outPaths = {
-    baseline: path.join(outDir, names.baseline),
-    postIntervention: path.join(outDir, names.postIntervention),
+    baseline: joinWithinDir(outDir, names.baseline),
+    postIntervention: joinWithinDir(outDir, names.postIntervention),
   };
   if (mode !== MODE_POST_INTERVENTION && existsSync(outPaths.baseline)) {
     unlinkSync(outPaths.baseline);
