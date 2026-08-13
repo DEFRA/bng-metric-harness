@@ -34,7 +34,7 @@
  *      catalogue (intervention types, conditions, strategic significance,
  *      met/unmet 10% net gain, trading rules, advance/delay, data
  *      completeness), organised one sub-folder per purpose under
- *      test-data/permutations/ with a manifest.json + index.md. The catalogue
+ *      example-files/permutations/ with a manifest.json + index.md. The catalogue
  *      and generation logic live in scripts/permutations/*; --only restricts
  *      to one purpose and --list prints the catalogue without generating.
  *
@@ -406,7 +406,7 @@ async function runPermutationsMode(centre, seed) {
 
   const permsRoot = args.outdir
     ? path.resolve(args.outdir)
-    : path.resolve(HARNESS_ROOT, "test-data", "permutations");
+    : path.resolve(HARNESS_ROOT, "example-files", "permutations");
 
   const entries = await runPermutations({
     outRoot: permsRoot,
@@ -488,7 +488,8 @@ Modes:
 Options:
   --size N            Parcels per synthetic fixture (default ${DEFAULT_SYNTHETIC_SIZE}).
   --count N           Number of synthetic files to emit (default ${DEFAULT_RUN_COUNT}).
-  --outdir DIR        Output directory (default: <harness>/test-data).
+  --outdir DIR        Output directory (default: <harness>/test-data, or
+                      <harness>/example-files/permutations with --permutations).
   --pair              Synthetic mode: emit a baseline + post-intervention pair
                       sharing one redline, instead of a single file.
   --habitat "B - T"   Synthetic mode: pin the baseline habitat of the next

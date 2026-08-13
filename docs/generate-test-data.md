@@ -205,10 +205,10 @@ a distinct BNG scenario and organised into a folder per purpose:
 
 ```sh
 npm run generate:gpkg:all          # alias for: gen-gpkg.mjs --permutations
-# → test-data/permutations/<purpose>/<scenario>-baseline.gpkg
-# → test-data/permutations/<purpose>/<scenario>-post-intervention.gpkg
-# → test-data/permutations/manifest.json   (machine-readable)
-# → test-data/permutations/index.md        (human-readable table)
+# → example-files/permutations/<purpose>/<scenario>-baseline.gpkg
+# → example-files/permutations/<purpose>/<scenario>-post-intervention.gpkg
+# → example-files/permutations/manifest.json   (machine-readable)
+# → example-files/permutations/index.md        (human-readable table)
 ```
 
 It is a mode of the same `gen-gpkg` script (alongside synthetic and
