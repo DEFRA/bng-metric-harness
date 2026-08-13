@@ -31,7 +31,9 @@ const SCENARIOS = PERMUTATION_SCENARIOS;
 // BNG/EPSG:27700 coords of Maidenhead — the same default centre gen-gpkg uses.
 // Geometry layout is irrelevant to these attribute-driven scenarios, so every
 // fixture shares one centre.
-const DEFAULT_CENTRE = [530000, 180000];
+const MAIDENHEAD_EASTING = 530000;
+const MAIDENHEAD_NORTHING = 180000;
+const DEFAULT_CENTRE = [MAIDENHEAD_EASTING, MAIDENHEAD_NORTHING];
 
 function scenarioFilenames(scenario) {
   return {
@@ -98,16 +100,26 @@ function verifySubject(piFile, subject) {
   }
 }
 
+function formatPercentage(percentage) {
+  return percentage === null ? "n/a" : `${percentage.toFixed(1)}%`;
+}
+
 function assertGain(scenario, gain) {
   const met = meetsNetGain(gain.percentage);
   const expectedMet = scenario.expectGain === "met";
   if (met !== expectedMet) {
-    const shown =
-      gain.percentage === null ? "n/a" : `${gain.percentage.toFixed(1)}%`;
+    const shown = formatPercentage(gain.percentage);
     throw new Error(
       `${scenario.id}: expected net gain "${scenario.expectGain}" but engine computed ${shown}`,
     );
   }
+}
+
+function formatGainSuffix(gain) {
+  if (!gain) {
+    return "";
+  }
+  return ` — net gain ${formatPercentage(gain.percentage)} (${gain.expected})`;
 }
 
 function priceGain(engine, scenario, piFile) {
@@ -151,13 +163,7 @@ function runScenario(engine, scenario, outRoot, centre, seed) {
   verifySubject(piFile, scenario.subject);
   const gain = priceGain(engine, scenario, piFile);
 
-  info(
-    `  ✓ ${scenario.purpose}/${scenario.id}${
-      gain
-        ? ` — net gain ${gain.percentage === null ? "n/a" : `${gain.percentage.toFixed(1)}%`} (${gain.expected})`
-        : ""
-    }`,
-  );
+  info(`  ✓ ${scenario.purpose}/${scenario.id}${formatGainSuffix(gain)}`);
 
   return {
     id: scenario.id,

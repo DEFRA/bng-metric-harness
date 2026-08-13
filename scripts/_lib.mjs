@@ -91,6 +91,13 @@ export function runCapture(cmd, args, { cwd = process.cwd() } = {}) {
   });
 }
 
+// Compact local timestamp (YYYYMMDD-HHMM-SS) used to keep generated filenames
+// unique per run.
+export function timestampSuffix(d = new Date()) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
+}
+
 // Reads a .env file and returns its parsed key/value pairs, or null if the file
 // is absent or unreadable. Uses node:util's built-in parseEnv (Node 20.12+) so
 // the harness stays dependency-free — the siblings use `dotenv`, but the harness

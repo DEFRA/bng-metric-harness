@@ -55,40 +55,31 @@
  * `node scripts/gen-gpkg.mjs --help` for the current flaw names, their backend
  * error codes and descriptions.
  *
- * This file is the CLI: argument parsing, URL/LFS resolution, file naming,
- * the overwrite prompt and the --from-list loop. The actual GeoPackage
+ * This file is the CLI: argument parsing, file naming and the overwrite
+ * prompt. Workbook source resolution (URL/LFS download and caching) and the
+ * --from-list loop live in `gen-gpkg-workbook.mjs`; the actual GeoPackage
  * synthesis lives in `packages/bng-lib/` (imported as `#bng-lib`).
  */
 
-import { createHash } from "node:crypto";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-  unlinkSync,
-} from "node:fs";
+import { existsSync, mkdirSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
-import { error, header, info, warn } from "./_lib.mjs";
+import { error, header, info, timestampSuffix, warn } from "./_lib.mjs";
 import {
   HABITATS_LAYER,
   resolveHabitatPins,
 } from "./gen-gpkg-habitat-pins.mjs";
+import { runFromList, runFromWorkbook } from "./gen-gpkg-workbook.mjs";
 import {
   FEATURE_REF_PAD,
   FEATURE_REF_PAD_CHAR,
   FlawSelectionError,
-  MODE_BASELINE,
   MODE_BOTH,
-  MODE_POST_INTERVENTION,
   VALID_MODES,
   deriveBaselineFromSynthetic,
-  generateFromWorkbook,
   generateOne,
   listFlaws,
-  readMetricWorkbook,
   resolveFlawSelection,
 } from "#bng-lib";
 
@@ -164,153 +155,6 @@ const DEFAULT_RUN_COUNT = 1;
 const PARSE_INT_BASE_10 = 10;
 
 // ---------------------------------------------------------------------------
-// Workbook source resolution: turn a path-or-URL into a local file path,
-// downloading and caching as needed.
-// ---------------------------------------------------------------------------
-
-const CACHE_DIR = path.resolve(HARNESS_ROOT, ".cache", "bng500");
-
-/**
- * Convert a GitHub HTML blob URL to the LFS-aware media URL. The BNG500
- * corpus uses Git LFS for the workbook files, so `raw.githubusercontent.com`
- * returns only the LFS pointer; `media.githubusercontent.com/media` resolves
- * the actual file content.
- */
-function rewriteGithubBlobUrl(url) {
-  const m = url.match(
-    /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/,
-  );
-  if (!m) {
-    return url;
-  }
-  const [, owner, repo, ref, p] = m;
-  return `https://media.githubusercontent.com/media/${owner}/${repo}/${ref}/${p}`;
-}
-
-async function downloadToCache(url) {
-  if (!existsSync(CACHE_DIR)) {
-    mkdirSync(CACHE_DIR, { recursive: true });
-  }
-  const hash = createHash("sha256").update(url).digest("hex").slice(0, 16);
-  const ext = path.extname(new URL(url).pathname) || ".xlsx";
-  const cached = path.join(CACHE_DIR, `${hash}${ext}`);
-  if (existsSync(cached)) {
-    info(`  cache hit: ${path.basename(cached)}`);
-    return cached;
-  }
-  info(`  fetching ${url}`);
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Failed to download ${url}: HTTP ${res.status}`);
-  }
-  const buf = Buffer.from(await res.arrayBuffer());
-  // Detect a Git LFS pointer accidentally returned (small text starting with
-  // "version https://git-lfs"). Most often happens when callers pass a raw.
-  // url instead of a media.githubusercontent.com URL.
-  if (
-    buf.length < 1024 &&
-    buf.slice(0, 64).toString("utf8").startsWith("version https://git-lfs")
-  ) {
-    throw new Error(
-      `${url} returned a Git LFS pointer, not the actual file. ` +
-        "Use the GitHub blob URL (or the media.githubusercontent.com/media URL) for LFS-tracked files.",
-    );
-  }
-  writeFileSync(cached, buf);
-  return cached;
-}
-
-/**
- * Resolve a workbook source (local path or HTTPS URL) to a local file path.
- * Returns the resolved path; downloads remote URLs into the cache.
- */
-async function resolveWorkbookSource(ref) {
-  const trimmed = ref.trim();
-  if (/^https?:\/\//i.test(trimmed)) {
-    const url = rewriteGithubBlobUrl(trimmed);
-    return downloadToCache(url);
-  }
-  const abs = path.resolve(trimmed);
-  if (!existsSync(abs)) {
-    throw new Error(`Workbook not found: ${abs}`);
-  }
-  return abs;
-}
-
-function timestampSuffix(d = new Date()) {
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
-}
-
-function workbookOutputNames(source) {
-  // Strip trailing query/hash, keep last path segment, replace extension.
-  const url = source.replace(/[?#].*$/, "");
-  const base =
-    path.basename(url).replace(/\.(xlsx|xlsm|xls)$/i, "") ||
-    "bng-from-workbook";
-  const ts = timestampSuffix();
-  return {
-    baseline: `${base}-baseline-${ts}.gpkg`,
-    postIntervention: `${base}-post-intervention-${ts}.gpkg`,
-  };
-}
-
-async function runFromWorkbook(source, { strict, inspect, centre, mode }) {
-  if (!existsSync(OUT_DIR)) {
-    mkdirSync(OUT_DIR, { recursive: true });
-  }
-  const localPath = await resolveWorkbookSource(source);
-  const workbook = readMetricWorkbook(localPath);
-
-  if (inspect) {
-    const summary = {
-      source,
-      resolvedPath: localPath,
-      version: workbook.version,
-      siteInfo: workbook.siteInfo,
-      counts: {
-        habitats: {
-          baseline: workbook.habitats.baseline.length,
-          created: workbook.habitats.created.length,
-          enhancements: workbook.habitats.enhancements.length,
-        },
-        hedgerows: {
-          baseline: workbook.hedgerows.baseline.length,
-          created: workbook.hedgerows.created.length,
-          enhancements: workbook.hedgerows.enhancements.length,
-        },
-        watercourses: {
-          baseline: workbook.watercourses.baseline.length,
-          created: workbook.watercourses.created.length,
-          enhancements: workbook.watercourses.enhancements.length,
-        },
-        trees: {
-          baseline: workbook.trees.baseline.length,
-          created: workbook.trees.created.length,
-        },
-      },
-      summary: workbook.summary,
-    };
-    console.log(JSON.stringify(summary, null, 2));
-    return;
-  }
-
-  const names = workbookOutputNames(source);
-  const outPaths = {
-    baseline: path.join(OUT_DIR, names.baseline),
-    postIntervention: path.join(OUT_DIR, names.postIntervention),
-  };
-  if (mode !== MODE_POST_INTERVENTION && existsSync(outPaths.baseline)) {
-    unlinkSync(outPaths.baseline);
-  }
-  if (mode !== MODE_BASELINE && existsSync(outPaths.postIntervention)) {
-    unlinkSync(outPaths.postIntervention);
-  }
-
-  generateFromWorkbook(outPaths, workbook, source, { strict, centre, mode });
-}
-
-// ---------------------------------------------------------------------------
 // Centre parsing
 // ---------------------------------------------------------------------------
 
@@ -378,34 +222,6 @@ function confirm(question) {
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
-
-function readWorkbookList(listPath) {
-  return readFileSync(listPath, "utf8")
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .filter((s) => s && !s.startsWith("#"));
-}
-
-async function runFromList(listPathArg, centre) {
-  const listPath = path.resolve(listPathArg);
-  if (!existsSync(listPath)) {
-    error(`--from-list file not found: ${listPath}`);
-    process.exit(1);
-  }
-  const opts = {
-    strict: args["strict-habitats"],
-    inspect: false,
-    centre,
-    mode: selectedMode,
-  };
-  for (const entry of readWorkbookList(listPath)) {
-    try {
-      await runFromWorkbook(entry, opts);
-    } catch (e) {
-      error(`Failed for ${entry}: ${e.message ?? e}`);
-    }
-  }
-}
 
 function syntheticFilename(flawSuffix, suffix, stamp) {
   return `bng-test-data${flawSuffix}${suffix}-${stamp}.gpkg`;
@@ -552,12 +368,15 @@ async function runSynthetic(centre, seed) {
 // engine glue they pull in.
 // ---------------------------------------------------------------------------
 
+// Wide enough for the longest scenario id in the catalogue, so titles align.
+const CATALOGUE_ID_COLUMN_WIDTH = 34;
+
 function printPermutationsCatalogue(PURPOSES, SCENARIOS) {
   header("Permutations catalogue", "cyan");
   for (const purpose of PURPOSES) {
     info(`\n${purpose}`);
     for (const scenario of SCENARIOS.filter((s) => s.purpose === purpose)) {
-      info(`  ${scenario.id.padEnd(34)} ${scenario.title}`);
+      info(`  ${scenario.id.padEnd(CATALOGUE_ID_COLUMN_WIDTH)} ${scenario.title}`);
     }
   }
   info(`\n${SCENARIOS.length} scenarios across ${PURPOSES.length} purposes.`);
@@ -709,13 +528,16 @@ Flaws of different categories cannot be mixed. Examples:
   );
 }
 
-// Flag combinations parseArgs can't express on its own. Lives outside main()
-// so neither function carries the whole argument surface's branching.
-function assertFlagCombinationsValid() {
+// Flag combinations parseArgs can't express on its own. One small assert per
+// rule so no single function carries the whole argument surface's branching.
+function assertInspectHasSource() {
   if (args.inspect && !args.from) {
     error("--inspect requires --from <path-or-url>");
     process.exit(1);
   }
+}
+
+function assertSyntheticFlagsOutsideWorkbookMode() {
   const syntheticOnlyFlags = args.pair || args.habitat.length > 0;
   const workbookMode = args.from || args["from-list"];
   if (syntheticOnlyFlags && workbookMode) {
@@ -725,6 +547,9 @@ function assertFlagCombinationsValid() {
     );
     process.exit(1);
   }
+}
+
+function assertPermutationsStandalone() {
   if (args.permutations && permutationsConflicts()) {
     error(
       "--permutations runs the scenario catalogue and can't be combined with " +
@@ -733,6 +558,9 @@ function assertFlagCombinationsValid() {
     );
     process.exit(1);
   }
+}
+
+function assertSeedOutsideWorkbookMode() {
   if (args.seed && (args.from || args["from-list"])) {
     error(
       "--seed is not supported in workbook mode yet; it applies to synthetic " +
@@ -742,19 +570,27 @@ function assertFlagCombinationsValid() {
   }
 }
 
+function assertFlagCombinationsValid() {
+  assertInspectHasSource();
+  assertSyntheticFlagsOutsideWorkbookMode();
+  assertPermutationsStandalone();
+  assertSeedOutsideWorkbookMode();
+}
+
 // The single-file / workbook options that make no sense alongside --permutations
 // (which drives its fixtures from the catalogue, not these flags).
 function permutationsConflicts() {
-  return Boolean(
-    args.from ||
-    args["from-list"] ||
-    args.bad ||
-    args.flaw.length > 0 ||
-    args.habitat.length > 0 ||
-    args.pair ||
-    args.inspect ||
+  const conflictingFlags = [
+    args.from,
+    args["from-list"],
+    args.bad,
+    args.flaw.length > 0,
+    args.habitat.length > 0,
+    args.pair,
+    args.inspect,
     args.mode !== undefined,
-  );
+  ];
+  return conflictingFlags.some(Boolean);
 }
 
 async function main() {
@@ -774,11 +610,17 @@ async function main() {
     return;
   }
   if (args["from-list"]) {
-    await runFromList(args["from-list"], centre);
+    await runFromList(args["from-list"], {
+      outDir: OUT_DIR,
+      strict: args["strict-habitats"],
+      centre,
+      mode: selectedMode,
+    });
     return;
   }
   if (args.from) {
     await runFromWorkbook(args.from, {
+      outDir: OUT_DIR,
       strict: args["strict-habitats"],
       inspect: args.inspect,
       centre,
