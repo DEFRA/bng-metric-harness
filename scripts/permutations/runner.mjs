@@ -109,7 +109,9 @@ function verifySubject(piFile, subject) {
 }
 
 function formatPercentage(percentage) {
-  return percentage === null ? "n/a" : `${percentage.toFixed(1)}%`;
+  // Number.isFinite guards null as well as NaN/Infinity (e.g. an all-skipped
+  // scenario dividing 0 by 0), so those never reach toFixed.
+  return Number.isFinite(percentage) ? `${percentage.toFixed(1)}%` : "n/a";
 }
 
 function assertGain(scenario, gain) {

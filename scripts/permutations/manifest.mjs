@@ -12,7 +12,9 @@ function gainCell(entry) {
     return "—";
   }
   const pct = entry.gain.percentage;
-  const shown = pct === null ? "n/a" : `${pct.toFixed(1)}%`;
+  // Number.isFinite guards null as well as NaN/Infinity — the latter can arise
+  // if a future all-rows-skipped scenario makes the engine divide 0 by 0.
+  const shown = Number.isFinite(pct) ? `${pct.toFixed(1)}%` : "n/a";
   return `${entry.gain.expected} (${shown})`;
 }
 
