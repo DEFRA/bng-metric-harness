@@ -223,7 +223,11 @@ export async function runPermutations({
     }
   }
 
-  const engine = await loadEngine();
+  // Only the net-gain scenarios price habitats through the engine, so only load
+  // it (and require the backend sibling) when the selected set contains one.
+  // This keeps `--only intervention` and friends working without the backend.
+  const needsEngine = scenarios.some((s) => s.expectGain);
+  const engine = needsEngine ? await loadEngine() : null;
   // bng-library logs a banner per file; silence it and print our own progress.
   setMode("silent");
   header("Generating BNG permutations test data", "cyan");
