@@ -196,6 +196,70 @@ npm run generate:gpkg -- --bad
 
 Combines with `--count` for multiple bad files at once.
 
+## Permutations mode — a pre-built scenario library
+
+Rather than hand-craft a one-off GeoPackage every time a specific case needs
+testing, the **permutations mode** (`gen-gpkg.mjs --permutations`) emits a whole
+library of paired baseline / post-intervention fixtures in one go, each covering
+a distinct BNG scenario and organised into a folder per purpose:
+
+```sh
+npm run generate:gpkg:all          # alias for: gen-gpkg.mjs --permutations
+# → example-files/permutations/<purpose>/<scenario>-baseline.gpkg
+# → example-files/permutations/<purpose>/<scenario>-post-intervention.gpkg
+# → example-files/permutations/manifest.json   (machine-readable)
+# → example-files/permutations/index.md        (human-readable table)
+```
+
+It is a mode of the same `gen-gpkg` script (alongside synthetic and
+workbook-driven), so it shares the `--outdir` and `--centre` flags.
+
+The catalogue covers the axes from BMD-934:
+
+- **intervention** — Retained / Enhanced / Created across all three habitat
+  types (area, hedgerow, watercourse).
+- **conditions** — one parcel per condition band (Good → Poor).
+- **strategic-significance** — one parcel per multiplier band, incl. "Low (1)".
+- **net-gain** — Met (≥ 10%) and Unmet (< 10%) fixtures. The runner prices the
+  habitats through the real `bng-metric-engine` and **fails** if a fixture does
+  not actually land on its expected side of the 10% threshold, so the labels
+  can never drift from the arithmetic. The computed percentage is recorded in
+  the manifest.
+- **trading-rules** — a Low → Medium distinctiveness enhancement.
+- **advance-delay** — created habitats with advance vs delay years.
+- **data-completeness** — a complete file and one with incomplete (blank
+  proposed) rows.
+
+Each `index.md` row names the exact feature to open (e.g. `H001`) to exercise
+the scenario. Useful options:
+
+```sh
+npm run generate:gpkg:all -- --list          # print the catalogue, generate nothing
+npm run generate:gpkg:all -- --only net-gain # one purpose only
+npm run generate:gpkg:all -- --outdir /tmp/p # write elsewhere
+```
+
+The net-gain scenarios need the **backend sibling** checked out (that is where
+the metric engine lives); run `npm run bootstrap` first if it is missing.
+
+## Reproducible output (`--seed`)
+
+By default every run randomises geometry (and any unpinned attribute), so files
+differ each time. Pass an integer `--seed` to make the output **deterministic** —
+the same seed plus the same options yields **byte-identical** files, which is
+handy for committing fixtures or diffing them in CI:
+
+```sh
+npm run generate:gpkg -- --size 20 --seed 7             # same file every run
+npm run generate:gpkg:all -- --seed 7           # whole catalogue reproducible
+```
+
+It works in both synthetic and permutations modes. In a `--count` batch each
+file gets its own derived seed (so the batch stays varied but reproducible), and
+in permutations mode each scenario derives a stable seed from `--seed` and its
+id, so a fixture reproduces regardless of how many scenarios you run. (`--seed`
+is not yet supported in workbook mode.)
+
 ### Full option reference
 
 | Option              | Default            | Notes                                                              |
@@ -212,3 +276,7 @@ Combines with `--count` for multiple bad files at once.
 | `--strict-habitats` | off                | Drop workbook rows the prototype's validator would reject          |
 | `--mode <m>`        | `both`             | Workbook mode: `baseline`, `post-intervention`, or `both`          |
 | `--bad`             | off                | Emit an intentionally invalid GeoPackage                           |
+| `--permutations`    | off                | Emit the scenario catalogue (see "Permutations mode" above)        |
+| `--only <purpose>`  | —                  | Permutations mode — restrict to one purpose                        |
+| `--list`            | off                | Permutations mode — print the catalogue without generating         |
+| `--seed <n>`        | —                  | Deterministic output; same seed → byte-identical files             |

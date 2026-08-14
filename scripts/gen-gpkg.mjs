@@ -6,7 +6,7 @@
  * layers per file: Red Line Boundary, Habitats, Hedgerows, Rivers,
  * Urban Trees.
  *
- * Two modes:
+ * Three modes:
  *
  *   1. Synthetic (default).
  *      Both geometry AND attributes are randomised on each run, so repeat
@@ -29,6 +29,15 @@
  *      service workflow. Use --mode baseline or --mode post-intervention
  *      to emit only one of the pair.
  *
+ *   3. Permutations (--permutations).
+ *      Emits a whole library of paired fixtures covering the BMD-934 scenario
+ *      catalogue (intervention types, conditions, strategic significance,
+ *      met/unmet 10% net gain, trading rules, advance/delay, data
+ *      completeness), organised one sub-folder per purpose under
+ *      example-files/permutations/ with a manifest.json + index.md. The catalogue
+ *      and generation logic live in scripts/permutations/*; --only restricts
+ *      to one purpose and --list prints the catalogue without generating.
+ *
  * In either mode --centre <easting,northing> positions the RLB anywhere in
  * Britain (BNG, EPSG:27700). Defaults to Maidenhead (530000,180000).
  *
@@ -46,37 +55,31 @@
  * `node scripts/gen-gpkg.mjs --help` for the current flaw names, their backend
  * error codes and descriptions.
  *
- * This file is the CLI: argument parsing, URL/LFS resolution, file naming,
- * the overwrite prompt and the --from-list loop. The actual GeoPackage
+ * This file is the CLI: argument parsing, file naming and the overwrite
+ * prompt. Workbook source resolution (URL/LFS download and caching) and the
+ * --from-list loop live in `gen-gpkg-workbook.mjs`; the actual GeoPackage
  * synthesis lives in `packages/bng-lib/` (imported as `#bng-lib`).
  */
 
-import { createHash } from "node:crypto";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-  unlinkSync,
-} from "node:fs";
+import { existsSync, mkdirSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
-import { error, info, warn } from "./_lib.mjs";
-import { HABITATS_LAYER, resolveHabitatPins } from "./gen-gpkg-habitat-pins.mjs";
+import { error, header, info, timestampSuffix, warn } from "./_lib.mjs";
+import {
+  HABITATS_LAYER,
+  resolveHabitatPins,
+} from "./gen-gpkg-habitat-pins.mjs";
+import { runFromList, runFromWorkbook } from "./gen-gpkg-workbook.mjs";
 import {
   FEATURE_REF_PAD,
   FEATURE_REF_PAD_CHAR,
   FlawSelectionError,
-  MODE_BASELINE,
   MODE_BOTH,
-  MODE_POST_INTERVENTION,
   VALID_MODES,
   deriveBaselineFromSynthetic,
-  generateFromWorkbook,
   generateOne,
   listFlaws,
-  readMetricWorkbook,
   resolveFlawSelection,
 } from "#bng-lib";
 
@@ -108,6 +111,16 @@ const { values: args } = parseArgs({
     // end-state, --mode both (default) writes both side by side from the
     // same workbook.
     mode: { type: "string" },
+    // Permutations mode (BMD-934): emit the whole scenario catalogue as paired
+    // fixtures organised by purpose. --only restricts to one purpose; --list
+    // prints the catalogue without generating. Honours --outdir and --centre.
+    permutations: { type: "boolean", default: false },
+    only: { type: "string", default: "" },
+    list: { type: "boolean", default: false },
+    // Reproducibility: with an integer --seed, every random draw is
+    // deterministic, so a given seed + options yields byte-identical files.
+    // Applies to synthetic and permutations modes.
+    seed: { type: "string", default: "" },
     help: { type: "boolean", short: "h", default: false },
   },
   allowPositionals: false,
@@ -115,7 +128,9 @@ const { values: args } = parseArgs({
 
 const selectedMode = args.mode ?? MODE_BOTH;
 if (!args.help && !VALID_MODES.has(selectedMode)) {
-  console.error(`--mode must be one of: ${[...VALID_MODES].join(", ")} (got: ${args.mode})`);
+  console.error(
+    `--mode must be one of: ${[...VALID_MODES].join(", ")} (got: ${args.mode})`,
+  );
   process.exit(1);
 }
 
@@ -138,151 +153,6 @@ const DEFAULT_CENTRE_N = 180000;
 const DEFAULT_SYNTHETIC_SIZE = 50;
 const DEFAULT_RUN_COUNT = 1;
 const PARSE_INT_BASE_10 = 10;
-
-// ---------------------------------------------------------------------------
-// Workbook source resolution: turn a path-or-URL into a local file path,
-// downloading and caching as needed.
-// ---------------------------------------------------------------------------
-
-const CACHE_DIR = path.resolve(HARNESS_ROOT, ".cache", "bng500");
-
-/**
- * Convert a GitHub HTML blob URL to the LFS-aware media URL. The BNG500
- * corpus uses Git LFS for the workbook files, so `raw.githubusercontent.com`
- * returns only the LFS pointer; `media.githubusercontent.com/media` resolves
- * the actual file content.
- */
-function rewriteGithubBlobUrl(url) {
-  const m = url.match(
-    /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/,
-  );
-  if (!m) {
-    return url;
-  }
-  const [, owner, repo, ref, p] = m;
-  return `https://media.githubusercontent.com/media/${owner}/${repo}/${ref}/${p}`;
-}
-
-async function downloadToCache(url) {
-  if (!existsSync(CACHE_DIR)) {
-    mkdirSync(CACHE_DIR, { recursive: true });
-  }
-  const hash = createHash("sha256").update(url).digest("hex").slice(0, 16);
-  const ext = path.extname(new URL(url).pathname) || ".xlsx";
-  const cached = path.join(CACHE_DIR, `${hash}${ext}`);
-  if (existsSync(cached)) {
-    info(`  cache hit: ${path.basename(cached)}`);
-    return cached;
-  }
-  info(`  fetching ${url}`);
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Failed to download ${url}: HTTP ${res.status}`);
-  }
-  const buf = Buffer.from(await res.arrayBuffer());
-  // Detect a Git LFS pointer accidentally returned (small text starting with
-  // "version https://git-lfs"). Most often happens when callers pass a raw.
-  // url instead of a media.githubusercontent.com URL.
-  if (
-    buf.length < 1024 &&
-    buf.slice(0, 64).toString("utf8").startsWith("version https://git-lfs")
-  ) {
-    throw new Error(
-      `${url} returned a Git LFS pointer, not the actual file. ` +
-        "Use the GitHub blob URL (or the media.githubusercontent.com/media URL) for LFS-tracked files.",
-    );
-  }
-  writeFileSync(cached, buf);
-  return cached;
-}
-
-/**
- * Resolve a workbook source (local path or HTTPS URL) to a local file path.
- * Returns the resolved path; downloads remote URLs into the cache.
- */
-async function resolveWorkbookSource(ref) {
-  const trimmed = ref.trim();
-  if (/^https?:\/\//i.test(trimmed)) {
-    const url = rewriteGithubBlobUrl(trimmed);
-    return downloadToCache(url);
-  }
-  const abs = path.resolve(trimmed);
-  if (!existsSync(abs)) {
-    throw new Error(`Workbook not found: ${abs}`);
-  }
-  return abs;
-}
-
-function timestampSuffix(d = new Date()) {
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
-}
-
-function workbookOutputNames(source) {
-  // Strip trailing query/hash, keep last path segment, replace extension.
-  const url = source.replace(/[?#].*$/, "");
-  const base = path.basename(url).replace(/\.(xlsx|xlsm|xls)$/i, "") || "bng-from-workbook";
-  const ts = timestampSuffix();
-  return {
-    baseline: `${base}-baseline-${ts}.gpkg`,
-    postIntervention: `${base}-post-intervention-${ts}.gpkg`,
-  };
-}
-
-async function runFromWorkbook(source, { strict, inspect, centre, mode }) {
-  if (!existsSync(OUT_DIR)) {
-    mkdirSync(OUT_DIR, { recursive: true });
-  }
-  const localPath = await resolveWorkbookSource(source);
-  const workbook = readMetricWorkbook(localPath);
-
-  if (inspect) {
-    const summary = {
-      source,
-      resolvedPath: localPath,
-      version: workbook.version,
-      siteInfo: workbook.siteInfo,
-      counts: {
-        habitats: {
-          baseline: workbook.habitats.baseline.length,
-          created: workbook.habitats.created.length,
-          enhancements: workbook.habitats.enhancements.length,
-        },
-        hedgerows: {
-          baseline: workbook.hedgerows.baseline.length,
-          created: workbook.hedgerows.created.length,
-          enhancements: workbook.hedgerows.enhancements.length,
-        },
-        watercourses: {
-          baseline: workbook.watercourses.baseline.length,
-          created: workbook.watercourses.created.length,
-          enhancements: workbook.watercourses.enhancements.length,
-        },
-        trees: {
-          baseline: workbook.trees.baseline.length,
-          created: workbook.trees.created.length,
-        },
-      },
-      summary: workbook.summary,
-    };
-    console.log(JSON.stringify(summary, null, 2));
-    return;
-  }
-
-  const names = workbookOutputNames(source);
-  const outPaths = {
-    baseline: path.join(OUT_DIR, names.baseline),
-    postIntervention: path.join(OUT_DIR, names.postIntervention),
-  };
-  if (mode !== MODE_POST_INTERVENTION && existsSync(outPaths.baseline)) {
-    unlinkSync(outPaths.baseline);
-  }
-  if (mode !== MODE_BASELINE && existsSync(outPaths.postIntervention)) {
-    unlinkSync(outPaths.postIntervention);
-  }
-
-  generateFromWorkbook(outPaths, workbook, source, { strict, centre, mode });
-}
 
 // ---------------------------------------------------------------------------
 // Centre parsing
@@ -319,6 +189,22 @@ function parseCentre(value) {
   return [e, n];
 }
 
+/**
+ * Parse the --seed CLI value. Returns null when the flag wasn't given, or the
+ * integer seed when valid. Exits on a non-integer value.
+ */
+function parseSeed(value) {
+  if (!value) {
+    return null;
+  }
+  const n = Number.parseInt(value, PARSE_INT_BASE_10);
+  if (!Number.isInteger(n) || String(n) !== value.trim()) {
+    error(`--seed must be an integer (got: ${value})`);
+    return process.exit(1);
+  }
+  return n;
+}
+
 // ---------------------------------------------------------------------------
 // Synthetic-mode interactive overwrite prompt
 // ---------------------------------------------------------------------------
@@ -336,34 +222,6 @@ function confirm(question) {
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
-
-function readWorkbookList(listPath) {
-  return readFileSync(listPath, "utf8")
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .filter((s) => s && !s.startsWith("#"));
-}
-
-async function runFromList(listPathArg, centre) {
-  const listPath = path.resolve(listPathArg);
-  if (!existsSync(listPath)) {
-    error(`--from-list file not found: ${listPath}`);
-    process.exit(1);
-  }
-  const opts = {
-    strict: args["strict-habitats"],
-    inspect: false,
-    centre,
-    mode: selectedMode,
-  };
-  for (const entry of readWorkbookList(listPath)) {
-    try {
-      await runFromWorkbook(entry, opts);
-    } catch (e) {
-      error(`Failed for ${entry}: ${e.message ?? e}`);
-    }
-  }
-}
 
 function syntheticFilename(flawSuffix, suffix, stamp) {
   return `bng-test-data${flawSuffix}${suffix}-${stamp}.gpkg`;
@@ -437,7 +295,9 @@ async function clearExistingSyntheticOutput(outPath, isBatch) {
     unlinkSync(outPath);
     return;
   }
-  const overwrite = await confirm(`${outPath} already exists. Overwrite? (y/N) `);
+  const overwrite = await confirm(
+    `${outPath} already exists. Overwrite? (y/N) `,
+  );
   if (!overwrite) {
     console.log("Aborted.");
     process.exit(0);
@@ -445,10 +305,18 @@ async function clearExistingSyntheticOutput(outPath, isBatch) {
   unlinkSync(outPath);
 }
 
-async function runSynthetic(centre) {
-  const numParcels = Number.parseInt(args.size, PARSE_INT_BASE_10) || DEFAULT_SYNTHETIC_SIZE;
-  const total = Math.max(1, Number.parseInt(args.count, PARSE_INT_BASE_10) || DEFAULT_RUN_COUNT);
-  const selection = resolveFlawSelection({ bad: args.bad, flaws: args.flaw, numParcels });
+async function runSynthetic(centre, seed) {
+  const numParcels =
+    Number.parseInt(args.size, PARSE_INT_BASE_10) || DEFAULT_SYNTHETIC_SIZE;
+  const total = Math.max(
+    1,
+    Number.parseInt(args.count, PARSE_INT_BASE_10) || DEFAULT_RUN_COUNT,
+  );
+  const selection = resolveFlawSelection({
+    bad: args.bad,
+    flaws: args.flaw,
+    numParcels,
+  });
   const habitatPins = resolveHabitatPins(args.habitat, numParcels, selection);
   const plan = { numParcels, ...selection };
   if (habitatPins) {
@@ -462,8 +330,15 @@ async function runSynthetic(centre) {
     mkdirSync(OUT_DIR, { recursive: true });
   }
   for (let i = 1; i <= total; i++) {
-    const suffix = total > 1 ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}` : "";
+    const suffix =
+      total > 1
+        ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`
+        : "";
     const stamp = timestampSuffix();
+    // Each file in a --count batch gets its own seed so the batch stays varied
+    // yet reproducible: same --seed always yields the same N files.
+    const iterationPlan =
+      seed === null ? plan : { ...plan, seed: seed + (i - 1) };
     if (args.pair) {
       const names = syntheticPairFilenames(flawSuffix, suffix, stamp);
       await writeSyntheticPair(
@@ -472,15 +347,85 @@ async function runSynthetic(centre) {
           postIntervention: path.join(OUT_DIR, names.postIntervention),
         },
         centre,
-        plan,
+        iterationPlan,
         total > 1,
       );
       continue;
     }
-    const outPath = path.join(OUT_DIR, syntheticFilename(flawSuffix, suffix, stamp));
+    const outPath = path.join(
+      OUT_DIR,
+      syntheticFilename(flawSuffix, suffix, stamp),
+    );
     await clearExistingSyntheticOutput(outPath, total > 1);
-    generateOne(outPath, centre, plan);
+    generateOne(outPath, centre, iterationPlan);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Permutations mode (BMD-934). The catalogue and generation logic live in
+// scripts/permutations/*; this just wires the shared CLI flags to them. The
+// modules are imported lazily so a normal single-file run never loads the
+// engine glue they pull in.
+// ---------------------------------------------------------------------------
+
+// Wide enough for the longest scenario id in the catalogue, so titles align.
+const CATALOGUE_ID_COLUMN_WIDTH = 34;
+
+function printPermutationsCatalogue(PURPOSES, SCENARIOS) {
+  header("Permutations catalogue", "cyan");
+  for (const purpose of PURPOSES) {
+    info(`\n${purpose}`);
+    for (const scenario of SCENARIOS.filter((s) => s.purpose === purpose)) {
+      info(`  ${scenario.id.padEnd(CATALOGUE_ID_COLUMN_WIDTH)} ${scenario.title}`);
+    }
+  }
+  info(`\n${SCENARIOS.length} scenarios across ${PURPOSES.length} purposes.`);
+}
+
+async function runPermutationsMode(centre, seed) {
+  const [
+    { runPermutations },
+    { writeManifest },
+    { PERMUTATION_PURPOSES: PURPOSES, PERMUTATION_SCENARIOS: SCENARIOS },
+  ] = await Promise.all([
+    import("./permutations/runner.mjs"),
+    import("./permutations/manifest.mjs"),
+    import("#bng-lib"),
+  ]);
+
+  if (args.list) {
+    printPermutationsCatalogue(PURPOSES, SCENARIOS);
+    return;
+  }
+
+  const only = args.only || undefined;
+  if (only && !PURPOSES.includes(only)) {
+    error(`Unknown purpose "${only}". Known: ${PURPOSES.join(", ")}`);
+    process.exit(1);
+  }
+
+  const permsRoot = args.outdir
+    ? path.resolve(args.outdir)
+    : path.resolve(HARNESS_ROOT, "example-files", "permutations");
+
+  const entries = await runPermutations({
+    outRoot: permsRoot,
+    only,
+    centre,
+    seed,
+  });
+  if (entries.length === 0) {
+    return;
+  }
+  const purposes = PURPOSES.filter((p) => entries.some((e) => e.purpose === p));
+  const { manifestPath, indexPath } = writeManifest(
+    permsRoot,
+    entries,
+    purposes,
+  );
+  info(`\n✔ ${entries.length} scenario pair(s) written to ${permsRoot}`);
+  info(`  manifest: ${manifestPath}`);
+  info(`  index:    ${indexPath}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -492,8 +437,14 @@ async function runSynthetic(centre) {
 // one-line gloss. Keyed by the categoryLabel listFlaws() returns.
 const FLAW_CATEGORY_HEADINGS = [
   ["geometric", "Geometric flaws (each targets one backend validation error):"],
-  ["empty-layer", "Empty-layer flaws (a feature layer present with zero rows):"],
-  ["attribute-override", "Attribute-override flaws (valid geometry; out-of-scope column values):"],
+  [
+    "empty-layer",
+    "Empty-layer flaws (a feature layer present with zero rows):",
+  ],
+  [
+    "attribute-override",
+    "Attribute-override flaws (valid geometry; out-of-scope column values):",
+  ],
 ];
 
 function renderFlawCatalogue() {
@@ -530,11 +481,15 @@ Modes:
   Synthetic (default)   Randomised geometry + attributes. Use --size / --count.
   Workbook-driven       --from / --from-list reads a real Defra metric workbook
                         and emits a baseline + post-intervention pair.
+  Permutations          --permutations emits a whole library of paired fixtures
+                        covering the BMD-934 scenario catalogue, organised by
+                        purpose with a manifest.json + index.md.
 
 Options:
   --size N            Parcels per synthetic fixture (default ${DEFAULT_SYNTHETIC_SIZE}).
   --count N           Number of synthetic files to emit (default ${DEFAULT_RUN_COUNT}).
-  --outdir DIR        Output directory (default: <harness>/test-data).
+  --outdir DIR        Output directory (default: <harness>/test-data, or
+                      <harness>/example-files/permutations with --permutations).
   --pair              Synthetic mode: emit a baseline + post-intervention pair
                       sharing one redline, instead of a single file.
   --habitat "B - T"   Synthetic mode: pin the baseline habitat of the next
@@ -549,6 +504,11 @@ Options:
   --centre E,N        RLB centre, BNG/EPSG:27700 (default ${DEFAULT_CENTRE_E},${DEFAULT_CENTRE_N}).
   --strict-habitats   Fail on unmapped habitat types instead of warning.
   --inspect           Print a workbook summary as JSON (requires --from).
+  --permutations      Emit the BMD-934 scenario catalogue (see Modes above).
+  --only PURPOSE      Permutations mode: restrict to one purpose.
+  --list              Permutations mode: print the catalogue without generating.
+  --seed N            Deterministic output: same seed → byte-identical files
+                      (synthetic and permutations modes).
   -h, --help          Show this help and exit.
 
 Flaw catalogue (--flaw values; defined in bng-library):
@@ -559,18 +519,26 @@ Flaws of different categories cannot be mixed. Examples:
   node scripts/gen-gpkg.mjs --bad
   node scripts/gen-gpkg.mjs --flaw parcel-too-small
   node scripts/gen-gpkg.mjs --from ./metric.xlsm --mode baseline
+  node scripts/gen-gpkg.mjs --permutations
+  node scripts/gen-gpkg.mjs --permutations --only net-gain
+  node scripts/gen-gpkg.mjs --permutations --list
+  node scripts/gen-gpkg.mjs --seed 7
+  node scripts/gen-gpkg.mjs --permutations --seed 7
   node scripts/gen-gpkg.mjs --size 3 --pair \
     --habitat "Intertidal hard structures - Artificial hard structures with integrated greening of grey infrastructure (IGGI)"`,
   );
 }
 
-// Flag combinations parseArgs can't express on its own. Lives outside main()
-// so neither function carries the whole argument surface's branching.
-function assertFlagCombinationsValid() {
+// Flag combinations parseArgs can't express on its own. One small assert per
+// rule so no single function carries the whole argument surface's branching.
+function assertInspectHasSource() {
   if (args.inspect && !args.from) {
     error("--inspect requires --from <path-or-url>");
     process.exit(1);
   }
+}
+
+function assertSyntheticFlagsOutsideWorkbookMode() {
   const syntheticOnlyFlags = args.pair || args.habitat.length > 0;
   const workbookMode = args.from || args["from-list"];
   if (syntheticOnlyFlags && workbookMode) {
@@ -582,20 +550,78 @@ function assertFlagCombinationsValid() {
   }
 }
 
+function assertPermutationsStandalone() {
+  if (args.permutations && permutationsConflicts()) {
+    error(
+      "--permutations runs the scenario catalogue and can't be combined with " +
+        "workbook / flaw / pair / habitat / mode options; it honours --outdir, " +
+        "--centre, --only and --list only",
+    );
+    process.exit(1);
+  }
+}
+
+function assertSeedOutsideWorkbookMode() {
+  if (args.seed && (args.from || args["from-list"])) {
+    error(
+      "--seed is not supported in workbook mode yet; it applies to synthetic " +
+        "and permutations generation",
+    );
+    process.exit(1);
+  }
+}
+
+function assertFlagCombinationsValid() {
+  assertInspectHasSource();
+  assertSyntheticFlagsOutsideWorkbookMode();
+  assertPermutationsStandalone();
+  assertSeedOutsideWorkbookMode();
+}
+
+// The single-file / workbook options that make no sense alongside --permutations
+// (which drives its fixtures from the catalogue, not these flags).
+function permutationsConflicts() {
+  const conflictingFlags = [
+    args.from,
+    args["from-list"],
+    args.bad,
+    args.flaw.length > 0,
+    args.habitat.length > 0,
+    args.pair,
+    args.inspect,
+    args.mode !== undefined,
+  ];
+  return conflictingFlags.some(Boolean);
+}
+
 async function main() {
   if (args.help) {
     printHelp();
     return;
   }
   assertFlagCombinationsValid();
-  const centre = parseCentre(args.centre) ?? [DEFAULT_CENTRE_E, DEFAULT_CENTRE_N];
+  const centre = parseCentre(args.centre) ?? [
+    DEFAULT_CENTRE_E,
+    DEFAULT_CENTRE_N,
+  ];
+  const seed = parseSeed(args.seed);
 
+  if (args.permutations) {
+    await runPermutationsMode(centre, seed);
+    return;
+  }
   if (args["from-list"]) {
-    await runFromList(args["from-list"], centre);
+    await runFromList(args["from-list"], {
+      outDir: OUT_DIR,
+      strict: args["strict-habitats"],
+      centre,
+      mode: selectedMode,
+    });
     return;
   }
   if (args.from) {
     await runFromWorkbook(args.from, {
+      outDir: OUT_DIR,
       strict: args["strict-habitats"],
       inspect: args.inspect,
       centre,
@@ -603,7 +629,7 @@ async function main() {
     });
     return;
   }
-  await runSynthetic(centre);
+  await runSynthetic(centre, seed);
 }
 
 main().catch((err) => {

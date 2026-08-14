@@ -32,6 +32,7 @@
     "test:scripts": "vitest run tests/scripts/gpkg",
     "test:scripts:watch": "vitest tests/scripts/gpkg",
     "generate:gpkg": "node scripts/gen-gpkg.mjs",
+    "generate:gpkg:all": "node scripts/gen-gpkg.mjs --permutations",
     "generate:gpkg:docker": "docker compose -f compose.gen-gpkg.yml run --rm --build gen-gpkg",
     "lib:link": "npm link ../bng-library",
     "lib:unlink": "npm uninstall --no-save bng-library && npm install",
@@ -54,7 +55,7 @@
   },
   "devDependencies": {
     "better-sqlite3": "^13.0.3",
-    "bng-library": "github:DEFRA/bng-library#1c82e6a90ba147e9ed4fad19e073b3f27af79de3",
+    "bng-library": "github:DEFRA/bng-library#af307d543e0dd0a1e6d1fe9a90496d63beedc2c3",
     "husky": "9.1.7",
     "likec4": "^1.59.2",
     "remark-parse": "^11.0.0",
