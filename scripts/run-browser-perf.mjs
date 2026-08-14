@@ -32,26 +32,32 @@ const CRED_KEYS = ["DEFRA_ID_USERNAME", "DEFRA_ID_PASSWORD"];
 const LOCALHOST_PATTERN = /localhost|127\.0\.0\.1|\[::1\]/i;
 const npxBin = process.platform === "win32" ? "npx.cmd" : "npx";
 
-const USAGE = `Usage: npm run perf:browser -- (--cdp-env=<env> | --base-url=<url>) [--reinstall]
+// The local stack's frontend and the cdp-defra-id-stub login it uses.
+const LOCAL_FRONTEND_URL = "http://localhost:3000";
 
-Runs bng-perf-tests/browser-perf (Playwright) against a DEPLOYED CDP environment.
+const USAGE = `Usage: npm run perf:browser -- (--cdp-env=<env> | --base-url=<url> | --local) [--reinstall]
 
-  --cdp-env=<env>   target CDP env; the frontend URL is derived as
+Runs bng-perf-tests/browser-perf (Playwright) — the BMD-911 perf test — against a
+deployed CDP environment (real Defra ID) or the local stack (cdp-defra-id-stub).
+
+  --cdp-env=<env>   deployed CDP env; frontend URL derived as
                     https://bng-metric-frontend.<env>.cdp-int.defra.cloud
+                    (perf-test and other real-B2C envs use the real Defra ID login)
   --base-url=<url>  target an explicit deployed frontend URL instead
+  --local           run against the LOCAL stack (${LOCAL_FRONTEND_URL}) using the
+                    cdp-defra-id-stub login — no Defra ID credentials needed. The
+                    frontend + backend compose stack must be up (e.g. npm run dev).
   --reinstall       force npm install + playwright install in browser-perf
   -h, --help        show this help
 
-Credentials: DEFRA_ID_USERNAME / DEFRA_ID_PASSWORD are read from the environment,
-then the harness root .env, then bng-metric-backend/.env.
-
-NOT for localhost — browser-perf drives the real Defra ID login and cannot run
-against the Tilt/compose stack. For a local check: PERF_SCENARIO=baseline-overlap-scaling npm run perf`;
+Credentials (real mode only): DEFRA_ID_USERNAME / DEFRA_ID_PASSWORD are read from
+the environment, then the harness root .env, then bng-metric-backend/.env.`;
 
 const { values: args } = parseArgs({
   options: {
     "cdp-env": { type: "string", default: "" },
     "base-url": { type: "string", default: "" },
+    local: { type: "boolean", default: false },
     reinstall: { type: "boolean", default: false },
     help: { type: "boolean", short: "h", default: false },
   },
@@ -172,16 +178,30 @@ async function main() {
     process.exit(1);
   }
 
-  const target = resolveTarget();
-  const creds = resolveCredentials();
-  await ensureDeps(browserPerfDir);
-
-  if (!process.env.HTTPS_PROXY && !process.env.HTTP_PROXY) {
-    warn(
-      "No HTTPS_PROXY/HTTP_PROXY set — the external Defra ID login may be unreachable " +
-        "without the platform egress proxy.",
-    );
+  // Local stub mode drives the cdp-defra-id-stub login against the compose stack
+  // — no deployed target, no Defra ID credentials, no egress proxy.
+  let target;
+  let creds = {};
+  if (args.local) {
+    const baseUrl = args["base-url"].trim() || LOCAL_FRONTEND_URL;
+    target = {
+      env: { BASE_URL: baseUrl, PERF_LOGIN_MODE: "stub" },
+      label: `${baseUrl} (local, cdp-defra-id-stub login)`,
+    };
+    info("▸ local mode: stub login — no Defra ID credentials needed");
+    info("  (the frontend + backend compose stack must be running)");
+  } else {
+    target = resolveTarget();
+    creds = resolveCredentials();
+    if (!process.env.HTTPS_PROXY && !process.env.HTTP_PROXY) {
+      warn(
+        "No HTTPS_PROXY/HTTP_PROXY set — the external Defra ID login may be unreachable " +
+          "without the platform egress proxy.",
+      );
+    }
   }
+
+  await ensureDeps(browserPerfDir);
 
   header(`Running browser-perf against ${target.label}`);
   const env = { ...process.env, ...target.env, ...creds };
