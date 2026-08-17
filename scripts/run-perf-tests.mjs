@@ -177,22 +177,61 @@ async function runJmeter(scenario, token, sub, outDir) {
   }
 }
 
-function printPerfResults(scenarioName, labels) {
+// Columns rendered per transaction, in order, sourced from statistics.json.
+const STAT_HEADS = ["count", "err%", "avg", "p90", "p95", "p99", "max", "req/s"];
+const STAT_COL_W = 8;
+const NAME_MIN_W = 20;
+const NAME_MAX_W = 44;
+const PERCENT = 100;
+
+// pct1/pct2/pct3ResTime are the dashboard's three percentiles — 90/95/99 by default.
+function statCells(s) {
+  const errPct = s.sampleCount === 0 ? 0 : (s.errorCount / s.sampleCount) * PERCENT;
+  return [
+    s.sampleCount,
+    errPct.toFixed(1),
+    Math.round(s.meanResTime),
+    Math.round(s.pct1ResTime),
+    Math.round(s.pct2ResTime),
+    Math.round(s.pct3ResTime),
+    Math.round(s.maxResTime),
+    (s.throughput ?? 0).toFixed(1),
+  ];
+}
+
+// `result` is a 4-char PASS/FAIL/blank token (already colour-wrapped or spaces);
+// all three are the same display width, so columns stay aligned.
+function statRow(result, name, cells, nameW) {
+  const nameCol = String(name).padEnd(nameW).slice(0, nameW);
+  const numCols = cells.map((c) => String(c).padStart(STAT_COL_W)).join("");
+  return `  ${result}  ${nameCol}${numCols}`;
+}
+
+// Print the full per-transaction table (result, counts, error rate, latency
+// percentiles, throughput) to the terminal — the same numbers as the HTML
+// dashboard, so the result is readable in the logs without opening the report.
+function printPerfResults(scenarioName, labels, totalRow) {
   header(`Perf results (${scenarioName})`);
+  const nameW = Math.min(
+    NAME_MAX_W,
+    Math.max(NAME_MIN_W, ...labels.map((s) => s.transaction.length)),
+  );
+  console.log(color("dim", statRow("    ", "transaction", STAT_HEADS, nameW)));
   for (const s of labels) {
-    const status =
-      s.errorCount === 0
-        ? color("green", "PASS")
-        : color("red", `FAIL (${s.errorCount}/${s.sampleCount})`);
-    // pct2ResTime is the dashboard's second percentile — 95th by default.
-    const latency = `avg ${Math.round(s.meanResTime)} ms · p95 ${Math.round(s.pct2ResTime)} ms`;
-    console.log(`  ${status}  ${s.transaction}  ${color("dim", latency)}`);
+    const ok = s.errorCount === 0;
+    const result = ok ? color("green", "PASS") : color("red", "FAIL");
+    console.log(statRow(result, s.transaction, statCells(s), nameW));
+  }
+  if (totalRow) {
+    const ok = totalRow.errorCount === 0;
+    const result = ok ? color("green", "PASS") : color("red", "FAIL");
+    console.log(statRow(result, "TOTAL", statCells(totalRow), nameW));
   }
 }
 
-// Per-label pass/fail and latency come from the statistics.json JMeter writes
-// alongside its HTML dashboard — no JTL parsing. The WHY of a failure (the
-// assertion messages) lives in the HTML report.
+// Per-label counts, latency percentiles and throughput come from the
+// statistics.json JMeter writes alongside its HTML dashboard — no JTL parsing.
+// The WHY of a failure (the assertion messages) lives in the HTML report.
 function summariseReport(scenarioName, outDir) {
   const statsPath = path.join(outDir, "report", "statistics.json");
   if (!existsSync(statsPath)) {
@@ -201,7 +240,8 @@ function summariseReport(scenarioName, outDir) {
   }
   const stats = JSON.parse(readFileSync(statsPath, "utf8"));
   const labels = Object.values(stats).filter((s) => s.transaction !== "Total");
-  printPerfResults(scenarioName, labels);
+  const totalRow = Object.values(stats).find((s) => s.transaction === "Total");
+  printPerfResults(scenarioName, labels, totalRow);
   return {
     total: labels.reduce((sum, s) => sum + s.sampleCount, 0),
     failed: labels.reduce((sum, s) => sum + s.errorCount, 0),
