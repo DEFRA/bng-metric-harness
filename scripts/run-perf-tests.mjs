@@ -55,6 +55,7 @@ const FETCH_TIMEOUT_MS = 5000;
 const perfRepo = repoPath("bng-perf-tests");
 const scenariosDir = path.join(perfRepo, "scenarios");
 const seedViaApiScript = path.join(perfRepo, "scripts", "seed-via-api.mjs");
+const buildSummaryScript = path.join(perfRepo, "scripts", "build-summary.mjs");
 const backendUrl = `http://${cfg.host}:${cfg.backendPort}`;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -118,8 +119,13 @@ async function runJmeter(scenarioPath, token, sub, outDir) {
   // -JbearerToken= arg, so the secret never lands in the container's process
   // args (visible to `ps`) or in the Tilt logs. The file lives in the gitignored
   // .perf/ output dir and is deleted right after the run.
+  // user.properties (APDEX thresholds, and the JTL columns build-summary.mjs
+  // reads by name) is concatenated in rather than passed as a second -q, so the
+  // local run and the CDP container resolve exactly the same properties.
   const propsPath = path.join(outDir, "perf.properties");
-  writeFileSync(propsPath, token ? `bearerToken=${token}\n` : "");
+  const userProps = path.join(perfRepo, "user.properties");
+  const shared = existsSync(userProps) ? readFileSync(userProps, "utf8") : "";
+  writeFileSync(propsPath, `${shared}\n${token ? `bearerToken=${token}` : ""}\n`);
   try {
     return await run("docker", [
       "run",
@@ -139,7 +145,7 @@ async function runJmeter(scenarioPath, token, sub, outDir) {
       "/out/out.jtl",
       "-e",
       "-o",
-      "/out/report",
+      "/out/report/jmeter",
       "-f",
       "-Jenv=local",
       "-Jprotocol=http",
@@ -162,6 +168,55 @@ async function runJmeter(scenarioPath, token, sub, outDir) {
   }
 }
 
+// Build the plain-English report page (bng-perf-tests/scripts/build-summary.mjs)
+// that the CDP container also builds, so a local run and a portal run produce the
+// same artefact: report/index.html is the summary, report/jmeter/ the dashboard.
+// The run context JMeter cannot record — targets, load profile, dataset size —
+// reaches it through the environment, exactly as it does in entrypoint.sh.
+async function buildSummary(outDir) {
+  const reportDir = path.join(outDir, "report");
+  const statsPath = path.join(reportDir, "jmeter", "statistics.json");
+  if (!existsSync(statsPath)) {
+    return;
+  }
+  const code = await run(
+    "node",
+    [
+      buildSummaryScript,
+      "--stats",
+      statsPath,
+      "--jtl",
+      path.join(outDir, "out.jtl"),
+      "--dashboard",
+      "jmeter/index.html",
+      "--out",
+      path.join(reportDir, "index.html"),
+    ],
+    {
+      env: {
+        ...process.env,
+        ENVIRONMENT: "local",
+        SCENARIO: cfg.scenario,
+        SERVICE_URL_SCHEME: "http",
+        FRONTEND_DOMAIN: cfg.host,
+        BACKEND_DOMAIN: cfg.host,
+        FRONTEND_PORT: cfg.frontendPort,
+        BACKEND_PORT: cfg.backendPort,
+        HOME_THREADS: cfg.threads,
+        HOME_LOOPS: cfg.loops,
+        HOME_RAMP_SECONDS: cfg.ramp,
+        LIST_THREADS: cfg.threads,
+        LIST_LOOPS: cfg.loops,
+        LIST_RAMP_SECONDS: cfg.ramp,
+        SEED_VIA_API: String(!cfg.skipSeed),
+      },
+    },
+  );
+  if (code !== 0) {
+    warn("Could not build the summary page — the JMeter dashboard is still in report/jmeter.");
+  }
+}
+
 function printPerfResults(labels) {
   header("Perf results");
   for (const s of labels) {
@@ -179,7 +234,7 @@ function printPerfResults(labels) {
 // alongside its HTML dashboard — no JTL parsing. The WHY of a failure (the
 // assertion messages) lives in the HTML report.
 function summariseReport(outDir) {
-  const statsPath = path.join(outDir, "report", "statistics.json");
+  const statsPath = path.join(outDir, "report", "jmeter", "statistics.json");
   if (!existsSync(statsPath)) {
     error("No report statistics produced — the JMeter run did not complete.");
     return { total: 0, failed: 0 };
@@ -277,8 +332,10 @@ async function main() {
   if (jmeterCode !== 0) {
     warn(`JMeter exited ${jmeterCode} — see the assertion summary below.`);
   }
+  await buildSummary(outDir);
   const { total, failed } = summariseReport(outDir);
   info(`Report: ${path.join(outDir, "report", "index.html")}`);
+  info(`  JMeter dashboard: ${path.join(outDir, "report", "jmeter", "index.html")}`);
 
   reportOutcome(total, failed);
 }
