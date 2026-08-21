@@ -43,6 +43,7 @@ const HEADER = [
 
 /** Group a rule by what its name says about it. Order matches GROUP_ORDER. */
 const GROUP_RULES = [
+  [/^INVALID_FILENAME$/, 'File name'],
   [/^GPKG_(INVALID_FILE|NOT_A_GEOPACKAGE|MISSING_SYSTEM_TABLE)$/, 'File format'],
   [/^GPKG_(MISSING_LAYER|UNEXPECTED_FEATURE_LAYER)$/, 'Layers'],
   [/SRS/, 'Coordinate reference system'],

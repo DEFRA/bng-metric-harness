@@ -192,7 +192,7 @@ deliberate and does not need reconciling.
 
 Four fixtures trip a validator in addition to the one they are named for,
 because their RLB geometry column is named `geom` where the reference schema
-(`backend/src/validation/baseline/reference/baseline-template.schema.json`)
+(`backend/src/validation/reference/gpkg-template.schema.json`)
 requires `geometry`. Schema comparison runs first, so **the validator that fires
 may not be the one the fixture is named for**:
 

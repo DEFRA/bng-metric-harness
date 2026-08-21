@@ -35,6 +35,7 @@ const SEEN = {
 
 /** Group order in the document. Any group not listed is appended alphabetically. */
 const GROUP_ORDER = [
+  'File name',
   'File format',
   'Layers',
   'Coordinate reference system',
@@ -138,6 +139,40 @@ function buildTable(codes, descriptions, tolerances) {
   return lines.join('\n')
 }
 
+/**
+ * Which branch each repo was on when the facts were extracted.
+ *
+ * The siblings are frequently left on feature branches, so this has to report
+ * what was read rather than assert `main` — a document built from unmerged work
+ * that claims to describe `main` is worse than one that names the branch.
+ */
+function branchClause(provenance) {
+  const REPO_LABELS = [
+    ['backend', 'backend'],
+    ['frontend', 'frontend'],
+    ['library', 'bng-library']
+  ]
+  const byBranch = new Map()
+  for (const [key, label] of REPO_LABELS) {
+    const branch = provenance[key]?.branch
+    if (branch) {
+      byBranch.set(branch, [...(byBranch.get(branch) ?? []), label])
+    }
+  }
+
+  if (byBranch.size === 0) {
+    return ''
+  }
+  if (byBranch.size === 1) {
+    const [[onlyBranch]] = byBranch
+    return `, all on \`${onlyBranch}\``
+  }
+  const parts = [...byBranch].map(
+    ([branch, repos]) => `\`${branch}\` (${repos.join(', ')})`
+  )
+  return `, on ${parts.join(' and ')}`
+}
+
 function buildDocument(facts, descriptions) {
   const codes = Object.keys(facts.codes)
   const s = facts.summary
@@ -150,7 +185,7 @@ function buildDocument(facts, descriptions) {
 
 Every rule the BNG Metric service applies to an uploaded GeoPackage: what each one checks, and which example file demonstrates it.
 
-**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running \`/geopackage-validation-explainer\` in \`bng-metric-harness\`. It reflects backend \`${short(p.backend?.commit)}\`, frontend \`${short(p.frontend?.commit)}\` and bng-library \`${short(p.library?.commit)}\`, all on \`main\`, and was generated on ${date}.
+**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running \`/geopackage-validation-explainer\` in \`bng-metric-harness\`. It reflects backend \`${short(p.backend?.commit)}\`, frontend \`${short(p.frontend?.commit)}\` and bng-library \`${short(p.library?.commit)}\`${branchClause(p)}, and was generated on ${date}.
 
 For how biodiversity units are calculated once a file is accepted, see [rules-engine-explained.md](rules-engine-explained.md).
 

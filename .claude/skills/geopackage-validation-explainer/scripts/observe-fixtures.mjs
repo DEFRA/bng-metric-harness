@@ -23,6 +23,7 @@
  * Usage:
  *   LOG_LEVEL=silent node observe-fixtures.mjs --out fixture-map.json
  */
+import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import {
@@ -33,7 +34,7 @@ import {
 } from './_lib.mjs'
 
 const EXAMPLE_FILES_DIR = path.join(HARNESS_ROOT, 'example-files')
-const GATE_MODULE = path.join('src', 'validation', 'baseline', 'geopackage.js')
+const GATE_MODULE = path.join('src', 'validation', 'geopackage', 'geopackage.js')
 
 async function loadGate(backendDir) {
   try {
@@ -48,6 +49,29 @@ async function loadGate(backendDir) {
         `Underlying error: ${error.message}`
     )
     process.exit(1)
+  }
+}
+
+/**
+ * The fixture paths git knows about, or null when git cannot answer.
+ *
+ * A stray .gpkg in a working copy — real survey data, a file being triaged — is
+ * observed like any other and would be cited in the published document as the
+ * example for a rule, where nobody else can find it and the coverage check fails
+ * for them. The document has to describe the committed corpus, so untracked
+ * files are skipped and reported rather than silently used.
+ *
+ * -z is required: fixture names contain spaces, which git otherwise quotes.
+ */
+function trackedFixtures() {
+  try {
+    const listed = execFileSync('git', ['ls-files', '-z', '--', '*.gpkg'], {
+      cwd: EXAMPLE_FILES_DIR,
+      encoding: 'utf8'
+    })
+    return new Set(listed.split('\0').filter(Boolean))
+  } catch {
+    return null
   }
 }
 
@@ -74,15 +98,25 @@ if (!existsSync(EXAMPLE_FILES_DIR)) {
 }
 
 const validateGpkg = await loadGate(locateSource('backend'))
-const fixtures = walkSourceFiles(EXAMPLE_FILES_DIR, ['.gpkg'])
+const tracked = trackedFixtures()
+const onDisk = walkSourceFiles(EXAMPLE_FILES_DIR, ['.gpkg']).map(
+  (absolutePath) => ({
+    absolutePath,
+    relative: path.relative(EXAMPLE_FILES_DIR, absolutePath)
+  })
+)
+const isTracked = ({ relative }) => tracked === null || tracked.has(relative)
+const fixtures = onDisk.filter(isTracked)
+const untracked = onDisk
+  .filter((fixture) => !isTracked(fixture))
+  .map(({ relative }) => relative)
 
 const byCode = {}
 const observed = {}
 const unreadable = []
 let rejected = 0
 
-for (const absolutePath of fixtures) {
-  const relative = path.relative(EXAMPLE_FILES_DIR, absolutePath)
+for (const { absolutePath, relative } of fixtures) {
   const { codes, failed } = observe(validateGpkg, absolutePath)
   if (failed) {
     unreadable.push(`${relative} — ${failed}`)
@@ -106,6 +140,14 @@ console.log(`Ran the validation gate over ${fixtures.length} example file(s)`)
 console.log(`  rejected by the gate: ${rejected}`)
 console.log(`  passed the gate:      ${fixtures.length - rejected - unreadable.length}`)
 console.log(`  rules demonstrated:   ${Object.keys(byCode).length}`)
+if (untracked.length > 0) {
+  console.log(
+    `\nSkipped ${untracked.length} untracked file(s) — not in the repository, so the document cannot cite them:`
+  )
+  for (const relative of untracked) {
+    console.log(`  ${relative}`)
+  }
+}
 if (unreadable.length > 0) {
   console.log(`\nCould not be read:`)
   for (const entry of unreadable) {

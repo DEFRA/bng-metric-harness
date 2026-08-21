@@ -35,7 +35,7 @@ export const SOURCES = Object.freeze({
     label: 'bng-metric-backend',
     dirName: 'bng-metric-backend',
     env: 'BNG_BACKEND_DIR',
-    marker: path.join('src', 'validation', 'baseline', 'errors.js')
+    marker: path.join('src', 'validation', 'geopackage', 'errors.js')
   },
   frontend: {
     label: 'bng-metric-frontend',
@@ -90,14 +90,18 @@ export function readTextFile(filePath) {
   return readFileSync(filePath, 'utf8')
 }
 
-/** Commit and commit date for a repo, or nulls when git is unavailable. */
+/** Commit, commit date and branch for a repo, or nulls when git is unavailable. */
 export function gitProvenance(dir) {
   const run = (args) =>
     execFileSync('git', args, { cwd: dir, encoding: 'utf8' }).trim()
   try {
-    return { commit: run(['rev-parse', 'HEAD']), committedAt: run(['log', '-1', '--format=%cI']) }
+    return {
+      commit: run(['rev-parse', 'HEAD']),
+      committedAt: run(['log', '-1', '--format=%cI']),
+      branch: run(['rev-parse', '--abbrev-ref', 'HEAD'])
+    }
   } catch {
-    return { commit: null, committedAt: null }
+    return { commit: null, committedAt: null, branch: null }
   }
 }
 
