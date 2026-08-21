@@ -35,7 +35,7 @@ export const SOURCES = Object.freeze({
     label: 'bng-metric-backend',
     dirName: 'bng-metric-backend',
     env: 'BNG_BACKEND_DIR',
-    marker: path.join('src', 'validation', 'baseline', 'errors.js')
+    marker: path.join('src', 'validation', 'geopackage', 'errors.js')
   },
   frontend: {
     label: 'bng-metric-frontend',
@@ -90,19 +90,45 @@ export function readTextFile(filePath) {
   return readFileSync(filePath, 'utf8')
 }
 
-/** Commit and commit date for a repo, or nulls when git is unavailable. */
+/**
+ * Directories in which `git` may live. Inherited PATH is not used: a writable
+ * directory on PATH would let an attacker substitute the binary (javascript:S4036).
+ */
+const GIT_SEARCH_PATH = '/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin'
+
+/**
+ * Run git with a fixed PATH. Encoding is always utf8 so callers get a string.
+ * @param {string[]} args
+ * @param {string} cwd
+ */
+export function runGit(args, cwd) {
+  return execFileSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    env: { PATH: GIT_SEARCH_PATH, GIT_TERMINAL_PROMPT: '0' }
+  })
+}
+
+/** Commit, commit date and branch for a repo, or nulls when git is unavailable. */
 export function gitProvenance(dir) {
-  const run = (args) =>
-    execFileSync('git', args, { cwd: dir, encoding: 'utf8' }).trim()
+  const run = (args) => runGit(args, dir).trim()
   try {
-    return { commit: run(['rev-parse', 'HEAD']), committedAt: run(['log', '-1', '--format=%cI']) }
+    return {
+      commit: run(['rev-parse', 'HEAD']),
+      committedAt: run(['log', '-1', '--format=%cI']),
+      branch: run(['rev-parse', '--abbrev-ref', 'HEAD'])
+    }
   } catch {
-    return { commit: null, committedAt: null }
+    return { commit: null, committedAt: null, branch: null }
   }
 }
 
 /** Every file under `dir` with one of `extensions`, skipping tests and build output. */
-export function walkSourceFiles(dir, extensions, { includeTests = false } = {}) {
+export function walkSourceFiles(
+  dir,
+  extensions,
+  { includeTests = false } = {}
+) {
   const results = []
   const visit = (current) => {
     for (const entry of readdirSync(current)) {
@@ -154,7 +180,9 @@ export function balancedBraceBlock(text, fromIndex) {
 /** 1-based line number of a character offset. */
 export function lineOf(text, index) {
   const NEWLINES_BEFORE_FIRST_LINE = 1
-  return text.slice(0, index).split('\n').length - NEWLINES_BEFORE_FIRST_LINE + 1
+  return (
+    text.slice(0, index).split('\n').length - NEWLINES_BEFORE_FIRST_LINE + 1
+  )
 }
 
 /** Read `--flag value` from argv, or a default. */

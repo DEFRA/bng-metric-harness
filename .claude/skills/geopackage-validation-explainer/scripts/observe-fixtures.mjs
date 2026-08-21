@@ -29,11 +29,18 @@ import {
   HARNESS_ROOT,
   locateSource,
   walkSourceFiles,
-  argValue
+  argValue,
+  runGit
 } from './_lib.mjs'
 
 const EXAMPLE_FILES_DIR = path.join(HARNESS_ROOT, 'example-files')
-const GATE_MODULE = path.join('src', 'validation', 'baseline', 'geopackage.js')
+const GATE_MODULE = path.join(
+  'src',
+  'validation',
+  'geopackage',
+  'geopackage.js'
+)
+const JSON_INDENT = 2
 
 async function loadGate(backendDir) {
   try {
@@ -51,6 +58,26 @@ async function loadGate(backendDir) {
   }
 }
 
+/**
+ * The fixture paths git knows about, or null when git cannot answer.
+ *
+ * A stray .gpkg in a working copy — real survey data, a file being triaged — is
+ * observed like any other and would be cited in the published document as the
+ * example for a rule, where nobody else can find it and the coverage check fails
+ * for them. The document has to describe the committed corpus, so untracked
+ * files are skipped and reported rather than silently used.
+ *
+ * -z is required: fixture names contain spaces, which git otherwise quotes.
+ */
+function trackedFixtures() {
+  try {
+    const listed = runGit(['ls-files', '-z', '--', '*.gpkg'], EXAMPLE_FILES_DIR)
+    return new Set(listed.split('\0').filter(Boolean))
+  } catch {
+    return null
+  }
+}
+
 /** Codes the gate reports for one fixture, or null when it could not be read. */
 function observe(validateGpkg, absolutePath) {
   let result
@@ -60,7 +87,10 @@ function observe(validateGpkg, absolutePath) {
     return { codes: [], failed: error.message }
   }
   const codes = [...new Set((result.errors ?? []).map((error) => error.code))]
-  return { codes: codes.sort(), valid: result.valid === true }
+  return {
+    codes: codes.toSorted((left, right) => left.localeCompare(right)),
+    valid: result.valid === true
+  }
 }
 
 const outPath = argValue('--out')
@@ -74,15 +104,25 @@ if (!existsSync(EXAMPLE_FILES_DIR)) {
 }
 
 const validateGpkg = await loadGate(locateSource('backend'))
-const fixtures = walkSourceFiles(EXAMPLE_FILES_DIR, ['.gpkg'])
+const tracked = trackedFixtures()
+const onDisk = walkSourceFiles(EXAMPLE_FILES_DIR, ['.gpkg']).map(
+  (absolutePath) => ({
+    absolutePath,
+    relative: path.relative(EXAMPLE_FILES_DIR, absolutePath)
+  })
+)
+const isTracked = ({ relative }) => tracked === null || tracked.has(relative)
+const isUntracked = ({ relative }) =>
+  tracked !== null && tracked.has(relative) === false
+const fixtures = onDisk.filter(isTracked)
+const untracked = onDisk.filter(isUntracked).map(({ relative }) => relative)
 
 const byCode = {}
 const observed = {}
 const unreadable = []
 let rejected = 0
 
-for (const absolutePath of fixtures) {
-  const relative = path.relative(EXAMPLE_FILES_DIR, absolutePath)
+for (const { absolutePath, relative } of fixtures) {
   const { codes, failed } = observe(validateGpkg, absolutePath)
   if (failed) {
     unreadable.push(`${relative} — ${failed}`)
@@ -99,13 +139,25 @@ for (const absolutePath of fixtures) {
 }
 
 for (const code of Object.keys(byCode)) {
-  byCode[code].sort()
+  byCode[code] = byCode[code].toSorted((left, right) =>
+    left.localeCompare(right)
+  )
 }
 
 console.log(`Ran the validation gate over ${fixtures.length} example file(s)`)
 console.log(`  rejected by the gate: ${rejected}`)
-console.log(`  passed the gate:      ${fixtures.length - rejected - unreadable.length}`)
+console.log(
+  `  passed the gate:      ${fixtures.length - rejected - unreadable.length}`
+)
 console.log(`  rules demonstrated:   ${Object.keys(byCode).length}`)
+if (untracked.length > 0) {
+  console.log(
+    `\nSkipped ${untracked.length} untracked file(s) — not in the repository, so the document cannot cite them:`
+  )
+  for (const relative of untracked) {
+    console.log(`  ${relative}`)
+  }
+}
 if (unreadable.length > 0) {
   console.log(`\nCould not be read:`)
   for (const entry of unreadable) {
@@ -114,5 +166,8 @@ if (unreadable.length > 0) {
 }
 
 mkdirSync(path.dirname(path.resolve(outPath)), { recursive: true })
-writeFileSync(outPath, `${JSON.stringify({ byCode, observed }, null, 2)}\n`)
+writeFileSync(
+  outPath,
+  `${JSON.stringify({ byCode, observed }, null, JSON_INDENT)}\n`
+)
 console.log(`\nWrote ${outPath}`)

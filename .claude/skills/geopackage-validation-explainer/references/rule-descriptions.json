@@ -210,7 +210,7 @@
   },
   "INVALID_FILE_METADATA": {
     "group": "Service faults, not your file",
-    "checks": "Covers two unrelated situations. The filename or file size reported for the upload is outside the allowed bounds, which is the reader's to fix. Or the record built internally from an already-valid file failed its own schema, which is not."
+    "checks": "Covers two unrelated situations. The file size or upload reference reported for the upload is outside the allowed bounds, which is the reader's to fix. Or the record built internally from an already-valid file failed its own schema, which is not."
   },
   "VALIDATION_FAILED": {
     "group": "Service faults, not your file",
@@ -221,5 +221,9 @@
     "checks": "A single habitat parcel covers less ground than the smallest area a genuine parcel is expected to occupy, marking it as a stray digitising artefact rather than a real habitat. It is judged on area alone, so a long, thin parcel passes as long as its total footprint is large enough.",
     "tolerance": "MIN_PARCEL_AREA_SQ_M",
     "toleranceIs": "The minimum parcel area is"
+  },
+  "INVALID_FILENAME": {
+    "group": "File name",
+    "checks": "The name of the uploaded file contains a character the service does not accept, or is longer than the allowed length. Letters, numbers, spaces, full stops, underscores, hyphens and round brackets all pass, and the name has to begin with a letter or number; nothing inside the file is looked at."
   }
 }

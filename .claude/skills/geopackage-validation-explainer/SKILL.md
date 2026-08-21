@@ -59,7 +59,7 @@ Resolve from the first argument. With none, use **check** if a document already 
 
 Run from the harness root with Node 24 (`nvm use` first). No database is needed and nothing is installed. Most steps read source only; the one exception is the fixture-observation step, which loads the backend's validation gate and therefore needs the backend's dependencies present (`npm run install:be`).
 
-**Check the siblings are on the branch you mean to describe.** They are frequently left on feature branches, and the document will faithfully describe whatever is checked out. `npm run branch` shows all four at once. To describe what is deployed, put all three siblings on `main` and pull first — note `npm run pull` fast-forwards the *current* branch rather than switching, so an explicit checkout is needed.
+**Check the siblings are on the branch you mean to describe.** They are frequently left on feature branches, and the document will faithfully describe whatever is checked out — its provenance line names the branch it read, so a document built from a feature branch says so rather than claiming `main`. `npm run branch` shows all four at once. To describe what is deployed, put all three siblings on `main` and pull first — note `npm run pull` fast-forwards the *current* branch rather than switching, so an explicit checkout is needed.
 
 ---
 
@@ -85,6 +85,8 @@ LOG_LEVEL=silent node .claude/skills/geopackage-validation-explainer/scripts/obs
 Runs the real validation gate over every `.gpkg` in `example-files/` and records what it reports. `LOG_LEVEL=silent` suppresses the backend's own logging, which would otherwise drown the output.
 
 This is measured rather than authored, so it needs no upkeep when fixtures are added or renamed — and it catches fixtures that have quietly stopped demonstrating what they were built for.
+
+Only fixtures git tracks are observed. A stray `.gpkg` in a working copy is reported and skipped, because a document that cites a file nobody else has is worse than one that admits a rule has no example. Commit a new fixture before expecting it in the table.
 
 The gate covers the file-format, layer, column, coordinate-system and shape-presence rules. It cannot reach the spatial rules, which need PostGIS, or the habitat-data rules, which run later; for those the next step falls back to the error-code columns in `example-files/README.md`.
 
