@@ -2,7 +2,7 @@
 
 Every rule the BNG Metric service applies to an uploaded GeoPackage: what each one checks, and which example file demonstrates it.
 
-**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `04e16e8`, frontend `4b85e32` and bng-library `af307d5`, on `BMD-958-Geopackage-Filename-Character-Validation` (backend, frontend) and `main` (bng-library), and was generated on 2026-08-21.
+**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `6ef6442`, frontend `50d5c34` and bng-library `af307d5`, on `BMD-958-Geopackage-Filename-Character-Validation` (backend, frontend) and `main` (bng-library), and was generated on 2026-08-24.
 
 For how biodiversity units are calculated once a file is accepted, see [rules-engine-explained.md](rules-engine-explained.md).
 
@@ -23,7 +23,7 @@ Example files are paths under `example-files/` in this repository, worked out by
 
 | Rule and example file | What it checks |
 | --- | --- |
-| `INVALID_FILENAME` — *no geopackage fixture* | The name of the uploaded file contains a character the service does not accept, or is longer than the allowed length. Letters, numbers, spaces, full stops, underscores, hyphens and round brackets all pass, and the name has to begin with a letter or number; nothing inside the file is looked at. The user sees its own message. |
+| `INVALID_FILENAME` — *filename-problems/Baseline [invalid chars].gpkg* | The name of the uploaded file contains a character the service does not accept, or is longer than the allowed length. Letters, numbers, spaces, full stops, underscores, hyphens and round brackets all pass, and the name has to begin with a letter or number; nothing inside the file is looked at. The user sees its own message. |
 
 ### File format
 
@@ -37,7 +37,7 @@ Example files are paths under `example-files/` in this repository, worked out by
 
 | Rule and example file | What it checks |
 | --- | --- |
-| `GPKG_MISSING_LAYER` — *invalid-schema/Baseline - no habitats table, three rlb polygons.gpkg; invalid-schema/Baseline - no habitats table.gpkg; invalid-schema/Post-intervention - no geometry column in RLB layer.gpkg* | A layer the template requires is absent. Habitats and Red Line Boundary are both required; a layer that exists under a different name counts as missing. The user sees a generic message. |
+| `GPKG_MISSING_LAYER` — *invalid-schema/Baseline - no habitats table (three rlb polygons).gpkg; invalid-schema/Baseline - no habitats table.gpkg; invalid-schema/Post-intervention - no geometry column in RLB layer.gpkg* | A layer the template requires is absent. Habitats and Red Line Boundary are both required; a layer that exists under a different name counts as missing. The user sees a generic message. |
 | `GPKG_UNEXPECTED_FEATURE_LAYER` — *spatial-problems/Baseline - iggi outside.gpkg* | The file carries a vector mapping layer the template does not list — a constraints layer, a site plan, a working copy. Raster and tile layers are not examined, so an embedded basemap is not caught. The user sees a generic message. |
 
 ### Coordinate reference system
@@ -75,7 +75,7 @@ Example files are paths under `example-files/` in this repository, worked out by
 | `NO_REDLINE` — *no geopackage fixture* | No red line boundary reached the geometry stage. In ordinary use the equivalent structural rule fires first; both are shown to the user as the same message. The user sees its own message. |
 | `GPKG_RLB_NO_POLYGON` — *empty-layer/Baseline - no rlb polygons.gpkg* | The Red Line Boundary layer contains no area shape. Rows with nothing drawn, and rows holding a line or point, do not count towards the total. The user sees its own message. |
 | `GPKG_RLB_TOO_MANY_POLYGONS` — *valid/Baseline - three rlb polygons.gpkg* | The Red Line Boundary layer holds more than one row. What is counted is rows, not separate pieces of land, so a site of several detached areas stored as one multi-part feature passes. The user sees its own message. |
-| `NO_HABITAT_AREAS` — *empty-layer/Baseline - no habitats, full site.gpkg; empty-layer/Baseline - no habitats, minimal site.gpkg* | The Habitats layer contains no area shape at all. Also fires when every shape in the layer is the wrong kind, which reads as though the layer were empty. The user sees its own message. |
+| `NO_HABITAT_AREAS` — *empty-layer/Baseline - no habitats (full site).gpkg; empty-layer/Baseline - no habitats (minimal site).gpkg* | The Habitats layer contains no area shape at all. Also fires when every shape in the layer is the wrong kind, which reads as though the layer were empty. The user sees its own message. |
 | `GPKG_HABITATS_WRONG_GEOMETRY_TYPE` — *no geopackage fixture* | The Habitats layer holds at least one valid area shape and also something that is not one — a stray line or point mixed into the same layer. The user sees a generic message. |
 | `GPKG_HEDGEROWS_NO_LINESTRING_GEOMETRY` — *no geopackage fixture* | The Hedgerows layer has rows but not one usable line among them. An entirely empty optional layer passes; a layer of rows with nothing drawn does not. The user sees a generic message. |
 | `GPKG_HEDGEROWS_WRONG_GEOMETRY_TYPE` — *no geopackage fixture* | The Hedgerows layer holds at least one valid line and also something that is not a line. The user sees a generic message. |
@@ -137,10 +137,10 @@ Example files are paths under `example-files/` in this repository, worked out by
 | With a message written for them | 15 |
 | Showing a placeholder message | 5 |
 | Falling back to a generic message | 31 |
-| With an example .gpkg in this repository | 24 |
+| With an example .gpkg in this repository | 25 |
 | With a generator flaw that reproduces them | 16 |
 
-**27 of 51 rules have no example file.** Almost all are structural — the file format, layer, column and coordinate-system rules — which is also the group the user is told least about. The generator has no schema flaw family, so those fixtures cannot be produced with `npm run generate:gpkg` and would have to be built by hand.
+**26 of 51 rules have no example file.** Almost all are structural — the file format, layer, column and coordinate-system rules — which is also the group the user is told least about. The generator has no schema flaw family, so those fixtures cannot be produced with `npm run generate:gpkg` and would have to be built by hand.
 
 68 `.gpkg` files in `example-files/` are not mapped to any rule. Most are valid fixtures or real survey data rather than rule demonstrations, so that is expected rather than a gap.
 
@@ -158,8 +158,8 @@ Example files are paths under `example-files/` in this repository, worked out by
 
 | Repository | Commit | Supplies |
 | --- | --- | --- |
-| bng-metric-backend | `04e16e8` | The rules, and the message each one raises |
-| bng-metric-frontend | `4b85e32` | What the user is shown for each rule |
+| bng-metric-backend | `6ef6442` | The rules, and the message each one raises |
+| bng-metric-frontend | `50d5c34` | What the user is shown for each rule |
 | bng-library | `af307d5` | The generator flaws that reproduce fixtures |
 
 Rule descriptions are held in `references/rule-descriptions.json` in the skill; the rule list, message status and fixture mapping are extracted from the three repositories on every run.

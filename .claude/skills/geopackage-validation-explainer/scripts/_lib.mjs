@@ -93,11 +93,22 @@ export function readTextFile(filePath) {
 /**
  * Directories in which `git` may live. Inherited PATH is not used: a writable
  * directory on PATH would let an attacker substitute the binary (javascript:S4036).
+ *
+ * Covers macOS and most Linux setups only — not Windows, asdf/version-manager
+ * shims, or a git installed somewhere else entirely (e.g. /usr/local/git/bin).
+ * On those machines `runGit` throws; callers report that rather than
+ * degrading silently — see the warnings in `gitProvenance` and
+ * `trackedFixtures` (observe-fixtures.mjs).
  */
 const GIT_SEARCH_PATH = '/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin'
 
 /**
  * Run git with a fixed PATH. Encoding is always utf8 so callers get a string.
+ *
+ * Starts from `process.env` rather than replacing it outright — git needs
+ * more than PATH to run (e.g. SystemRoot on Windows) — then overrides just
+ * the two keys this needs to control.
+ *
  * @param {string[]} args
  * @param {string} cwd
  */
@@ -105,11 +116,17 @@ export function runGit(args, cwd) {
   return execFileSync('git', args, {
     cwd,
     encoding: 'utf8',
-    env: { PATH: GIT_SEARCH_PATH, GIT_TERMINAL_PROMPT: '0' }
+    env: { ...process.env, PATH: GIT_SEARCH_PATH, GIT_TERMINAL_PROMPT: '0' }
   })
 }
 
-/** Commit, commit date and branch for a repo, or nulls when git is unavailable. */
+/**
+ * Commit, commit date and branch for a repo, or nulls when git is unavailable.
+ *
+ * Provenance is stated as fact in the published document (backend `abc1234`,
+ * on `main`), so a git failure here is loud rather than a quiet "unknown" —
+ * `runGit`'s fixed PATH does not cover every machine (see its doc comment).
+ */
 export function gitProvenance(dir) {
   const run = (args) => runGit(args, dir).trim()
   try {
@@ -118,7 +135,12 @@ export function gitProvenance(dir) {
       committedAt: run(['log', '-1', '--format=%cI']),
       branch: run(['rev-parse', '--abbrev-ref', 'HEAD'])
     }
-  } catch {
+  } catch (error) {
+    console.warn(
+      `Could not read git provenance for ${dir} — the document's provenance line ` +
+        `for it will read "unknown" instead of a commit and branch.\n` +
+        `Underlying error: ${error.message}`
+    )
     return { commit: null, committedAt: null, branch: null }
   }
 }
