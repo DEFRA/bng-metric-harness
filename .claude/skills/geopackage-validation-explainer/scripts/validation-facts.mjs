@@ -32,7 +32,7 @@ import {
   argValue
 } from './_lib.mjs'
 
-const ERRORS_FILE = path.join('src', 'validation', 'baseline', 'errors.js')
+const ERRORS_FILE = path.join('src', 'validation', 'geopackage', 'errors.js')
 const COPY_FILE = path.join('src', 'server', 'error-file', 'single-error-copy.js')
 const FLAWS_FILE = path.join('src', 'synthetic', 'flaws.mjs')
 /** Codes are raised from the validation pipeline and from the routes, so scan all of src. */
@@ -240,7 +240,7 @@ function extractFixtures(libraryDir) {
 const POSTGIS_INDEX = path.join(
   'src',
   'validation',
-  'baseline',
+  'geopackage',
   'postgis',
   'index.js'
 )

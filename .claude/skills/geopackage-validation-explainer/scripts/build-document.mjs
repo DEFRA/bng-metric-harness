@@ -35,6 +35,7 @@ const SEEN = {
 
 /** Group order in the document. Any group not listed is appended alphabetically. */
 const GROUP_ORDER = [
+  'File name',
   'File format',
   'Layers',
   'Coordinate reference system',
@@ -57,7 +58,9 @@ function loadDescriptions() {
 
 function groupsInOrder(present) {
   const known = GROUP_ORDER.filter((group) => present.has(group))
-  const unknown = [...present].filter((g) => !GROUP_ORDER.includes(g)).sort()
+  const unknown = [...present]
+    .filter((g) => GROUP_ORDER.includes(g) === false)
+    .toSorted((left, right) => left.localeCompare(right))
   return [...known, ...unknown]
 }
 
@@ -138,19 +141,58 @@ function buildTable(codes, descriptions, tolerances) {
   return lines.join('\n')
 }
 
+/**
+ * Which branch each repo was on when the facts were extracted.
+ *
+ * The siblings are frequently left on feature branches, so this has to report
+ * what was read rather than assert `main` — a document built from unmerged work
+ * that claims to describe `main` is worse than one that names the branch.
+ */
+function branchClause(provenance) {
+  const REPO_LABELS = [
+    ['backend', 'backend'],
+    ['frontend', 'frontend'],
+    ['library', 'bng-library']
+  ]
+  const byBranch = new Map()
+  for (const [key, label] of REPO_LABELS) {
+    const branch = provenance[key]?.branch
+    if (branch) {
+      byBranch.set(branch, [...(byBranch.get(branch) ?? []), label])
+    }
+  }
+
+  if (byBranch.size === 0) {
+    return ''
+  } else if (byBranch.size === 1) {
+    const [[onlyBranch]] = byBranch
+    return `, all on \`${onlyBranch}\``
+  } else {
+    const parts = [...byBranch].map(
+      ([branch, repos]) => `\`${branch}\` (${repos.join(', ')})`
+    )
+    return `, on ${parts.join(' and ')}`
+  }
+}
+
+const SHORT_COMMIT_LENGTH = 7
+const ISO_DATE_LENGTH = 10
+
 function buildDocument(facts, descriptions) {
   const codes = Object.keys(facts.codes)
   const s = facts.summary
   const p = facts.provenance
-  const short = (commit) => commit?.slice(0, 7) ?? 'unknown'
-  const date = facts.generatedAt.slice(0, 10)
-  const noFixture = codes.filter((c) => facts.codes[c].exampleFiles.length === 0)
+  const short = (commit) => commit?.slice(0, SHORT_COMMIT_LENGTH) ?? 'unknown'
+  const date = facts.generatedAt.slice(0, ISO_DATE_LENGTH)
+  const noFixture = codes.filter(
+    (c) => facts.codes[c].exampleFiles.length === 0
+  )
 
   return `# GeoPackage validation explained
 
 Every rule the BNG Metric service applies to an uploaded GeoPackage: what each one checks, and which example file demonstrates it.
 
-**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running \`/geopackage-validation-explainer\` in \`bng-metric-harness\`. It reflects backend \`${short(p.backend?.commit)}\`, frontend \`${short(p.frontend?.commit)}\` and bng-library \`${short(p.library?.commit)}\`, all on \`main\`, and was generated on ${date}.
+**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running \`/geopackage-validation-explainer\` in \`bng-metric-harness\`. It reflects backend \`${short(p.backend?.commit)}\`, frontend \`${short(p.frontend?.commit)}\` and bng-library \`${short(p.library?.commit)}\`${branchClause(p)}, and was generated on ${date}.
 
 For how biodiversity units are calculated once a file is accepted, see [rules-engine-explained.md](rules-engine-explained.md).
 
@@ -210,18 +252,24 @@ const factsPath = argValue('--facts')
 const outPath = argValue('--out')
 
 if (!factsPath || !outPath) {
-  console.error('Usage: build-document.mjs --facts <facts.json> --out <document.md>')
+  console.error(
+    'Usage: build-document.mjs --facts <facts.json> --out <document.md>'
+  )
   process.exit(1)
 }
 if (!existsSync(factsPath)) {
-  console.error(`No facts file at ${factsPath}. Run validation-facts.mjs first.`)
+  console.error(
+    `No facts file at ${factsPath}. Run validation-facts.mjs first.`
+  )
   process.exit(1)
 }
 
 const facts = JSON.parse(readTextFile(factsPath))
 const descriptions = loadDescriptions()
 
-const undescribed = Object.keys(facts.codes).filter((code) => !descriptions[code])
+const undescribed = Object.keys(facts.codes).filter(
+  (code) => !descriptions[code]
+)
 const orphaned = Object.keys(descriptions).filter((code) => !facts.codes[code])
 
 if (undescribed.length > 0) {

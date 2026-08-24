@@ -43,17 +43,33 @@ const HEADER = [
 
 /** Group a rule by what its name says about it. Order matches GROUP_ORDER. */
 const GROUP_RULES = [
-  [/^GPKG_(INVALID_FILE|NOT_A_GEOPACKAGE|MISSING_SYSTEM_TABLE)$/, 'File format'],
+  [/^INVALID_FILENAME$/, 'File name'],
+  [
+    /^GPKG_(INVALID_FILE|NOT_A_GEOPACKAGE|MISSING_SYSTEM_TABLE)$/,
+    'File format'
+  ],
   [/^GPKG_(MISSING_LAYER|UNEXPECTED_FEATURE_LAYER)$/, 'Layers'],
   [/SRS/, 'Coordinate reference system'],
-  [/GEOMETRY_COLUMN|GEOMETRY_TYPE_NAME|GEOMETRY_REGISTRATION|CONTENTS_DATA_TYPE/, 'Geometry registration and declared type'],
+  [
+    /GEOMETRY_COLUMN|GEOMETRY_TYPE_NAME|GEOMETRY_REGISTRATION|CONTENTS_DATA_TYPE/,
+    'Geometry registration and declared type'
+  ],
   [/^GPKG_BASELINE_COLUMN|^GPKG_BASELINE_MISSING_COLUMN$/, 'Columns'],
   [/UNREADABLE_GEOMETRY/, 'Unreadable shape data'],
   [/INVALID_GEOMETRY$/, 'Valid shapes'],
-  [/NO_POLYGON|TOO_MANY_POLYGONS|NO_REDLINE|NO_HABITAT_AREAS|WRONG_GEOMETRY_TYPE|NO_LINESTRING_GEOMETRY/, 'Shapes present and of the right kind'],
-  [/OUTSIDE_REDLINE|OVERLAPS|SLIVERS|AREA_SUM|OUTSIDE_ENGLAND|AREA_TOO_LARGE/, 'How the shapes fit together'],
+  [
+    /NO_POLYGON|TOO_MANY_POLYGONS|NO_REDLINE|NO_HABITAT_AREAS|WRONG_GEOMETRY_TYPE|NO_LINESTRING_GEOMETRY/,
+    'Shapes present and of the right kind'
+  ],
+  [
+    /OUTSIDE_REDLINE|OVERLAPS|SLIVERS|AREA_SUM|OUTSIDE_ENGLAND|AREA_TOO_LARGE/,
+    'How the shapes fit together'
+  ],
   [/DISTINCTIVENESS|DUPLICATE_HABITAT_REF|ADVANCE_AND_DELAY/, 'Habitat data'],
-  [/^(SIZING_FAILED|INVALID_FILE_METADATA|VALIDATION_FAILED)$/, 'Service faults, not your file']
+  [
+    /^(SIZING_FAILED|INVALID_FILE_METADATA|VALIDATION_FAILED)$/,
+    'Service faults, not your file'
+  ]
 ]
 
 const FALLBACK_GROUP = 'Other rules'
@@ -138,9 +154,13 @@ const settled = Object.keys(next).filter(
 ).length
 const outstanding = Object.keys(next).filter((code) => next[code]?.drafted)
 
-console.log(`Descriptions: ${settled} settled, ${outstanding.length} awaiting a rewrite`)
+console.log(
+  `Descriptions: ${settled} settled, ${outstanding.length} awaiting a rewrite`
+)
 if (pruned.length > 0) {
-  console.log(`\nPruned ${pruned.length} entry(ies) for rules that no longer exist:`)
+  console.log(
+    `\nPruned ${pruned.length} entry(ies) for rules that no longer exist:`
+  )
   for (const code of pruned) {
     console.log(`  ${code}`)
   }
