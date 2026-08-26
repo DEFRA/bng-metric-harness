@@ -1,0 +1,15 @@
+{
+  "name": "bmd-984-pdf-export-spike",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "BMD-984 spike: accessible PDF export with an OS basemap and vector habitat overlays",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "build": "node src/cli.mjs",
+    "test": "node --test \"test/**/*.test.mjs\""
+  },
+  "dependencies": {
+    "pdfkit": "0.20.1"
+  }
+}
