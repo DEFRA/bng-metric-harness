@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "node src/cli.mjs",
+    "os": "node src/cli.mjs --os",
     "test": "node --test \"test/**/*.test.mjs\"",
     "serve:tiles": "node src/os-proxy/server.mjs"
   },

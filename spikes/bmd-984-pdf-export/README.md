@@ -25,7 +25,7 @@ node src/cli.mjs --proxy --graticule
 
 # The same proxy against real Ordnance Survey. Put the key in a .env
 # (cp .env.example .env) and this needs no environment variables at all:
-node src/cli.mjs --os
+node src/cli.mjs --os      # or: npm run os
 
 # .env is gitignored. A real environment variable still overrides it, so a
 # one-off override works without editing the file:
