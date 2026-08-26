@@ -11,6 +11,7 @@
  *   curl -o tile.png localhost:3100/os-tiles/9/300/400.png
  */
 
+import { loadEnv } from '../env.mjs'
 import Hapi from '@hapi/hapi'
 
 import { createOsTilesPlugin } from './plugin.mjs'
@@ -51,6 +52,7 @@ export async function startTileProxy({
 
 // `node src/os-proxy/server.mjs` runs it standalone.
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop())) {
+  loadEnv()
   const useStub = !process.env.OS_MAPS_API_KEY
   const stubGrid = useStub
     ? {

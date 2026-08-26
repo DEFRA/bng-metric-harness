@@ -10,11 +10,15 @@
  *   node src/cli.mjs --proxy               # tiles via the real /os-tiles proxy,
  *                                          # backed by a stub upstream (no key)
  *   OS_MAPS_API_KEY=… node src/cli.mjs --os  # same proxy, real Ordnance Survey
+ *
+ * The key can live in a gitignored `.env` instead — see `src/env.mjs` and
+ * `.env.example`. A real environment variable still overrides the file.
  */
 
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { loadEnv } from './env.mjs'
 import { readSite } from './gpkg.mjs'
 import { buildSummaryPdf } from './document.mjs'
 import { syntheticTileSource, proxyTileSource, fetchGridFromProxy } from './tiles.mjs'
@@ -109,6 +113,9 @@ async function resolveBasemap(args) {
 }
 
 async function main() {
+  // Before anything reads process.env — resolveConfig() does, at call time.
+  loadEnv()
+
   const args = parseArgs(process.argv.slice(2))
 
   const baseline = readSite(args.baseline)

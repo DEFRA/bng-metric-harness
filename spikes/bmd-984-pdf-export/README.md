@@ -23,10 +23,13 @@ node src/cli.mjs --baseline <f.gpkg> --post <f.gpkg> --out <f.pdf>
 # Tiles via the real /os-tiles proxy, backed by a stub upstream. No key needed.
 node src/cli.mjs --proxy --graticule
 
-# The same proxy against real Ordnance Survey.
-# On an OpenData-plan key add OS_MAPS_MAX_ZOOM=9 — see "Against real
-# Ordnance Survey" below — or every tile above zoom 9 comes back 403.
-OS_MAPS_API_KEY=… OS_MAPS_MAX_ZOOM=9 node src/cli.mjs --os
+# The same proxy against real Ordnance Survey. Put the key in a .env
+# (cp .env.example .env) and this needs no environment variables at all:
+node src/cli.mjs --os
+
+# .env is gitignored. A real environment variable still overrides it, so a
+# one-off override works without editing the file:
+OS_MAPS_MAX_ZOOM=13 node src/cli.mjs --os
 
 npm run serve:tiles                   # run the proxy on :3100 and poke it
 ```
@@ -239,6 +242,7 @@ document.
 | `src/os-proxy/upstream.mjs` | the only module that knows the API key exists |
 | `src/os-proxy/cache.mjs` | memory cache, plus NRF's Redis shape |
 | `src/os-proxy/stub-upstream.mjs` | a fake api.os.uk, so the proxy is testable without a key |
+| `src/env.mjs` | loads a gitignored `.env` via Node's built-in loader; real env vars win |
 
 `wkb.mjs`, `geometry.mjs` and parts of `gpkg.mjs` duplicate
 `bng-library/gpkg-io` and exist only so the spike has zero dependencies. If
