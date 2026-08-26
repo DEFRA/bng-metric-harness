@@ -17,7 +17,7 @@
  * The PDF builder needs no API key — only a URL. That is the whole point.
  */
 
-import { keyWarning, OS_LAYERS, resolveConfig } from './config.mjs'
+import { keyWarning, resolveConfig } from './config.mjs'
 import { memoryTileCache, tileKey } from './cache.mjs'
 import { fetchGrid, fetchTile } from './upstream.mjs'
 import { isTileInGrid } from '../grid.mjs'
@@ -76,10 +76,15 @@ export function createOsTilesPlugin(options = {}) {
         .response({ error: `Tile ${z}/${col}/${row} is outside the ${config.layer} grid` })
         .code(HTTP_NOT_FOUND)
     }
-    if (z > OS_LAYERS[config.layer].maxZoom) {
+    // config.maxZoom is the stricter of the product's ceiling and the plan's
+    // (OS_MAPS_MAX_ZOOM). Rejecting here rather than upstream turns what would
+    // be a burst of opaque 403s into one local, explicable 404.
+    if (z > config.maxZoom) {
       return h
         .response({
-          error: `Zoom ${z} exceeds max zoom ${OS_LAYERS[config.layer].maxZoom} for ${config.layer}`
+          error:
+            `Zoom ${z} exceeds max zoom ${config.maxZoom} for ${config.layer}. ` +
+            'If this key is on a Premium/PSGA plan, raise or unset OS_MAPS_MAX_ZOOM.'
         })
         .code(HTTP_NOT_FOUND)
     }
@@ -104,8 +109,14 @@ export function createOsTilesPlugin(options = {}) {
     try {
       const grid = await getGrid()
       // Serving the grid onward is what lets the PDF builder do exact tile
-      // maths without holding a key or parsing WMTS XML itself.
-      return h.response({ layer: config.layer, grid })
+      // maths without holding a key or parsing WMTS XML itself. maxZoom rides
+      // along on the grid so consumers clamp to what this deployment can
+      // actually fetch — a client must not have to know the plan to pick a
+      // zoom, any more than it has to know the key.
+      return h.response({
+        layer: config.layer,
+        grid: { ...grid, maxZoom: config.maxZoom }
+      })
     } catch (error) {
       logger.error?.(`OS capabilities unavailable: ${error.message}`)
       return h.response({ error: error.message }).code(error.status ?? HTTP_BAD_GATEWAY)

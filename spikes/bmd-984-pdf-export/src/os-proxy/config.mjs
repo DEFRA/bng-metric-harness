@@ -32,6 +32,28 @@ export const OS_LAYERS = {
 export const DEFAULT_LAYER = 'Light_27700'
 export const TILE_MATRIX_SET = 'EPSG:27700'
 
+/**
+ * The zoom ceiling imposed by the OS *plan*, as distinct from the product.
+ *
+ * Verified against a live OpenData-plan key on 2026-08-26, not read off a
+ * doc page: EPSG:27700 serves z0-9 and returns
+ *
+ *   403 <ExceptionText>A Premium Plan is required to access Premium Data</…>
+ *
+ * from z10 up. (EPSG:3857 behaves the same way with its own ceiling at z16;
+ * z9 in 27700 is 1.75 m/px and z16 in 3857 is ~1.5 m/px at GB latitudes, so
+ * reprojecting buys no detail and costs exact registration.)
+ *
+ * A PSGA / Premium key lifts this to the product maximum. It is therefore a
+ * deployment property, not a product one — hence an env var, and hence NOT
+ * defaulted to 9: defaulting to the free ceiling would silently throw away
+ * half the resolution a Premium key has paid for.
+ */
+export const OPEN_DATA_MAX_ZOOM = {
+  'EPSG:27700': 9,
+  'EPSG:3857': 16
+}
+
 const DEFAULT_CACHE_TTL_SECONDS = 60 * 60 * 24 * 7
 const DEFAULT_CACHE_MAX_ENTRIES = 2000
 
@@ -46,6 +68,10 @@ export function resolveConfig(overrides = {}) {
     ),
     cacheMaxEntries: DEFAULT_CACHE_MAX_ENTRIES,
     routePrefix: '/os-tiles',
+    // Unset means "whatever the product allows" — correct for a Premium/PSGA
+    // key. An OpenData key must set OS_MAPS_MAX_ZOOM=9 or every tile above
+    // that zoom 403s. `keyWarning` says so at startup.
+    maxZoom: numberOrNull(process.env.OS_MAPS_MAX_ZOOM),
     ...overrides
   }
 
@@ -54,7 +80,21 @@ export function resolveConfig(overrides = {}) {
       `Unknown OS layer "${config.layer}". Expected one of: ${Object.keys(OS_LAYERS).join(', ')}`
     )
   }
+
+  // The effective ceiling is the stricter of the product's and the plan's.
+  const productMaxZoom = OS_LAYERS[config.layer].maxZoom
+  config.maxZoom =
+    config.maxZoom === null ? productMaxZoom : Math.min(config.maxZoom, productMaxZoom)
+
   return config
+}
+
+function numberOrNull(value) {
+  if (value === undefined || value === '') {
+    return null
+  }
+  const parsed = Number(value)
+  return Number.isInteger(parsed) ? parsed : null
 }
 
 /**

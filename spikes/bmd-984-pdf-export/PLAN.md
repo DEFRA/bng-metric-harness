@@ -113,11 +113,20 @@ product. A key missing the product returns a bare 401.
 - **OS NGD API – Tiles** — only if the browser vector basemap is wanted later.
 - OS Vector Tile API, OS Names API, OS Places API — not needed.
 
-The free OS OpenData plan includes OS Maps API. Defra is a PSGA member, so
-check for an existing departmental project before creating a new key.
+The free OS OpenData plan includes OS Maps API, **but only its coarse zooms** —
+verified against a live key on 2026-08-26, EPSG:27700 serves z0-9 (1.75 m/px)
+and returns `403 "A Premium Plan is required to access Premium Data"` from z10
+up. `GetCapabilities` still succeeds, so the failure looks like a tile problem
+rather than a licensing one. Defra is a PSGA member, so check for an existing
+departmental **Premium** project before creating a new key — see the "Against
+real Ordnance Survey" section of the README.
 
 ## Open questions for the team
 
+0. **Which OS plan?** An OpenData key caps the basemap at 1.75 m/px, which is
+   soft at parcel scale. Premium/PSGA unlocks z10-13 (to 0.109 m/px). This
+   gates how good the output can look and nothing in the code can work around
+   it. Answer this before judging basemap quality.
 1. Does OS licensing permit **embedding** a basemap in a downloadable PDF?
    That is a different question from displaying it in a browser, because a PDF
    is redistributable. Ask OS directly.

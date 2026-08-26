@@ -24,7 +24,9 @@ node src/cli.mjs --baseline <f.gpkg> --post <f.gpkg> --out <f.pdf>
 node src/cli.mjs --proxy --graticule
 
 # The same proxy against real Ordnance Survey.
-OS_MAPS_API_KEY=… node src/cli.mjs --os
+# On an OpenData-plan key add OS_MAPS_MAX_ZOOM=9 — see "Against real
+# Ordnance Survey" below — or every tile above zoom 9 comes back 403.
+OS_MAPS_API_KEY=… OS_MAPS_MAX_ZOOM=9 node src/cli.mjs --os
 
 npm run serve:tiles                   # run the proxy on :3100 and poke it
 ```
@@ -137,6 +139,66 @@ failing*. Both sides now derive the interval from the grid and zoom.
 Regression-tested, because a proof that can quietly switch itself off is worse
 than no proof.
 
+## Against real Ordnance Survey
+
+Run on 2026-08-26 with an OpenData-plan key. The upstream half — the only part
+that had never executed — now has.
+
+| Check | Result |
+| --- | --- |
+| `GetCapabilities` parses | **Yes** — real origin `-238375, 1376256`, tile 256 px, 14 levels |
+| Parsed grid vs the spike's constants | **Identical**, to the resolution |
+| Matrix dimensions are 2^z | **No** — z0 is 5x7, not 1x1. Confirms `isTileInGrid` was right not to copy grants-ui's `2^z` bound |
+| `z/col/row` is OS's own tile addressing | **Yes** — byte-identical PNGs from the ZXY and WMTS `GetTile` endpoints at three separate tiles |
+| PDF builds end to end through the proxy | **Yes** — 24 real tiles, `out/os-real.pdf` |
+
+The third row is the registration proof against real data. The synthetic
+basemap shows the maths is self-consistent; this shows the tile the spike asks
+for *is* the tile OS's own standards-based addressing returns for that matrix
+cell, and that cell is defined by the `TopLeftCorner` and `ScaleDenominator`
+the parser reads. Nothing is eyeballed.
+
+### The finding that actually matters: the plan caps resolution
+
+An OpenData-plan key returns `403` with
+
+```xml
+<ExceptionText>A Premium Plan is required to access Premium Data</ExceptionText>
+```
+
+for **every EPSG:27700 tile above zoom 9**, while `GetCapabilities` succeeds.
+Probed level by level:
+
+| | free (OpenData) | premium |
+| --- | --- | --- |
+| `EPSG:27700` | z0-**z9** — 1.75 m/px | z10-z13 — down to 0.109 m/px |
+| `EPSG:3857` | z0-**z16** — ~1.5 m/px at GB latitudes | z17+ |
+
+So **~1.75 m/px is the free ceiling**, and switching to Web Mercator does not
+escape it (~1.5 m/px) while costing exact registration. For a site plan of a
+few hectares that is coarse: the PDF builds and registers correctly, but the
+basemap is soft at parcel scale.
+
+**This is a procurement question, not an engineering one.** Defra is a PSGA
+member, so the likely answer is an existing departmental Premium project rather
+than a new key — worth resolving before anyone judges the output quality.
+
+Three things changed in response, all small:
+
+- `OS_MAPS_MAX_ZOOM` — the *plan* ceiling, separate from the product's. Unset
+  means "whatever the product allows", so it never silently throws away
+  resolution a Premium key has paid for.
+- `/os-tiles/capabilities` publishes the effective `maxZoom`, and `pickZoom`
+  clamps to it. A client picks a zoom it can actually fetch without knowing
+  anything about OS plans — the same reasoning that keeps the key out of it.
+- `401` and `403` are no longer conflated. They are different problems: 401 is
+  the key or the missing product, 403 is the plan. The 403 message names
+  `OS_MAPS_MAX_ZOOM` because that, not a new key, is usually the fix.
+
+Without the clamp the failure mode is a burst of ~24 opaque 403s and no
+document.
+
+
 ## Deliberate limitations
 
 - **No real OS basemap.** No API key was available, so the upstream half of
@@ -186,9 +248,9 @@ this graduates, delete them and use the library.
 
 1. Run **veraPDF** against `out/site-summary.pdf`. This is the go/no-go.
 2. Build and run inside the real **Alpine** image.
-3. Get an **OS API key** (the Data Hub project needs the **OS Maps API**
-   product added, or every tile 401s), run `--os`, and confirm the 1 km
-   National Grid check against a real basemap. This is the only untested seam.
+3. ~~Get an OS API key and run `--os`.~~ **Done — see "Against real Ordnance
+   Survey" below.** The upstream seam is closed; the open question it raised is
+   the plan ceiling, which is a procurement decision, not a code one.
 4. Screen-reader pass (NVDA) — machine checks do not prove usable reading order.
 5. Decide where generation runs. Compute is not the constraint — the largest
    example site (120 parcels, 12 pages) builds in **0.38 s** — so a synchronous

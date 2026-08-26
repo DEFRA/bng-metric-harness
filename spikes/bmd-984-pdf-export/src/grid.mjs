@@ -186,12 +186,22 @@ export function pickZoom(grid, extent, frameWidthPoints, targetDpi = 200) {
   const neededPixels = (frameWidthPoints / POINTS_PER_INCH) * targetDpi
   const neededResolution = (extent.maxX - extent.minX) / neededPixels
 
-  for (let z = 0; z < grid.resolutions.length; z++) {
+  // Never pick a zoom the deployment cannot fetch. `grid.maxZoom` arrives from
+  // the proxy's /capabilities and folds in both the product's ceiling and the
+  // plan's, so the builder stays ignorant of OS plans and still never asks for
+  // a tile that would 403. Too coarse a zoom costs sharpness only — never
+  // registration — so clamping is always safe.
+  const highest = Math.min(
+    grid.resolutions.length - 1,
+    grid.maxZoom ?? grid.resolutions.length - 1
+  )
+
+  for (let z = 0; z <= highest; z++) {
     if (grid.resolutions[z] <= neededResolution) {
       return z
     }
   }
-  return grid.resolutions.length - 1
+  return highest
 }
 
 /**

@@ -13,6 +13,8 @@ import { createOsTilesPlugin } from '../src/os-proxy/plugin.mjs'
 import { stubOsFetch } from '../src/os-proxy/stub-upstream.mjs'
 import { memoryTileCache } from '../src/os-proxy/cache.mjs'
 import { proxyTileSource, fetchGridFromProxy } from '../src/tiles.mjs'
+import { resolveConfig } from '../src/os-proxy/config.mjs'
+import { pickZoom } from '../src/grid.mjs'
 
 const GRID = {
   originX: -238375,
@@ -197,4 +199,80 @@ test('memory cache evicts oldest and honours TTL', async () => {
   assert.equal(await cache.get('a', 0), null, 'oldest should have been evicted')
   assert.ok(await cache.get('c', 0))
   assert.equal(await cache.get('c', 20_000), null, 'entry should expire')
+})
+
+/**
+ * The OS *plan* ceiling.
+ *
+ * Verified live on 2026-08-26 against an OpenData-plan key: EPSG:27700 serves
+ * z0-9 and returns 403 "A Premium Plan is required to access Premium Data"
+ * from z10 up, while the key's GetCapabilities call succeeds. So a 403 here is
+ * a plan problem, not a key problem, and the two must not be conflated.
+ */
+
+test('OS_MAPS_MAX_ZOOM caps the effective zoom, and never exceeds the product max', () => {
+  assert.equal(resolveConfig({ apiKey: 'k' }).maxZoom, 13)
+  assert.equal(resolveConfig({ apiKey: 'k', maxZoom: 9 }).maxZoom, 9)
+  // A plan cannot grant more than the product publishes.
+  assert.equal(resolveConfig({ apiKey: 'k', maxZoom: 99 }).maxZoom, 13)
+  // Leisure_27700 stops at 9 regardless of plan.
+  assert.equal(resolveConfig({ apiKey: 'k', layer: 'Leisure_27700', maxZoom: 13 }).maxZoom, 9)
+})
+
+test('a zoom above the plan ceiling is refused locally, without calling OS', async () => {
+  const { server, upstream } = await serverWith({ config: { maxZoom: 9 } })
+
+  const before = upstream.calls.filter((call) => call.includes('/zxy/')).length
+  const res = await server.inject('/os-tiles/10/3016/5628.png')
+
+  assert.equal(res.statusCode, 404)
+  assert.match(JSON.parse(res.payload).error, /exceeds max zoom 9/)
+  assert.match(JSON.parse(res.payload).error, /Premium\/PSGA/)
+  // The point of checking locally: no doomed request leaves the process.
+  assert.equal(upstream.calls.filter((call) => call.includes('/zxy/')).length, before)
+})
+
+test('capabilities publishes maxZoom so clients need not know the plan', async () => {
+  const { server } = await serverWith({ config: { maxZoom: 9 } })
+
+  const grid = await fetchGridFromProxy(
+    '/os-tiles',
+    async (url) => {
+      const res = await server.inject(url)
+      return { ok: res.statusCode === 200, status: res.statusCode, json: async () => JSON.parse(res.payload) }
+    }
+  )
+  assert.equal(grid.maxZoom, 9)
+})
+
+test('pickZoom clamps to the grid ceiling rather than requesting a 403', () => {
+  const capped = { ...GRID, maxZoom: 9 }
+  // A frame that would otherwise demand a much finer zoom.
+  const extent = { minX: 437000, minY: 115000, maxX: 437200, maxY: 115200 }
+
+  assert.ok(pickZoom(GRID, extent, 400) > 9, 'uncapped grid wants a finer zoom')
+  assert.equal(pickZoom(capped, extent, 400), 9)
+})
+
+test('a 403 from OS is reported as a plan problem, not a key problem', async () => {
+  const forbidden = async () => ({
+    ok: false,
+    status: 403,
+    headers: { get: () => 'text/xml' },
+    text: async () => 'A Premium Plan is required to access Premium Data',
+    arrayBuffer: async () => new ArrayBuffer(0)
+  })
+  const { server } = await serverWith({
+    fetchImpl: async (url) =>
+      url.includes('wmts')
+        ? stubOsFetch(GRID, { expectKey: API_KEY }).fetch(url)
+        : forbidden()
+  })
+
+  const res = await server.inject('/os-tiles/9/1508/2814.png')
+  assert.equal(res.statusCode, 403)
+  const { error } = JSON.parse(res.payload)
+  assert.match(error, /Premium Plan/)
+  assert.match(error, /OS_MAPS_MAX_ZOOM=9/)
+  assert.doesNotMatch(error, /OS_MAPS_API_KEY is unset/)
 })

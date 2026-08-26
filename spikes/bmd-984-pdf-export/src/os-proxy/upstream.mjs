@@ -61,14 +61,41 @@ export async function fetchGrid(
   return gridFromWmtsCapabilities(await response.text(), tileMatrixSet)
 }
 
+/**
+ * Turn OS's two authentication-shaped failures into messages that say what to
+ * do about them. They are NOT the same problem and were both observed live:
+ *
+ *   401  the key is unset/wrong, or its Data Hub project lacks "OS Maps API".
+ *   403  the key is fine and the project is fine, but the *plan* does not
+ *        cover this data. OS returns an OWS ExceptionReport reading
+ *        "A Premium Plan is required to access Premium Data". On an OpenData
+ *        plan this is what every EPSG:27700 tile above zoom 9 returns, so the
+ *        fix is usually OS_MAPS_MAX_ZOOM, not a new key.
+ */
 function upstreamError(status, what) {
-  const error = new Error(
-    status === 401
-      ? `Ordnance Survey rejected the request for ${what} (401). Either OS_MAPS_API_KEY ` +
-        'is unset or wrong, or its OS Data Hub project does not have the "OS Maps API" ' +
-        'product added — both fail this way.'
-      : `Ordnance Survey returned ${status} for ${what}`
-  )
+  const error = new Error(messageFor(status, what))
   error.status = status
   return error
 }
+
+function messageFor(status, what) {
+  if (status === HTTP_UNAUTHORIZED) {
+    return (
+      `Ordnance Survey rejected the request for ${what} (401). Either OS_MAPS_API_KEY ` +
+      'is unset or wrong, or its OS Data Hub project does not have the "OS Maps API" ' +
+      'product added — both fail this way.'
+    )
+  }
+  if (status === HTTP_FORBIDDEN) {
+    return (
+      `Ordnance Survey returned 403 for ${what}: the key is valid but its plan does ` +
+      'not cover this data ("A Premium Plan is required to access Premium Data"). ' +
+      'An OpenData plan stops at zoom 9 in EPSG:27700 — set OS_MAPS_MAX_ZOOM=9 to ' +
+      'stay inside it, or use a PSGA/Premium key for zooms 10-13.'
+    )
+  }
+  return `Ordnance Survey returned ${status} for ${what}`
+}
+
+const HTTP_UNAUTHORIZED = 401
+const HTTP_FORBIDDEN = 403
