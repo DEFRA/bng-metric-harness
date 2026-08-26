@@ -88,9 +88,17 @@ open the code. `README.md` has the evidence; `PLAN.md` has the proxy design.
 
 ## What has not been proved
 
-- **Accessibility.** This is the whole point of the work and it is *unverified*.
-  A PDF can look correct and still be unusable with a screen reader. It needs a
-  veraPDF compliance run and a session with NVDA. **This is the go/no-go.**
+- **Accessibility — now measured, and currently failing.** The build runs the
+  industry-standard validator (veraPDF) automatically. The document **does not
+  yet pass PDF/UA**, on two counts: decorative drawing is not labelled as
+  decoration, and the default font is referenced rather than embedded. Both are
+  understood and fixable; neither is a design flaw. The harder half is already
+  right — the document is tagged, language-set, correctly headed, with real
+  table structure and descriptive alt text on all 22 images.
+- **Whether it is genuinely *usable*.** Passing the validator is necessary, not
+  sufficient: no tool can judge whether a description is helpful or the reading
+  order sensible. That still needs a screen-reader session. **This remains the
+  go/no-go.**
 - **Licensing.** Nobody has asked OS whether we may embed their mapping in a
   downloadable PDF. That is a different question from showing it in a browser,
   because a PDF can be forwarded. It must be asked directly.

@@ -9,7 +9,8 @@
   },
   "scripts": {
     "build": "node src/cli.mjs",
-    "osdemo": "node src/cli.mjs --os",
+    "osdemo": "node src/cli.mjs --os && node src/verify-pdf.mjs",
+    "verify": "node src/verify-pdf.mjs",
     "test": "node --test \"test/**/*.test.mjs\"",
     "serve:tiles": "node src/os-proxy/server.mjs"
   },

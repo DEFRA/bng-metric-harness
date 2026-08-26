@@ -27,7 +27,11 @@ node src/cli.mjs --proxy --graticule
 
 # The same proxy against real Ordnance Survey. Put the key in a .env
 # (cp .env.example .env) and this needs no environment variables at all:
-node src/cli.mjs --os      # or: npm run osdemo
+node src/cli.mjs --os      # or: npm run osdemo (which also validates, below)
+
+# PDF/UA-1 conformance, via veraPDF in Docker. Reports only; --strict to fail.
+npm run verify
+npm run verify -- --strict out/other.pdf
 
 # .env is gitignored. A real environment variable still overrides it, so a
 # one-off override works without editing the file:
@@ -211,6 +215,38 @@ Three things changed in response, all small:
 Without the clamp the failure mode is a burst of ~24 opaque 403s and no
 document.
 
+
+## Accessibility: the veraPDF result
+
+`npm run osdemo` now validates what it just built. veraPDF is the reference
+open-source PDF/UA validator; it runs from the `verapdf/cli` image, so no JDK.
+
+**The document currently FAILS PDF/UA-1 on two rules.** That is the honest
+state of the go/no-go, and it is better to know precisely why:
+
+| Rule | Occurrences | Requires |
+| --- | --- | --- |
+| `7.1-3` | 512 | Content shall be marked as Artifact or tagged as real content |
+| `7.21.4.1-1` | 2 | All font programs shall be embedded |
+
+- **`7.1-3` is the real work.** Every drawing operation must sit inside either a
+  tagged structure element or an `/Artifact` marked-content sequence. Decorative
+  output — table rules, map furniture, the graticule — is currently neither, so
+  assistive technology cannot tell content from decoration. 512 occurrences
+  sounds alarming but is one systematic omission, not 512 separate bugs.
+- **`7.21.4.1-1` is straightforward.** pdfkit's default Helvetica is a PDF
+  base-14 font and is referenced, not embedded. PDF/UA requires embedding, so
+  this needs a real font file registered with `doc.registerFont` — GDS Transport
+  if licensing allows, otherwise an open substitute.
+
+What was already right, and is worth stating because it is the harder half:
+the document is marked, `Lang` is `en-GB`, the title is set, headings run
+H1 → H2 → H2 with no skipped levels, tables carry real `TH`/`TR`/`TD`, and all
+22 figures have descriptive alt text.
+
+**A veraPDF PASS is necessary, not sufficient.** It cannot judge whether alt
+text is meaningful or the reading order sensible — roughly a third of PDF/UA's
+failure conditions are human judgement. NVDA and PAC still have to happen.
 
 ## Deliberate limitations
 
