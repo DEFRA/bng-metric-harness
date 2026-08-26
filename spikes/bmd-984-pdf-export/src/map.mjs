@@ -46,7 +46,7 @@ export function withFrameClip(doc, frame, draw) {
  * and silently corrupts both the layout and the reading order. So all I/O
  * happens here, and every draw function below is synchronous.
  *
- * @returns {{ tiles: Map<string, object>, interval: number|undefined }}
+ * @returns {{ tiles: Map<string, object> }}
  */
 export async function fetchTiles(grid, z, extent, tileSource) {
   const wanted = tilesCovering(grid, z, extent)
@@ -54,8 +54,7 @@ export async function fetchTiles(grid, z, extent, tileSource) {
     wanted.map(async ({ col, row }) => [`${z}/${col}/${row}`, await tileSource(grid, z, col, row)])
   )
 
-  const tiles = new Map(fetched)
-  return { tiles, interval: fetched[0]?.[1]?.interval }
+  return { tiles: new Map(fetched) }
 }
 
 /**

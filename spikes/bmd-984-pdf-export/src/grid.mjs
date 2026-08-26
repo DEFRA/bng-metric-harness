@@ -44,7 +44,12 @@ export function gridFromWmtsCapabilities(xml, tileMatrixSetId) {
       identifier: tagText(block, 'ows:Identifier') ?? tagText(block, 'Identifier'),
       scaleDenominator: Number(tagText(block, 'ScaleDenominator')),
       topLeftCorner: (tagText(block, 'TopLeftCorner') ?? '').trim().split(/\s+/).map(Number),
-      tileWidth: Number(tagText(block, 'TileWidth'))
+      tileWidth: Number(tagText(block, 'TileWidth')),
+      // Matrix dimensions are per-level and, for a national grid like
+      // EPSG:27700, are NOT 2^z square the way Web Mercator's are. Anything
+      // validating tile indices must use these, not a 2^z assumption.
+      matrixWidth: Number(tagText(block, 'MatrixWidth')),
+      matrixHeight: Number(tagText(block, 'MatrixHeight'))
     }))
     .filter((matrix) => Number.isFinite(matrix.scaleDenominator))
 
@@ -72,9 +77,45 @@ export function gridFromWmtsCapabilities(xml, tileMatrixSetId) {
     tileSize: matrices[0].tileWidth,
     resolutions: matrices.map(
       (matrix) => matrix.scaleDenominator * OGC_STANDARD_PIXEL_METRES
-    )
+    ),
+    matrixWidths: matrices.map((matrix) => matrix.matrixWidth),
+    matrixHeights: matrices.map((matrix) => matrix.matrixHeight)
   }
 }
+
+/**
+ * Whether (z, col, row) names a tile this grid actually has.
+ *
+ * grants-ui validates tile indices against 2^z, which is correct for Web
+ * Mercator and wrong for EPSG:27700 — the British National Grid matrix is
+ * rectangular and does not double cleanly per level. When capabilities gave us
+ * MatrixWidth/MatrixHeight, use them; otherwise fall back to a bound derived
+ * from the grid's own extent so an unbounded index can never be forwarded
+ * upstream.
+ */
+export function isTileInGrid(grid, z, col, row) {
+  if (!Number.isInteger(z) || !Number.isInteger(col) || !Number.isInteger(row)) {
+    return false
+  }
+  if (z < 0 || z >= grid.resolutions.length || col < 0 || row < 0) {
+    return false
+  }
+
+  const width = grid.matrixWidths?.[z]
+  const height = grid.matrixHeights?.[z]
+  if (Number.isFinite(width) && Number.isFinite(height)) {
+    return col < width && row < height
+  }
+
+  // No capabilities to hand: bound by however many tiles span the grid at this
+  // zoom, using a generous national extent. Still finite, still cheap.
+  const span = tileSpanMetres(grid, z)
+  const fallback = Math.ceil(FALLBACK_GRID_EXTENT_METRES / span)
+  return col < fallback && row < fallback
+}
+
+// Great Britain fits comfortably inside 1400 km on both axes.
+const FALLBACK_GRID_EXTENT_METRES = 1_400_000
 
 function matchTileMatrixSet(xml, id) {
   for (const match of xml.matchAll(/<TileMatrixSet>([\s\S]*?)<\/TileMatrixSet>/g)) {

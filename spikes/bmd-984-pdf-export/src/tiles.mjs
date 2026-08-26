@@ -9,17 +9,23 @@
  *    rather than merely plausible: the overlay draws the same round-numbered
  *    grid as vectors, and the two must coincide exactly.
  *
- *  - `osTileSource`  fetches real OS Maps API raster tiles. Untested in this
- *    spike — no API key was available — so it is written to the documented
- *    URL shape and left for whoever has a key. Swapping it in changes nothing
- *    else, which is the point of the interface.
+ *  - `proxyTileSource`  fetches tiles from our own /os-tiles route, which is
+ *    the only thing that holds an OS API key. See src/os-proxy/ and PLAN.md.
  */
 
 import { Raster } from './png.mjs'
 import { tileSpanMetres, tileTopLeft } from './grid.mjs'
 
-/** Ground interval between the light grid lines drawn into a synthetic tile. */
-function gridIntervalMetres(resolution, tileSize) {
+/**
+ * Ground interval between the grid lines drawn into a synthetic tile.
+ *
+ * Exported because the vector overlay must derive the SAME interval, from the
+ * same grid and zoom, rather than being told it by a tile. A real OS tile
+ * carries no such metadata, so anything that reads the interval off the tile
+ * object works with the synthetic basemap and silently does nothing with a
+ * real one — which is exactly the bug this export exists to prevent.
+ */
+export function gridIntervalMetres(resolution, tileSize) {
   // Aim for roughly 4-8 lines across a tile, snapped to a 1/2/5 series so the
   // interval is always a round number a human can verify by eye.
   const target = (resolution * tileSize) / 6
@@ -91,37 +97,55 @@ export function syntheticTileSource() {
 }
 
 /**
- * Real OS Maps API raster tiles (EPSG:27700).
+ * Tiles fetched through OUR OWN proxy, not from api.os.uk.
  *
- * NOT EXERCISED — no API key was available in the spike environment. Treat the
- * URL shape as needing confirmation against OS's own docs before trusting it,
- * and note the grid must come from `gridFromWmtsCapabilities`, never from a
- * hard-coded origin.
+ * This is the production shape, and it is why the proxy exists: the PDF
+ * builder holds no API key, only a URL. It also gets the shared cache for
+ * free, and its requests traverse the CDP egress proxy because the tile route
+ * — not this code — is what talks to the internet.
  *
- * On CDP this must go through the platform proxy; the frontend already wires
- * that up globally in src/server/common/helpers/proxy/setup-proxy.js.
+ * The grid comes from the same proxy's /capabilities, so the exact EPSG:27700
+ * origin and resolutions reach the PDF maths without anything here parsing
+ * WMTS XML or hard-coding a constant.
+ *
+ * @param {object} options
+ * @param {string} options.baseUrl  e.g. 'http://localhost:3000/os-tiles'
  */
-const OS_RASTER_ZXY = 'https://api.os.uk/maps/raster/v1/zxy'
-
-export function osTileSource({ apiKey, style = 'Light_27700', fetchImpl = fetch }) {
-  if (!apiKey) {
-    throw new Error('An OS Data Hub API key is required for the OS tile source')
-  }
+export function proxyTileSource({ baseUrl, fetchImpl = fetch }) {
   const cache = new Map()
 
-  return async function osTile(grid, z, col, row) {
+  return async function proxyTile(grid, z, col, row) {
     const key = `${z}/${col}/${row}`
     if (cache.has(key)) {
       return cache.get(key)
     }
-    // ZXY order is z/x/y, i.e. column then row.
-    const url = `${OS_RASTER_ZXY}/${style}/${z}/${col}/${row}.png?key=${apiKey}`
-    const response = await fetchImpl(url)
+
+    const response = await fetchImpl(`${baseUrl}/${z}/${col}/${row}.png`)
     if (!response.ok) {
-      throw new Error(`OS tile ${key} failed: ${response.status} ${response.statusText}`)
+      throw new Error(
+        `Tile ${key} failed: ${response.status} ${response.statusText}`
+      )
     }
+
     const tile = { png: Buffer.from(await response.arrayBuffer()) }
     cache.set(key, tile)
     return tile
   }
+}
+
+/**
+ * Fetch the tile grid from the proxy's capabilities route.
+ *
+ * @param {string} baseUrl  e.g. 'http://localhost:3000/os-tiles'
+ */
+export async function fetchGridFromProxy(baseUrl, fetchImpl = fetch) {
+  const response = await fetchImpl(`${baseUrl}/capabilities`)
+  if (!response.ok) {
+    throw new Error(
+      `Could not read tile grid from ${baseUrl}/capabilities: ` +
+        `${response.status} ${response.statusText}`
+    )
+  }
+  const { grid } = await response.json()
+  return grid
 }

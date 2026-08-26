@@ -19,6 +19,14 @@ npm test                      # 26 tests, no network
 node src/cli.mjs --graticule          # the registration proof (see below)
 node src/cli.mjs --habitat-basemap    # basemap behind each parcel thumbnail
 node src/cli.mjs --baseline <f.gpkg> --post <f.gpkg> --out <f.pdf>
+
+# Tiles via the real /os-tiles proxy, backed by a stub upstream. No key needed.
+node src/cli.mjs --proxy --graticule
+
+# The same proxy against real Ordnance Survey.
+OS_MAPS_API_KEY=… node src/cli.mjs --os
+
+npm run serve:tiles                   # run the proxy on :3100 and poke it
 ```
 
 ## What it proves
@@ -32,6 +40,8 @@ node src/cli.mjs --baseline <f.gpkg> --post <f.gpkg> --out <f.pdf>
 | Native dependencies? | **None.** `pdfkit` only |
 | Output size | 134 kB for 3 pages / 22 maps (204 kB with thumbnail basemaps) |
 | Does it scale? | 120 parcels → 12 pages, 774 kB, **0.38 s** end to end |
+| Can the PDF fetch tiles from our own proxy? | Yes — `--proxy` renders **pixel-for-pixel identical** to the direct path |
+| Does the PDF need an OS key? | **No.** Only the proxy holds one; the PDF has a URL |
 
 ## The registration proof
 
@@ -57,6 +67,26 @@ This is proven two ways, both offline:
 
 The synthetic basemap is deliberately better than real OS tiles for this: the
 expected answer is known exactly rather than eyeballed.
+
+3. **Through the proxy** (`--proxy --graticule`) — the same document built with
+   tiles fetched over HTTP from the real Hapi plugin, with bounds validation,
+   caching, and the grid taken from `/os-tiles/capabilities` rather than a
+   constant. The rendered page is **byte-identical** to the direct build, which
+   shows the proxy round-trip preserves tile coordinates and reproduces the
+   grid exactly.
+
+## The tiles proxy
+
+`src/os-proxy/` — a portable Hapi plugin, following the plan in `PLAN.md`:
+
+```
+GET /os-tiles/capabilities         the EPSG:27700 grid, as JSON
+GET /os-tiles/{z}/{col}/{row}.png  one raster tile
+```
+
+It imports nothing — not Hapi, not ioredis, not a logger — so it mounts in
+either sibling as-is and takes its cache and logger by injection. The API key
+lives only here; the browser map and the PDF builder both fetch by URL.
 
 ## Findings worth carrying into the build
 
@@ -93,12 +123,28 @@ habitat table is hand-built.
 parcels (`test/gpkg.test.mjs`), which independently validates the hand-rolled
 WKB decoder.
 
+**7. Tile-index validation must not copy grants-ui's `2^z` bound.** That is
+correct for Web Mercator and wrong for EPSG:27700: the British National Grid
+matrix is rectangular and does not double cleanly per level. `isTileInGrid`
+uses the per-level `MatrixWidth`/`MatrixHeight` from capabilities, with a
+finite fallback so an unbounded index can never reach OS.
+
+**8. Never read map metadata off a tile object.** The graticule interval was
+originally taken from the tile the synthetic source returned. Through the
+proxy — and with any real OS basemap — that property is absent, so the overlay
+silently stopped drawing and the visual proof *disabled itself without
+failing*. Both sides now derive the interval from the grid and zoom.
+Regression-tested, because a proof that can quietly switch itself off is worse
+than no proof.
+
 ## Deliberate limitations
 
-- **No real OS basemap.** No API key was available. `osTileSource` is written
-  to the documented URL shape but **has never been executed**. The grid must
-  come from `gridFromWmtsCapabilities` — never hard-code an origin; one out by
-  a tile looks plausible and is wrong.
+- **No real OS basemap.** No API key was available, so the upstream half of
+  the proxy — the actual calls to `api.os.uk` — **has never been executed**.
+  Everything downstream of it is exercised against a stub that mimics OS's
+  capabilities document and tile URLs. The grid must come from
+  `gridFromWmtsCapabilities`; never hard-code an origin, because one out by a
+  tile looks plausible and is wrong.
 - **veraPDF not run.** No Java in this environment. The structure markers are
   all present and `qpdf --check` is clean, but *machine-checked PDF/UA
   conformance is still outstanding* and is the single most important next step.
@@ -126,7 +172,11 @@ WKB decoder.
 | `src/wkb.mjs` | GeoPackage Binary + WKB decoder (no wkx) |
 | `src/geometry.mjs` | envelopes, areas, lengths |
 | `src/png.mjs` | minimal PNG encoder (`node:zlib`) for synthetic tiles |
-| `src/tiles.mjs` | synthetic + OS tile sources |
+| `src/tiles.mjs` | synthetic + proxy-backed tile sources |
+| `src/os-proxy/plugin.mjs` | the portable Hapi tiles plugin |
+| `src/os-proxy/upstream.mjs` | the only module that knows the API key exists |
+| `src/os-proxy/cache.mjs` | memory cache, plus NRF's Redis shape |
+| `src/os-proxy/stub-upstream.mjs` | a fake api.os.uk, so the proxy is testable without a key |
 
 `wkb.mjs`, `geometry.mjs` and parts of `gpkg.mjs` duplicate
 `bng-library/gpkg-io` and exist only so the spike has zero dependencies. If
@@ -136,8 +186,9 @@ this graduates, delete them and use the library.
 
 1. Run **veraPDF** against `out/site-summary.pdf`. This is the go/no-go.
 2. Build and run inside the real **Alpine** image.
-3. Get an **OS API key**, fetch the real grid from GetCapabilities, and confirm
-   the 1 km National Grid check against a real basemap.
+3. Get an **OS API key** (the Data Hub project needs the **OS Maps API**
+   product added, or every tile 401s), run `--os`, and confirm the 1 km
+   National Grid check against a real basemap. This is the only untested seam.
 4. Screen-reader pass (NVDA) — machine checks do not prove usable reading order.
 5. Decide where generation runs. Compute is not the constraint — the largest
    example site (120 parcels, 12 pages) builds in **0.38 s** — so a synchronous

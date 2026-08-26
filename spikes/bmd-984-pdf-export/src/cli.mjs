@@ -6,7 +6,10 @@
  *   node src/cli.mjs --graticule           # overlay the registration proof
  *   node src/cli.mjs --habitat-basemap     # basemap behind each parcel thumbnail
  *   node src/cli.mjs --baseline <file> --post <file> --out <file>
- *   OS_API_KEY=… node src/cli.mjs --os     # real OS basemap (unverified path)
+ *
+ *   node src/cli.mjs --proxy               # tiles via the real /os-tiles proxy,
+ *                                          # backed by a stub upstream (no key)
+ *   OS_MAPS_API_KEY=… node src/cli.mjs --os  # same proxy, real Ordnance Survey
  */
 
 import fs from 'node:fs'
@@ -14,8 +17,8 @@ import path from 'node:path'
 
 import { readSite } from './gpkg.mjs'
 import { buildSummaryPdf } from './document.mjs'
-import { syntheticTileSource, osTileSource } from './tiles.mjs'
-import { gridFromWmtsCapabilities } from './grid.mjs'
+import { syntheticTileSource, proxyTileSource, fetchGridFromProxy } from './tiles.mjs'
+import { startTileProxy } from './os-proxy/server.mjs'
 
 const EXAMPLES = path.resolve(import.meta.dirname, '../../../example-files/valid')
 
@@ -35,9 +38,6 @@ const SYNTHETIC_GRID = {
   resolutions: [896, 448, 224, 112, 56, 28, 14, 7, 3.5, 1.75, 0.875, 0.4375, 0.21875, 0.109375]
 }
 
-const OS_WMTS_CAPABILITIES =
-  'https://api.os.uk/maps/raster/v1/wmts?service=WMTS&request=GetCapabilities&version=2.0.0'
-
 function parseArgs(argv) {
   const args = {
     baseline: path.join(EXAMPLES, 'Baseline - retained watercourse.gpkg'),
@@ -45,6 +45,7 @@ function parseArgs(argv) {
     out: path.resolve(import.meta.dirname, '../out/site-summary.pdf'),
     graticule: false,
     habitatBasemap: false,
+    proxy: false,
     os: false
   }
   for (let i = 0; i < argv.length; i++) {
@@ -53,6 +54,8 @@ function parseArgs(argv) {
       args.graticule = true
     } else if (arg === '--habitat-basemap') {
       args.habitatBasemap = true
+    } else if (arg === '--proxy') {
+      args.proxy = true
     } else if (arg === '--os') {
       args.os = true
     } else if (arg === '--no-post') {
@@ -64,23 +67,45 @@ function parseArgs(argv) {
   return args
 }
 
+/**
+ * Pick a basemap.
+ *
+ * `--proxy` and `--os` both run the REAL tile proxy in-process; they differ
+ * only in what sits upstream of it. So `--proxy` exercises the whole
+ * production path — route, validation, cache, grid-from-capabilities, and the
+ * PDF fetching tiles by URL with no API key — without needing a key at all.
+ */
 async function resolveBasemap(args) {
-  if (!args.os) {
-    return { grid: SYNTHETIC_GRID, tileSource: syntheticTileSource(), kind: 'synthetic' }
+  if (!args.proxy && !args.os) {
+    return {
+      grid: SYNTHETIC_GRID,
+      tileSource: syntheticTileSource(),
+      kind: 'synthetic (direct, no proxy)'
+    }
   }
 
-  const apiKey = process.env.OS_API_KEY
-  if (!apiKey) {
-    throw new Error('--os requires OS_API_KEY in the environment')
+  const apiKey = process.env.OS_MAPS_API_KEY ?? ''
+  if (args.os && !apiKey) {
+    throw new Error('--os requires OS_MAPS_API_KEY in the environment')
   }
-  // The grid MUST come from OS, not from a constant. An origin out by one tile
-  // produces a basemap that looks plausible and is wrong.
-  const response = await fetch(`${OS_WMTS_CAPABILITIES}&key=${apiKey}`)
-  if (!response.ok) {
-    throw new Error(`GetCapabilities failed: ${response.status} ${response.statusText}`)
+
+  const proxy = await startTileProxy({
+    apiKey: apiKey || 'stub-key',
+    stubGrid: args.os ? null : SYNTHETIC_GRID
+  })
+
+  // The grid comes from the proxy's own /capabilities, so nothing here holds
+  // a key or parses WMTS XML.
+  const grid = await fetchGridFromProxy(proxy.baseUrl)
+
+  return {
+    grid,
+    tileSource: proxyTileSource({ baseUrl: proxy.baseUrl }),
+    kind: args.os
+      ? `OS Maps API via ${proxy.baseUrl}`
+      : `stub upstream via the real proxy at ${proxy.baseUrl}`,
+    stop: () => proxy.stop()
   }
-  const grid = gridFromWmtsCapabilities(await response.text(), 'EPSG:27700')
-  return { grid, tileSource: osTileSource({ apiKey }), kind: 'OS Maps API' }
 }
 
 async function main() {
@@ -88,7 +113,7 @@ async function main() {
 
   const baseline = readSite(args.baseline)
   const postIntervention = args.post ? readSite(args.post) : null
-  const { grid, tileSource, kind } = await resolveBasemap(args)
+  const { grid, tileSource, kind, stop } = await resolveBasemap(args)
 
   console.log(`Site       : ${baseline.siteName ?? '(unnamed)'}`)
   console.log(`Baseline   : ${path.basename(args.baseline)}`)
@@ -112,6 +137,8 @@ async function main() {
     stream.on('finish', resolve)
     stream.on('error', reject)
   })
+
+  await stop?.()
 
   const { size } = fs.statSync(args.out)
   console.log(

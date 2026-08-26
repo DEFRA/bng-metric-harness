@@ -201,3 +201,25 @@ test('a projector built from a non-square frame still keeps tiles square', () =>
   assert.ok(Math.abs(bx - ax - size) < 1e-9)
   assert.ok(Math.abs(by - ay - size) < 1e-9)
 })
+
+test('the graticule interval is derived from the grid, never read off a tile', async () => {
+  const { gridIntervalMetres, syntheticTileSource } = await import('../src/tiles.mjs')
+
+  // Regression: the interval used to be read from the tile object, which only
+  // the synthetic source supplies. Through the tile proxy — and with any real
+  // OS basemap — that property is absent, so the graticule silently stopped
+  // drawing and the visual proof disabled itself without failing.
+  const z = 10
+  const derived = gridIntervalMetres(GRID.resolutions[z], GRID.tileSize)
+  assert.ok(derived > 0)
+
+  // Whatever the synthetic tile paints must match what the overlay derives,
+  // because that coincidence is the entire proof.
+  const painted = syntheticTileSource()(GRID, z, 300, 400).interval
+  assert.equal(derived, painted)
+
+  // And it must be computable with no tile in hand at all.
+  for (let zoom = 0; zoom < GRID.resolutions.length; zoom++) {
+    assert.ok(gridIntervalMetres(GRID.resolutions[zoom], GRID.tileSize) > 0)
+  }
+})

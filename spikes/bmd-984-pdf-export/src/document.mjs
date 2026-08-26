@@ -17,6 +17,7 @@ import {
   drawBasemap, drawGeometry, drawGraticule, drawScaleBar, fetchTiles,
   withFrameClip, HABITAT_STYLES
 } from './map.mjs'
+import { gridIntervalMetres } from './tiles.mjs'
 import { envelopeOf, envelopeOfAll, polygonAreaSqm, lineLengthMetres } from './geometry.mjs'
 import { pickZoom, effectiveDpi } from './grid.mjs'
 import { fitEnvelopeToFrame, makeProjector, projectorFor } from './projector.mjs'
@@ -163,7 +164,9 @@ async function addSummaryPage({
     // All tile I/O happens before any drawing — see fetchTiles in map.mjs.
     const projector = projectorFor(sharedEnvelope, frame, { pad: MAP_PAD })
     const z = pickZoom(grid, projector.extent, frame.width)
-    const { tiles, interval } = await fetchTiles(grid, z, projector.extent, tileSource)
+    const { tiles } = await fetchTiles(grid, z, projector.extent, tileSource)
+    // Derived from the grid, not read off a tile — see gridIntervalMetres.
+    const interval = gridIntervalMetres(grid.resolutions[z], grid.tileSize)
 
     const drawn = drawSiteMap({
       doc, frame, site: panel.site, style: panel.style, grid, z, tiles, interval,
