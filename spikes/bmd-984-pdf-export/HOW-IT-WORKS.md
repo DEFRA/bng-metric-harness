@@ -11,7 +11,7 @@ open the code. `README.md` has the evidence; `PLAN.md` has the proxy design.
 - Each report shows the site on an Ordnance Survey map, with habitat parcels
   drawn on top, followed by the habitat tables.
 - It is a **working program**, not a design: ~3,000 lines of source, ~740 of
-  tests, 50 automated checks that run offline in under a second.
+  tests, 52 automated checks that run offline in under a second.
 
 ## The pipeline, in six steps
 
@@ -75,6 +75,14 @@ open the code. `README.md` has the evidence; `PLAN.md` has the proxy design.
 
 ## What has been proved
 
+- **The document passes the accessibility standard.** Every build is checked
+  automatically against PDF/UA using veraPDF, the industry-standard validator.
+  It failed on the first run, for two reasons that were both real and both
+  invisible to the eye — one of them a tagging bug that made an entire class of
+  content unreadable to assistive technology while looking perfectly normal on
+  screen. Both are fixed, and the check now runs on every build so they cannot
+  come back unnoticed.
+
 - **The map lines up with the ground.** Verified two ways: internally against a
   purpose-built test background, and externally by confirming that the tile we
   request is byte-for-byte the tile Ordnance Survey's own standards-based
@@ -88,14 +96,8 @@ open the code. `README.md` has the evidence; `PLAN.md` has the proxy design.
 
 ## What has not been proved
 
-- **Accessibility — now measured, and currently failing.** The build runs the
-  industry-standard validator (veraPDF) automatically. The document **does not
-  yet pass PDF/UA**, on two counts: decorative drawing is not labelled as
-  decoration, and the default font is referenced rather than embedded. Both are
-  understood and fixable; neither is a design flaw. The harder half is already
-  right — the document is tagged, language-set, correctly headed, with real
-  table structure and descriptive alt text on all 22 images.
-- **Whether it is genuinely *usable*.** Passing the validator is necessary, not
+- **Whether it is genuinely *usable*.** The document now **passes** the
+  industry-standard automated check (see below), but passing is necessary, not
   sufficient: no tool can judge whether a description is helpful or the reading
   order sensible. That still needs a screen-reader session. **This remains the
   go/no-go.**

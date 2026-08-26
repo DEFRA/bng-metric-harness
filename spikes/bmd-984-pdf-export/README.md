@@ -16,7 +16,7 @@ cd spikes/bmd-984-pdf-export
 npm install
 
 npm run build                 # out/site-summary.pdf
-npm test                      # 50 tests, no network
+npm test                      # 52 tests, no network
 
 node src/cli.mjs --graticule          # the registration proof (see below)
 node src/cli.mjs --no-habitat-basemap # drop the per-parcel thumbnail basemap
@@ -218,35 +218,44 @@ document.
 
 ## Accessibility: the veraPDF result
 
-`npm run osdemo` now validates what it just built. veraPDF is the reference
+`npm run osdemo` validates what it just built. veraPDF is the reference
 open-source PDF/UA validator; it runs from the `verapdf/cli` image, so no JDK.
 
-**The document currently FAILS PDF/UA-1 on two rules.** That is the honest
-state of the go/no-go, and it is better to know precisely why:
+**The document now PASSES PDF/UA-1**, on both the 20-parcel and 120-parcel
+examples, with and without the real OS basemap.
 
-| Rule | Occurrences | Requires |
+It did not at first. The check found two failures on its first run, and both
+were real:
+
+| Rule | Was | Cause |
 | --- | --- | --- |
-| `7.1-3` | 512 | Content shall be marked as Artifact or tagged as real content |
-| `7.21.4.1-1` | 2 | All font programs shall be embedded |
+| `7.1-3` | 512× | Content neither marked as Artifact nor tagged as real content |
+| `7.21.4.1-1` | 2× | Font programs not embedded |
 
-- **`7.1-3` is the real work.** Every drawing operation must sit inside either a
-  tagged structure element or an `/Artifact` marked-content sequence. Decorative
-  output — table rules, map furniture, the graticule — is currently neither, so
-  assistive technology cannot tell content from decoration. 512 occurrences
-  sounds alarming but is one systematic omission, not 512 separate bugs.
-- **`7.21.4.1-1` is straightforward.** pdfkit's default Helvetica is a PDF
-  base-14 font and is referenced, not embedded. PDF/UA requires embedding, so
-  this needs a real font file registered with `doc.registerFont` — GDS Transport
-  if licensing allows, otherwise an open substitute.
+- **`7.1-3` was an ordering bug, and a genuinely instructive one.** In
+  `buildHabitatRow` the thumbnail was drawn *before* `markStructureContent`
+  opened the sequence meant to contain it — so the `Figure` wrapped an empty
+  sequence and every drawing operation landed untagged. The site map, three
+  functions away, marks first and was clean, which is why the failures were
+  confined to the habitat pages. **Nothing looked wrong.** The document
+  rendered identically and reported 22 figures with alt text throughout; only
+  a conformance checker could see it.
+- **`7.21.4.1-1` was pdfkit's defaults.** Helvetica and friends are the PDF
+  base-14: referenced by name, resolved by the viewer, never embedded. A
+  document using them cannot pass however well tagged it is. Now embeds Noto
+  Sans (SIL OFL 1.1, in `assets/fonts/`). Cost: **+17 kB**, not the 1.1 MB the
+  two files weigh, because pdfkit subsets to the glyphs actually used.
+  Substituting GDS Transport is a licensing step, not a code change.
 
-What was already right, and is worth stating because it is the harder half:
-the document is marked, `Lang` is `en-GB`, the title is set, headings run
-H1 → H2 → H2 with no skipped levels, tables carry real `TH`/`TR`/`TD`, and all
-22 figures have descriptive alt text.
+What was already right, and is the harder half: marked, `Lang` `en-GB`, title
+set, headings H1 → H2 → H2 with no skipped levels, real `TH`/`TR`/`TD`, and
+descriptive alt text on every figure.
 
-**A veraPDF PASS is necessary, not sufficient.** It cannot judge whether alt
-text is meaningful or the reading order sensible — roughly a third of PDF/UA's
-failure conditions are human judgement. NVDA and PAC still have to happen.
+**A PASS is necessary, not sufficient.** veraPDF confirms alt text *exists*,
+not that it reads well — it was perfectly happy with "1 watercourses", which a
+unit test now prevents. Roughly a third of PDF/UA's failure conditions are
+human judgement. **NVDA and PAC are still outstanding, and remain the
+go/no-go.**
 
 ## Deliberate limitations
 
@@ -296,7 +305,9 @@ this graduates, delete them and use the library.
 
 ## Next steps
 
-1. Run **veraPDF** against `out/site-summary.pdf`. This is the go/no-go.
+1. ~~Run veraPDF against `out/site-summary.pdf`.~~ **Done — it passes, and
+   `npm run osdemo` now checks every build.** The remaining accessibility work
+   is the half no tool can do: NVDA and PAC.
 2. Build and run inside the real **Alpine** image.
 3. ~~Get an OS API key and run `--os`.~~ **Done — see "Against real Ordnance
    Survey" below.** The upstream seam is closed; the open question it raised is

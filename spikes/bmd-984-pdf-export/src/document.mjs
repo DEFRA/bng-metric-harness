@@ -11,6 +11,8 @@
  * screen reader, so the table is what actually carries the content.
  */
 
+import path from 'node:path'
+
 import PDFDocument from 'pdfkit'
 
 import {
@@ -48,6 +50,33 @@ const MAP_PAD = 0.08
  * @param {boolean} options.habitatBasemap  basemap behind each parcel thumbnail
  * @returns {Promise<{ doc: PDFDocument, stats: object }>}
  */
+/**
+ * Embed the body fonts.
+ *
+ * PDF/UA 7.21.4.1 requires every font PROGRAM to be embedded. pdfkit's
+ * defaults — Helvetica and friends — are the PDF base-14: they are referenced
+ * by name and resolved by the viewer, never embedded, so a document using them
+ * can never pass however well tagged it is. veraPDF caught this; nothing about
+ * the rendered page looks different either way.
+ *
+ * Noto Sans is used because it is SIL OFL 1.1 and therefore safe to commit.
+ * A real service should use GDS Transport, which is what GOV.UK sets in the
+ * browser; it is licensed for GOV.UK services but is not redistributable here,
+ * so swapping it in is a licensing step, not a code change — replace the two
+ * files and the paths below.
+ */
+const FONT_DIR = path.resolve(import.meta.dirname, '..', 'assets', 'fonts')
+const BODY = 'Body'
+const BOLD = 'Bold'
+
+function registerFonts(doc) {
+  doc.registerFont(BODY, path.join(FONT_DIR, 'NotoSans-Regular.ttf'))
+  doc.registerFont(BOLD, path.join(FONT_DIR, 'NotoSans-Bold.ttf'))
+  // pdfkit starts every document on Helvetica; without this, anything drawn
+  // before the first explicit font() call would reintroduce the failure.
+  doc.font(BODY)
+}
+
 export async function buildSummaryPdf({
   baseline,
   postIntervention = null,
@@ -75,6 +104,8 @@ export async function buildSummaryPdf({
     }
   })
 
+  registerFonts(doc)
+
   const stats = { maps: 0, tiles: 0, habitats: 0, zooms: [] }
   const root = doc.struct('Document', { title })
   doc.addStructure(root)
@@ -99,14 +130,14 @@ async function addSummaryPage({
 
   section.add(
     doc.struct('H1', () => {
-      doc.font('Helvetica-Bold').fontSize(22).fillColor(INK)
+      doc.font(BOLD).fontSize(22).fillColor(INK)
       doc.text(`${siteName} `, MARGIN, MARGIN, { width: CONTENT_WIDTH })
     })
   )
 
   section.add(
     doc.struct('P', () => {
-      doc.font('Helvetica').fontSize(10).fillColor(MUTED)
+      doc.font(BODY).fontSize(10).fillColor(MUTED)
       doc.text(
         'Baseline and post-intervention habitat summary. All areas are measured from the ' +
           'supplied geometry on the British National Grid (EPSG:27700). ',
@@ -121,7 +152,7 @@ async function addSummaryPage({
   doc.moveDown(1)
   section.add(
     doc.struct('H2', () => {
-      doc.font('Helvetica-Bold').fontSize(14).fillColor(INK)
+      doc.font(BOLD).fontSize(14).fillColor(INK)
       doc.text('Site maps ', { width: CONTENT_WIDTH })
     })
   )
@@ -157,7 +188,7 @@ async function addSummaryPage({
     }
 
     labelAsArtifact(doc, () => {
-      doc.font('Helvetica-Bold').fontSize(9.5).fillColor(INK)
+      doc.font(BOLD).fontSize(9.5).fillColor(INK)
       doc.text(`${panel.label} `, frame.x, mapsTop, { width: frame.width })
     })
 
@@ -262,10 +293,23 @@ function siteMapAltText(label, site, drawn) {
   // gets the actual data.
   return (
     `${label} site map. Red line boundary enclosing ${(area / 10_000).toFixed(2)} hectares, ` +
-    `containing ${habitats} habitat parcels, ${hedgerows} hedgerows and ${watercourses} watercourses. ` +
+    `containing ${plural(habitats, 'habitat parcel')}, ${plural(hedgerows, 'hedgerow')} ` +
+    `and ${plural(watercourses, 'watercourse')}. ` +
     `The map covers approximately ${Math.round(width)} metres across. ` +
     'Each parcel is listed with its area and condition in the habitat table that follows. '
   )
+}
+
+/**
+ * "1 watercourse", not "1 watercourses".
+ *
+ * Trivial, and worth doing properly: this string is not decoration, it is what
+ * a screen-reader user actually hears in place of the map. Automated
+ * conformance checking cannot catch it — veraPDF confirms alt text EXISTS, not
+ * that it reads well — which is precisely why a human pass is still required.
+ */
+export function plural(count, noun) {
+  return `${count} ${noun}${count === 1 ? '' : 's'}`
 }
 
 /* --------------------------------------------------------- key figures */
@@ -288,13 +332,13 @@ function addKeyFiguresTable(doc, section, baseline, postIntervention) {
   // instead looks right and renders identically, but emits a Table element
   // containing no rows at all — the cells become one undifferentiated marked
   // content sequence. Verified by counting /S /TD in the output.
-  doc.font('Helvetica').fontSize(9.5).fillColor(INK)
+  doc.font(BODY).fontSize(9.5).fillColor(INK)
   doc.table({
       structParent: section,
       columnStyles: ['*', 110, 110],
       rowStyles: (index) =>
         index === 0
-          ? { border: [0, 0, 1.5, 0], borderColor: INK, font: 'Helvetica-Bold' }
+          ? { border: [0, 0, 1.5, 0], borderColor: INK, font: BOLD }
           : { border: [0, 0, 0.5, 0], borderColor: BORDER },
       // `type` and `scope` are pdfkit's accessibility hooks for tables. Scope
       // is undocumented but supported ('Row' | 'Column' | 'Both'), and setting
@@ -375,7 +419,7 @@ function buildLegend(doc, panels) {
   // The legend's meaning is carried by text, not only by the swatch colours —
   // colour alone must never be the sole carrier of information.
   return doc.struct('P', () => {
-    doc.font('Helvetica').fontSize(7.5).fillColor(MUTED)
+    doc.font(BODY).fontSize(7.5).fillColor(MUTED)
     entries.forEach(([label], index) => {
       doc.text(`${label} `, MARGIN + swatch + 4 + index * columnWidth, top + 1, {
         width: columnWidth - swatch - 8,
@@ -405,13 +449,13 @@ async function addHabitatPages({
   doc.addPage()
   section.add(
     doc.struct('H2', () => {
-      doc.font('Helvetica-Bold').fontSize(15).fillColor(INK)
+      doc.font(BOLD).fontSize(15).fillColor(INK)
       doc.text(`${label} habitat parcels `, MARGIN, MARGIN, { width: CONTENT_WIDTH })
     })
   )
   section.add(
     doc.struct('P', () => {
-      doc.font('Helvetica').fontSize(9).fillColor(MUTED)
+      doc.font(BODY).fontSize(9).fillColor(MUTED)
       doc.text(
         'Each row shows one parcel: its shape and position among the neighbouring parcels, ' +
           'and its recorded attributes. Every value shown on a mini-map is also given as text ' +
@@ -504,7 +548,7 @@ function habitatColumns() {
 function buildHeaderRow(doc, columns, y) {
   const cells = columns.map((column, index) =>
     doc.struct('TH', { title: column.label, scope: 'Column' }, () => {
-      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(INK)
+      doc.font(BOLD).fontSize(8.5).fillColor(INK)
       doc.text(`${column.label} `, columnX(columns, index), y, { width: column.width - 6 })
     })
   )
@@ -541,9 +585,18 @@ function buildHabitatRow({
     height: MINI_MAP_SIZE
   }
 
+  // Order matters, and getting it wrong is silent: the marked-content sequence
+  // must be OPEN before anything is drawn into it. Drawing first and marking
+  // afterwards yields a Figure wrapping an empty sequence, with every drawing
+  // operation left as untagged, unartifacted content — PDF/UA 7.1-3. That is
+  // exactly what this did until the veraPDF check caught it (512 occurrences,
+  // all on the habitat pages; the site map, which marks first, was clean).
+  // `drawSiteMap` is the pattern to copy.
+  const figureContent = doc.markStructureContent('Figure')
   stats.tiles += drawMiniMap({
     doc, frame, feature, style, site, grid, thumbnail
   }).tileCount
+  doc.endMarkedContent()
 
   const cells = [
     doc.struct('TD', [
@@ -553,19 +606,17 @@ function buildHabitatRow({
         alt: `Outline of parcel ${values.ref}, ${values.type}, ${values.area} hectares, ` +
           'shown in place among the neighbouring parcels. ',
         bbox: [frame.x, frame.y, frame.x + frame.width, frame.y + frame.height]
-      }, [doc.markStructureContent('Figure')])
+      }, [figureContent])
     ]),
     ...['ref', 'type', 'condition', 'area'].map((key, index) =>
       doc.struct('TD', () => {
-        doc.font('Helvetica').fontSize(8.5).fillColor(INK)
+        doc.font(BODY).fontSize(8.5).fillColor(INK)
         doc.text(`${values[key]} `, columnX(columns, index + 1), y + 6, {
           width: columns[index + 1].width - 6
         })
       })
     )
   ]
-
-  doc.endMarkedContent()
 
   labelAsArtifact(doc, () => {
     doc.save().lineWidth(0.4).strokeColor(BORDER)
