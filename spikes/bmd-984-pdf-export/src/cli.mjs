@@ -4,7 +4,7 @@
  *
  *   node src/cli.mjs                       # defaults, synthetic basemap
  *   node src/cli.mjs --graticule           # overlay the registration proof
- *   node src/cli.mjs --habitat-basemap     # basemap behind each parcel thumbnail
+ *   node src/cli.mjs --no-habitat-basemap  # drop the per-parcel thumbnail basemap
  *   node src/cli.mjs --baseline <file> --post <file> --out <file>
  *
  *   node src/cli.mjs --proxy               # tiles via the real /os-tiles proxy,
@@ -42,13 +42,13 @@ const SYNTHETIC_GRID = {
   resolutions: [896, 448, 224, 112, 56, 28, 14, 7, 3.5, 1.75, 0.875, 0.4375, 0.21875, 0.109375]
 }
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const args = {
     baseline: path.join(EXAMPLES, 'Baseline - retained watercourse.gpkg'),
     post: path.join(EXAMPLES, 'Post-intervention - retained watercourse.gpkg'),
     out: path.resolve(import.meta.dirname, '../out/site-summary.pdf'),
     graticule: false,
-    habitatBasemap: false,
+    habitatBasemap: true,
     proxy: false,
     os: false
   }
@@ -57,7 +57,12 @@ function parseArgs(argv) {
     if (arg === '--graticule') {
       args.graticule = true
     } else if (arg === '--habitat-basemap') {
+      // Now the default; kept so existing invocations and docs still work.
       args.habitatBasemap = true
+    } else if (arg === '--no-habitat-basemap') {
+      // Must be matched explicitly: the generic `--key value` branch below
+      // would otherwise swallow the NEXT argument as its value.
+      args.habitatBasemap = false
     } else if (arg === '--proxy') {
       args.proxy = true
     } else if (arg === '--os') {
@@ -155,7 +160,14 @@ async function main() {
   )
 }
 
-main().catch((error) => {
-  console.error(error.message)
-  process.exitCode = 1
-})
+// Only when run directly — importing this module (the tests do, for parseArgs)
+// must not build a PDF. Same guard as src/os-proxy/server.mjs.
+const runDirectly =
+  process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop())
+
+if (runDirectly) {
+  main().catch((error) => {
+    console.error(error.message)
+    process.exitCode = 1
+  })
+}

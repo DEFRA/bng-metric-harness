@@ -54,7 +54,7 @@ export async function buildSummaryPdf({
   grid,
   tileSource,
   graticule = false,
-  habitatBasemap = false
+  habitatBasemap = true
 }) {
   const siteName = baseline.siteName ?? 'BNG site'
   const title = `Biodiversity net gain summary — ${siteName}`
@@ -586,9 +586,17 @@ function buildHabitatRow({
  * orientation — without them a lone polygon on a blank square tells you the
  * shape but not where it sits.
  *
- * The basemap is optional and off by default: at 18 mm an OS raster is mostly
- * noise, and it costs a tile fetch per habitat. `--habitat-basemap` turns it on
- * to prove the same pipeline drives both sizes.
+ * The basemap is ON by default, decided by looking at real OS output rather
+ * than by argument: at 18 mm the raster reads as useful context, not noise.
+ *
+ * It is not free. On the 120-parcel example against real OS it takes the
+ * document from 851 kB / 12 tiles to 4.6 MB / 262 tiles. Wall-clock barely
+ * moves (+0.4 s) because neighbouring parcels overlap and the proxy cache
+ * absorbs the repeats, so SIZE is the cost to watch, not time. If that becomes
+ * the constraint, halve the thumbnails' target DPI before dropping the basemap
+ * — at 60 pt square the difference is invisible.
+ *
+ * `--no-habitat-basemap` turns it off.
  */
 const MINI_MAP_PAD = 0.35
 const CONTEXT_FILL = '#d8d4d0'

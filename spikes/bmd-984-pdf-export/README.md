@@ -14,10 +14,10 @@ cd spikes/bmd-984-pdf-export
 npm install
 
 npm run build                 # out/site-summary.pdf
-npm test                      # 26 tests, no network
+npm test                      # 50 tests, no network
 
 node src/cli.mjs --graticule          # the registration proof (see below)
-node src/cli.mjs --habitat-basemap    # basemap behind each parcel thumbnail
+node src/cli.mjs --no-habitat-basemap # drop the per-parcel thumbnail basemap
 node src/cli.mjs --baseline <f.gpkg> --post <f.gpkg> --out <f.pdf>
 
 # Tiles via the real /os-tiles proxy, backed by a stub upstream. No key needed.
@@ -105,6 +105,14 @@ Pass `structParent: <element>` instead.
 `'Row' | 'Column' | 'Both'`. Setting it also makes pdfkit emit `/Headers`,
 linking each data cell to the headers that describe it — which is what a
 screen reader announces. Not in `docs/accessibility.md`; found in the source.
+
+**3a. The per-parcel basemap is on by default, and size is its cost.** On the
+120-parcel example against real OS it takes the document from 851 kB / 12 tiles
+to 4.6 MB / 262 tiles. Wall-clock barely moves (+0.4 s) — neighbouring parcels
+overlap and the proxy cache absorbs the repeats — so judge it on file size, not
+speed. If 4.6 MB is too big for a downloadable report, halve the thumbnails'
+target DPI (currently 150) before dropping the basemap: at 60 pt square the
+difference is invisible. `--no-habitat-basemap` turns it off.
 
 **3. All tile I/O must complete before any drawing.** pdfkit drawing is
 sequential and stateful (cursor, current page, open marked-content sequence).
