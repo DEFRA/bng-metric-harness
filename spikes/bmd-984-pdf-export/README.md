@@ -1,5 +1,7 @@
 # BMD-984 spike — accessible PDF export with mapped habitats
 
+> Explaining this to non-engineers? See **[HOW-IT-WORKS.md](HOW-IT-WORKS.md)**.
+
 A working proof that we can generate a rich, **tagged (PDF/UA-targeted)** site
 summary PDF containing a full-site map with habitat layers, plus a zoomed
 mini-map per habitat parcel — in pure JavaScript, with no native dependencies.
