@@ -117,6 +117,12 @@ function containerEnv() {
     FRONTEND_PORT: cfg.frontendPort,
     BACKEND_PORT: cfg.backendPort,
     STUB_BASE_URL: `http://${containerHost}:${cfg.stubPort}/cdp-defra-id-stub`,
+    // The stub stamps each token's `iss` from the Host header it was minted
+    // with, and the backend rejects any issuer other than the one its own
+    // discovery fetch named. The container minting via host.docker.internal
+    // against a backend that discovered via localhost would disagree on every
+    // token, so pin the mint request's Host header to the host-side name.
+    STUB_ISSUER_HOST: `${cfg.host}:${cfg.stubPort}`,
     // RESULTS_OUTPUT_S3_PATH is deliberately absent: unset, the entrypoint logs
     // "skipping S3 publish" and exits 0, so a local run needs no LocalStack.
     //
