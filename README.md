@@ -172,11 +172,26 @@ Perf tests are run from the command line — no Tilt button, no special mode. Wi
 npm run perf
 ```
 
-The suite is `bng-perf-tests/scenarios/project-list-payload.jmx` (covering [BMD-933](https://eaflood.atlassian.net/browse/BMD-933)). Because the list endpoints need a Defra ID token, `npm run perf` obtains a **real one from the cdp-defra-id-stub** — the same login the app performs, just headless (`scripts/get-stub-token.mjs`: register → finish → login → code → token). The normal `tilt up` backend already trusts stub tokens, so there's **no backend change and no perf mode**. It then seeds one big-baseline project for that token's user, runs JMeter, and prints a per-endpoint pass/fail summary.
+This drives **bng-perf-tests' own container** — the same image, `entrypoint.sh` and plan a CDP task runs — rather than a second copy of the pipeline maintained here. Minting the stub token, seeding the owner's projects, staging the uploads, running JMeter and summarising the result all live in that container, so a local run is literally what CDP runs. The harness only builds the image, tells it where the local stack is, and reports the outcome.
 
-Everything it needs — the backend, the stub, Postgres — is already part of a plain `tilt up`, so there's nothing special to remember.
+The suite is a **single** plan, `bng-perf-tests/scenarios/bng-perf.jmx`, holding every thread group: the public home page, the authenticated project-list endpoints ([BMD-933](https://eaflood.atlassian.net/browse/BMD-933)), and the upload size and concurrency ramps with a background probe running alongside them ([BMD-982](https://eaflood.atlassian.net/browse/BMD-982)). One run, one report — the HTML dashboard lands in `bng-perf-tests/reports/`, and a plain-English summary is printed to the terminal.
 
-Pre-fix, the assertions **fail by design** — they encode the BMD-933 acceptance criteria — so the run reports failures but exits 0. Set `PERF_FAIL_ON_ASSERT=1` to make it exit non-zero once the fix lands (e.g. in CI). Other knobs: `PERF_PARCELS` (baseline size, default 2000), `PERF_THREADS` / `PERF_LOOPS` / `PERF_RAMP` (load profile).
+Budget **~5 minutes** for the run plus up to a minute of staging: the upload phases generate real GeoPackages and push them through the CDP Uploader before JMeter starts, so what they measure is the service's `validate` call and not the uploader's scan.
+
+Everything it needs — the frontend on `3000`, the backend on `3001`, the Defra ID stub on `3200` and **cdp-uploader on `7337`** — is already part of a plain `tilt up`, so there's nothing special to remember.
+
+Assertion failures **do not** fail the run. The project-list group encodes unshipped BMD-933 acceptance criteria and is red by design until the fix lands, and a red duration assertion beyond N concurrent users *is* the result rather than a failure. Set `PERF_FAIL_ON_ASSERT=1` to gate on them (e.g. in CI).
+
+| Knob                                                                                 | Default                       | Purpose                                                                                  |
+| ------------------------------------------------------------------------------------ | ----------------------------- | ---------------------------------------------------------------------------------------- |
+| `PERF_THREADS` / `PERF_LOOPS` / `PERF_RAMP`                                            | `5` / `3` / `2`               | Load profile for the home-page and project-list groups; lighter than the CDP defaults.     |
+| `PERF_SKIP_BUILD`                                                                      | unset                         | Reuse the existing image instead of rebuilding it.                                         |
+| `PERF_IMAGE`                                                                           | `bng-perf-tests:local`        | Image tag to build and run.                                                                |
+| `PERF_HOST`                                                                            | `localhost`                   | Where the stack is; `localhost` is translated to `host.docker.internal` for the container. |
+| `PERF_FRONTEND_PORT` / `PERF_BACKEND_PORT` / `PERF_STUB_PORT` / `PERF_UPLOADER_PORT`   | `3000` / `3001` / `3200` / `7337` | Ports on that host.                                                                    |
+| `PERF_SCENARIO`                                                                        | unset                         | Escape hatch for a different `scenarios/<name>.jmx`.                                       |
+
+The per-phase tunables — file sizes, phase durations, concurrency steps, latency budgets — belong to the container rather than to the harness, and are documented in [bng-perf-tests' README](https://github.com/DEFRA/bng-perf-tests#readme). To change one, run that container directly (`docker compose up --build` in `bng-perf-tests`).
 
 ## Supporting services (Docker Compose)
 
