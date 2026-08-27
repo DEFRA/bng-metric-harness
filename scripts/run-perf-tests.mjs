@@ -11,10 +11,10 @@
 //
 // One command, one thing it does: the whole suite. Fixtures are generated, pushed
 // through the CDP Uploader and virus-scanned before JMeter starts, then the plan
-// runs every thread group — home page, project list, background probe, size ramp
-// and the five concurrency steps. Budget ~5 minutes for the run plus up to a
-// minute of staging, and have cdp-uploader on :7337 (it ships in the backend's
-// compose) alongside the frontend, backend and stub.
+// runs every thread group — home page, project list, background probe, size ramp,
+// the upload/edit ladders and the mixed workload. Budget ~18 minutes for the run
+// plus up to two minutes of staging, and have cdp-uploader on :7337 (it ships in
+// the backend's compose) alongside the frontend, backend and stub.
 //
 // Every phase is an env var away from being suppressed if you want a narrower run
 // — see "Running only the everyday half" in bng-perf-tests' README — but that is a
@@ -250,7 +250,7 @@ async function checkStack() {
 async function main() {
   requireSibling("bng-perf-tests");
 
-  info("▸ running the full suite — staging uploads, then ~5 minutes of JMeter");
+  info("▸ running the full suite — staging uploads, then ~18 minutes of JMeter");
 
   if (!(await checkStack())) {
     process.exit(1);
