@@ -1,0 +1,1108 @@
+#!/usr/bin/env python3
+"""
+Convert a BNG Service (staged) GeoPackage into the pair of legacy Natural
+England GeoPackages the older Biodiversity Metric service expects.
+
+    new template  ->  1 file,  Baseline + Post-Intervention tables per habitat type
+    old template  ->  2 files, one table per habitat type (uploaded separately)
+
+Zero dependencies: a GeoPackage is a SQLite database, and geometry blobs are
+copied verbatim, so nothing here needs GDAL, QGIS or the network.
+
+Usage:
+    python3 new_to_old.py "BNG Service Layers.gpkg" -o output/
+    python3 new_to_old.py "BNG Service Layers.gpkg" --dry-run
+
+See README.md for the full walkthrough and the list of known losses.
+"""
+
+import argparse
+import os
+import sqlite3
+import struct
+import sys
+from collections import defaultdict
+
+# Works both as a standalone script and as a module inside the QGIS
+# plugin package, where the import has to be relative.
+try:
+    from .gpkg_common import (
+        create_feature_table,
+        create_gpkg_system_tables,
+        numeric,
+        polygon_blob_area_sqm,
+        promote_polygon_blob_to_multipolygon,
+        quote_ident,
+        read_feature_table,
+        read_srs_rows,
+        update_layer_extent,
+    )
+except ImportError:  # pragma: no cover - running as a plain script
+    from gpkg_common import (
+        create_feature_table,
+        create_gpkg_system_tables,
+        numeric,
+        polygon_blob_area_sqm,
+        promote_polygon_blob_to_multipolygon,
+        quote_ident,
+        read_feature_table,
+        read_srs_rows,
+        update_layer_extent,
+    )
+
+# Sizes below this are treated as "no shortfall" when deciding whether a
+# baseline feature was partly removed. Legacy stores whole metres, and the
+# service itself rounds linear sizes to whole metres before use.
+LENGTH_TOLERANCE_M = 0.5
+COUNT_TOLERANCE = 0
+
+RETENTION_LOST = "Lost"
+TREE_CATEGORY_EXISTING = "Existing"
+
+# ---------------------------------------------------------------------------
+# Legacy schema — mirrors the reference the service validates uploads against
+# (gpkg-template.schema.json). Column names, order and SQLite types all matter:
+# a missing column or a mismatched declared type is a hard validation error.
+# Geometry column NAMES are not checked, but the registered geometry TYPE is.
+# ---------------------------------------------------------------------------
+
+SITE_COLUMNS_WIDE = [
+    ("Location", "TEXT(99)"),
+    ("Site Name", "TEXT(999)"),
+    ("Survey Date", "DATE"),
+    ("Survey Details", "TEXT(999)"),
+]
+SITE_COLUMNS_TAIL = [
+    ("Mapped by", "TEXT(999)"),
+    ("Company", "TEXT(999)"),
+    ("Base Map", "TEXT(999)"),
+]
+
+LEGACY_LAYERS = {
+    "Habitats": {
+        "geom_column": "geom",
+        "geom_type": "MULTIPOLYGON",
+        "columns": [
+            ("Parcel Ref", "TEXT(99)"),
+            ("Baseline Broad Habitat Type", "TEXT(99)"),
+            ("Baseline Habitat Type", "TEXT(99)"),
+            ("Area", "MEDIUMINT"),
+            ("Baseline Condition", "TEXT(99)"),
+            ("Baseline Strategic Significance", "TEXT(99)"),
+            ("Retention Category", "TEXT(99)"),
+            ("Proposed Broad Habitat Type", "TEXT(99)"),
+            ("Proposed Habitat Type", "TEXT(99)"),
+            ("Proposed Condition", "TEXT(99)"),
+            ("Proposed Strategic Significance", "TEXT(99)"),
+            ("Habitat created in advance/years", "TEXT(99)"),
+            ("Delay in starting habitat creation/years", "TEXT(99)"),
+            ("Spatial risk category", "TEXT(99)"),
+            *SITE_COLUMNS_WIDE,
+            ("Comment", "TEXT(999)"),
+            *SITE_COLUMNS_TAIL,
+            ("Baseline Distinctiveness", "TEXT(999)"),
+            ("Proposed Distinctiveness", "TEXT(999)"),
+        ],
+    },
+    "Hedgerows": {
+        "geom_column": "geom",
+        "geom_type": "LINESTRING",
+        "columns": [
+            ("Parcel Ref", "TEXT(99)"),
+            ("Baseline Hedge Type", "TEXT(99)"),
+            ("Baseline Condition", "TEXT(99)"),
+            ("Baseline Strategic Significance", "TEXT(99)"),
+            ("Retention Category", "TEXT(99)"),
+            ("Proposed Hedge Type", "TEXT(99)"),
+            ("Proposed Condition", "TEXT(99)"),
+            ("Proposed Strategic Significance", "TEXT(99)"),
+            ("Length", "MEDIUMINT"),
+            ("Habitat created in advance/years", "TEXT(99)"),
+            ("Delay in starting habitat creation/years", "TEXT(99)"),
+            ("Spatial risk category", "TEXT(99)"),
+            *SITE_COLUMNS_WIDE,
+            ("Comments", "TEXT(999)"),
+            *SITE_COLUMNS_TAIL,
+            ("Baseline Distinctiveness", "TEXT(999)"),
+            ("Proposed Distinctiveness", "TEXT(999)"),
+        ],
+    },
+    "Rivers": {
+        "geom_column": "geom",
+        "geom_type": "LINESTRING",
+        "columns": [
+            ("Parcel Ref", "TEXT(99)"),
+            ("Baseline River Type", "TEXT(99)"),
+            ("Baseline Condition", "TEXT(99)"),
+            ("Baseline Strategic Significance", "TEXT(99)"),
+            ("Baseline Encroachment into Watercourse", "TEXT(99)"),
+            ("Baseline Encroachment into riparian zone", "TEXT(99)"),
+            ("Retention Category", "TEXT(99)"),
+            ("Proposed River Type", "TEXT(99)"),
+            ("Proposed Condition", "TEXT(99)"),
+            ("Proposed Strategic Significance", "TEXT(99)"),
+            ("Length", "MEDIUMINT"),
+            ("Habitat created in advance/years", "TEXT(99)"),
+            ("Delay in starting habitat creation/years", "TEXT(99)"),
+            ("Spatial risk category", "TEXT(99)"),
+            ("Location", "TEXT(99)"),
+            ("Proposed Encroachment into Watercourse", "TEXT(99)"),
+            ("Proposed Encroachment into riparian zone", "TEXT(99)"),
+            ("Site Name", "TEXT(999)"),
+            ("Survey Date", "DATE"),
+            ("Survey Details", "TEXT(999)"),
+            ("Comments", "TEXT(999)"),
+            *SITE_COLUMNS_TAIL,
+            ("Enhancement Type", "TEXT(999)"),
+            ("Baseline Distinctiveness", "TEXT(999)"),
+            ("Proposed Distinctiveness", "TEXT(999)"),
+        ],
+    },
+    "Urban Trees": {
+        "geom_column": "geometry",
+        "geom_type": "POINT",
+        "columns": [
+            ("Tree Ref", "TEXT(99)"),
+            ("Baseline Tree Size", "TEXT(99)"),
+            ("Baseline Condition", "TEXT(99)"),
+            ("Baseline Strategic Significance", "TEXT(99)"),
+            ("Baseline Tree Type", "TEXT(99)"),
+            ("Retention Category", "TEXT(99)"),
+            ("Category", "TEXT(99)"),
+            ("Proposed Tree Size", "TEXT(99)"),
+            ("Proposed Condition", "TEXT(99)"),
+            ("Proposed Strategic Significance", "TEXT(99)"),
+            ("Proposed Tree Type", "TEXT(99)"),
+            ("Location", "TEXT(99)"),
+            ("Habitat Created/Enhanced in advance/years", "TEXT(99)"),
+            ("Delay in starting habitat creation/enhancement in years", "TEXT(99)"),
+            ("Spatial risk category", "TEXT(99)"),
+            ("Site Name", "TEXT(999)"),
+            ("Survey Date", "DATE"),
+            ("Survey Details", "TEXT(999)"),
+            ("Comment", "TEXT(999)"),
+            *SITE_COLUMNS_TAIL,
+            ("Count", "MEDIUMINT"),
+            ("Baseline Rural or Urban Tree", "TEXT(999)"),
+            ("Proposed Rural or Urban Tree", "TEXT(999)"),
+        ],
+    },
+    "Red Line Boundary": {
+        "geom_column": "geometry",
+        "geom_type": "POLYGON",
+        "columns": [
+            ("Area", "REAL"),
+            ("Site Name", "TEXT(99)"),
+        ],
+    },
+    "Water course enhancement through meanders": {
+        "geom_column": "geometry",
+        "geom_type": "LINESTRING",
+        "columns": [
+            ("Baseline Parcel Ref", "TEXT(999)"),
+            ("Proposed River Type", "TEXT(999)"),
+            ("Proposed Condition", "TEXT(999)"),
+            ("Proposed Strategic Significance", "TEXT(99)"),
+            ("Proposed Encroachment into Watercourse", "TEXT(999)"),
+            ("Proposed Encroachment into riparian zone", "TEXT(999)"),
+            ("Length", "MEDIUMINT"),
+            # NB: the shipped NE template spells this with a trailing space in
+            # its own file; the service validates against the trimmed name.
+            ("Habitat created in advance/years", "TEXT(999)"),
+            ("Delay in starting habitat creation/years", "TEXT(999)"),
+            ("Location", "TEXT(999)"),
+            ("Spatial risk category", "TEXT(999)"),
+            ("Baseline Distinctiveness", "TEXT(999)"),
+            ("Proposed Distinctiveness", "TEXT(999)"),
+        ],
+    },
+}
+
+# Staged (new template) table names, by habitat type.
+STAGED_TABLES = {
+    "areas": ("Habitats Baseline", "Habitats Post-Intervention"),
+    "hedgerows": ("Hedgerows Baseline", "Hedgerows Post-Intervention"),
+    "watercourses": ("Watercourses Baseline", "Watercourses Post-Intervention"),
+    "trees": ("Trees Baseline", "Trees Post-Intervention"),
+    "verticalAreas": (
+        "Vertical Area Habitats Baseline",
+        "Vertical Area Habitats Post-Intervention",
+    ),
+}
+STAGED_REDLINE_TABLE = "Red Line Boundary"
+
+SITE_DETAIL_FIELDS = [
+    "Site Name",
+    "Location",
+    "Survey Date",
+    "Survey Details",
+    "Mapped by",
+    "Company",
+    "Base Map",
+]
+
+
+# ---------------------------------------------------------------------------
+# Writing an empty legacy GeoPackage
+# ---------------------------------------------------------------------------
+
+
+def create_legacy_gpkg(path, srs_rows):
+    """Create an empty GeoPackage carrying the six legacy layers."""
+    if os.path.exists(path):
+        os.remove(path)
+    conn = sqlite3.connect(path)
+    create_gpkg_system_tables(conn, srs_rows)
+    for table, spec in LEGACY_LAYERS.items():
+        create_feature_table(
+            conn, table, spec["geom_column"], spec["geom_type"], spec["columns"]
+        )
+    conn.commit()
+    return conn
+
+
+def rounded_size(value):
+    """Legacy size columns are integer-typed; match that (and the service's own
+    whole-metre rounding of linear sizes)."""
+    number = numeric(value)
+    return None if number is None else int(round(number))
+
+
+# ---------------------------------------------------------------------------
+# Row mapping
+# ---------------------------------------------------------------------------
+
+
+def child_ref(row):
+    """The reference a post-intervention row carries in the new template."""
+    return row.get("PI Ref") or row.get("Parcel Ref") or row.get("Tree Ref")
+
+
+def continuing_ref(row):
+    """Ref to write into a legacy PI row for the linear/tree types.
+
+    Legacy resolves an Enhanced hedgerow or watercourse back to its baseline by
+    matching this ref against the baseline file, so a child of a split parcel
+    must carry its PARENT's ref. New features (no parent) keep their own.
+    """
+    return row.get("Parent Ref") or child_ref(row)
+
+
+def site_details(redline_rows):
+    """Site-wide details, which the new template stores once on the red line."""
+    if not redline_rows:
+        return {field: None for field in SITE_DETAIL_FIELDS}
+    first = redline_rows[0]
+    return {field: first.get(field) for field in SITE_DETAIL_FIELDS}
+
+
+def with_site(values, site, comment_column=None, comment=None):
+    """Fan the site-wide details out onto a legacy row, as legacy expects."""
+    values.update(
+        {
+            "Location": site.get("Location"),
+            "Site Name": site.get("Site Name"),
+            "Survey Date": site.get("Survey Date"),
+            "Survey Details": site.get("Survey Details"),
+            "Mapped by": site.get("Mapped by"),
+            "Company": site.get("Company"),
+            "Base Map": site.get("Base Map"),
+        }
+    )
+    if comment_column:
+        values[comment_column] = comment
+    return values
+
+
+def parent_note(row):
+    """Breadcrumb for area rows, which keep their own ref and lose the parent's."""
+    parent = row.get("Parent Ref")
+    return f"[parent={parent}]" if parent else None
+
+
+def child_note(row):
+    """Breadcrumb for linear/tree rows, which take the PARENT's ref and so lose
+    their own."""
+    own = child_ref(row)
+    parent = row.get("Parent Ref")
+    if not own or not parent or own == parent:
+        return None
+    return f"[pi={own}]"
+
+
+def merged_comment(base_comment, note):
+    if not note:
+        return base_comment
+    if base_comment:
+        return f"{base_comment} {note}"
+    return note
+
+
+# --- area habitats ---------------------------------------------------------
+
+
+def map_area_baseline(row, site):
+    return with_site(
+        {
+            "Parcel Ref": row.get("Parcel Ref"),
+            "Baseline Broad Habitat Type": row.get("Baseline Broad Habitat Type"),
+            "Baseline Habitat Type": row.get("Baseline Habitat Type"),
+            "Baseline Distinctiveness": row.get("Baseline Distinctiveness"),
+            "Baseline Condition": row.get("Baseline Condition"),
+            "Baseline Strategic Significance": row.get(
+                "Baseline Strategic Significance"
+            ),
+            "Area": rounded_size(row.get("Area")),
+        },
+        site,
+        "Comment",
+        row.get("Comment"),
+    )
+
+
+def map_area_pi(row, site, carry_lineage):
+    # Area habitats keep the CHILD ref: legacy rejects duplicate Parcel Refs in
+    # the habitats layer, and a split parcel would otherwise repeat its parent's.
+    return with_site(
+        {
+            "Parcel Ref": child_ref(row),
+            "Baseline Broad Habitat Type": row.get("Baseline Broad Habitat Type"),
+            "Baseline Habitat Type": row.get("Baseline Habitat Type"),
+            "Baseline Distinctiveness": row.get("Baseline Distinctiveness"),
+            "Baseline Condition": row.get("Baseline Condition"),
+            "Baseline Strategic Significance": row.get(
+                "Baseline Strategic Significance"
+            ),
+            "Retention Category": row.get("Retention Category"),
+            "Proposed Broad Habitat Type": row.get("Proposed Broad Habitat Type"),
+            "Proposed Habitat Type": row.get("Proposed Habitat Type"),
+            "Proposed Distinctiveness": row.get("Proposed Distinctiveness"),
+            "Proposed Condition": row.get("Proposed Condition"),
+            "Proposed Strategic Significance": row.get(
+                "Proposed Strategic Significance"
+            ),
+            "Habitat created in advance/years": row.get(
+                "Habitat created in advance/years"
+            ),
+            "Delay in starting habitat creation/years": row.get(
+                "Delay in starting habitat creation/years"
+            ),
+            "Spatial risk category": row.get("Spatial risk category"),
+            "Area": rounded_size(row.get("Area")),
+        },
+        site,
+        "Comment",
+        merged_comment(None, parent_note(row) if carry_lineage else None),
+    )
+
+
+# --- hedgerows -------------------------------------------------------------
+
+
+def map_hedgerow_baseline(row, site):
+    return with_site(
+        {
+            "Parcel Ref": row.get("Parcel Ref"),
+            "Baseline Hedge Type": row.get("Baseline Hedge Type"),
+            "Baseline Distinctiveness": row.get("Baseline Distinctiveness"),
+            "Baseline Condition": row.get("Baseline Condition"),
+            "Baseline Strategic Significance": row.get(
+                "Baseline Strategic Significance"
+            ),
+            "Length": rounded_size(row.get("Length")),
+        },
+        site,
+        "Comments",
+        row.get("Comment"),
+    )
+
+
+def map_hedgerow_pi(row, site, carry_lineage):
+    return with_site(
+        {
+            "Parcel Ref": continuing_ref(row),
+            "Baseline Hedge Type": row.get("Baseline Hedge Type"),
+            "Baseline Distinctiveness": row.get("Baseline Distinctiveness"),
+            "Baseline Condition": row.get("Baseline Condition"),
+            "Baseline Strategic Significance": row.get(
+                "Baseline Strategic Significance"
+            ),
+            "Retention Category": row.get("Retention Category"),
+            "Proposed Hedge Type": row.get("Proposed Hedge Type"),
+            "Proposed Distinctiveness": row.get("Proposed Distinctiveness"),
+            "Proposed Condition": row.get("Proposed Condition"),
+            "Proposed Strategic Significance": row.get(
+                "Proposed Strategic Significance"
+            ),
+            "Habitat created in advance/years": row.get(
+                "Habitat created in advance/years"
+            ),
+            "Delay in starting habitat creation/years": row.get(
+                "Delay in starting habitat creation/years"
+            ),
+            "Spatial risk category": row.get("Spatial risk category"),
+            "Length": rounded_size(row.get("Length")),
+        },
+        site,
+        "Comments",
+        merged_comment(None, child_note(row) if carry_lineage else None),
+    )
+
+
+def hedgerow_lost_row(parent, lost_length, site):
+    return with_site(
+        {
+            "Parcel Ref": parent.get("Parcel Ref"),
+            "Baseline Hedge Type": parent.get("Baseline Hedge Type"),
+            "Baseline Distinctiveness": parent.get("Baseline Distinctiveness"),
+            "Baseline Condition": parent.get("Baseline Condition"),
+            "Baseline Strategic Significance": parent.get(
+                "Baseline Strategic Significance"
+            ),
+            "Retention Category": RETENTION_LOST,
+            "Length": int(round(lost_length)),
+        },
+        site,
+        "Comments",
+        "Removed — generated by new_to_old.py from the baseline feature",
+    )
+
+
+# --- watercourses ----------------------------------------------------------
+
+
+def map_watercourse_baseline(row, site):
+    return with_site(
+        {
+            "Parcel Ref": row.get("Parcel Ref"),
+            "Baseline River Type": row.get("Baseline River Type"),
+            "Baseline Distinctiveness": row.get("Baseline Distinctiveness"),
+            "Baseline Condition": row.get("Baseline Condition"),
+            "Baseline Strategic Significance": row.get(
+                "Baseline Strategic Significance"
+            ),
+            "Baseline Encroachment into Watercourse": row.get(
+                "Baseline Encroachment into Watercourse"
+            ),
+            "Baseline Encroachment into riparian zone": row.get(
+                "Baseline Encroachment into riparian zone"
+            ),
+            "Length": rounded_size(row.get("Length")),
+        },
+        site,
+        "Comments",
+        row.get("Comment"),
+    )
+
+
+def map_watercourse_pi(row, site, carry_lineage):
+    return with_site(
+        {
+            "Parcel Ref": continuing_ref(row),
+            "Baseline River Type": row.get("Baseline River Type"),
+            "Baseline Distinctiveness": row.get("Baseline Distinctiveness"),
+            "Baseline Condition": row.get("Baseline Condition"),
+            "Baseline Strategic Significance": row.get(
+                "Baseline Strategic Significance"
+            ),
+            "Baseline Encroachment into Watercourse": row.get(
+                "Baseline Encroachment into Watercourse"
+            ),
+            "Baseline Encroachment into riparian zone": row.get(
+                "Baseline Encroachment into riparian zone"
+            ),
+            "Retention Category": row.get("Retention Category"),
+            "Proposed River Type": row.get("Proposed River Type"),
+            "Proposed Distinctiveness": row.get("Proposed Distinctiveness"),
+            "Proposed Condition": row.get("Proposed Condition"),
+            "Proposed Strategic Significance": row.get(
+                "Proposed Strategic Significance"
+            ),
+            "Proposed Encroachment into Watercourse": row.get(
+                "Proposed Encroachment into Watercourse"
+            ),
+            "Proposed Encroachment into riparian zone": row.get(
+                "Proposed Encroachment into riparian zone"
+            ),
+            "Enhancement Type": row.get("Enhancement Type"),
+            "Habitat created in advance/years": row.get(
+                "Habitat created in advance/years"
+            ),
+            "Delay in starting habitat creation/years": row.get(
+                "Delay in starting habitat creation/years"
+            ),
+            "Spatial risk category": row.get("Spatial risk category"),
+            "Length": rounded_size(row.get("Length")),
+        },
+        site,
+        "Comments",
+        merged_comment(None, child_note(row) if carry_lineage else None),
+    )
+
+
+def watercourse_lost_row(parent, lost_length, site):
+    return with_site(
+        {
+            "Parcel Ref": parent.get("Parcel Ref"),
+            "Baseline River Type": parent.get("Baseline River Type"),
+            "Baseline Distinctiveness": parent.get("Baseline Distinctiveness"),
+            "Baseline Condition": parent.get("Baseline Condition"),
+            "Baseline Strategic Significance": parent.get(
+                "Baseline Strategic Significance"
+            ),
+            "Baseline Encroachment into Watercourse": parent.get(
+                "Baseline Encroachment into Watercourse"
+            ),
+            "Baseline Encroachment into riparian zone": parent.get(
+                "Baseline Encroachment into riparian zone"
+            ),
+            "Retention Category": RETENTION_LOST,
+            "Length": int(round(lost_length)),
+        },
+        site,
+        "Comments",
+        "Removed — generated by new_to_old.py from the baseline feature",
+    )
+
+
+# --- trees -----------------------------------------------------------------
+
+
+def map_tree_baseline(row, site):
+    return with_site(
+        {
+            "Tree Ref": row.get("Tree Ref"),
+            "Baseline Tree Size": row.get("Baseline Tree Size"),
+            "Baseline Tree Type": row.get("Baseline Tree Type"),
+            "Baseline Rural or Urban Tree": row.get("Baseline Rural or Urban Tree"),
+            "Baseline Condition": row.get("Baseline Condition"),
+            "Baseline Strategic Significance": row.get(
+                "Baseline Strategic Significance"
+            ),
+            "Category": TREE_CATEGORY_EXISTING,
+            "Count": rounded_size(row.get("Count")),
+        },
+        site,
+        "Comment",
+        row.get("Comment"),
+    )
+
+
+def map_tree_pi(row, site, carry_lineage):
+    return with_site(
+        {
+            "Tree Ref": continuing_ref(row),
+            "Baseline Tree Size": row.get("Baseline Tree Size"),
+            "Baseline Tree Type": row.get("Baseline Tree Type"),
+            "Baseline Rural or Urban Tree": row.get("Baseline Rural or Urban Tree"),
+            "Baseline Condition": row.get("Baseline Condition"),
+            "Baseline Strategic Significance": row.get(
+                "Baseline Strategic Significance"
+            ),
+            "Retention Category": row.get("Retention Category"),
+            "Category": row.get("Category"),
+            "Proposed Tree Size": row.get("Proposed Tree Size"),
+            "Proposed Tree Type": row.get("Proposed Tree Type"),
+            "Proposed Rural or Urban Tree": row.get("Proposed Rural or Urban Tree"),
+            "Proposed Condition": row.get("Proposed Condition"),
+            "Proposed Strategic Significance": row.get(
+                "Proposed Strategic Significance"
+            ),
+            "Habitat Created/Enhanced in advance/years": row.get(
+                "Habitat Created/Enhanced in advance/years"
+            ),
+            "Delay in starting habitat creation/enhancement in years": row.get(
+                "Delay in starting habitat creation/enhancement in years"
+            ),
+            "Spatial risk category": row.get("Spatial risk category"),
+            "Count": rounded_size(row.get("Count")),
+        },
+        site,
+        "Comment",
+        merged_comment(None, child_note(row) if carry_lineage else None),
+    )
+
+
+def tree_lost_row(parent, lost_count, site):
+    return with_site(
+        {
+            "Tree Ref": parent.get("Tree Ref"),
+            "Baseline Tree Size": parent.get("Baseline Tree Size"),
+            "Baseline Tree Type": parent.get("Baseline Tree Type"),
+            "Baseline Rural or Urban Tree": parent.get("Baseline Rural or Urban Tree"),
+            "Baseline Condition": parent.get("Baseline Condition"),
+            "Baseline Strategic Significance": parent.get(
+                "Baseline Strategic Significance"
+            ),
+            "Retention Category": RETENTION_LOST,
+            "Category": TREE_CATEGORY_EXISTING,
+            "Count": int(round(lost_count)),
+        },
+        site,
+        "Comment",
+        "Removed — generated by new_to_old.py from the baseline feature",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Removal ("Lost") synthesis
+# ---------------------------------------------------------------------------
+
+# Mirrors the service's own reconciliation policy:
+#   shortfall — hedgerows and trees: any baseline size not carried forward is lost
+#   presence  — watercourses: a stretch either continues or is wholly removed
+REMOVAL_RULE_SHORTFALL = "shortfall"
+REMOVAL_RULE_PRESENCE = "presence"
+
+
+def synthesise_lost_rows(baseline_rows, pi_rows, size_field, rule, tolerance):
+    """Work out what the post-intervention file never accounts for.
+
+    Returns [(baseline_row, lost_size)] — the new template records removal by
+    simply leaving the feature out, but legacy needs an explicit "Lost" row.
+    """
+    carried = defaultdict(float)
+    has_child = set()
+    for row in pi_rows:
+        parent = row.get("Parent Ref")
+        if not parent:
+            continue  # a brand-new feature accounts for no baseline
+        has_child.add(parent)
+        size = numeric(row.get(size_field))
+        if size is not None:
+            carried[parent] += size
+
+    losses = []
+    for row in baseline_rows:
+        ref = row.get("Parcel Ref") or row.get("Tree Ref")
+        baseline_size = numeric(row.get(size_field))
+        if ref is None or baseline_size is None:
+            continue
+        if rule == REMOVAL_RULE_PRESENCE:
+            if ref not in has_child:
+                losses.append((row, baseline_size))
+            continue
+        shortfall = baseline_size - carried.get(ref, 0.0)
+        if shortfall > tolerance:
+            losses.append((row, shortfall))
+    return losses
+
+
+# ---------------------------------------------------------------------------
+# Writing rows
+# ---------------------------------------------------------------------------
+
+
+def insert_rows(conn, table, rows):
+    """Insert mapped rows, filling every legacy column (absent keys become NULL)."""
+    if not rows:
+        return 0
+    spec = LEGACY_LAYERS[table]
+    column_names = [name for name, _ in spec["columns"]]
+    placeholders = ", ".join(["?"] * (len(column_names) + 1))
+    quoted = ", ".join(
+        [quote_ident(spec["geom_column"])]
+        + [quote_ident(name) for name in column_names]
+    )
+    statement = f"INSERT INTO {quote_ident(table)} ({quoted}) VALUES ({placeholders})"
+
+    payload = []
+    for geometry, values in rows:
+        payload.append([geometry] + [values.get(name) for name in column_names])
+    conn.executemany(statement, payload)
+    return len(payload)
+
+
+def geometry_for(table, blob):
+    if blob is None:
+        return None
+    if LEGACY_LAYERS[table]["geom_type"] == "MULTIPOLYGON":
+        return promote_polygon_blob_to_multipolygon(blob)
+    return blob
+
+
+# ---------------------------------------------------------------------------
+# Conversion
+# ---------------------------------------------------------------------------
+
+
+class Report:
+    def __init__(self):
+        self.lines = []
+        self.warnings = []
+        self.counts = {}
+
+    def note(self, message):
+        self.lines.append(message)
+
+    def warn(self, message):
+        self.warnings.append(message)
+
+    def count(self, key, value):
+        self.counts[key] = value
+
+
+def convert(input_path, out_dir, carry_lineage, dry_run):
+    report = Report()
+    source = sqlite3.connect(f"file:{input_path}?mode=ro", uri=True)
+
+    staged = {}
+    for habitat_type, (baseline_table, pi_table) in STAGED_TABLES.items():
+        staged[habitat_type] = {
+            "baseline": read_feature_table(source, baseline_table),
+            "pi": read_feature_table(source, pi_table),
+        }
+    redline = read_feature_table(source, STAGED_REDLINE_TABLE)
+    site = site_details(redline)
+    srs_rows = read_srs_rows(source)
+    source.close()
+
+    if not redline:
+        report.warn(
+            "No Red Line Boundary feature found — the legacy service requires one."
+        )
+
+    _report_losses(staged, report)
+    _report_splits(staged, report)
+
+    if dry_run:
+        _plan_counts(staged, redline, report)
+        return report
+
+    os.makedirs(out_dir, exist_ok=True)
+    stem = os.path.splitext(os.path.basename(input_path))[0]
+    baseline_path = os.path.join(out_dir, f"{stem} - Baseline.gpkg")
+    pi_path = os.path.join(out_dir, f"{stem} - Post-Intervention.gpkg")
+
+    baseline_conn = create_legacy_gpkg(baseline_path, srs_rows)
+    pi_conn = create_legacy_gpkg(pi_path, srs_rows)
+
+    try:
+        _write_redline(baseline_conn, pi_conn, redline, site, report)
+        _write_areas(baseline_conn, pi_conn, staged["areas"], site,
+                     carry_lineage, report)
+        _write_hedgerows(baseline_conn, pi_conn, staged["hedgerows"], site,
+                         carry_lineage, report)
+        _write_watercourses(baseline_conn, pi_conn, staged["watercourses"], site,
+                            carry_lineage, report)
+        _write_trees(baseline_conn, pi_conn, staged["trees"], site,
+                     carry_lineage, report)
+
+        for conn in (baseline_conn, pi_conn):
+            for table, spec in LEGACY_LAYERS.items():
+                update_layer_extent(conn, table, spec["geom_column"])
+            conn.commit()
+    finally:
+        baseline_conn.close()
+        pi_conn.close()
+
+    report.note(f"Baseline file:          {baseline_path}")
+    report.note(f"Post-intervention file: {pi_path}")
+    return report
+
+
+def _write_redline(baseline_conn, pi_conn, redline, site, report):
+    rows = []
+    for row in redline:
+        blob = row.get("_geom")
+        area = polygon_blob_area_sqm(blob) if blob else None
+        rows.append(
+            (
+                blob,
+                {"Area": area, "Site Name": site.get("Site Name")},
+            )
+        )
+    for conn in (baseline_conn, pi_conn):
+        insert_rows(conn, "Red Line Boundary", rows)
+    report.count("Red Line Boundary", len(rows))
+
+
+def deduplicate_area_refs(pi_rows, report):
+    """Give every area habitat row a unique Parcel Ref.
+
+    Legacy rejects a repeated Parcel Ref in the habitats layer, but the new
+    template only makes child refs unique when the user runs its "Tidy PI refs"
+    action — so split parcels commonly arrive sharing a parent's ref. Suffix
+    them the way that action would (GR-1a, GR-1b, ...). Safe for area habitats:
+    legacy reads each row's baseline from the row's own columns, so nothing
+    resolves an area ref back to the baseline file.
+    """
+    occurrences = defaultdict(list)
+    for _, values in pi_rows:
+        occurrences[values.get("Parcel Ref")].append(values)
+
+    taken = {ref for ref, rows in occurrences.items() if len(rows) == 1}
+    renames = []
+    for ref, rows in occurrences.items():
+        if ref is None or ref == "" or len(rows) == 1:
+            continue
+        renamed = []
+        for index, values in enumerate(rows):
+            candidate = _next_free_ref(ref, index, taken)
+            taken.add(candidate)
+            values["Parcel Ref"] = candidate
+            renamed.append(candidate)
+        renames.append((ref, renamed))
+
+    for ref, renamed in renames:
+        report.note(
+            f"Habitats: '{ref}' appeared {len(renamed)} times — renamed to "
+            f"{', '.join(renamed)} (legacy requires unique Parcel Refs)"
+        )
+    return renames
+
+
+ALPHABET_SIZE = 26
+
+
+def _next_free_ref(ref, index, taken):
+    """`ref` + a, b, c... skipping anything already used."""
+    attempt = index
+    while True:
+        suffix = chr(ord("a") + attempt % ALPHABET_SIZE)
+        cycle = attempt // ALPHABET_SIZE
+        candidate = f"{ref}{suffix}" if cycle == 0 else f"{ref}{suffix}{cycle}"
+        if candidate not in taken:
+            return candidate
+        attempt += 1
+
+
+def _write_areas(baseline_conn, pi_conn, tables, site, carry_lineage, report):
+    baseline_rows = [
+        (geometry_for("Habitats", row.get("_geom")), map_area_baseline(row, site))
+        for row in tables["baseline"]
+    ]
+    pi_rows = [
+        (
+            geometry_for("Habitats", row.get("_geom")),
+            map_area_pi(row, site, carry_lineage),
+        )
+        for row in tables["pi"]
+    ]
+    deduplicate_area_refs(pi_rows, report)
+    insert_rows(baseline_conn, "Habitats", baseline_rows)
+    insert_rows(pi_conn, "Habitats", pi_rows)
+    report.count("Habitats (baseline)", len(baseline_rows))
+    report.count("Habitats (post-intervention)", len(pi_rows))
+
+
+def _write_linear(
+    baseline_conn,
+    pi_conn,
+    tables,
+    site,
+    carry_lineage,
+    report,
+    table_name,
+    baseline_mapper,
+    pi_mapper,
+    lost_mapper,
+    rule,
+):
+    baseline_rows = [
+        (row.get("_geom"), baseline_mapper(row, site)) for row in tables["baseline"]
+    ]
+    pi_rows = [
+        (row.get("_geom"), pi_mapper(row, site, carry_lineage)) for row in tables["pi"]
+    ]
+
+    losses = synthesise_lost_rows(
+        tables["baseline"], tables["pi"], "Length", rule, LENGTH_TOLERANCE_M
+    )
+    for parent, lost_length in losses:
+        pi_rows.append((parent.get("_geom"), lost_mapper(parent, lost_length, site)))
+
+    insert_rows(baseline_conn, table_name, baseline_rows)
+    insert_rows(pi_conn, table_name, pi_rows)
+    report.count(f"{table_name} (baseline)", len(baseline_rows))
+    report.count(f"{table_name} (post-intervention)", len(pi_rows))
+    if losses:
+        detail = ", ".join(
+            f"{parent.get('Parcel Ref')} ({int(round(size))} m)"
+            for parent, size in losses
+        )
+        report.note(
+            f"{table_name}: synthesised {len(losses)} 'Lost' row(s) — {detail}"
+        )
+
+
+def _write_hedgerows(baseline_conn, pi_conn, tables, site, carry_lineage, report):
+    _write_linear(
+        baseline_conn, pi_conn, tables, site, carry_lineage, report,
+        "Hedgerows", map_hedgerow_baseline, map_hedgerow_pi, hedgerow_lost_row,
+        REMOVAL_RULE_SHORTFALL,
+    )
+
+
+def _write_watercourses(baseline_conn, pi_conn, tables, site, carry_lineage, report):
+    _write_linear(
+        baseline_conn, pi_conn, tables, site, carry_lineage, report,
+        "Rivers", map_watercourse_baseline, map_watercourse_pi,
+        watercourse_lost_row, REMOVAL_RULE_PRESENCE,
+    )
+
+
+def _write_trees(baseline_conn, pi_conn, tables, site, carry_lineage, report):
+    baseline_rows = [
+        (row.get("_geom"), map_tree_baseline(row, site)) for row in tables["baseline"]
+    ]
+    pi_rows = [
+        (row.get("_geom"), map_tree_pi(row, site, carry_lineage))
+        for row in tables["pi"]
+    ]
+
+    losses = synthesise_lost_rows(
+        tables["baseline"], tables["pi"], "Count",
+        REMOVAL_RULE_SHORTFALL, COUNT_TOLERANCE,
+    )
+    for parent, lost_count in losses:
+        pi_rows.append((parent.get("_geom"), tree_lost_row(parent, lost_count, site)))
+
+    insert_rows(baseline_conn, "Urban Trees", baseline_rows)
+    insert_rows(pi_conn, "Urban Trees", pi_rows)
+    report.count("Urban Trees (baseline)", len(baseline_rows))
+    report.count("Urban Trees (post-intervention)", len(pi_rows))
+    if losses:
+        detail = ", ".join(
+            f"{parent.get('Tree Ref')} ({int(round(size))})" for parent, size in losses
+        )
+        report.note(f"Urban Trees: synthesised {len(losses)} 'Lost' row(s) — {detail}")
+
+
+def _report_losses(staged, report):
+    vertical = staged["verticalAreas"]
+    vertical_total = len(vertical["baseline"]) + len(vertical["pi"])
+    if vertical_total:
+        report.warn(
+            f"{vertical_total} vertical area habitat feature(s) CANNOT be carried "
+            "over — the legacy template has no layer for them. Their biodiversity "
+            "units will be missing from the legacy calculation."
+        )
+
+    irreplaceable = 0
+    for key in ("areas", "verticalAreas"):
+        for stage in ("baseline", "pi"):
+            for row in staged[key][stage]:
+                value = row.get("Irreplaceable Habitat")
+                if value not in (None, "", "No"):
+                    irreplaceable += 1
+    if irreplaceable:
+        report.warn(
+            f"{irreplaceable} feature(s) are flagged as irreplaceable habitat — the "
+            "legacy template has no column for this, so the flag is dropped."
+        )
+
+
+def _report_splits(staged, report):
+    for habitat_type in ("hedgerows", "watercourses", "trees"):
+        children = defaultdict(int)
+        for row in staged[habitat_type]["pi"]:
+            parent = row.get("Parent Ref")
+            if parent:
+                children[parent] += 1
+        split = {ref: n for ref, n in children.items() if n > 1}
+        if split:
+            detail = ", ".join(f"{ref} -> {n}" for ref, n in sorted(split.items()))
+            report.warn(
+                f"{habitat_type}: {len(split)} baseline feature(s) were split into "
+                f"several post-intervention features ({detail}). Legacy expects one "
+                "row per reference, so the converted rows repeat their parent's ref "
+                "and the legacy calculation may differ. Review these."
+            )
+
+
+def _plan_counts(staged, redline, report):
+    report.count("Red Line Boundary", len(redline))
+    labels = {
+        "areas": "Habitats",
+        "hedgerows": "Hedgerows",
+        "watercourses": "Rivers",
+        "trees": "Urban Trees",
+    }
+    for habitat_type, label in labels.items():
+        report.count(f"{label} (baseline)", len(staged[habitat_type]["baseline"]))
+        report.count(
+            f"{label} (post-intervention)", len(staged[habitat_type]["pi"])
+        )
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+
+def print_report(report, dry_run):
+    print()
+    print("=" * 70)
+    print("  BNG Service GeoPackage  ->  legacy Natural England GeoPackages")
+    print("=" * 70)
+    if dry_run:
+        print("  DRY RUN — nothing was written")
+        print("-" * 70)
+
+    print("\nRows:")
+    for key, value in report.counts.items():
+        print(f"  {key:.<48} {value}")
+
+    if report.lines:
+        print("\nNotes:")
+        for line in report.lines:
+            print(f"  - {line}")
+
+    if report.warnings:
+        print("\nWARNINGS — read before uploading:")
+        for line in report.warnings:
+            print(f"  ! {line}")
+
+    print(
+        "\nAlways dropped: lineage keys (feature_uuid / parent_uuid / "
+        "parent_checksum),\nirreplaceable-habitat flags, and vertical area "
+        "habitats. Sizes are rounded to\nwhole units to match the legacy integer "
+        "columns.\n"
+    )
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description=(
+            "Convert a BNG Service staged GeoPackage into the legacy Natural "
+            "England baseline + post-intervention pair."
+        )
+    )
+    parser.add_argument("input", help="the staged .gpkg from the new template")
+    parser.add_argument(
+        "-o", "--out-dir", default=".", help="directory for the two output files"
+    )
+    parser.add_argument(
+        "--carry-lineage",
+        action="store_true",
+        help=(
+            "record each feature's parent reference in the legacy Comment column, "
+            "so lineage can be recovered if the files are converted back"
+        ),
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="report what would be produced without writing any files",
+    )
+    args = parser.parse_args(argv)
+
+    if not os.path.exists(args.input):
+        print(f"error: input file not found: {args.input}", file=sys.stderr)
+        return 1
+
+    try:
+        report = convert(
+            args.input, args.out_dir, args.carry_lineage, args.dry_run
+        )
+    except (sqlite3.Error, ValueError, struct.error) as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+
+    print_report(report, args.dry_run)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
