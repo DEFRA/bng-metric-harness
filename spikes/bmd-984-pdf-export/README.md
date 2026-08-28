@@ -16,7 +16,7 @@ cd spikes/bmd-984-pdf-export
 npm install
 
 npm run build                 # out/site-summary.pdf
-npm test                      # 52 tests, no network
+npm test                      # 72 tests, no network
 
 node src/cli.mjs --graticule          # the registration proof (see below)
 node src/cli.mjs --no-habitat-basemap # drop the per-parcel thumbnail basemap
@@ -26,8 +26,15 @@ node src/cli.mjs --baseline <f.gpkg> --post <f.gpkg> --out <f.pdf>
 node src/cli.mjs --proxy --graticule
 
 # The same proxy against real Ordnance Survey. Put the key in a .env
-# (cp .env.example .env) and this needs no environment variables at all:
-node src/cli.mjs --os      # or: npm run osdemo (which also validates, below)
+# (cp .env.example .env) and this needs no environment variables at all.
+# TWO basemap routes exist, needing DIFFERENT OS Data Hub products on the key:
+node src/cli.mjs --os-vector  # OS NGD API – Tiles, drawn as PDF vectors
+                              # (npm run osdemo, which also validates, below)
+node src/cli.mjs --os         # OS Maps API raster tiles
+                              # (npm run osdemo:raster)
+
+# The vector flavour's offline proof — same proxy, stub vector upstream:
+node src/cli.mjs --proxy-vector --graticule
 
 # PDF/UA-1 conformance, via veraPDF in Docker. Reports only; --strict to fail.
 npm run verify
@@ -53,6 +60,35 @@ npm run serve:tiles                   # run the proxy on :3100 and poke it
 | Does it scale? | 120 parcels → 12 pages, 774 kB, **0.38 s** end to end |
 | Can the PDF fetch tiles from our own proxy? | Yes — `--proxy` renders **pixel-for-pixel identical** to the direct path |
 | Does the PDF need an OS key? | **No.** Only the proxy holds one; the PDF has a URL |
+| Does the basemap need the raster OS Maps API? | **No.** `--os-vector` draws the basemap from OS NGD API – Tiles geometry — see below |
+
+## Two basemaps, one switch
+
+The basemap has two interchangeable sources, selected per run, because they
+need **different OS Data Hub products** on the API key and a key may hold
+either:
+
+| | `--os` / `npm run osdemo:raster` | `--os-vector` / `npm run osdemo` |
+| --- | --- | --- |
+| OS product required | OS Maps API | OS NGD API – Tiles |
+| What arrives | 256px PNG rasters, z0–13 | Mapbox Vector Tiles, z0–15 |
+| Plan ceiling observed | OpenData stops at z9 | none — z0–15 all serve |
+| How it lands in the PDF | placed as images | drawn as vector paths (crisp at any print size) |
+| Labels | rendered by OS into the tile | omitted (deliberately — see `src/vector-style.mjs`) |
+| Styling | OS's, baked into the pixels | `src/ngd-light-style.mjs`, machine-extracted from OS's published ngd-base "light-27700" style (`npm run extract:style` regenerates it) |
+
+Everything else — the proxy, the cache, tile validation, `pickZoom`, the
+projector, and all of `document.mjs` — is shared. `drawBasemap` dispatches on
+the tile object itself (`{ png }` vs `{ layers }`), so the document builder
+never knows which product the deployment could afford. If the key later gains
+the OS Maps API product, `npm run osdemo:raster` works with no code change,
+and vice versa.
+
+The MVT decode is `src/mvt.mjs`, hand-rolled (like `png.mjs`) to keep the
+no-dependencies-beyond-pdfkit claim true, and verified byte-for-byte against
+`@mapbox/vector-tile` on a live 18-layer, 1,054-feature Westminster tile
+during development. Its writer exists so the stub upstream can serve
+synthetic vector tiles and the tests can prove decode by round-trip.
 
 ## The registration proof
 

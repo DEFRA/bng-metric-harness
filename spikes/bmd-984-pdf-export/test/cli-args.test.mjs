@@ -34,6 +34,16 @@ test('a --no-* flag does not swallow the argument after it', () => {
   assert.equal(withPost.os, true)
 })
 
+test('the vector flags are matched explicitly and do not swallow arguments', () => {
+  const args = parseArgs(['--os-vector', '--graticule'])
+  assert.equal(args.osVector, true)
+  assert.equal(args.graticule, true)
+
+  const stub = parseArgs(['--proxy-vector', '--no-post'])
+  assert.equal(stub.proxyVector, true)
+  assert.equal(stub.post, null)
+})
+
 test('--key value pairs still parse', () => {
   const args = parseArgs(['--out', 'somewhere.pdf', '--baseline', 'b.gpkg'])
   assert.equal(args.out, 'somewhere.pdf')

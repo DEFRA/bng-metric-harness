@@ -17,6 +17,33 @@ export const OS_MAPS_RASTER_ZXY = 'https://api.os.uk/maps/raster/v1/zxy'
 export const OS_MAPS_WMTS = 'https://api.os.uk/maps/raster/v1/wmts'
 
 /**
+ * The OS NGD API – Tiles `ngd-base` tileset, and the published 27700
+ * tiling-scheme definition from the same API.
+ *
+ * This is a SEPARATE OS Data Hub product from the raster OS Maps API — a key
+ * can hold either, both, or neither, and that is exactly why the vector path
+ * exists: the project key in hand has the NGD APIs but not "OS Maps API".
+ *
+ * NGD Tiles is used rather than the older OS Vector Tile API (`/vts`)
+ * because OS have marked that product for retirement; ngd-base serves the
+ * same classic basemap layers at low zooms plus the NGD feature themes
+ * (bld_fts_*, lnd_fts_*, str_fts_*, …) from z12 up, on the same 27700 tile
+ * grid. Verified live 2026-08-28: this key serves ngd-base tiles at every
+ * zoom 0-15 with no plan ceiling, while every raster tile 401s.
+ */
+export const OS_VECTOR_TILES =
+  'https://api.os.uk/maps/vector/ngd/ota/v1/collections/ngd-base/tiles/27700'
+export const OS_VECTOR_TILE_MATRIX_SET =
+  'https://api.os.uk/maps/vector/ngd/ota/v1/tilematrixsets/27700'
+
+/**
+ * The deepest level the ngd-base tileset publishes (its tileset metadata
+ * declares tileMatrixSetLimits 0-15, matching the 16-level tiling scheme).
+ * A product property, not a deployment one — hence pinned, like OS_LAYERS.
+ */
+export const OS_VECTOR_MAX_ZOOM = 15
+
+/**
  * EPSG:27700 raster styles, and the zoom range OS publishes for each.
  *
  * Pinned in code rather than configured: these are properties of the OS
@@ -72,6 +99,12 @@ export function resolveConfig(overrides = {}) {
     // key. An OpenData key must set OS_MAPS_MAX_ZOOM=9 or every tile above
     // that zoom 403s. `keyWarning` says so at startup.
     maxZoom: numberOrNull(process.env.OS_MAPS_MAX_ZOOM),
+    vectorTilesUrl: process.env.OS_VECTOR_TILES_URL ?? OS_VECTOR_TILES,
+    vectorTileMatrixSetUrl:
+      process.env.OS_VECTOR_TILE_MATRIX_SET_URL ?? OS_VECTOR_TILE_MATRIX_SET,
+    // No plan ceiling has been observed on the vector product (z0-15 all
+    // serve on the key in hand), so this exists only as an escape hatch.
+    vectorMaxZoom: numberOrNull(process.env.OS_VECTOR_MAX_ZOOM) ?? OS_VECTOR_MAX_ZOOM,
     ...overrides
   }
 

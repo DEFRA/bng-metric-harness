@@ -11,6 +11,15 @@
  *                                          # backed by a stub upstream (no key)
  *   OS_MAPS_API_KEY=… node src/cli.mjs --os  # same proxy, real Ordnance Survey
  *
+ * The vector basemap — the same maps drawn from OS NGD API – Tiles geometry
+ * (the ngd-base tileset) instead of raster images. Needs the "OS NGD API –
+ * Tiles" product on the key, NOT "OS Maps API", which is the whole reason
+ * it exists. (The older OS Vector Tile API also serves vector tiles, but OS
+ * have marked it for retirement, so it is not used here.)
+ *
+ *   node src/cli.mjs --proxy-vector        # stub vector upstream, no key
+ *   node src/cli.mjs --os-vector           # real OS vector tiles
+ *
  * The key can live in a gitignored `.env` instead — see `src/env.mjs` and
  * `.env.example`. A real environment variable still overrides the file.
  */
@@ -21,7 +30,10 @@ import path from 'node:path'
 import { loadEnv } from './env.mjs'
 import { readSite } from './gpkg.mjs'
 import { buildSummaryPdf } from './document.mjs'
-import { syntheticTileSource, proxyTileSource, fetchGridFromProxy } from './tiles.mjs'
+import {
+  syntheticTileSource, proxyTileSource, fetchGridFromProxy,
+  vectorProxyTileSource, fetchVectorGridFromProxy
+} from './tiles.mjs'
 import { startTileProxy } from './os-proxy/server.mjs'
 
 const EXAMPLES = path.resolve(import.meta.dirname, '../../../example-files/valid')
@@ -50,7 +62,9 @@ export function parseArgs(argv) {
     graticule: false,
     habitatBasemap: true,
     proxy: false,
-    os: false
+    os: false,
+    proxyVector: false,
+    osVector: false
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -67,6 +81,10 @@ export function parseArgs(argv) {
       args.proxy = true
     } else if (arg === '--os') {
       args.os = true
+    } else if (arg === '--proxy-vector') {
+      args.proxyVector = true
+    } else if (arg === '--os-vector') {
+      args.osVector = true
     } else if (arg === '--no-post') {
       args.post = null
     } else if (arg.startsWith('--')) {
@@ -83,9 +101,16 @@ export function parseArgs(argv) {
  * only in what sits upstream of it. So `--proxy` exercises the whole
  * production path — route, validation, cache, grid-from-capabilities, and the
  * PDF fetching tiles by URL with no API key — without needing a key at all.
+ *
+ * `--proxy-vector` and `--os-vector` are the same pair for the vector
+ * flavour: identical proxy, different OS product upstream, and the basemap
+ * is drawn from decoded tile geometry rather than placed as images.
  */
 async function resolveBasemap(args) {
-  if (!args.proxy && !args.os) {
+  const vector = args.proxyVector || args.osVector
+  const real = args.os || args.osVector
+
+  if (!vector && !args.proxy && !args.os) {
     return {
       grid: SYNTHETIC_GRID,
       tileSource: syntheticTileSource(),
@@ -94,21 +119,33 @@ async function resolveBasemap(args) {
   }
 
   const apiKey = process.env.OS_MAPS_API_KEY ?? ''
-  if (args.os && !apiKey) {
-    throw new Error('--os requires OS_MAPS_API_KEY in the environment')
+  if (real && !apiKey) {
+    throw new Error(
+      `--${args.osVector ? 'os-vector' : 'os'} requires OS_MAPS_API_KEY in the environment`
+    )
   }
 
   const proxy = await startTileProxy({
     apiKey: apiKey || 'stub-key',
-    stubGrid: args.os ? null : SYNTHETIC_GRID
+    stubGrid: real ? null : SYNTHETIC_GRID
   })
 
-  // The grid comes from the proxy's own /capabilities, so nothing here holds
-  // a key or parses WMTS XML.
-  const grid = await fetchGridFromProxy(proxy.baseUrl)
+  // The grid comes from the proxy's own capabilities route, so nothing here
+  // holds a key or parses OS's WMTS XML / TileMatrixSet JSON itself. The two
+  // flavours have DIFFERENT grids (512px vector tiles vs 256px raster).
+  if (vector) {
+    return {
+      grid: await fetchVectorGridFromProxy(proxy.baseUrl),
+      tileSource: vectorProxyTileSource({ baseUrl: proxy.baseUrl }),
+      kind: args.osVector
+        ? `OS NGD API – Tiles (ngd-base) via ${proxy.baseUrl}`
+        : `stub vector upstream via the real proxy at ${proxy.baseUrl}`,
+      stop: () => proxy.stop()
+    }
+  }
 
   return {
-    grid,
+    grid: await fetchGridFromProxy(proxy.baseUrl),
     tileSource: proxyTileSource({ baseUrl: proxy.baseUrl }),
     kind: args.os
       ? `OS Maps API via ${proxy.baseUrl}`

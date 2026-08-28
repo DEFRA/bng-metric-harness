@@ -15,6 +15,7 @@
 
 import { Raster } from './png.mjs'
 import { tileSpanMetres, tileTopLeft } from './grid.mjs'
+import { decodeVectorTile } from './mvt.mjs'
 
 /**
  * Ground interval between the grid lines drawn into a synthetic tile.
@@ -134,6 +135,36 @@ export function proxyTileSource({ baseUrl, fetchImpl = fetch }) {
 }
 
 /**
+ * Vector tiles fetched through the same proxy's /vector route and decoded
+ * here, so downstream code holds geometry, not bytes.
+ *
+ * Returns `{ layers }` (see decodeVectorTile) where the raster sources
+ * return `{ png }` — that shape difference is how drawBasemap knows which
+ * kind of tile it was handed.
+ */
+export function vectorProxyTileSource({ baseUrl, fetchImpl = fetch }) {
+  const cache = new Map()
+
+  return async function vectorProxyTile(grid, z, col, row) {
+    const key = `${z}/${col}/${row}`
+    if (cache.has(key)) {
+      return cache.get(key)
+    }
+
+    const response = await fetchImpl(`${baseUrl}/vector/${z}/${col}/${row}.pbf`)
+    if (!response.ok) {
+      throw new Error(
+        `Vector tile ${key} failed: ${response.status} ${response.statusText}`
+      )
+    }
+
+    const tile = decodeVectorTile(Buffer.from(await response.arrayBuffer()))
+    cache.set(key, tile)
+    return tile
+  }
+}
+
+/**
  * Fetch the tile grid from the proxy's capabilities route.
  *
  * @param {string} baseUrl  e.g. 'http://localhost:3000/os-tiles'
@@ -148,4 +179,9 @@ export async function fetchGridFromProxy(baseUrl, fetchImpl = fetch) {
   }
   const { grid } = await response.json()
   return grid
+}
+
+/** The same, for the vector flavour's grid. */
+export function fetchVectorGridFromProxy(baseUrl, fetchImpl = fetch) {
+  return fetchGridFromProxy(`${baseUrl}/vector`, fetchImpl)
 }

@@ -84,6 +84,57 @@ export function gridFromWmtsCapabilities(xml, tileMatrixSetId) {
 }
 
 /**
+ * Build a grid from an OGC API TileMatrixSet JSON document.
+ *
+ * This is the vector-tile counterpart of gridFromWmtsCapabilities, and the
+ * same rule applies: THE NUMBERS MUST COME FROM OS. The 27700 tiling scheme
+ * definition is published machine-readably at
+ * /maps/vector/ngd/ota/v1/tilematrixsets/27700, and it is the grid the
+ * ngd-base tileset's EPSG:27700 tiles are cut to (verified live: a tile
+ * requested at coordinates computed from this document decodes to the
+ * expected ground features).
+ *
+ * Unlike WMTS capabilities this format gives cellSize (metres per pixel)
+ * directly, so there is no 0.28 mm scale-denominator dance.
+ */
+export function gridFromTileMatrixSetJson(document) {
+  const matrices = (document.tileMatrices ?? [])
+    .map((matrix) => ({
+      id: Number(matrix.id),
+      cellSize: Number(matrix.cellSize),
+      pointOfOrigin: matrix.pointOfOrigin,
+      tileWidth: Number(matrix.tileWidth),
+      matrixWidth: Number(matrix.matrixWidth),
+      matrixHeight: Number(matrix.matrixHeight)
+    }))
+    .filter((matrix) => Number.isFinite(matrix.cellSize))
+    .sort((a, b) => a.id - b.id)
+
+  if (matrices.length === 0) {
+    throw new Error('TileMatrixSet document declared no tileMatrices')
+  }
+
+  const [originX, originY] = matrices[0].pointOfOrigin
+  for (const matrix of matrices) {
+    const [x, y] = matrix.pointOfOrigin
+    if (x !== originX || y !== originY) {
+      throw new Error(
+        'TileMatrix levels declare different origins; this code assumes one shared origin'
+      )
+    }
+  }
+
+  return {
+    originX,
+    originY,
+    tileSize: matrices[0].tileWidth,
+    resolutions: matrices.map((matrix) => matrix.cellSize),
+    matrixWidths: matrices.map((matrix) => matrix.matrixWidth),
+    matrixHeights: matrices.map((matrix) => matrix.matrixHeight)
+  }
+}
+
+/**
  * Whether (z, col, row) names a tile this grid actually has.
  *
  * grants-ui validates tile indices against 2^z, which is correct for Web

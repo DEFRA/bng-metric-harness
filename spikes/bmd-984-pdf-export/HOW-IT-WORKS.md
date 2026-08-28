@@ -55,6 +55,27 @@ open the code. `README.md` has the evidence; `PLAN.md` has the proxy design.
   drops into either the frontend or the backend unchanged. That decision is
   deliberately still open.
 
+## Two basemap sources, because OS sells them separately
+
+Ordnance Survey grants API access product-by-product, and the project's key
+turned out to hold the **NGD API – Tiles** but not the raster **Maps API**.
+(OS's older Vector Tile API serves similar tiles but is marked for
+retirement, so the NGD API is the one used.)
+So the proxy speaks both:
+
+- **Raster** (`npm run osdemo:raster`): OS renders the map into PNG images and
+  the PDF places them. Needs the "OS Maps API" product; the free plan stops at
+  zoom 9.
+- **Vector** (`npm run osdemo`, the default): OS sends the map as *geometry* —
+  building outlines, road centrelines, water polygons — and the PDF draws it
+  itself, in the same colours OS uses (extracted from OS's own published
+  style). Needs the "OS NGD API – Tiles" product; no zoom ceiling has been
+  observed, and the result stays crisp at any print size because nothing is
+  an image.
+
+The rest of the pipeline cannot tell them apart, so whichever product a
+deployment's key holds, the same PDF comes out.
+
 ## Five decisions worth defending
 
 - **Raster map tiles, not vector.** Vector tiles need a graphics renderer that

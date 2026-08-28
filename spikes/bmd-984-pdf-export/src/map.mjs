@@ -8,6 +8,7 @@
  */
 
 import { tileSpanMetres, tilesCovering, tileTopLeft } from './grid.mjs'
+import { VECTOR_BASEMAP_STYLE, lineWidthAtZoom } from './vector-style.mjs'
 
 /**
  * Tiles are drawn a whisker larger than their true size.
@@ -60,9 +61,19 @@ export async function fetchTiles(grid, z, extent, tileSource) {
 /**
  * Paint the basemap by placing each covering tile at its own ground position.
  *
+ * Handles both tile kinds: raster tiles (`{ png }`) are placed as images,
+ * vector tiles (`{ layers }`, from decodeVectorTile) are drawn as geometry.
+ * Dispatching here — on the tiles themselves — is what keeps document.mjs
+ * entirely ignorant of which basemap product the deployment can afford.
+ *
  * @returns {{ tileCount:number, z:number }}
  */
 export function drawBasemap(doc, { grid, z, projector, tiles }) {
+  const first = tiles.values().next().value
+  if (first?.layers) {
+    return drawVectorBasemap(doc, { grid, z, projector, tiles })
+  }
+
   const span = tileSpanMetres(grid, z)
   const size = projector.metresToPoints(span) + TILE_OVERDRAW_POINTS
   const covering = tilesCovering(grid, z, projector.extent)
@@ -79,6 +90,178 @@ export function drawBasemap(doc, { grid, z, projector, tiles }) {
   }
 
   return { tileCount: covering.length, z }
+}
+
+/**
+ * Draw a basemap from decoded vector tiles, as PDF vector geometry.
+ *
+ * The registration rule is unchanged: a tile-local vertex becomes a ground
+ * coordinate using the tile's own (z, col, row) extent, and THAT goes through
+ * `projector.toPage` — the same call a habitat vertex goes through. There is
+ * no image placement at all, so the output stays crisp at any print size.
+ *
+ * Draw order is style pass, then tile: painting each pass across every tile
+ * before the next pass starts keeps cross-tile stacking correct (a road
+ * crossing a tile seam must not dip under its neighbour's land polygons).
+ *
+ * Each tile is clipped to its own ground square while drawing: MVT geometry
+ * deliberately overruns the tile edge into a buffer so neighbours join
+ * seamlessly, and without the clip that buffer would double-draw.
+ */
+export function drawVectorBasemap(doc, { grid, z, projector, tiles }) {
+  const covering = tilesCovering(grid, z, projector.extent)
+  const span = tileSpanMetres(grid, z)
+
+  for (const pass of VECTOR_BASEMAP_STYLE) {
+    for (const { col, row } of covering) {
+      const tile = tiles.get(`${z}/${col}/${row}`)
+      const layer = tile?.layers?.[pass.layer]
+      if (layer && layer.features.length > 0) {
+        drawVectorPass(doc, { layer, pass, grid, z, col, row, span, projector })
+      }
+    }
+  }
+
+  return { tileCount: covering.length, z }
+}
+
+/** The hairline floor: below this a stroke vanishes in print. */
+const MIN_STROKE_POINTS = 0.15
+
+function drawVectorPass(doc, { layer, pass, grid, z, col, row, span, projector }) {
+  const [tileMinX, tileMaxY] = tileTopLeft(grid, z, col, row)
+  const [clipX, clipY] = projector.toPage(tileMinX, tileMaxY)
+  const clipSize = projector.metresToPoints(span)
+
+  // Tile-local integers → ground metres → the page, via the projector like
+  // everything else. `layer.extent` is the tile's own coordinate span
+  // (4096 for OS tiles), carried in the tile rather than assumed.
+  const toPage = (vertex) =>
+    projector.toPage(
+      tileMinX + (vertex[0] / layer.extent) * span,
+      tileMaxY - (vertex[1] / layer.extent) * span
+    )
+
+  // Only geometry that can reach the visible window earns bytes in the PDF.
+  // The clip HIDES anything outside the frame, but its path data would still
+  // be embedded — and a 52 pt thumbnail shows ~5% of each 700-feature tile,
+  // which is the difference between a 4 MB document and a manageable one.
+  const window = visibleLocalWindow(projector.extent, { tileMinX, tileMaxY, span }, layer.extent)
+
+  doc.save()
+  doc.rect(clipX, clipY, clipSize, clipSize).clip()
+
+  for (const feature of layer.features) {
+    if (!boundsTouchWindow(feature.paths, window)) {
+      continue
+    }
+    if (pass.lines || pass.line) {
+      strokeVectorFeature(doc, feature, pass, { z, grid, projector, toPage })
+    } else {
+      fillVectorFeature(doc, feature, pass, toPage)
+    }
+  }
+
+  doc.restore()
+}
+
+/**
+ * The frame's extent expressed in this tile's local coordinates, padded so a
+ * stroke centred just outside the window still paints its inside half. The
+ * widest stroke in the style is 16 px = 128 local units; 5% of the extent
+ * (~205) covers it with room to spare.
+ */
+const WINDOW_MARGIN_FRACTION = 0.05
+
+function visibleLocalWindow(extent, { tileMinX, tileMaxY, span }, tileExtent) {
+  const margin = tileExtent * WINDOW_MARGIN_FRACTION
+  const toLocalX = (metres) => ((metres - tileMinX) / span) * tileExtent
+  const toLocalY = (metres) => ((tileMaxY - metres) / span) * tileExtent
+  return {
+    minX: toLocalX(extent.minX) - margin,
+    maxX: toLocalX(extent.maxX) + margin,
+    minY: toLocalY(extent.maxY) - margin,
+    maxY: toLocalY(extent.minY) + margin
+  }
+}
+
+/**
+ * Bounding-box intersection, which also keeps a polygon that CONTAINS the
+ * window (its bbox spans the window) — losing GB_land under a mid-tile
+ * thumbnail would blank the background.
+ */
+function boundsTouchWindow(paths, window) {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const path of paths) {
+    for (const [x, y] of path) {
+      minX = Math.min(minX, x)
+      minY = Math.min(minY, y)
+      maxX = Math.max(maxX, x)
+      maxY = Math.max(maxY, y)
+    }
+  }
+  return maxX >= window.minX && minX <= window.maxX && maxY >= window.minY && minY <= window.maxY
+}
+
+function fillVectorFeature(doc, feature, pass, toPage) {
+  const colour = pass.fill ?? pass.fills?.[feature.properties._symbol]
+  if (!colour) {
+    // No entry means a pattern overlay in the source style — its base colour
+    // was already painted by an earlier feature, so skipping is lossless.
+    return
+  }
+  for (const ring of feature.paths) {
+    traceVectorPath(doc, ring, toPage)
+    doc.closePath()
+  }
+  doc.fillColor(colour)
+  // Even-odd is what renders a polygon's hole rings as holes.
+  doc.fill('even-odd')
+}
+
+function strokeVectorFeature(doc, feature, pass, { z, grid, projector, toPage }) {
+  const line = pass.line ?? pass.lines?.[feature.properties._symbol]
+  if (!line) {
+    return
+  }
+  // The style's widths are screen pixels at a zoom, and a pixel at zoom z
+  // covers resolutions[z] metres — so the printed line has the same ground
+  // width the on-screen one would, whatever the page scale.
+  const widthMetres = lineWidthAtZoom(line.widthStops, z) * grid.resolutions[z]
+  const width = Math.max(projector.metresToPoints(widthMetres), MIN_STROKE_POINTS)
+
+  for (const path of feature.paths) {
+    traceVectorPath(doc, path, toPage)
+  }
+  doc.strokeColor(line.stroke)
+  doc.lineWidth(width)
+  doc.lineCap('round').lineJoin('round')
+  doc.stroke()
+}
+
+/**
+ * Basemap coordinates are rounded to 0.01 pt (≈ 3.5 µm on paper) before
+ * hitting the content stream: at ~700 features per central-London tile the
+ * digits of full-precision floats are a real fraction of the document.
+ * Registration is unaffected — the rounding happens after `toPage`, so both
+ * axes of error are two orders of magnitude below anything printable.
+ */
+const COORDINATE_GRAIN = 100
+
+function traceVectorPath(doc, path, toPage) {
+  path.forEach((vertex, index) => {
+    const [x, y] = toPage(vertex)
+    const rx = Math.round(x * COORDINATE_GRAIN) / COORDINATE_GRAIN
+    const ry = Math.round(y * COORDINATE_GRAIN) / COORDINATE_GRAIN
+    if (index === 0) {
+      doc.moveTo(rx, ry)
+    } else {
+      doc.lineTo(rx, ry)
+    }
+  })
 }
 
 /** Trace a ring (array of [E, N]) as a closed path. */

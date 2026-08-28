@@ -10,7 +10,7 @@
  * wiring. This is the same reasoning NRF records in its own proxy.
  */
 
-import { gridFromWmtsCapabilities } from '../grid.mjs'
+import { gridFromTileMatrixSetJson, gridFromWmtsCapabilities } from '../grid.mjs'
 import { TILE_MATRIX_SET } from './config.mjs'
 
 /**
@@ -62,6 +62,49 @@ export async function fetchGrid(
 }
 
 /**
+ * Fetch one vector tile from the OS NGD API – Tiles ngd-base tileset.
+ *
+ * NOTE the path order: OGC API Tiles is {tileMatrix}/{tileRow}/{tileCol} —
+ * ROW before COLUMN — where the raster ZXY is z/x/y. Getting this wrong does
+ * not error; it returns a plausible tile of somewhere else in Britain, which
+ * is exactly the class of bug the registration proof exists to catch.
+ *
+ * @returns {{ pbf: Buffer, contentType: string }}
+ */
+export async function fetchVectorTile(
+  { vectorTilesUrl, apiKey },
+  { z, col, row },
+  fetchImpl = fetch
+) {
+  const url = `${vectorTilesUrl}/${z}/${row}/${col}?key=${encodeURIComponent(apiKey)}`
+  const response = await fetchImpl(url, { redirect: 'follow' })
+
+  if (!response.ok) {
+    throw upstreamError(response.status, `vector tile ${z}/${col}/${row}`)
+  }
+  return {
+    pbf: Buffer.from(await response.arrayBuffer()),
+    contentType: 'application/vnd.mapbox-vector-tile'
+  }
+}
+
+/**
+ * Fetch the EPSG:27700 tiling-scheme definition and parse it into a grid.
+ *
+ * Same policy as fetchGrid: the origin and resolutions come from OS's own
+ * published document, never from a constant in this repo.
+ */
+export async function fetchVectorGrid({ vectorTileMatrixSetUrl, apiKey }, fetchImpl = fetch) {
+  const url = `${vectorTileMatrixSetUrl}?key=${encodeURIComponent(apiKey)}`
+  const response = await fetchImpl(url, { redirect: 'follow' })
+
+  if (!response.ok) {
+    throw upstreamError(response.status, 'the 27700 tile matrix set')
+  }
+  return gridFromTileMatrixSetJson(await response.json())
+}
+
+/**
  * Turn OS's two authentication-shaped failures into messages that say what to
  * do about them. They are NOT the same problem and were both observed live:
  *
@@ -80,9 +123,13 @@ function upstreamError(status, what) {
 
 function messageFor(status, what) {
   if (status === HTTP_UNAUTHORIZED) {
+    // Products are granted per-API in the OS Data Hub, so say which one THIS
+    // request needed — a key can hold the vector product and not the raster
+    // one (the situation that motivated the vector path), or vice versa.
+    const product = productFor(what)
     return (
       `Ordnance Survey rejected the request for ${what} (401). Either OS_MAPS_API_KEY ` +
-      'is unset or wrong, or its OS Data Hub project does not have the "OS Maps API" ' +
+      `is unset or wrong, or its OS Data Hub project does not have the ${product} ` +
       'product added — both fail this way.'
     )
   }
@@ -95,6 +142,15 @@ function messageFor(status, what) {
     )
   }
   return `Ordnance Survey returned ${status} for ${what}`
+}
+
+function productFor(what) {
+  // Both vector requests — tiles and the tiling-scheme document — are the
+  // same NGD product; only the raster route needs OS Maps API.
+  if (what.startsWith('vector') || what.includes('tile matrix')) {
+    return '"OS NGD API – Tiles"'
+  }
+  return '"OS Maps API"'
 }
 
 const HTTP_UNAUTHORIZED = 401
