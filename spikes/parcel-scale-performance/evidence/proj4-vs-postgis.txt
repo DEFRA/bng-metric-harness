@@ -1,0 +1,12 @@
+site                                   PostGIS easting/northing        proj4js delta (m)
+Maidenhead (default fixture centre)     488906.998  180896.438   7.4e-4
+Newcastle                               425065.062  564000.594   7.1e-4
+Penzance                                147047.850   30438.337   7.5e-4
+Norwich                                 623424.046  308695.520   7.3e-4
+Carlisle                                339802.326  555433.479   7.1e-4
+London                                  530562.602  180683.098   7.4e-4
+Birmingham                              406888.610  286901.875   7.3e-4
+coastal — Skegness                      556619.586  362873.912   7.2e-4
+
+worst-case disagreement across England: 7.47e-4 m
+(tolerances in the validator: 0.1 m for boundary grazing, 0.5 sq m for area overlays)

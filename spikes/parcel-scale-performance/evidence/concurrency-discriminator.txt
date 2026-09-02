@@ -1,0 +1,21 @@
+projects_sim: 4 rows, 16 MB document each, table 7816 kB
+
+IDLE — probes only, no uploads
+   LIGHT (no document)  n=84798  acquire p50     0  p95      0  max      8   query p50     0  p95      0  max     90
+   HEAVY (17 MB doc)    n=  89  acquire p50     0  p95      0  max      4   query p50   132  p95    169  max    187
+
+SHARED POOL (max 10) — 4 concurrent 5,000-parcel validations
+   LIGHT (no document)  n=42247  acquire p50     0  p95      0  max      2   query p50     0  p95      0  max    434
+   HEAVY (17 MB doc)    n=  28  acquire p50     0  p95      0  max      2   query p50   411  p95    671  max    737
+   validations completed: 15 in 12s
+
+SHARED POOL (max 10) — 12 concurrent 5,000-parcel validations
+   LIGHT (no document)  n=   5  acquire p50  1091  p95   6411  max   6411   query p50     1  p95    527  max    527
+   HEAVY (17 MB doc)    n=   4  acquire p50  4417  p95   6153  max   6153   query p50   786  p95   1092  max   1092
+   validations completed: 24 in 12s
+
+SPLIT POOLS (app 10 / validation 2) — 12 concurrent validations
+   LIGHT (no document)  n=68480  acquire p50     0  p95      0  max     31   query p50     0  p95      0  max    286
+   HEAVY (17 MB doc)    n=  44  acquire p50     0  p95      0  max     29   query p50   271  p95    396  max    509
+   validations completed: 20 in 12s
+

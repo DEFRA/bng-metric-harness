@@ -1,0 +1,200 @@
+[
+  {
+    "fixture": "area-sum-mismatch",
+    "current": [
+      "AREA_SUM_MISMATCH"
+    ],
+    "optimised": [
+      "AREA_SUM_MISMATCH"
+    ],
+    "curCounts": {},
+    "optCounts": {},
+    "match": true
+  },
+  {
+    "fixture": "bowtie-parcel",
+    "current": [
+      "AREA_PARCELS_INVALID_GEOMETRY",
+      "AREA_SUM_MISMATCH"
+    ],
+    "optimised": [
+      "AREA_PARCELS_INVALID_GEOMETRY",
+      "AREA_SUM_MISMATCH"
+    ],
+    "curCounts": {
+      "AREA_PARCELS_INVALID_GEOMETRY": 1
+    },
+    "optCounts": {
+      "AREA_PARCELS_INVALID_GEOMETRY": 1
+    },
+    "match": true
+  },
+  {
+    "fixture": "hedgerow-outside",
+    "current": [
+      "AREA_SUM_MISMATCH",
+      "HEDGEROWS_OUTSIDE_REDLINE"
+    ],
+    "optimised": [
+      "AREA_SUM_MISMATCH",
+      "HEDGEROWS_OUTSIDE_REDLINE"
+    ],
+    "curCounts": {
+      "HEDGEROWS_OUTSIDE_REDLINE": 1
+    },
+    "optCounts": {
+      "HEDGEROWS_OUTSIDE_REDLINE": 1
+    },
+    "match": true
+  },
+  {
+    "fixture": "overlapping-parcels",
+    "current": [
+      "AREA_SUM_MISMATCH",
+      "PARCEL_OVERLAPS"
+    ],
+    "optimised": [
+      "AREA_SUM_MISMATCH",
+      "PARCEL_OVERLAPS"
+    ],
+    "curCounts": {
+      "PARCEL_OVERLAPS": 1
+    },
+    "optCounts": {
+      "PARCEL_OVERLAPS": 1
+    },
+    "match": true
+  },
+  {
+    "fixture": "parcel-outside-redline",
+    "current": [
+      "AREA_PARCELS_OUTSIDE_REDLINE",
+      "AREA_SUM_MISMATCH",
+      "SLIVERS_OUTSIDE_REDLINE"
+    ],
+    "optimised": [
+      "AREA_PARCELS_OUTSIDE_REDLINE",
+      "AREA_SUM_MISMATCH",
+      "SLIVERS_OUTSIDE_REDLINE"
+    ],
+    "curCounts": {
+      "SLIVERS_OUTSIDE_REDLINE": 1,
+      "AREA_PARCELS_OUTSIDE_REDLINE": 1
+    },
+    "optCounts": {
+      "SLIVERS_OUTSIDE_REDLINE": 1,
+      "AREA_PARCELS_OUTSIDE_REDLINE": 1
+    },
+    "match": true
+  },
+  {
+    "fixture": "parcel-too-small",
+    "current": [
+      "AREA_PARCELS_TOO_SMALL",
+      "AREA_SUM_MISMATCH"
+    ],
+    "optimised": [
+      "AREA_PARCELS_TOO_SMALL",
+      "AREA_SUM_MISMATCH"
+    ],
+    "curCounts": {
+      "AREA_PARCELS_TOO_SMALL": 1
+    },
+    "optCounts": {
+      "AREA_PARCELS_TOO_SMALL": 1
+    },
+    "match": true
+  },
+  {
+    "fixture": "self-intersecting-redline",
+    "current": [
+      "AREA_PARCELS_OUTSIDE_REDLINE",
+      "AREA_SUM_MISMATCH",
+      "REDLINE_INVALID_GEOMETRY",
+      "SLIVERS_OUTSIDE_REDLINE"
+    ],
+    "optimised": [
+      "AREA_PARCELS_OUTSIDE_REDLINE",
+      "AREA_SUM_MISMATCH",
+      "REDLINE_INVALID_GEOMETRY",
+      "SLIVERS_OUTSIDE_REDLINE"
+    ],
+    "curCounts": {
+      "SLIVERS_OUTSIDE_REDLINE": 1,
+      "AREA_PARCELS_OUTSIDE_REDLINE": 1
+    },
+    "optCounts": {
+      "SLIVERS_OUTSIDE_REDLINE": 1,
+      "AREA_PARCELS_OUTSIDE_REDLINE": 1
+    },
+    "match": true
+  },
+  {
+    "fixture": "tiny-gap",
+    "current": [],
+    "optimised": [],
+    "curCounts": {},
+    "optCounts": {},
+    "match": true
+  },
+  {
+    "fixture": "tree-outside",
+    "current": [
+      "AREA_SUM_MISMATCH",
+      "TREES_OUTSIDE_REDLINE"
+    ],
+    "optimised": [
+      "AREA_SUM_MISMATCH",
+      "TREES_OUTSIDE_REDLINE"
+    ],
+    "curCounts": {
+      "TREES_OUTSIDE_REDLINE": 1
+    },
+    "optCounts": {
+      "TREES_OUTSIDE_REDLINE": 1
+    },
+    "match": true
+  },
+  {
+    "fixture": "watercourse-outside",
+    "current": [
+      "AREA_SUM_MISMATCH",
+      "WATERCOURSES_OUTSIDE_REDLINE"
+    ],
+    "optimised": [
+      "AREA_SUM_MISMATCH",
+      "WATERCOURSES_OUTSIDE_REDLINE"
+    ],
+    "curCounts": {
+      "WATERCOURSES_OUTSIDE_REDLINE": 1
+    },
+    "optCounts": {
+      "WATERCOURSES_OUTSIDE_REDLINE": 1
+    },
+    "match": true
+  },
+  {
+    "fixture": "clean-50",
+    "current": [],
+    "optimised": [],
+    "curCounts": {},
+    "optCounts": {},
+    "match": true
+  },
+  {
+    "fixture": "clean-250",
+    "current": [],
+    "optimised": [],
+    "curCounts": {},
+    "optCounts": {},
+    "match": true
+  },
+  {
+    "fixture": "clean-1000",
+    "current": [],
+    "optimised": [],
+    "curCounts": {},
+    "optCounts": {},
+    "match": true
+  }
+]

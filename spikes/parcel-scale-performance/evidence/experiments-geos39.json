@@ -1,0 +1,104 @@
+{
+  "5000": [
+    {
+      "label": "E1a GeoJSON parse+transform (areas)",
+      "ms": 341.6,
+      "rows": 1,
+      "sample": {
+        "count": "5000"
+      }
+    },
+    {
+      "label": "E1b WKB parse+transform (areas)",
+      "ms": 55.9,
+      "rows": 1,
+      "sample": {
+        "count": "5000"
+      }
+    },
+    {
+      "label": "E3a overlap: current (ST_Intersection area on every intersecting pair)",
+      "ms": 4765.1,
+      "rows": 1,
+      "sample": {
+        "count": "0"
+      }
+    },
+    {
+      "label": "E3b overlap: ST_Relate interior pre-filter, area only on survivors",
+      "ms": 4907.1,
+      "rows": 1,
+      "sample": {
+        "count": "0"
+      }
+    },
+    {
+      "label": "E3c overlap: candidate pairs only (no predicate beyond ST_Intersects)",
+      "ms": 1628.2,
+      "rows": 1,
+      "sample": {
+        "count": "11764"
+      }
+    },
+    {
+      "label": "E4a outside: current (ST_Difference per parcel, re-parsed geometry)",
+      "ms": 1831.6,
+      "rows": 1,
+      "sample": {
+        "count": "0"
+      }
+    },
+    {
+      "label": "E4b outside: reuse areas_g + ST_CoveredBy pre-filter",
+      "ms": 443.7,
+      "rows": 1,
+      "sample": {
+        "count": "0"
+      }
+    },
+    {
+      "label": "E5a slivers: current (ST_Union of every parcel, then difference)",
+      "ms": 3266.4,
+      "rows": 1,
+      "sample": {
+        "count": "0"
+      }
+    },
+    {
+      "label": "E5b slivers: union only the per-parcel escapes",
+      "ms": 510.2,
+      "rows": 1,
+      "sample": {
+        "count": "0"
+      }
+    },
+    {
+      "label": "E2a too-small: current (ST_MakeValid + ST_Area twice per row, re-parsed)",
+      "ms": 635,
+      "rows": 1,
+      "sample": {
+        "count": "0"
+      }
+    },
+    {
+      "label": "E2b too-small: reuse areas_g (already valid)",
+      "ms": 11.4,
+      "rows": 1,
+      "sample": {
+        "count": "0"
+      }
+    },
+    {
+      "label": "E2c invalid-geometry: current (re-parsed, ST_IsValid on raw)",
+      "ms": 597.8,
+      "rows": 1,
+      "sample": {
+        "count": "0"
+      }
+    },
+    {
+      "label": "E6 planning-only time for CHECK_QUERY (EXPLAIN)",
+      "ms": 774.2
+    }
+  ]
+}

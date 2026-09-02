@@ -1,0 +1,67 @@
+{
+  "bareMs": 7.4,
+  "out": [
+    {
+      "check": "PARCEL_OVERLAPS",
+      "ms": 715.9
+    },
+    {
+      "check": "SLIVERS_OUTSIDE_REDLINE",
+      "ms": 59.6
+    },
+    {
+      "check": "AREA_PARCELS_OUTSIDE_REDLINE",
+      "ms": 56.7
+    },
+    {
+      "check": "REDLINE_OUTSIDE_ENGLAND",
+      "ms": 25.1
+    },
+    {
+      "check": "HEDGEROWS_OUTSIDE_REDLINE",
+      "ms": 23.8
+    },
+    {
+      "check": "AREA_PARCELS_INVALID_GEOMETRY",
+      "ms": 17.3
+    },
+    {
+      "check": "WATERCOURSES_OUTSIDE_REDLINE",
+      "ms": 12.2
+    },
+    {
+      "check": "AREA_PARCELS_TOO_SMALL",
+      "ms": 11.7
+    },
+    {
+      "check": "AREA_SUM_MISMATCH",
+      "ms": 11.3
+    },
+    {
+      "check": "TREES_OUTSIDE_REDLINE",
+      "ms": 10.2
+    },
+    {
+      "check": "IGGIS_OUTSIDE_REDLINE",
+      "ms": 9
+    },
+    {
+      "check": "REDLINE_INVALID_GEOMETRY",
+      "ms": 7
+    },
+    {
+      "check": "NO_HABITAT_AREAS",
+      "ms": 6.8
+    },
+    {
+      "check": "REDLINE_AREA_TOO_LARGE",
+      "ms": 6.6
+    },
+    {
+      "check": "NO_REDLINE",
+      "ms": 6.3
+    }
+  ],
+  "geojsonLoad": 186.3,
+  "wkbLoad": 97.3
+}

@@ -1,0 +1,74 @@
+{
+  "5000": [
+    {
+      "label": "stats: vertices per parcel",
+      "ms": 38.3,
+      "out": {
+        "n": "5000",
+        "avg_pts": "5.0",
+        "max_pts": 8,
+        "avg_area": "105.0"
+      }
+    },
+    {
+      "label": "F0 candidate pairs (ST_Intersects join)",
+      "ms": 1653,
+      "out": {
+        "pairs": "11764"
+      }
+    },
+    {
+      "label": "F0b candidate pairs (bbox && only)",
+      "ms": 873.4,
+      "out": {
+        "pairs": "21757"
+      }
+    },
+    {
+      "label": "F1 current: ST_Area(ST_Intersection(a,b,grid))",
+      "ms": 5141,
+      "out": {
+        "hits": "0"
+      }
+    },
+    {
+      "label": "F2 ST_Intersection without gridSize",
+      "ms": 4560.2,
+      "out": {
+        "hits": "0"
+      }
+    },
+    {
+      "label": "F3 NOT ST_Touches pre-filter",
+      "ms": 4758.3,
+      "out": {
+        "hits": "0"
+      }
+    },
+    {
+      "label": "F4a build shrunk-parcel table (one negative buffer per parcel)",
+      "ms": 1049.8
+    },
+    {
+      "label": "F4b join on shrunk parcels, exact area only on survivors",
+      "ms": 3202.6,
+      "out": {
+        "hits": "0"
+      }
+    },
+    {
+      "label": "F5 ST_Intersection area on every candidate pair, no threshold",
+      "ms": 4707.3,
+      "out": {
+        "s": 0
+      }
+    },
+    {
+      "label": "F6 current overlap check with parallel workers forced",
+      "ms": 4662.2,
+      "out": {
+        "hits": "0"
+      }
+    }
+  ]
+}

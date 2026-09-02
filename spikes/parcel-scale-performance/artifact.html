@@ -1,0 +1,1032 @@
+<title>Parcel-Scale Upload Performance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+  /* ---- Tokens: complete light palette on bare :root ---- */
+  :root {
+    --paper:      #F6F5F1;
+    --surface:    #FCFCFB;
+    --surface-2:  #EFEEE7;
+    --ink:        #1A2422;
+    --ink-2:      #414E4B;
+    --muted:      #64716D;
+    --hairline:   #DDDBD2;
+    --hairline-2: #C9C7BC;
+    --accent:     #008A70;
+    --accent-ink: #00614F;
+    --s-current:  #BC5317;
+    --s-optimised:#008A70;
+    --s-emulated: #4A54D0;
+    --warn-bg:    #FBEFE6;
+    --warn-edge:  #E0B694;
+    --good-bg:    #E4F1EC;
+    --good-edge:  #96C9B8;
+    --shadow:     0 1px 2px rgba(26,36,34,.05), 0 8px 24px -16px rgba(26,36,34,.28);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #131614;
+      --surface:    #1A1A19;
+      --surface-2:  #212422;
+      --ink:        #E9E7E0;
+      --ink-2:      #C4C7C1;
+      --muted:      #939C97;
+      --hairline:   #2B302D;
+      --hairline-2: #3B423E;
+      --accent:     #17A183;
+      --accent-ink: #37BE9E;
+      --s-current:  #D96A2E;
+      --s-optimised:#17A183;
+      --s-emulated: #7A80E2;
+      --warn-bg:    #2A211B;
+      --warn-edge:  #6B4A2E;
+      --good-bg:    #16261F;
+      --good-edge:  #2E5C4B;
+      --shadow:     0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:      #131614;
+    --surface:    #1A1A19;
+    --surface-2:  #212422;
+    --ink:        #E9E7E0;
+    --ink-2:      #C4C7C1;
+    --muted:      #939C97;
+    --hairline:   #2B302D;
+    --hairline-2: #3B423E;
+    --accent:     #17A183;
+    --accent-ink: #37BE9E;
+    --s-current:  #D96A2E;
+    --s-optimised:#17A183;
+    --s-emulated: #7A80E2;
+    --warn-bg:    #2A211B;
+    --warn-edge:  #6B4A2E;
+    --good-bg:    #16261F;
+    --good-edge:  #2E5C4B;
+    --shadow:     0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+    font-size: 17px;
+    line-height: 1.65;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---- Layout ---- */
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 0 28px 96px; }
+  .col  { max-width: 68ch; }
+  .band { max-width: 1080px; }
+
+  header.top {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--paper) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .top-inner {
+    max-width: 1140px; margin: 0 auto; padding: 10px 28px;
+    display: flex; align-items: baseline; gap: 20px; flex-wrap: wrap;
+  }
+  .top-name {
+    font-family: "Archivo", system-ui, sans-serif;
+    font-weight: 800; font-size: 14px; letter-spacing: -.01em;
+    color: var(--ink); white-space: nowrap;
+  }
+  nav.jump { display: flex; gap: 14px; flex-wrap: wrap; margin-left: auto; }
+  nav.jump a {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--muted); text-decoration: none; padding: 2px 0;
+    border-bottom: 1px solid transparent;
+  }
+  nav.jump a:hover, nav.jump a:focus-visible { color: var(--accent-ink); border-bottom-color: var(--accent); }
+
+  /* ---- Masthead ---- */
+  .masthead { padding: 64px 0 40px; border-bottom: 2px solid var(--ink); }
+  .eyebrow {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11.5px; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--accent-ink); margin: 0 0 18px;
+  }
+  h1 {
+    font-family: "Archivo", system-ui, sans-serif;
+    font-weight: 800; font-size: clamp(34px, 5.6vw, 62px); line-height: 1.02;
+    letter-spacing: -.035em; margin: 0 0 20px; max-width: 16ch;
+    text-wrap: balance;
+  }
+  .standfirst { font-size: 20px; line-height: 1.5; color: var(--ink-2); max-width: 58ch; margin: 0; }
+  .byline {
+    margin-top: 28px; display: flex; gap: 26px; flex-wrap: wrap;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11.5px; color: var(--muted); letter-spacing: .02em;
+  }
+  .byline b { color: var(--ink-2); font-weight: 500; }
+
+  /* ---- Sections ---- */
+  section { padding-top: 56px; scroll-margin-top: 60px; }
+  .sec-head { display: flex; gap: 18px; align-items: baseline; margin-bottom: 8px; }
+  .sec-num {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 12px; font-weight: 700; color: var(--accent);
+    letter-spacing: .06em; padding-top: 8px; flex: none; width: 34px;
+  }
+  h2 {
+    font-family: "Archivo", system-ui, sans-serif;
+    font-weight: 700; font-size: clamp(24px, 3.2vw, 33px); line-height: 1.12;
+    letter-spacing: -.025em; margin: 0; text-wrap: balance;
+  }
+  h3 {
+    font-family: "Archivo", system-ui, sans-serif;
+    font-weight: 600; font-size: 19px; letter-spacing: -.012em;
+    margin: 34px 0 8px; text-wrap: balance;
+  }
+  .sec-body { margin-left: 52px; }
+  @media (max-width: 720px) { .sec-body { margin-left: 0; } .sec-head { gap: 12px; } }
+  p { margin: 0 0 16px; }
+  .lede { font-size: 18.5px; color: var(--ink-2); }
+  strong { font-weight: 600; }
+  code, .mono {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: .855em;
+  }
+  p code, li code, td code, th code {
+    background: var(--surface-2); border: 1px solid var(--hairline);
+    border-radius: 3px; padding: .08em .34em;
+  }
+  a { color: var(--accent-ink); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+  ul, ol { margin: 0 0 16px; padding-left: 22px; }
+  li { margin-bottom: 8px; }
+
+  /* ---- Stat row ---- */
+  .stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(178px, 1fr));
+    gap: 1px; background: var(--hairline); border: 1px solid var(--hairline);
+    margin: 34px 0 10px; border-radius: 4px; overflow: hidden;
+  }
+  .stat { background: var(--surface); padding: 18px 20px 16px; }
+  .stat-k {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 10px;
+  }
+  .stat-v {
+    font-family: "Archivo", system-ui, sans-serif; font-weight: 700;
+    font-size: 30px; letter-spacing: -.03em; line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-v small { font-size: 15px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+  .stat-s { font-size: 13.5px; color: var(--muted); margin-top: 7px; line-height: 1.4; }
+
+  /* ---- Callouts ---- */
+  .callout {
+    border: 1px solid var(--warn-edge); background: var(--warn-bg);
+    border-radius: 4px; padding: 20px 22px; margin: 26px 0;
+  }
+  .callout.good { border-color: var(--good-edge); background: var(--good-bg); }
+  .callout-k {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink-2); margin-bottom: 9px;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+
+  /* ---- Tables ---- */
+  .tablewrap {
+    overflow-x: auto; margin: 26px 0; border: 1px solid var(--hairline);
+    border-radius: 4px; background: var(--surface);
+  }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  caption {
+    caption-side: top; text-align: left; padding: 14px 18px 0;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted);
+  }
+  th, td {
+    padding: 9px 14px; text-align: left; border-bottom: 1px solid var(--hairline);
+    white-space: nowrap;
+  }
+  thead th {
+    font-family: "Archivo", system-ui, sans-serif; font-weight: 600;
+    font-size: 12px; letter-spacing: .01em; color: var(--ink-2);
+    border-bottom: 1px solid var(--hairline-2); position: sticky; top: 0;
+    background: var(--surface);
+  }
+  td.num, th.num { text-align: right; font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums; font-size: 13px; }
+  td.wrap-cell { white-space: normal; min-width: 260px; }
+  tbody tr:last-child td { border-bottom: none; }
+  tr.hi td { background: var(--surface-2); font-weight: 600; }
+  .dim { color: var(--muted); }
+  .tag {
+    display: inline-block; font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 3px; border: 1px solid currentColor;
+  }
+  .tag.win { color: var(--accent-ink); }
+  .tag.no  { color: var(--muted); }
+
+  /* ---- Figures ---- */
+  figure {
+    margin: 32px 0; background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: 4px; padding: 20px 22px 16px; box-shadow: var(--shadow);
+  }
+  figcaption {
+    font-size: 13.5px; color: var(--muted); margin-top: 12px;
+    padding-top: 12px; border-top: 1px solid var(--hairline); line-height: 1.5;
+  }
+  .fig-title {
+    font-family: "Archivo", system-ui, sans-serif; font-weight: 700;
+    font-size: 16px; letter-spacing: -.012em; margin: 0 0 2px;
+  }
+  .fig-sub { font-size: 13.5px; color: var(--muted); margin: 0 0 14px; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; margin: 0 0 8px; }
+  .legend span {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11.5px; color: var(--ink-2);
+  }
+  .swatch { width: 15px; height: 3px; border-radius: 2px; flex: none; }
+  .swatch.sq { width: 11px; height: 11px; border-radius: 2px; }
+  .chartbox { overflow-x: auto; }
+  svg { display: block; max-width: 100%; }
+  svg text { font-family: "JetBrains Mono", ui-monospace, monospace; }
+
+  .tip {
+    position: absolute; pointer-events: none; opacity: 0;
+    background: var(--ink); color: var(--paper); border-radius: 4px;
+    padding: 8px 11px; font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11.5px; line-height: 1.55; white-space: nowrap;
+    transition: opacity .1s ease; z-index: 5; box-shadow: var(--shadow);
+  }
+  .tip b { font-weight: 700; }
+  .figrel { position: relative; }
+
+  /* ---- Code ---- */
+  pre {
+    background: var(--surface-2); border: 1px solid var(--hairline);
+    border-radius: 4px; padding: 15px 17px; overflow-x: auto;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 12.5px; line-height: 1.62; margin: 20px 0; color: var(--ink-2);
+  }
+  pre b { color: var(--accent-ink); font-weight: 500; }
+
+  footer {
+    margin-top: 72px; padding-top: 26px; border-top: 2px solid var(--ink);
+    font-size: 14px; color: var(--muted);
+  }
+  footer .mono { font-size: 12px; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<header class="top">
+  <div class="top-inner">
+    <span class="top-name">Parcel-Scale Upload Performance</span>
+    <nav class="jump">
+      <a href="#answers">Answers</a>
+      <a href="#environment">Environment</a>
+      <a href="#curve">Curve</a>
+      <a href="#hotspots">Hotspots</a>
+      <a href="#experiments">Experiments</a>
+      <a href="#prototype">Prototype</a>
+      <a href="#offdb">Off the DB?</a>
+      <a href="#actions">Actions</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="masthead">
+    <p class="eyebrow">BNG Metric service · Performance investigation</p>
+    <h1>What happens at 5,000 parcels</h1>
+    <p class="standfirst">
+      Baseline GeoPackage validation was measured end to end, from 50 parcels to 10,000,
+      against the real backend code and a real PostGIS. The cost is linear. The
+      development database is not.
+    </p>
+    <div class="byline">
+      <span><b>2 September 2026</b></span>
+      <span>Repos at <b>main</b> · harness <b>4d5dcf2</b></span>
+      <span>Host <b>2 vCPU · 4 GB · aarch64</b></span>
+      <span>PostgreSQL <b>16</b> / PostGIS <b>3.5</b></span>
+    </div>
+  </div>
+
+  <!-- ======================= 1 ======================= -->
+  <section id="answers">
+    <div class="sec-head"><span class="sec-num">01</span><h2>The answers</h2></div>
+    <div class="sec-body">
+      <div class="col">
+        <p class="lede">
+          A 5,000-parcel baseline GeoPackage takes about <strong>1.6 seconds of server-side
+          work</strong>, of which <strong>1.12 s is the PostGIS validation round trip</strong>.
+          Add the S3 download of the ~5 MB file and the CDP-uploader wait on top.
+        </p>
+      </div>
+
+      <div class="stats band">
+        <div class="stat">
+          <div class="stat-k">5,000 parcels · validate</div>
+          <div class="stat-v">1.12<small> s</small></div>
+          <div class="stat-s">PostGIS round trip, native database</div>
+        </div>
+        <div class="stat">
+          <div class="stat-k">Marginal cost</div>
+          <div class="stat-v">0.22<small> ms</small></div>
+          <div class="stat-s">of database time per parcel, flat from 250 to 5,000</div>
+        </div>
+        <div class="stat">
+          <div class="stat-k">Same file, dev container</div>
+          <div class="stat-v">13.4<small> s</small></div>
+          <div class="stat-s">the local PostGIS runs emulated — 10–20× slower</div>
+        </div>
+        <div class="stat">
+          <div class="stat-k">Restructured prototype</div>
+          <div class="stat-v">1.98<small>×</small></div>
+          <div class="stat-s">faster, identical errors on 13 fixtures</div>
+        </div>
+      </div>
+
+      <div class="col">
+        <p>
+          The cost is <strong>essentially linear in parcel count</strong> — roughly 0.19–0.23 ms
+          of database time per parcel from 250 up to 5,000 — turning mildly superlinear only past
+          5,000 (0.28 ms/parcel at 10,000). There is no cliff and no quadratic blow-up: the
+          GiST-indexed temp table added by BMD-911 already removed the N² behaviour.
+        </p>
+        <p>Where “noticeable” begins depends on what you measure against.</p>
+      </div>
+
+      <div class="tablewrap band">
+        <table>
+          <caption>Thresholds, native PostGIS</caption>
+          <thead><tr><th>Threshold</th><th class="num">Parcels</th></tr></thead>
+          <tbody>
+            <tr><td>Validation exceeds 100 ms</td><td class="num">~750</td></tr>
+            <tr><td>Validation exceeds 500 ms</td><td class="num">~3,000</td></tr>
+            <tr><td>Validation exceeds 1 s</td><td class="num">~4,500</td></tr>
+            <tr><td>Validation exceeds 2 s</td><td class="num">~8,000</td></tr>
+            <tr class="hi"><td>Whole validate call exceeds the frontend’s 10 s <code>BACKEND_TIMEOUT_MS</code></td><td class="num">~25,000</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="col">
+        <p>
+          Nothing in the upload path bounds parcel count. At ~1.05 KB per parcel the 100 MB
+          <code>UPLOAD_MAX_FILE_SIZE_BYTES</code> cap corresponds to roughly
+          <strong>95,000 parcels</strong>.
+        </p>
+        <p>
+          On optimisation: <strong>yes, materially</strong>. A restructured prototype is 1.8–2.0×
+          faster and makes the separate habitat-sizing round trip almost free. On moving work off
+          the database: <strong>no — but move it off the request handler</strong>.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= 2 ======================= -->
+  <section id="environment">
+    <div class="sec-head"><span class="sec-num">02</span><h2>The environment caveat that changes every number</h2></div>
+    <div class="sec-body">
+      <div class="col">
+        <p><code>bng-metric-backend/compose.yml</code> pins <code>postgis/postgis:16-3.5</code>.
+        That tag has <strong>no arm64 manifest</strong>. On an arm64 host Docker pulls the amd64
+        image and runs it under QEMU emulation.</p>
+      </div>
+
+      <pre>$ docker inspect postgis/postgis:16-3.5 --format '{{.Architecture}}'
+<b>amd64</b>
+$ docker exec bng-metric-backend-postgres-1 uname -m
+<b>x86_64</b>          # …on an aarch64 host</pre>
+
+      <div class="col">
+        <p>The penalty was measured on workloads with no GeoPackage involvement at all, so it
+        cannot be confused with a PostGIS or GEOS version difference:</p>
+      </div>
+
+      <div class="tablewrap band">
+        <table>
+          <caption>Emulation penalty · identical queries, two containers, one host</caption>
+          <thead><tr><th>Workload</th><th class="num">Emulated</th><th class="num">Native</th><th class="num">Factor</th></tr></thead>
+          <tbody>
+            <tr><td><code>count(*)</code> over 20 M rows</td><td class="num">23,062 ms</td><td class="num">1,321 ms</td><td class="num">17×</td></tr>
+            <tr><td>2 M <code>md5()</code> calls</td><td class="num">9,058 ms</td><td class="num">1,283 ms</td><td class="num">7×</td></tr>
+            <tr><td>20 k <code>ST_Buffer</code> + <code>ST_Area</code></td><td class="num">37.3 ms</td><td class="num">1.7 ms</td><td class="num">21×</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout">
+        <div class="callout-k">Consequence</div>
+        <p><strong>Every local performance observation on an arm64 dev machine is inflated by
+        roughly an order of magnitude.</strong> If the <code>perfEvidence</code> figures behind the
+        “System Performance Issues” spike (BMD-869) were gathered on such a machine, they overstate
+        the problem tenfold and should be re-taken.</p>
+        <p>The fix is one line: pin a multi-arch image. <code>imresamu/postgis:16-3.5</code> and
+        <code>ghcr.io/baosystems/postgis:16-3.5</code> both publish arm64, and both were verified
+        against this codebase during the investigation.</p>
+      </div>
+
+      <div class="col">
+        <p>Production on CDP runs amd64 natively, so <strong>the native column throughout this
+        report is the one that represents production</strong>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= 3 ======================= -->
+  <section id="curve">
+    <div class="sec-head"><span class="sec-num">03</span><h2>The scaling curve</h2></div>
+    <div class="sec-body">
+      <div class="col">
+        <p>Fixtures were generated with the harness generator at a fixed seed —
+        <code>node scripts/gen-gpkg.mjs --size N --seed 42</code> — producing <em>N</em> habitat
+        parcels exactly tiling an irregular ~400 m-radius red line, plus <em>N</em>/3 hedgerows,
+        <em>N</em>/16 watercourses and <em>N</em>/2 urban trees. A 5,000-parcel file therefore
+        carries 9,500 features and is 5.2 MB on disk. Median of three runs.</p>
+      </div>
+
+      <figure class="band figrel">
+        <p class="fig-title">Database time against parcel count</p>
+        <p class="fig-sub">PostGIS validate plus the separate habitat-sizing query, native execution</p>
+        <div class="legend">
+          <span><i class="swatch" style="background:var(--s-current)"></i>Current implementation</span>
+          <span><i class="swatch" style="background:var(--s-optimised)"></i>Restructured prototype</span>
+        </div>
+        <div class="chartbox"><svg id="chart-curve" viewBox="0 0 900 400" role="img"
+          aria-label="Line chart: database time rises linearly with parcel count, reaching about 1.17 seconds at 5,000 parcels for the current implementation and about 0.59 seconds for the prototype."></svg></div>
+        <div class="tip" id="tip-curve"></div>
+        <figcaption>Both series are close to straight lines. Doubling 2,500 → 5,000 costs 2.2×;
+          5,000 → 10,000 costs 2.5×. The slight upward bend at the top comes almost entirely from
+          the parcel-overlap self-join, which grows with both the parcel count and the number of
+          neighbours each parcel has.</figcaption>
+      </figure>
+
+      <div class="tablewrap band">
+        <table>
+          <caption>Full ladder · median of three runs · milliseconds</caption>
+          <thead>
+            <tr>
+              <th class="num">Parcels</th><th class="num">Features</th><th class="num">File KB</th>
+              <th class="num">parse</th><th class="num">materialise</th><th class="num">index</th>
+              <th class="num">check</th><th class="num">PostGIS total</th><th class="num">sizing</th>
+              <th class="num">ms/parcel</th><th class="num dim">check, emulated</th>
+            </tr>
+          </thead>
+          <tbody id="ladder"></tbody>
+        </table>
+      </div>
+
+      <h3>The whole request at 5,000 parcels</h3>
+      <div class="tablewrap band">
+        <table>
+          <thead><tr><th>Stage</th><th class="num">Native</th><th class="num dim">Emulated DB</th><th>Blocks the event loop?</th></tr></thead>
+          <tbody>
+            <tr><td>GeoPackage read + format gate (better-sqlite3)</td><td class="num">57 ms</td><td class="num dim">57 ms</td><td><strong>Yes</strong></td></tr>
+            <tr><td>PostGIS validate (materialise + index + check)</td><td class="num">1,124 ms</td><td class="num dim">13,400 ms</td><td class="dim">No</td></tr>
+            <tr><td>Habitat sizing (second PostGIS round trip)</td><td class="num">50 ms</td><td class="num dim">815 ms</td><td class="dim">No</td></tr>
+            <tr><td>Extract document</td><td class="num">48 ms</td><td class="num dim">48 ms</td><td><strong>Yes</strong></td></tr>
+            <tr><td>Enrich with engine units</td><td class="num">50 ms</td><td class="num dim">50 ms</td><td><strong>Yes</strong></td></tr>
+            <tr><td>Persist 9,499 geometry rows (batched 500)</td><td class="num">94 ms</td><td class="num dim">—</td><td class="dim">No</td></tr>
+            <tr><td>Persist the 17.3 MB JSONB project document</td><td class="num">178–357 ms</td><td class="num dim">—</td><td class="dim">No</td></tr>
+            <tr class="hi"><td>Total server compute</td><td class="num">≈1.6 s</td><td class="num">≈14.5 s</td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout">
+        <div class="callout-k">Watch this instead</div>
+        <p>The <strong>17.3 MB JSONB project document</strong> is not a validation problem, but at
+        5,000 parcels it is the largest artefact the system creates: 178 ms to insert, 357 ms to
+        <code>jsonb_set</code>, 229 ms just to read back — and it is read by the project list and
+        project summary pages on every visit. At 1,000 parcels it is 3.5 MB; at 10,000 it would be
+        ~35 MB. This is likely to become the binding constraint on large sites before validation
+        does.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= 4 ======================= -->
+  <section id="hotspots">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Where the time actually goes</h2></div>
+    <div class="sec-body">
+      <div class="col">
+        <p>Each of the fifteen error checks was run in isolation against the same materialised
+        data, sharing the same CTE prefix, so the cost of each rule could be attributed
+        individually. Four things account for essentially all of it — and three of them are
+        structural rather than algorithmic.</p>
+      </div>
+
+      <figure class="band figrel">
+        <p class="fig-title">Attributed cost at 5,000 parcels</p>
+        <p class="fig-sub">Marginal milliseconds per stage · current implementation against the prototype</p>
+        <div class="legend">
+          <span><i class="swatch sq" style="background:var(--s-current)"></i>Current</span>
+          <span><i class="swatch sq" style="background:var(--s-optimised)"></i>Prototype</span>
+        </div>
+        <div class="chartbox"><svg id="chart-break" viewBox="0 0 900 340" role="img"
+          aria-label="Grouped bar chart comparing per-stage cost. Loading and preparing geometry falls from 449 to 190 milliseconds, slivers from 212 to 27, parcels outside the red line from 101 to 27, while the parcel overlap check stays around 250 to 290 milliseconds in both."></svg></div>
+        <div class="tip" id="tip-break"></div>
+        <figcaption>Every stage falls except the parcel-overlap check, which does not yield to
+          reformulation and becomes 74% of the prototype’s remaining cost. Individual checks below
+          about 10 ms sit inside the ±10 ms noise of the isolation method and are grouped.</figcaption>
+      </figure>
+
+      <h3>Every geometry is parsed and reprojected four times per upload</h3>
+      <div class="col">
+        <p><code>EXPLAIN (ANALYZE)</code> shows the <code>features_in</code> CTE materialising at
+        ~238 ms native — <code>ST_GeomFromGeoJSON</code> + <code>ST_SetSRID</code> +
+        <code>ST_Transform</code> over all 9,500 features. But the area parcels have
+        <em>already</em> been parsed and reprojected by the statement immediately before it.</p>
+      </div>
+      <div class="tablewrap band">
+        <table>
+          <thead><tr><th class="num">Pass</th><th>Statement</th><th>Layers</th></tr></thead>
+          <tbody>
+            <tr><td class="num">1</td><td><code>MATERIALISE_AREAS_QUERY</code> · <span class="mono">postgis/index.js</span></td><td>areas</td></tr>
+            <tr><td class="num">2</td><td><code>CHECK_QUERY</code> → <code>features_in</code> · <span class="mono">postgis/index.js</span></td><td>all six</td></tr>
+            <tr><td class="num">3</td><td><code>CALCULATE_HABITAT_SIZES_QUERY</code> · <span class="mono">calculate-habitat-sizes.js</span></td><td>areas, hedgerows, watercourses</td></tr>
+            <tr><td class="num">4</td><td><code>transformToBngMultiGeomSql</code> · <span class="mono">persist-upload.js</span></td><td>all, batched 500 at a time</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col">
+        <p>The temp table exists — its comment correctly explains that it gives the GiST index a
+        home — but nothing then reuses it for anything except the overlap join.</p>
+      </div>
+
+      <h3>Nine megabytes of feature properties are shipped to read three keys</h3>
+      <div class="col">
+        <p><code>buildArrays</code> sends <code>JSON.stringify(feature.properties)</code> for every
+        feature, and <code>features_in</code> casts all of it with <code>props::jsonb</code>. At
+        5,000 parcels the parameter payload is <strong>10.9 MB, of which 9.2 MB is properties and
+        only 1.7 MB is geometry</strong> — about 1.85 KB of attribute JSON per feature, fully
+        parsed into a JSONB tree on the server.</p>
+        <p>Everything that payload is used for is this:</p>
+      </div>
+      <pre>COALESCE(props->>'<b>Parcel Ref</b>', props->>'<b>Tree Ref</b>', props->>'<b>Baseline Parcel Ref</b>')
+props->>'<b>fid</b>'</pre>
+      <div class="col">
+        <p>Two scalar strings per feature, needed only to name offending features in error messages
+        that fire on a minority of uploads. The other ~1.8 KB per feature — survey dates, company
+        names, base map, comments, condition and significance columns — crosses the wire and is
+        parsed for nothing.</p>
+      </div>
+
+      <h3>The sliver check dissolves 5,000 parcels to find what the per-parcel check already found</h3>
+      <div class="col">
+        <p><code>c_slivers_outside</code> computes <code>ST_Union(ST_MakeValid(geom))</code> over
+        every parcel, then subtracts the red line. In the plan that single <code>Aggregate</code>
+        node is <strong>2,852 ms of the emulated 11,900 ms</strong> — the second most expensive node
+        in the statement.</p>
+        <p>But <code>ST_Difference(⋃Pᵢ, R)</code> and <code>⋃ ST_Difference(Pᵢ, R)</code> are the
+        same geometry, and <code>c_areas_outside</code> already computes
+        <code>ST_Difference(Pᵢ, R)</code> per parcel one CTE later. On a valid file both are empty.
+        The union of 5,000 polygons is being built to derive something that could be assembled from
+        a rowset that is empty in the healthy case.</p>
+      </div>
+
+      <h3>The overlap self-join is the one genuinely irreducible cost</h3>
+      <div class="col">
+        <p>At 5,000 parcels the join finds <strong>11,764 candidate pairs</strong> — about 2.4 per
+        parcel, the expected count for a planar tiling. The GiST index does its job: candidate
+        generation is 100 ms native. The expense is the confirmation step,
+        <code>ST_Area(ST_Intersection(a, b, 0.001)) &gt; 0.5</code>, which runs a fixed-precision
+        overlay on every one of those pairs — including the ~11,700 that merely share an edge.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= 5 ======================= -->
+  <section id="experiments">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Ten experiments, measured</h2></div>
+    <div class="sec-body">
+      <div class="col">
+        <p>Each candidate was run against the current formulation on the same data in the same
+        session. Native PostGIS, 5,000 parcels. The negative results are as useful as the positive
+        ones.</p>
+      </div>
+
+      <div class="tablewrap band">
+        <table>
+          <thead><tr><th>Experiment</th><th class="num">Current</th><th class="num">Candidate</th><th>Verdict</th></tr></thead>
+          <tbody>
+            <tr><td class="wrap-cell">Input encoding: GeoJSON text vs WKB hex, parse + reproject 5,000 parcels</td><td class="num">32.9 ms</td><td class="num">9.5 ms</td><td><span class="tag win">3.5× faster</span></td></tr>
+            <tr><td class="wrap-cell"><code>AREA_PARCELS_TOO_SMALL</code> reading the already-valid temp table</td><td class="num">31.8 ms</td><td class="num">1.3 ms</td><td><span class="tag win">24× faster</span></td></tr>
+            <tr><td class="wrap-cell"><code>AREA_PARCELS_OUTSIDE_REDLINE</code> reusing <code>areas_g</code> + <code>ST_CoveredBy</code> gate</td><td class="num">95.4 ms</td><td class="num">24.8 ms</td><td><span class="tag win">3.8× faster</span></td></tr>
+            <tr><td class="wrap-cell"><code>SLIVERS_OUTSIDE_REDLINE</code> unioning per-parcel escapes only</td><td class="num">227.9 ms</td><td class="num">28.5 ms</td><td><span class="tag win">8× faster</span></td></tr>
+            <tr><td class="wrap-cell">Planning cost of the 200-line statement (<code>EXPLAIN</code>, no execution)</td><td class="num">—</td><td class="num">172 ms</td><td><span class="tag win">prepare it</span></td></tr>
+            <tr><td class="wrap-cell">Overlap: drop the <code>gridSize</code> argument from <code>ST_Intersection</code></td><td class="num">302 ms</td><td class="num">259 ms</td><td><span class="tag no">14%, loses robustness</span></td></tr>
+            <tr><td class="wrap-cell">Overlap: <code>NOT ST_Touches(a, b)</code> pre-filter</td><td class="num">302 ms</td><td class="num">304 ms</td><td><span class="tag no">no gain</span></td></tr>
+            <tr><td class="wrap-cell">Overlap: <code>ST_Relate(a, b, 'T********')</code> interior pre-filter</td><td class="num">302 ms</td><td class="num">294 ms</td><td><span class="tag no">no gain</span></td></tr>
+            <tr><td class="wrap-cell">Overlap: pre-shrink every parcel by 5 cm, join the shrunk geometries</td><td class="num">302 ms</td><td class="num">239 ms</td><td><span class="tag no">changes semantics</span></td></tr>
+            <tr><td class="wrap-cell">Overlap: force parallel workers</td><td class="num">302 ms</td><td class="num">309 ms</td><td><span class="tag no">no gain</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout good">
+        <div class="callout-k">The current overlap design is right</div>
+        <p><code>ST_Relate</code>, <code>ST_Touches</code> and <code>ST_Overlaps</code> all build
+        the same DE-9IM intersection matrix the overlay itself needs, so substituting one for the
+        other buys nothing. The tolerance-based area test in the current code is both the correct
+        design and close to the cheapest correct one — the comments in <code>postgis/index.js</code>
+        explaining why a Boolean predicate was rejected still hold. <code>gridSize</code> is worth
+        its 14%: dropping it would reintroduce exactly the floating-point ghost slivers it was added
+        to eliminate.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= 6 ======================= -->
+  <section id="prototype">
+    <div class="sec-head"><span class="sec-num">06</span><h2>A restructured prototype</h2></div>
+    <div class="sec-body">
+      <div class="col">
+        <p>The changes that <em>did</em> work were assembled into a complete replacement for the
+        two validation statements plus the sizing query. One load statement for every layer, parsing
+        and reprojecting once and repairing once, into a table carrying both raw and repaired
+        geometry plus the two identifier strings — instead of the whole properties blob:</p>
+      </div>
+
+      <pre>CREATE TEMP TABLE feat_all ON COMMIT DROP AS
+SELECT layer, idx, <b>fid</b>, <b>feature_ref</b>, geom, ST_MakeValid(geom) AS geom_valid
+FROM (
+  SELECT layer, idx, fid, feature_ref,
+         ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(g), srid), 27700) AS geom
+  FROM unnest($1::text[], $2::int[], $3::text[], $4::text[], $5::text[], $6::int[])
+    AS t(layer, idx, fid, feature_ref, g, srid)
+) s;
+CREATE INDEX ON feat_all USING gist (geom_valid) <b>WHERE layer = 'areas'</b>;
+ANALYZE feat_all;</pre>
+
+      <div class="col">
+        <p>And one escape rowset feeding <em>both</em> parcel-outside errors, gated so that parcels
+        the red line already covers never reach the overlay at all:</p>
+      </div>
+
+      <pre>c_escapes AS (
+  SELECT feat.idx, feat.fid, feat.feature_ref,
+         ST_Difference(feat.geom_valid, redl.geom, 0.001) AS escape
+  FROM areas feat CROSS JOIN redline_union redl
+  WHERE redl.geom IS NOT NULL AND <b>NOT ST_CoveredBy(feat.geom_valid, redl.geom)</b>
+),
+c_areas_outside   AS (SELECT … FROM c_escapes WHERE ST_Area(escape) > 0.5),
+c_slivers_outside AS (SELECT … FROM (SELECT (ST_Dump(<b>ST_Union(escape)</b>)).geom … FROM c_escapes) …)</pre>
+
+      <div class="tablewrap band">
+        <table>
+          <caption>Prototype against current · three runs per size · milliseconds</caption>
+          <thead><tr>
+            <th class="num">Parcels</th><th class="num">Current</th><th class="num">Prototype</th>
+            <th class="num">load</th><th class="num">index</th><th class="num">check</th><th class="num">sizing</th>
+            <th class="num">Speed-up</th>
+          </tr></thead>
+          <tbody>
+            <tr><td class="num">250</td><td class="num">58.1</td><td class="num">35.0</td><td class="num">4.3</td><td class="num">8.0</td><td class="num">20.7</td><td class="num">0.6</td><td class="num">1.66×</td></tr>
+            <tr><td class="num">1,000</td><td class="num">200.5</td><td class="num">116.2</td><td class="num">16.2</td><td class="num">23.9</td><td class="num">65.6</td><td class="num">1.2</td><td class="num">1.73×</td></tr>
+            <tr><td class="num">2,000</td><td class="num">436.9</td><td class="num">247.9</td><td class="num">33.5</td><td class="num">41.5</td><td class="num">165.1</td><td class="num">2.0</td><td class="num">1.76×</td></tr>
+            <tr class="hi"><td class="num">5,000</td><td class="num">1,160.8</td><td class="num">587.5</td><td class="num">77.3</td><td class="num">105.7</td><td class="num">394.4</td><td class="num">5.6</td><td class="num">1.98×</td></tr>
+            <tr><td class="num">10,000</td><td class="num">2,983.0</td><td class="num">1,656.6</td><td class="num">191.8</td><td class="num">209.1</td><td class="num">1,238.6</td><td class="num">9.2</td><td class="num">1.80×</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>It returns the same answers</h3>
+      <div class="col">
+        <p>Run against ten deliberately flawed fixtures from the harness generator plus three clean
+        files, comparing error <strong>codes</strong> and error <strong>counts</strong> against the
+        current implementation. <strong>13 of 13 match.</strong></p>
+      </div>
+
+      <div class="tablewrap band">
+        <table>
+          <thead><tr><th>Fixture</th><th class="wrap-cell">Errors returned — identical in both</th></tr></thead>
+          <tbody>
+            <tr><td><code>area-sum-mismatch</code></td><td class="wrap-cell mono">AREA_SUM_MISMATCH</td></tr>
+            <tr><td><code>bowtie-parcel</code></td><td class="wrap-cell mono">AREA_PARCELS_INVALID_GEOMETRY ×1 · AREA_SUM_MISMATCH</td></tr>
+            <tr><td><code>overlapping-parcels</code></td><td class="wrap-cell mono">PARCEL_OVERLAPS ×1 · AREA_SUM_MISMATCH</td></tr>
+            <tr><td><code>parcel-outside-redline</code></td><td class="wrap-cell mono">AREA_PARCELS_OUTSIDE_REDLINE ×1 · SLIVERS_OUTSIDE_REDLINE ×1 · AREA_SUM_MISMATCH</td></tr>
+            <tr><td><code>parcel-too-small</code></td><td class="wrap-cell mono">AREA_PARCELS_TOO_SMALL ×1 · AREA_SUM_MISMATCH</td></tr>
+            <tr><td><code>self-intersecting-redline</code></td><td class="wrap-cell mono">REDLINE_INVALID_GEOMETRY · AREA_PARCELS_OUTSIDE_REDLINE ×1 · SLIVERS_OUTSIDE_REDLINE ×1 · AREA_SUM_MISMATCH</td></tr>
+            <tr><td><code>hedgerow-outside</code></td><td class="wrap-cell mono">HEDGEROWS_OUTSIDE_REDLINE ×1 · AREA_SUM_MISMATCH</td></tr>
+            <tr><td><code>watercourse-outside</code></td><td class="wrap-cell mono">WATERCOURSES_OUTSIDE_REDLINE ×1 · AREA_SUM_MISMATCH</td></tr>
+            <tr><td><code>tree-outside</code></td><td class="wrap-cell mono">TREES_OUTSIDE_REDLINE ×1 · AREA_SUM_MISMATCH</td></tr>
+            <tr><td><code>tiny-gap</code></td><td class="wrap-cell dim">none — correctly accepted</td></tr>
+            <tr><td><code>clean 50 / 250 / 1,000</code></td><td class="wrap-cell dim">none</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="col">
+        <p>This is a spike, not production code. It has no tests of its own, does not carry the
+        explanatory comments the current module rightly has, and the <code>ST_CoveredBy</code> gates
+        would need their own regression cases for boundary-grazing features before shipping.</p>
+        <p>One honest wrinkle: the prototype’s <em>overlap</em> check is ~46 ms slower in isolation
+        than the current one, because a partial GiST index over a mixed-layer table is less
+        efficient than the current dedicated <code>areas_g</code> table. Keeping a dedicated area
+        table alongside the shared load table would recover that — a refinement, not a blocker.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= 7 ======================= -->
+  <section id="offdb">
+    <div class="sec-head"><span class="sec-num">07</span><h2>Should any work move off the database?</h2></div>
+    <div class="sec-body">
+      <div class="col">
+        <p><strong>No computation should move to Node.</strong> PostGIS is doing geometry work in
+        the one place where it is fast, indexed and numerically robust; the JavaScript side accounts
+        for 155 ms of a ~1,600 ms request at 5,000 parcels. Reimplementing overlay or containment in
+        Turf would be slower and would reintroduce the robustness problems the <code>gridSize</code>
+        and tolerance work exists to solve.</p>
+
+        <h3>Three things should move — but not off the database</h3>
+        <ol>
+          <li><strong>Off the request handler.</strong> <code>handleReadyUpload</code> calls the
+          backend’s validate endpoint synchronously inside a page request, through a Wreck client
+          with <code>BACKEND_TIMEOUT_MS</code> defaulting to <strong>10,000 ms</strong>. The same
+          controller already has a polling loop — <code>REFRESH_INTERVAL_SECONDS = 5</code>,
+          <code>MAX_WAIT_SECONDS = 120</code> — that it uses while waiting for the CDP uploader.
+          Extending that loop to cover validation removes the 10 s cliff entirely and costs no extra
+          compute.</li>
+          <li><strong>Into the statement that is already running.</strong> Habitat sizing is a
+          separate round trip that re-parses and re-repairs geometry the validation statement has
+          already parsed and repaired. It collapses to ~1% of its cost when read off the loaded
+          table.</li>
+          <li><strong>Out of the wire.</strong> The 9.2 MB of feature properties should never leave
+          Node.</li>
+        </ol>
+
+        <h3>Two considered and not recommended yet</h3>
+        <ul>
+          <li><strong>Persist geometry first, validate from the table.</strong> This would collapse
+          three of the four parse passes into one, but it means writing rows for files about to be
+          rejected — and the current design’s “nothing is persisted” property, stated explicitly at
+          the top of <code>postgis/index.js</code>, is a real one worth keeping.</li>
+          <li><strong>Streaming or chunked validation.</strong> Only pays off above ~20,000 parcels,
+          and adds substantial complexity for a case not yet observed.</li>
+        </ul>
+      </div>
+
+      <h3>Concurrency: the database saturates at two requests</h3>
+      <div class="tablewrap band">
+        <table>
+          <caption>Repeated 1,000-parcel validations against one pool</caption>
+          <thead><tr><th class="num">Concurrency</th><th class="num">Wall clock</th><th>Per-request latency</th><th class="num">Throughput</th></tr></thead>
+          <tbody>
+            <tr><td class="num">1</td><td class="num">202 ms</td><td class="mono">202</td><td class="num">4.95/s</td></tr>
+            <tr><td class="num">2</td><td class="num">228 ms</td><td class="mono">214, 228</td><td class="num">8.77/s</td></tr>
+            <tr><td class="num">4</td><td class="num">535 ms</td><td class="mono">455 – 535</td><td class="num">7.48/s</td></tr>
+            <tr><td class="num">8</td><td class="num">975 ms</td><td class="mono">733 – 975</td><td class="num">8.21/s</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col">
+        <p>Throughput flattens at the host’s two vCPUs; beyond that, added concurrency shows up
+        purely as latency. Validation is CPU-bound <em>inside PostgreSQL</em>, so the sizing of the
+        database instance — not the backend task — sets the ceiling.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= 8 ======================= -->
+  <section id="actions">
+    <div class="sec-head"><span class="sec-num">08</span><h2>What to do, in order</h2></div>
+    <div class="sec-body">
+      <div class="tablewrap band">
+        <table>
+          <thead><tr><th>#</th><th class="wrap-cell">Change</th><th class="wrap-cell">Gain at 5,000 parcels</th><th>Effort</th><th>Risk</th></tr></thead>
+          <tbody>
+            <tr class="hi"><td class="num">R1</td><td class="wrap-cell">Pin a multi-arch PostGIS image in <code>compose.yml</code> so arm64 developers stop running an emulated database</td><td class="wrap-cell">10–20× locally; makes local perf evidence trustworthy</td><td>~1 line</td><td>Very low</td></tr>
+            <tr><td class="num">R2</td><td class="wrap-cell">Stop sending feature properties to PostGIS — pass <code>fid</code> and <code>feature_ref</code> as two text arrays</td><td class="wrap-cell">−9.2 MB on the wire, −85% of the parameter payload</td><td>Small</td><td>Low</td></tr>
+            <tr><td class="num">R3</td><td class="wrap-cell">Load every layer once into the temp table; have the check query <em>and</em> <code>calculateHabitatSizes</code> read from it</td><td class="wrap-cell">2 of 4 parse passes removed; sizing 47 ms → 6 ms</td><td>Medium</td><td>Low</td></tr>
+            <tr><td class="num">R4</td><td class="wrap-cell">Derive both parcel-outside errors from one <code>ST_CoveredBy</code>-gated escape rowset</td><td class="wrap-cell">228 ms → 29 ms</td><td>Medium</td><td>Medium — needs boundary-grazing cases</td></tr>
+            <tr><td class="num">R5</td><td class="wrap-cell">Store <code>ST_MakeValid(geom)</code> as a column; stop recomputing <code>ST_Area(ST_MakeValid(…))</code> twice per row</td><td class="wrap-cell">32 ms → 1.3 ms</td><td>Small</td><td>Very low</td></tr>
+            <tr><td class="num">R6</td><td class="wrap-cell">Send WKB rather than GeoJSON — the reader already holds the GPKG blob</td><td class="wrap-cell">3.5× on parse; removes a JS decode + stringify per feature</td><td>Medium</td><td>Low</td></tr>
+            <tr><td class="num">R7</td><td class="wrap-cell">Issue the check query as a named/prepared statement so PostgreSQL stops re-planning 200 lines per upload</td><td class="wrap-cell">~170 ms per upload, size-independent</td><td>Small</td><td>Low</td></tr>
+            <tr><td class="num">R8</td><td class="wrap-cell">Make validation asynchronous — return a job id, let the frontend’s existing 120 s poll loop wait on it</td><td class="wrap-cell">Removes the 10 s <code>BACKEND_TIMEOUT_MS</code> cliff</td><td>Large</td><td>Medium</td></tr>
+            <tr><td class="num">R9</td><td class="wrap-cell">Address the JSONB project document size — 17.3 MB at 5,000 parcels, read by the project list and summary pages</td><td class="wrap-cell">Out of scope here; likely the next binding constraint</td><td>Large</td><td>—</td></tr>
+            <tr><td class="num">R10</td><td class="wrap-cell">Add a parcel-count guardrail and alarm on the existing <code>featureCount</code> metric</td><td class="wrap-cell">Operational visibility before a user finds the limit</td><td>Small</td><td>Very low</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="col">
+        <p>R2 + R3 + R4 + R5 together are what the prototype measures: <strong>1.8–2.0×</strong>.
+        Adding R6 and R7 should reach <strong>2.5–3×</strong>, putting a 5,000-parcel file at
+        roughly 400–450 ms of database time and the whole request comfortably under a second.</p>
+        <p>R1 is first on the list not because it changes production, but because without it the
+        team is optimising against numbers that are ten times wrong.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p><strong>Reproducing.</strong> Every script that produced these numbers lives beside the
+    written report in <span class="mono">spikes/parcel-scale-performance/</span>, with raw results in
+    <span class="mono">evidence/</span>. The scripts import the backend’s own modules by absolute
+    path and its <span class="mono">pg</span> and <span class="mono">better-sqlite3</span> from its
+    <span class="mono">node_modules</span>, so they measure the shipping code with no duplication.
+    Point them at port 5432 to reproduce the emulated figures, 5433 for native.</p>
+    <p class="mono">bng-metric-harness · bng-metric-backend · bng-metric-frontend · bng-library — all at main, 2 September 2026</p>
+  </footer>
+
+</div>
+
+<script type="module">
+  const LADDER = [
+    // parcels, features, fileKB, parse, materialise, index, check, total, sizing, msPerParcel, emulatedCheck
+    [50, 95, 132, 3.0, 2.3, 0.7, 12.2, 16.9, 1.5, 0.34, 164],
+    [100, 190, 180, 3.3, 3.2, 0.8, 18.4, 23.8, 1.4, 0.24, 272],
+    [250, 475, 332, 5.6, 7.8, 1.7, 43.0, 54.9, 2.9, 0.22, 600],
+    [500, 950, 588, 9.2, 14.5, 2.9, 74.0, 95.2, 6.5, 0.19, 1128],
+    [750, 1426, 848, 12.2, 19.6, 3.8, 109.6, 144.3, 7.9, 0.19, 1671],
+    [1000, 1900, 1096, 14.3, 32.1, 4.4, 145.2, 184.3, 9.8, 0.18, 2162],
+    [1500, 2851, 1608, 18.7, 38.5, 5.4, 234.7, 284.4, 17.1, 0.19, 3297],
+    [2000, 3800, 2116, 24.5, 56.0, 6.5, 332.9, 406.0, 22.7, 0.20, 4810],
+    [3000, 5701, 3136, 32.6, 105.4, 8.7, 485.3, 615.9, 29.5, 0.21, 6958],
+    [5000, 9500, 5184, 57.3, 197.3, 13.5, 887.0, 1123.6, 49.9, 0.22, 11901],
+    [7500, 14251, 7728, 88.6, 303.1, 24.0, 1315.3, 1697.1, 96.5, 0.23, 18882],
+    [10000, 19000, 10276, 127.1, 411.7, 34.3, 2319.8, 2824.3, 124.0, 0.28, 31134]
+  ]
+  const fmt = (n) => n.toLocaleString('en-GB')
+  const tbody = document.getElementById('ladder')
+  tbody.innerHTML = LADDER.map((r) => {
+    const cls = r[0] === 5000 ? ' class="hi"' : ''
+    const cells = [fmt(r[0]), fmt(r[1]), fmt(r[2]), r[3].toFixed(1), r[4].toFixed(1), r[5].toFixed(1),
+      r[6].toFixed(1), '<b>' + fmt(r[7]) + '</b>', r[8].toFixed(1), r[9].toFixed(2),
+      '<span class="dim">' + fmt(r[10]) + '</span>']
+    return `<tr${cls}>` + cells.map((c) => `<td class="num">${c}</td>`).join('') + '</tr>'
+  }).join('')
+
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  const SVGNS = 'http://www.w3.org/2000/svg'
+  const el = (tag, attrs = {}, text) => {
+    const n = document.createElementNS(SVGNS, tag)
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v)
+    if (text != null) n.textContent = text
+    return n
+  }
+
+  /* ---------- Figure 1: scaling curve ---------- */
+  const CURRENT = LADDER.map((r) => [r[0], r[7] + r[8]])
+  const PROTO = [[250, 35.0], [1000, 116.2], [2000, 247.9], [5000, 587.5], [10000, 1656.6]]
+
+  function drawCurve() {
+    const svg = document.getElementById('chart-curve')
+    svg.innerHTML = ''
+    const W = 900, H = 400, m = { t: 16, r: 128, b: 46, l: 66 }
+    const xw = W - m.l - m.r, yh = H - m.t - m.b
+    const xMax = 10000, yMax = 3000
+    const X = (v) => m.l + (v / xMax) * xw
+    const Y = (v) => m.t + yh - (v / yMax) * yh
+    const ink = css('--ink'), muted = css('--muted'), hair = css('--hairline')
+    const cCur = css('--s-current'), cOpt = css('--s-optimised'), surf = css('--surface')
+
+    for (const gy of [0, 500, 1000, 1500, 2000, 2500, 3000]) {
+      svg.appendChild(el('line', { x1: m.l, x2: m.l + xw, y1: Y(gy), y2: Y(gy),
+        stroke: gy === 0 ? css('--hairline-2') : hair, 'stroke-width': 1 }))
+      svg.appendChild(el('text', { x: m.l - 12, y: Y(gy) + 4, 'text-anchor': 'end',
+        'font-size': 11, fill: muted }, gy === 0 ? '0' : (gy / 1000).toFixed(1) + ' s'))
+    }
+    for (const gx of [0, 2000, 4000, 6000, 8000, 10000]) {
+      svg.appendChild(el('text', { x: X(gx), y: m.t + yh + 24, 'text-anchor': 'middle',
+        'font-size': 11, fill: muted }, fmt(gx)))
+    }
+    svg.appendChild(el('text', { x: m.l, y: H - 8, 'font-size': 10.5, fill: muted,
+      'letter-spacing': '.08em' }, 'HABITAT PARCELS'))
+
+    const path = (data) => data.map((d, i) => (i ? 'L' : 'M') + X(d[0]).toFixed(1) + ' ' + Y(d[1]).toFixed(1)).join(' ')
+    svg.appendChild(el('path', { d: path(CURRENT), fill: 'none', stroke: cCur, 'stroke-width': 2,
+      'stroke-linejoin': 'round', 'stroke-linecap': 'round' }))
+    svg.appendChild(el('path', { d: path(PROTO), fill: 'none', stroke: cOpt, 'stroke-width': 2,
+      'stroke-dasharray': '7 4', 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }))
+
+    for (const [data, col] of [[CURRENT, cCur], [PROTO, cOpt]]) {
+      for (const d of data) {
+        svg.appendChild(el('circle', { cx: X(d[0]), cy: Y(d[1]), r: 4, fill: col,
+          stroke: surf, 'stroke-width': 2 }))
+      }
+    }
+
+    const lastCur = CURRENT[CURRENT.length - 1], lastOpt = PROTO[PROTO.length - 1]
+    svg.appendChild(el('text', { x: X(lastCur[0]) + 12, y: Y(lastCur[1]) + 4, 'font-size': 12,
+      'font-weight': 700, fill: cCur }, 'Current'))
+    svg.appendChild(el('text', { x: X(lastCur[0]) + 12, y: Y(lastCur[1]) + 20, 'font-size': 11,
+      fill: muted }, '2.98 s'))
+    svg.appendChild(el('text', { x: X(lastOpt[0]) + 12, y: Y(lastOpt[1]) + 4, 'font-size': 12,
+      'font-weight': 700, fill: cOpt }, 'Prototype'))
+    svg.appendChild(el('text', { x: X(lastOpt[0]) + 12, y: Y(lastOpt[1]) + 20, 'font-size': 11,
+      fill: muted }, '1.66 s'))
+
+    const mark5k = el('line', { x1: X(5000), x2: X(5000), y1: m.t, y2: m.t + yh,
+      stroke: ink, 'stroke-width': 1, 'stroke-dasharray': '2 4', opacity: .35 })
+    svg.appendChild(mark5k)
+    svg.appendChild(el('text', { x: X(5000) + 7, y: m.t + 13, 'font-size': 10.5, fill: muted,
+      'letter-spacing': '.06em' }, '5,000'))
+
+    // hover crosshair
+    const cross = el('line', { x1: 0, x2: 0, y1: m.t, y2: m.t + yh, stroke: ink,
+      'stroke-width': 1, opacity: 0 })
+    svg.appendChild(cross)
+    const tip = document.getElementById('tip-curve')
+    const box = el('rect', { x: m.l, y: m.t, width: xw, height: yh, fill: 'transparent' })
+    svg.appendChild(box)
+    const near = (data, px) => data.reduce((a, b) => Math.abs(X(b[0]) - px) < Math.abs(X(a[0]) - px) ? b : a)
+    svg.addEventListener('pointermove', (e) => {
+      const r = svg.getBoundingClientRect()
+      const px = (e.clientX - r.left) * (W / r.width)
+      if (px < m.l || px > m.l + xw) { cross.setAttribute('opacity', 0); tip.style.opacity = 0; return }
+      const c = near(CURRENT, px), o = near(PROTO, px)
+      cross.setAttribute('x1', X(c[0])); cross.setAttribute('x2', X(c[0]))
+      cross.setAttribute('opacity', .3)
+      tip.innerHTML = `<b>${fmt(c[0])} parcels</b><br>Current &nbsp;<b>${c[1].toFixed(0)} ms</b>` +
+        (Math.abs(o[0] - c[0]) < 1 ? `<br>Prototype <b>${o[1].toFixed(0)} ms</b>` : '')
+      const fr = svg.closest('figure').getBoundingClientRect()
+      tip.style.left = (e.clientX - fr.left + 16) + 'px'
+      tip.style.top = (e.clientY - fr.top - 10) + 'px'
+      tip.style.opacity = 1
+    })
+    svg.addEventListener('pointerleave', () => { cross.setAttribute('opacity', 0); tip.style.opacity = 0 })
+  }
+
+  /* ---------- Figure 2: attributed cost ---------- */
+  const BREAK = [
+    ['Load & prepare geometry', 448.8, 189.5],
+    ['Parcel overlaps', 246.0, 292.0],
+    ['Slivers outside red line', 212.0, 27.0],
+    ['Parcels outside red line', 101.0, 27.0],
+    ['All other checks (11)', 90.0, 42.0],
+    ['Habitat sizing (2nd query)', 49.9, 5.6],
+    ['Transaction overhead', 26.0, 10.0]
+  ]
+
+  function drawBreak() {
+    const svg = document.getElementById('chart-break')
+    svg.innerHTML = ''
+    const W = 900, H = 340, m = { t: 12, r: 24, b: 34, l: 196 }
+    const xw = W - m.l - m.r, yh = H - m.t - m.b
+    const xMax = 480
+    const X = (v) => m.l + (v / xMax) * xw
+    const rowH = yh / BREAK.length
+    const barH = 11, gap = 2
+    const muted = css('--muted'), hair = css('--hairline'), ink2 = css('--ink-2')
+    const cCur = css('--s-current'), cOpt = css('--s-optimised'), surf = css('--surface')
+
+    for (const gx of [0, 100, 200, 300, 400]) {
+      svg.appendChild(el('line', { x1: X(gx), x2: X(gx), y1: m.t, y2: m.t + yh,
+        stroke: gx === 0 ? css('--hairline-2') : hair, 'stroke-width': 1 }))
+      svg.appendChild(el('text', { x: X(gx), y: m.t + yh + 20, 'text-anchor': 'middle',
+        'font-size': 11, fill: muted }, gx + (gx === 400 ? ' ms' : '')))
+    }
+
+    const tip = document.getElementById('tip-break')
+    BREAK.forEach((row, i) => {
+      const [label, cur, opt] = row
+      const cy = m.t + i * rowH + rowH / 2
+      svg.appendChild(el('text', { x: m.l - 14, y: cy + 4, 'text-anchor': 'end',
+        'font-size': 11.5, fill: ink2 }, label))
+
+      const bars = [[cur, cCur, cy - barH - gap / 2, 'Current'], [opt, cOpt, cy + gap / 2, 'Prototype']]
+      for (const [v, col, y, name] of bars) {
+        const g = el('g', { style: 'cursor:default' })
+        g.appendChild(el('rect', { x: X(0), y, width: Math.max(2, X(v) - X(0)), height: barH,
+          rx: 4, fill: col }))
+        g.appendChild(el('rect', { x: X(0), y: y - 2, width: Math.max(2, X(v) - X(0)) + 26,
+          height: barH + 4, fill: 'transparent' }))
+        g.addEventListener('pointerenter', (e) => {
+          tip.innerHTML = `<b>${label}</b><br>${name} &nbsp;<b>${v.toFixed(0)} ms</b>`
+          const fr = svg.closest('figure').getBoundingClientRect()
+          tip.style.left = (e.clientX - fr.left + 16) + 'px'
+          tip.style.top = (e.clientY - fr.top - 10) + 'px'
+          tip.style.opacity = 1
+        })
+        g.addEventListener('pointerleave', () => { tip.style.opacity = 0 })
+        svg.appendChild(g)
+        svg.appendChild(el('text', { x: X(v) + 7, y: y + barH - 1.5, 'font-size': 10.5,
+          fill: muted }, v.toFixed(0)))
+      }
+    })
+    svg.appendChild(el('rect', { x: 0, y: 0, width: 0, height: 0, fill: surf }))
+  }
+
+  function drawAll() { drawCurve(); drawBreak() }
+  drawAll()
+  window.addEventListener('resize', drawAll)
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawAll)
+  new MutationObserver(drawAll).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+</script>

@@ -1,0 +1,33 @@
+=== idx2.mjs — shared pre-built index vs per-upload bulk build (5,000 parcels, native) ===
+5,000-parcel upload joined against a shared table also holding other uploads
+
+alone in the table (uuid key)                  join     95 ms  pairs  11764  "Node Type":"Seq Scan","Node Type":"Index Scan"
+8 others, SAME site (worst case)               join     93 ms  pairs  11764  "Node Type":"Bitmap Heap Scan","Node Type":"Index Scan"
+8 others, different sites 5 km apart           join    102 ms  pairs  11764  "Node Type":"Bitmap Heap Scan","Node Type":"Index Scan"
+8 others, different sites 100 km apart         join     99 ms  pairs  11764  "Node Type":"Bitmap Heap Scan","Node Type":"Index Scan"
+8 others, SAME site, monotonic int key         join    373 ms  pairs  11764  "Node Type":"Seq Scan","Node Type":"Index Scan"
+8 others, SAME site, + btree on upload_id      join     98 ms  pairs  11764  "Node Type":"Index Scan","Node Type":"Index Scan"
+
+=== optb.mjs — Option B: JS bbox sweep + stateless statement ===
+
+parcels=1000
+  Node   bbox extract 1.6 ms · sweep 2.6 ms → 4108 candidate pairs  (brute-force check 4108 pairs in 7 ms — MATCH)
+  TODAY  temp table + GiST + ANALYZE 59 ms, join 58 ms  → connection held 117 ms, overlaps 0
+  OPT B  one statement 159 ms  → connection held 159 ms (no transaction), overlaps 0  SAME ANSWER
+
+parcels=5000
+  Node   bbox extract 4.5 ms · sweep 7.6 ms → 21568 candidate pairs  (brute-force check 21568 pairs in 65 ms — MATCH)
+  TODAY  temp table + GiST + ANALYZE 250 ms, join 312 ms  → connection held 563 ms, overlaps 0
+  OPT B  one statement 331 ms  → connection held 331 ms (no transaction), overlaps 0  SAME ANSWER
+
+parcels=10000
+  Node   bbox extract 6.9 ms · sweep 29.9 ms → 43357 candidate pairs  (brute-force check 43357 pairs in 211 ms — MATCH)
+  TODAY  temp table + GiST + ANALYZE 569 ms, join 685 ms  → connection held 1254 ms, overlaps 0
+  OPT B  one statement 17820 ms  → connection held 17820 ms (no transaction), overlaps 0  SAME ANSWER
+
+=== optb2.mjs — Option B plan diagnosis at 10,000 parcels ===
+work_mem=   4MB  exec  44235 ms   joins: Nested Loop + Nested Loop   hash peak KB: -
+work_mem=  64MB  exec  44215 ms   joins: Nested Loop + Nested Loop   hash peak KB: -
+work_mem= 256MB  exec  43145 ms   joins: Nested Loop + Nested Loop   hash peak KB: -
+
+(10000 parcels, 43357 candidate pairs supplied from Node)

@@ -1,0 +1,74 @@
+[
+  {
+    "parcels": 250,
+    "extractMs": 4.7,
+    "enrichMs": 2.9,
+    "docBytes": 862934,
+    "geomRows": 474,
+    "persistGeomMs": 6.4,
+    "docInsertMs": 9.5,
+    "docUpdateMs": 17.3,
+    "docReadMs": 12.4,
+    "geometryLayers": {
+      "redLine": 1,
+      "habitats": 250,
+      "hedgerows": 83,
+      "watercourses": 16,
+      "trees": 125
+    }
+  },
+  {
+    "parcels": 1000,
+    "extractMs": 12.6,
+    "enrichMs": 9,
+    "docBytes": 3452160,
+    "geomRows": 1899,
+    "persistGeomMs": 21.7,
+    "docInsertMs": 38.6,
+    "docUpdateMs": 67.2,
+    "docReadMs": 41.8,
+    "geometryLayers": {
+      "redLine": 1,
+      "habitats": 1000,
+      "hedgerows": 333,
+      "watercourses": 66,
+      "trees": 500
+    }
+  },
+  {
+    "parcels": 2000,
+    "extractMs": 27.6,
+    "enrichMs": 21.5,
+    "docBytes": 6908841,
+    "geomRows": 3799,
+    "persistGeomMs": 41.5,
+    "docInsertMs": 69.1,
+    "docUpdateMs": 137.1,
+    "docReadMs": 85.5,
+    "geometryLayers": {
+      "redLine": 1,
+      "habitats": 2000,
+      "hedgerows": 666,
+      "watercourses": 133,
+      "trees": 1000
+    }
+  },
+  {
+    "parcels": 5000,
+    "extractMs": 48.4,
+    "enrichMs": 49.9,
+    "docBytes": 17266277,
+    "geomRows": 9499,
+    "persistGeomMs": 93.6,
+    "docInsertMs": 178.2,
+    "docUpdateMs": 356.5,
+    "docReadMs": 229.2,
+    "geometryLayers": {
+      "redLine": 1,
+      "habitats": 5000,
+      "hedgerows": 1666,
+      "watercourses": 333,
+      "trees": 2500
+    }
+  }
+]

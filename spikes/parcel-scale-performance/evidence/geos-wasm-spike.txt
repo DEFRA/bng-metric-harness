@@ -1,0 +1,36 @@
+=== equivalence: GEOS-WASM in Node vs PostGIS, 13 fixtures ===
+MATCH   area-sum-mismatch            postgis=["AREA_SUM_MISMATCH"]
+MATCH   bowtie-parcel                postgis=["AREA_PARCELS_INVALID_GEOMETRY","AREA_SUM_MISMATCH"] {"AREA_PARCELS_INVALID_GEOMETRY":1}
+MATCH   hedgerow-outside             postgis=["AREA_SUM_MISMATCH","HEDGEROWS_OUTSIDE_REDLINE"] {"HEDGEROWS_OUTSIDE_REDLINE":1}
+MATCH   overlapping-parcels          postgis=["AREA_SUM_MISMATCH","PARCEL_OVERLAPS"] {"PARCEL_OVERLAPS":1}
+MATCH   parcel-outside-redline       postgis=["AREA_PARCELS_OUTSIDE_REDLINE","AREA_SUM_MISMATCH","SLIVERS_OUTSIDE_REDLINE"] {"SLIVERS_OUTSIDE_REDLINE":1,"AREA_PARCELS_OUTSIDE_REDLINE":1}
+MATCH   parcel-too-small             postgis=["AREA_PARCELS_TOO_SMALL","AREA_SUM_MISMATCH"] {"AREA_PARCELS_TOO_SMALL":1}
+MATCH   self-intersecting-redline    postgis=["AREA_PARCELS_OUTSIDE_REDLINE","AREA_SUM_MISMATCH","REDLINE_INVALID_GEOMETRY","SLIVERS_OUTSIDE_REDLINE"] {"SLIVERS_OUTSIDE_REDLINE":1,"AREA_PARCELS_OUTSIDE_REDLINE":1}
+MATCH   tiny-gap                     postgis=[]
+MATCH   tree-outside                 postgis=["AREA_SUM_MISMATCH","TREES_OUTSIDE_REDLINE"] {"TREES_OUTSIDE_REDLINE":1}
+MATCH   watercourse-outside          postgis=["AREA_SUM_MISMATCH","WATERCOURSES_OUTSIDE_REDLINE"] {"WATERCOURSES_OUTSIDE_REDLINE":1}
+MATCH   clean-50                     postgis=[]
+MATCH   clean-250                    postgis=[]
+MATCH   clean-1000                   postgis=[]
+13/13 match
+
+=== timing ===
+parcels |  PostGIS (validate) | GEOS-WASM in Node | ratio | verdicts
+    250 |              60 ms |             34 ms |  0.57× | identical
+   1000 |             192 ms |            134 ms |  0.70× | identical
+   2000 |             412 ms |            241 ms |  0.58× | identical
+   5000 |            1129 ms |            575 ms |  0.51× | identical
+  10000 |            2880 ms |           1164 ms |  0.40× | identical
+
+=== operational: leak / event loop / db isolation ===
+LEAK CHECK  30 validations of 5,000 parcels
+   first 706 ms · last 565 ms · median 580 ms
+   RSS 155 MB → 383 MB  (+228 MB over 30 runs)
+
+EVENT LOOP — 4 validations of 5,000 parcels
+   on the main thread                 event-loop lag  p50 2344 ms   max 2344 ms
+   in 2 worker threads                event-loop lag  p50 0 ms   max 38 ms
+
+DATABASE PROBE (light project-list read)
+   idle                                           n= 60574  acquire p50 0 / p95 0 ms   query p50 0 ms
+   while 2 workers validate 5,000 parcels continuously n= 71651  acquire p50 0 / p95 0 ms   query p50 0 ms

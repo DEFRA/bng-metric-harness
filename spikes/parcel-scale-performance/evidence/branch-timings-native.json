@@ -1,0 +1,164 @@
+{
+  "1000": {
+    "bareMs": 32.9,
+    "parseOnlyMs": 24.3,
+    "perBranch": [
+      {
+        "check": "NO_REDLINE",
+        "ms": 44,
+        "rows": 0
+      },
+      {
+        "check": "REDLINE_OUTSIDE_ENGLAND",
+        "ms": 33.4,
+        "rows": 0
+      },
+      {
+        "check": "REDLINE_AREA_TOO_LARGE",
+        "ms": 31.3,
+        "rows": 0
+      },
+      {
+        "check": "NO_HABITAT_AREAS",
+        "ms": 30,
+        "rows": 0
+      },
+      {
+        "check": "REDLINE_INVALID_GEOMETRY",
+        "ms": 39.7,
+        "rows": 0
+      },
+      {
+        "check": "AREA_PARCELS_INVALID_GEOMETRY",
+        "ms": 36.6,
+        "rows": 0
+      },
+      {
+        "check": "PARCEL_OVERLAPS",
+        "ms": 68.2,
+        "rows": 0
+      },
+      {
+        "check": "AREA_PARCELS_TOO_SMALL",
+        "ms": 31.3,
+        "rows": 0
+      },
+      {
+        "check": "SLIVERS_OUTSIDE_REDLINE",
+        "ms": 68.9,
+        "rows": 0
+      },
+      {
+        "check": "AREA_PARCELS_OUTSIDE_REDLINE",
+        "ms": 58.5,
+        "rows": 0
+      },
+      {
+        "check": "HEDGEROWS_OUTSIDE_REDLINE",
+        "ms": 37.7,
+        "rows": 0
+      },
+      {
+        "check": "WATERCOURSES_OUTSIDE_REDLINE",
+        "ms": 33.9,
+        "rows": 0
+      },
+      {
+        "check": "IGGIS_OUTSIDE_REDLINE",
+        "ms": 32.3,
+        "rows": 0
+      },
+      {
+        "check": "TREES_OUTSIDE_REDLINE",
+        "ms": 28,
+        "rows": 0
+      },
+      {
+        "check": "AREA_SUM_MISMATCH",
+        "ms": 29.4,
+        "rows": 0
+      }
+    ]
+  },
+  "5000": {
+    "bareMs": 238.3,
+    "parseOnlyMs": 188.2,
+    "perBranch": [
+      {
+        "check": "NO_REDLINE",
+        "ms": 240,
+        "rows": 0
+      },
+      {
+        "check": "REDLINE_OUTSIDE_ENGLAND",
+        "ms": 231.2,
+        "rows": 0
+      },
+      {
+        "check": "REDLINE_AREA_TOO_LARGE",
+        "ms": 238.2,
+        "rows": 0
+      },
+      {
+        "check": "NO_HABITAT_AREAS",
+        "ms": 248.5,
+        "rows": 0
+      },
+      {
+        "check": "REDLINE_INVALID_GEOMETRY",
+        "ms": 238.8,
+        "rows": 0
+      },
+      {
+        "check": "AREA_PARCELS_INVALID_GEOMETRY",
+        "ms": 247,
+        "rows": 0
+      },
+      {
+        "check": "PARCEL_OVERLAPS",
+        "ms": 484.5,
+        "rows": 0
+      },
+      {
+        "check": "AREA_PARCELS_TOO_SMALL",
+        "ms": 246.3,
+        "rows": 0
+      },
+      {
+        "check": "SLIVERS_OUTSIDE_REDLINE",
+        "ms": 449.8,
+        "rows": 0
+      },
+      {
+        "check": "AREA_PARCELS_OUTSIDE_REDLINE",
+        "ms": 339,
+        "rows": 0
+      },
+      {
+        "check": "HEDGEROWS_OUTSIDE_REDLINE",
+        "ms": 274.4,
+        "rows": 0
+      },
+      {
+        "check": "WATERCOURSES_OUTSIDE_REDLINE",
+        "ms": 252.5,
+        "rows": 0
+      },
+      {
+        "check": "IGGIS_OUTSIDE_REDLINE",
+        "ms": 250.2,
+        "rows": 0
+      },
+      {
+        "check": "TREES_OUTSIDE_REDLINE",
+        "ms": 246.9,
+        "rows": 0
+      },
+      {
+        "check": "AREA_SUM_MISMATCH",
+        "ms": 245.3,
+        "rows": 0
+      }
+    ]
+  }
+}
