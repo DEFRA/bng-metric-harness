@@ -11,6 +11,36 @@ and PR 6 is a decision. The spike behind it is in `geos-wasm-spike/` with result
 `implementation-guide.md` (the SQL-side improvements, which remain valid whichever engine
 wins).
 
+## The fallback was removed, and PostGIS validation with it
+
+After the plan's PRs landed, the decision was taken to make this a clean switch
+rather than a hedged one: `VALIDATION_ENGINE`, shadow mode, the PostGIS statement
+and every fallback path are gone. Validation runs only on the workers.
+
+That contradicts PR 6's recommendation to **retain** the SQL path, so the
+reasoning is worth recording. A fallback means the same file can get a different
+answer depending on how busy the instance is; and a queue-full fallback pushes
+load back onto the database at exactly the moment capacity is tight, which is the
+problem the whole exercise set out to remove. A saturated pool now answers **503
+`VALIDATION_BUSY`** with a `Retry-After`, and the frontend tells the user to try
+again — the file was never looked at, so it is not a validation failure.
+
+Two consequences the plan did not anticipate:
+
+- **The shadow soak is no longer possible.** PRs 3 and 4 assumed a two-to-four
+  week comparison against the SQL engine on real traffic. There is nothing left
+  to compare against, so that evidence has to come from the recorded corpus
+  instead (below) rather than from production.
+- **The oracle had to be captured before it was deleted.**
+  `integration-tests/fixtures/postgis-geometry-verdicts.json` records what the
+  PostGIS engine said about all 98 readable GeoPackages in `example-files/`, and
+  the GEOS engine is asserted against it on every run. The rule-by-rule spec that
+  was written for the SQL engine was likewise retargeted rather than rewritten.
+
+Open question 3 below is therefore closed: the SQL improvements in
+`implementation-guide.md` are now **wasted effort**, because the path they would
+optimise no longer exists.
+
 ## What landed
 
 `src/validation/geopackage/geos/` with the fifteen checks, full payload parity, a fixed
@@ -44,13 +74,13 @@ Three things came out different from the plan, all deliberate:
 
 1. **What is the ECS task memory limit for the backend?** Two workers at a few hundred MB
    each is the most likely blocker (R7).
-2. **Does production PostGIS have the OSTN15 grid installed?** If it does, production is
-   currently more accurate than the JS path and 4326 verdicts could shift by up to ~2 m;
-   the fix would be to supply proj4js with the same grid.
-3. **Do we want the SQL improvements in `implementation-guide.md` as well?** Now more
-   clearly worth doing than not: the PostGIS path is retained as the fallback for every
-   worker failure and as the answer of record until (2) is settled, so its cost is not
-   wasted effort.
+2. **Does production PostGIS have the OSTN15 grid installed?** If it does, it was
+   more accurate than the JS path and 4326 verdicts may shift by up to ~2 m; the
+   fix would be to supply proj4js with the same grid. Still worth settling, but it
+   no longer blocks anything — there is no second engine left to disagree with.
+3. ~~**Do we want the SQL improvements in `implementation-guide.md` as well?**~~
+   **Closed — no.** The PostGIS validation path has been deleted, so there is
+   nothing left for those improvements to improve.
 
 ---
 
