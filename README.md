@@ -445,6 +445,17 @@ Exit code is `0` on success, `1` on error.
   `Habitat created in advance/years` column with a **trailing space**, which the
   service's reference schema does not. `new_to_old.py` follows the reference;
   `old_to_new.py` reads either spelling.
+- **Both spellings of the renamed staged tables are accepted.** The QGIS
+  template is renaming `Habitats *` to `Area Habitats *` and `Trees *` to
+  `Individual Trees *`. `new_to_old.py` resolves each habitat type against the
+  tables the input actually has (`STAGED_TABLES`, newest name first) and warns
+  by name when a type has neither, so a renamed file can never convert to a
+  silently empty output. `old_to_new.py` still *writes* the old names, because
+  that is what the shipped template carries, but `--into` resolves each layer
+  to whichever spelling the target template has (`STAGED_TABLE_ALIASES`), so
+  filling a renamed template works too. All matching is by exact name —
+  `Habitats Baseline` is a substring of `Vertical Area Habitats Baseline`, and
+  nothing here may match on substrings.
 - The checksum in `gpkg_common.py` is one third of a cross-language contract
   with the backend's `geometry-checksum.js` and the Python embedded in the QGIS
   template's copy actions. If you change it, change all three, and re-run the

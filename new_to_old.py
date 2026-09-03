@@ -29,24 +29,30 @@ try:
     from .gpkg_common import (
         create_feature_table,
         create_gpkg_system_tables,
+        feature_table_names,
         numeric,
         polygon_blob_area_sqm,
         promote_polygon_blob_to_multipolygon,
         quote_ident,
+        quoted_names,
         read_feature_table,
         read_srs_rows,
+        resolve_table_name,
         update_layer_extent,
     )
 except ImportError:  # pragma: no cover - running as a plain script
     from gpkg_common import (
         create_feature_table,
         create_gpkg_system_tables,
+        feature_table_names,
         numeric,
         polygon_blob_area_sqm,
         promote_polygon_blob_to_multipolygon,
         quote_ident,
+        quoted_names,
         read_feature_table,
         read_srs_rows,
+        resolve_table_name,
         update_layer_extent,
     )
 
@@ -219,16 +225,49 @@ LEGACY_LAYERS = {
 }
 
 # Staged (new template) table names, by habitat type.
+#
+# Two of these layers are being renamed in the QGIS template — "Habitats *" to
+# "Area Habitats *" and "Trees *" to "Individual Trees *" — so both spellings
+# are accepted and a file from either template version converts. Candidates are
+# listed newest-name-first, so a file that somehow carried both would be read
+# from the new one. Resolution is by EXACT name (see resolve_table_name), which
+# is what keeps "Habitats Baseline" from ever matching the table it is a
+# substring of, "Vertical Area Habitats Baseline".
 STAGED_TABLES = {
-    "areas": ("Habitats Baseline", "Habitats Post-Intervention"),
-    "hedgerows": ("Hedgerows Baseline", "Hedgerows Post-Intervention"),
-    "watercourses": ("Watercourses Baseline", "Watercourses Post-Intervention"),
-    "trees": ("Trees Baseline", "Trees Post-Intervention"),
-    "verticalAreas": (
-        "Vertical Area Habitats Baseline",
-        "Vertical Area Habitats Post-Intervention",
-    ),
+    "areas": {
+        "label": "Area habitats",
+        "baseline": ("Area Habitats Baseline", "Habitats Baseline"),
+        "pi": (
+            "Area Habitats Post-Intervention",
+            "Habitats Post-Intervention",
+        ),
+    },
+    "hedgerows": {
+        "label": "Hedgerows",
+        "baseline": ("Hedgerows Baseline",),
+        "pi": ("Hedgerows Post-Intervention",),
+    },
+    "watercourses": {
+        "label": "Watercourses",
+        "baseline": ("Watercourses Baseline",),
+        "pi": ("Watercourses Post-Intervention",),
+    },
+    "trees": {
+        "label": "Trees",
+        "baseline": ("Individual Trees Baseline", "Trees Baseline"),
+        "pi": (
+            "Individual Trees Post-Intervention",
+            "Trees Post-Intervention",
+        ),
+    },
+    "verticalAreas": {
+        "label": "Vertical area habitats",
+        "baseline": ("Vertical Area Habitats Baseline",),
+        "pi": ("Vertical Area Habitats Post-Intervention",),
+    },
 }
+# Key in STAGED_TABLES -> how that stage reads in a message.
+STAGED_STAGES = (("baseline", "baseline"), ("pi", "post-intervention"))
 STAGED_REDLINE_TABLE = "Red Line Boundary"
 
 SITE_DETAIL_FIELDS = [
@@ -742,15 +781,47 @@ class Report:
         self.counts[key] = value
 
 
+def resolve_staged_tables(source, report):
+    """Match every habitat type to the table names this input actually has.
+
+    A type whose table is missing altogether is called out by name. Without
+    that, a renamed input would read as zero rows for every type and produce a
+    silently empty conversion — indistinguishable from a genuinely empty layer.
+    """
+    present = feature_table_names(source)
+    resolved = {}
+    for habitat_type, spec in STAGED_TABLES.items():
+        names = {}
+        for stage, stage_label in STAGED_STAGES:
+            candidates = spec[stage]
+            table = resolve_table_name(candidates, present)
+            names[stage] = table
+            if table is None:
+                report.warn(
+                    f"{spec['label']}: no {stage_label} table in the input — "
+                    f"looked for {quoted_names(candidates)}. That layer is "
+                    "treated as EMPTY, so nothing from it reaches the legacy "
+                    "files. Check the input is a BNG Service template file."
+                )
+            elif table != candidates[-1]:
+                report.note(
+                    f"{spec['label']} ({stage_label}): read from renamed table "
+                    f'"{table}".'
+                )
+        resolved[habitat_type] = names
+    return resolved
+
+
 def convert(input_path, out_dir, carry_lineage, dry_run):
     report = Report()
     source = sqlite3.connect(f"file:{input_path}?mode=ro", uri=True)
 
+    staged_tables = resolve_staged_tables(source, report)
     staged = {}
-    for habitat_type, (baseline_table, pi_table) in STAGED_TABLES.items():
+    for habitat_type, names in staged_tables.items():
         staged[habitat_type] = {
-            "baseline": read_feature_table(source, baseline_table),
-            "pi": read_feature_table(source, pi_table),
+            stage: read_feature_table(source, names[stage]) if names[stage] else []
+            for stage, _ in STAGED_STAGES
         }
     redline = read_feature_table(source, STAGED_REDLINE_TABLE)
     site = site_details(redline)

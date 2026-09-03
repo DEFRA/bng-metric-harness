@@ -573,6 +573,34 @@ def update_layer_extent(conn, table, geom_column):
     )
 
 
+def feature_table_names(conn):
+    """Every feature table this GeoPackage registers, as a set of names."""
+    rows = conn.execute(
+        "SELECT table_name FROM gpkg_contents WHERE data_type = 'features'"
+    ).fetchall()
+    return {row[0] for row in rows}
+
+
+def resolve_table_name(candidates, present):
+    """First accepted spelling of a table that `present` actually holds.
+
+    `candidates` is ordered most-preferred first. Matching is by EXACT name and
+    never by substring, so "Habitats Baseline" can never be resolved to — or
+    confused with — "Vertical Area Habitats Baseline". Returns None when the
+    file holds none of them, which callers must report rather than quietly
+    treat as an empty layer.
+    """
+    for candidate in candidates:
+        if candidate in present:
+            return candidate
+    return None
+
+
+def quoted_names(names):
+    """Render a list of candidate table names for a message."""
+    return ", ".join(f'"{name}"' for name in names)
+
+
 def read_feature_table(conn, table):
     """Read a feature table as dicts, with geometry under the `_geom` key."""
     exists = conn.execute(

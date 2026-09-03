@@ -42,13 +42,16 @@ try:
         create_feature_table,
         create_gpkg_system_tables,
         demote_multipolygon_blob_to_polygon,
+        feature_table_names,
         line_blob_length_m,
         numeric,
         polygon_blob_area_sqm,
         quote_ident,
+        quoted_names,
         read_feature_table,
         read_srs_rows,
         register_spatial_functions,
+        resolve_table_name,
         update_layer_extent,
     )
 except ImportError:  # pragma: no cover - running as a plain script
@@ -57,13 +60,16 @@ except ImportError:  # pragma: no cover - running as a plain script
         create_feature_table,
         create_gpkg_system_tables,
         demote_multipolygon_blob_to_polygon,
+        feature_table_names,
         line_blob_length_m,
         numeric,
         polygon_blob_area_sqm,
         quote_ident,
+        quoted_names,
         read_feature_table,
         read_srs_rows,
         register_spatial_functions,
+        resolve_table_name,
         update_layer_extent,
     )
 
@@ -258,6 +264,31 @@ STAGED_LAYERS = {
         + PI_TAIL,
     },
 }
+
+# Two staged layers are being renamed in the QGIS template — "Habitats *" to
+# "Area Habitats *" and "Trees *" to "Individual Trees *". The keys above stay
+# the OLD names because that is what the shipped template still ships, and what
+# a fresh conversion must keep producing; these are the other spellings a
+# template being filled with --into may carry instead. Newest name first, and
+# matched by EXACT name (see resolve_table_name), so "Habitats Baseline" can
+# never resolve to the table it is a substring of, "Vertical Area Habitats
+# Baseline".
+STAGED_TABLE_ALIASES = {
+    "Habitats Baseline": ("Area Habitats Baseline",),
+    "Habitats Post-Intervention": ("Area Habitats Post-Intervention",),
+    "Trees Baseline": ("Individual Trees Baseline",),
+    "Trees Post-Intervention": ("Individual Trees Post-Intervention",),
+}
+
+# The layers holding area habitats. Named explicitly rather than matched on the
+# word "Habitats", which is also a substring of "Vertical Area Habitats *".
+AREA_HABITAT_LAYERS = ("Habitats Baseline", "Habitats Post-Intervention")
+
+
+def staged_table_candidates(layer):
+    """Every accepted spelling of a staged table, most-preferred first."""
+    return STAGED_TABLE_ALIASES.get(layer, ()) + (layer,)
+
 
 LEGACY_REDLINE = "Red Line Boundary"
 LEGACY_MEANDERS = "Water course enhancement through meanders"
@@ -867,10 +898,16 @@ def _report_unmatched(unmatched, label, report):
 # ---------------------------------------------------------------------------
 
 
-def insert_rows(conn, table, rows):
+def insert_rows(conn, table, rows, target_table=None):
+    """Insert rows for the logical layer `table`.
+
+    `target_table` is the name to actually write into, which differs from the
+    logical name when filling a template that carries the renamed tables.
+    """
     if not rows:
         return 0
     spec = STAGED_LAYERS[table]
+    table = target_table or table
     column_names = [name for name, _ in spec["columns"]]
     placeholders = ", ".join(["?"] * (len(column_names) + 1))
     quoted = ", ".join(
@@ -901,16 +938,54 @@ def create_staged_gpkg(path, srs_rows):
     return conn
 
 
+def resolve_template_tables(conn):
+    """Map each logical staged layer to the table name this template carries.
+
+    Templates from before and after the "Area Habitats" / "Individual Trees"
+    rename are both accepted; the rows are written into whichever the target
+    actually has. A layer with no accepted spelling is a hard error naming
+    every name that was looked for, rather than the bare SQLite
+    "no such table".
+    """
+    present = feature_table_names(conn)
+    resolved = {}
+    missing = []
+    for layer in STAGED_LAYERS:
+        table = resolve_table_name(staged_table_candidates(layer), present)
+        if table is None:
+            missing.append(layer)
+        else:
+            resolved[layer] = table
+    if missing:
+        detail = "; ".join(
+            f"{layer} (looked for {quoted_names(staged_table_candidates(layer))})"
+            for layer in missing
+        )
+        raise ValueError(
+            "The target GeoPackage is missing feature table(s): "
+            f"{detail}. Point --into at a copy of the BNG Service template."
+        )
+    return resolved
+
+
 def open_template_gpkg(path, force):
     """Open an existing template GeoPackage to write into.
+
+    Returns the connection and the logical-layer -> actual-table-name map the
+    caller must write through.
 
     Keeps the template's own spatial indexes working by supplying the ST_*
     functions its triggers call.
     """
     conn = sqlite3.connect(path)
     register_spatial_functions(conn)
+    try:
+        tables = resolve_template_tables(conn)
+    except ValueError:
+        conn.close()
+        raise
     if not force:
-        for table in STAGED_LAYERS:
+        for table in tables.values():
             row = conn.execute(
                 f"SELECT COUNT(*) FROM {quote_ident(table)}"
             ).fetchone()
@@ -921,7 +996,7 @@ def open_template_gpkg(path, force):
                     "Point --into at a fresh copy of the template, or pass "
                     "--force to add to what is there."
                 )
-    return conn
+    return conn, tables
 
 
 # ---------------------------------------------------------------------------
@@ -1046,8 +1121,18 @@ def convert(baseline_path, pi_path, out_dir, into_path, force, dry_run,
         return report
 
     if into_path:
-        conn = open_template_gpkg(into_path, force)
+        conn, table_names = open_template_gpkg(into_path, force)
         target = into_path
+        renamed = [
+            f'"{layer}" -> "{name}"'
+            for layer, name in table_names.items()
+            if name != layer
+        ]
+        if renamed:
+            report.note(
+                "Target template uses renamed table(s); wrote into "
+                + ", ".join(renamed)
+            )
     else:
         if out_file:
             target = out_file
@@ -1058,12 +1143,15 @@ def convert(baseline_path, pi_path, out_dir, into_path, force, dry_run,
             stem = os.path.splitext(os.path.basename(baseline_path))[0]
             target = os.path.join(out_dir, f"{stem} - Staged.gpkg")
         conn = create_staged_gpkg(target, baseline["srs"])
+        # A file we create ourselves carries the names the shipped template
+        # still uses, so every logical layer maps to itself.
+        table_names = {layer: layer for layer in STAGED_LAYERS}
 
     try:
         for table, rows in tables.items():
-            insert_rows(conn, table, rows)
+            insert_rows(conn, table, rows, table_names[table])
         for table, spec in STAGED_LAYERS.items():
-            update_layer_extent(conn, table, spec["geom_column"])
+            update_layer_extent(conn, table_names[table], spec["geom_column"])
         conn.commit()
     finally:
         conn.close()
@@ -1101,7 +1189,7 @@ def _report_manual_steps(tables, report):
     if any(
         values.get("Irreplaceable Habitat") is None
         for table, rows in tables.items()
-        if "Habitats" in table
+        if table in AREA_HABITAT_LAYERS
         for _, values in rows
     ):
         report.warn(
