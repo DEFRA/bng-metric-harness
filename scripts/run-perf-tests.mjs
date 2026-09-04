@@ -127,8 +127,17 @@ const QUICK_SKIPPED_PHASES = Object.freeze([
 ]);
 
 const QUICK_ENV = Object.freeze({
-  // Turn off every phase quick mode does not need, by setting both of that
-  // phase's knobs to zero: how long it runs, and how many users run it.
+  // A phase is one step of the run: one operation, at one concurrency, for a set
+  // time — `journey_medium_5` is five concurrent users each doing a full upload
+  // journey with a medium file. It is one JMeter thread group, and it has three
+  // settings: how many users, how long it runs, and the pause after it. The full
+  // plan is 42 of them, mostly in ladders climbing the user count on a fixed
+  // operation, because the question is not "does it work" but "at what
+  // concurrency does it start to degrade".
+  //
+  // Quick mode keeps only the heaviest few and turns off the rest, by zeroing
+  // both of each unwanted phase's knobs: how long it runs, and how many users
+  // run it.
   //
   // Both, because zeroing the duration alone does not switch a phase off —
   // JMeter refuses to start a thread group asked to run N users for 0 seconds,
