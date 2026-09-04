@@ -1,6 +1,6 @@
 # Deriving the baseline from the post-intervention file alone
 
-**BMD-1001 · spike · status: analysis complete, implementation in progress**
+**BMD-1001 · spike · status: analysis complete; backend derivation built behind a feature flag**
 
 Whether the full BNG calculation can be produced from a single post-intervention
 upload in the **unaltered** Natural England QGIS template, what that costs, and
@@ -102,6 +102,18 @@ One ambiguity is irreducible: no threshold separates "one parcel split down the
 middle" from "two parcels that always abutted". Two 10×10 squares sharing a full
 edge read identically either way. That is handled by labelling, not by geometry.
 
+### Naming a reassembled parcel
+
+Where every part is a numbered piece of one name — `H2-1` … `H2-10` — the
+reassembled parcel takes that name, and records that **the service chose it**.
+Parts named any other way get a composite that claims nothing.
+
+Only the *label* is ever inferred. The parcel is put back together from geometry
+and matching attributes before any reference is read, and every source row is
+listed alongside it, so the naming guess cannot move a number or change which
+rows were joined. That keeps the options paper's objection to reference-based
+lineage intact: nothing here depends on a naming practice being followed.
+
 ---
 
 ## 4. Linear features: where the original length comes from
@@ -124,19 +136,32 @@ So for an enhanced hedgerow or watercourse the baseline length is taken from the
 **row's own post-intervention geometry**, with the meanders layer as the escape
 route where a watercourse was realigned.
 
-### Why that substitution is safe, and which way it errs
+### Which way that errs — it cuts both ways
 
 The engine clamps the baseline length **down** to the post-intervention length
-whenever post ≤ baseline (`resolveEnhancedLinearLengths`). Therefore:
+whenever post ≤ baseline (`resolveEnhancedLinearLengths`). So:
 
 - for any feature whose alignment did not change, the derived figure is
-  **numerically identical** to the two-upload result;
-- where the post-intervention line is genuinely longer than the original, the
-  derived baseline is understated, so the **reported gain is understated too**.
+  **numerically identical** to the two-upload result — verified on every
+  Enhanced linear row in the permutations corpus;
+- where the line was **lengthened**, the derived baseline is understated, so the
+  reported gain is understated. An ecologist cannot inflate the >10% test by
+  extending a line;
+- where the line was **shortened, or partly removed, the error runs the other
+  way**. The lost length was never in the derived baseline to be lost, so the
+  loss simply disappears.
 
-**An ecologist cannot inflate the >10% test by extending a line.** The error is
-one-directional and conservative. That is the single most important property of
-this approach, and it is a property of the engine, not of the derivation.
+That last case is the serious one and it is easy to miss. Measured on the
+shipped pair `Post-intervention - retained hedgerow.gpkg`: the two-upload
+journey reports a hedgerow net change of **−1.368 units (−56.44%)**, and the
+derived baseline reports **0 (0%)**. A real loss of more than half the hedgerow
+units vanishes entirely.
+
+So no single direction can be claimed for an assumed length, and the service
+does not claim one — the finding records the bias as *unknown* and says both
+directions out loud. This is the same limitation as §5's unbounded case, seen
+from the arithmetic rather than from the parcel list: **what the file does not
+contain, the derivation cannot miss.**
 
 ---
 
@@ -172,6 +197,11 @@ this approach, and it is a property of the engine, not of the derivation.
 ---
 
 ## 6. What the service can check, and what it must take on trust
+
+The verdict is withheld rather than published wherever the report itself has
+raised a warning that pushes the gain **upwards** — so anything the service
+knows might flatter the applicant stops a Met/Not-met answer being given, while
+a finding that can only understate the gain does not.
 
 **Checkable — each becomes a finding in the reconciliation report, carrying the
 direction it pushes the net gain:**
