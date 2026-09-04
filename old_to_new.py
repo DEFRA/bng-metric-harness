@@ -52,6 +52,7 @@ try:
         read_srs_rows,
         register_spatial_functions,
         resolve_table_name,
+        sq_metres_to_hectares,
         update_layer_extent,
     )
 except ImportError:  # pragma: no cover - running as a plain script
@@ -70,6 +71,7 @@ except ImportError:  # pragma: no cover - running as a plain script
         read_srs_rows,
         register_spatial_functions,
         resolve_table_name,
+        sq_metres_to_hectares,
         update_layer_extent,
     )
 
@@ -538,9 +540,10 @@ def build_area_baseline(rows, report):
             blob, was_multipart = demote_multipolygon_blob_to_polygon(blob)
             multipart += 1 if was_multipart else 0
         feature_uuid = new_uuid()
-        area = numeric(row.get("Area"))
+        # legacy stores square metres; the new template's column is hectares
+        area = sq_metres_to_hectares(row.get("Area"))
         if area is None and blob is not None:
-            area = polygon_blob_area_sqm(blob)
+            area = sq_metres_to_hectares(polygon_blob_area_sqm(blob))
         index.add(row.get("Parcel Ref"), feature_uuid, blob_checksum(blob), area)
         out.append(
             (
@@ -681,9 +684,10 @@ def build_area_pi(rows, index, report):
         if retention == RETENTION_LOST:
             retention = RETENTION_CREATED
             lost_converted += 1
-        area = numeric(row.get("Area"))
+        # legacy stores square metres; the new template's column is hectares
+        area = sq_metres_to_hectares(row.get("Area"))
         if area is None and blob is not None:
-            area = polygon_blob_area_sqm(blob)
+            area = sq_metres_to_hectares(polygon_blob_area_sqm(blob))
         values = {
             "PI Ref": row.get("_pi_ref"),
             "Baseline Broad Habitat Type": row.get("Baseline Broad Habitat Type"),

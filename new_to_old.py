@@ -30,6 +30,7 @@ try:
         create_feature_table,
         create_gpkg_system_tables,
         feature_table_names,
+        hectares_to_sq_metres,
         numeric,
         polygon_blob_area_sqm,
         promote_polygon_blob_to_multipolygon,
@@ -45,6 +46,7 @@ except ImportError:  # pragma: no cover - running as a plain script
         create_feature_table,
         create_gpkg_system_tables,
         feature_table_names,
+        hectares_to_sq_metres,
         numeric,
         polygon_blob_area_sqm,
         promote_polygon_blob_to_multipolygon,
@@ -391,7 +393,7 @@ def map_area_baseline(row, site):
             "Baseline Strategic Significance": row.get(
                 "Baseline Strategic Significance"
             ),
-            "Area": rounded_size(row.get("Area")),
+            "Area": rounded_size(hectares_to_sq_metres(row.get("Area"))),
         },
         site,
         "Comment",
@@ -427,7 +429,7 @@ def map_area_pi(row, site, carry_lineage):
                 "Delay in starting habitat creation/years"
             ),
             "Spatial risk category": row.get("Spatial risk category"),
-            "Area": rounded_size(row.get("Area")),
+            "Area": rounded_size(hectares_to_sq_metres(row.get("Area"))),
         },
         site,
         "Comment",

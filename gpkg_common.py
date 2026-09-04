@@ -69,6 +69,25 @@ def numeric(value):
     return None if math.isnan(number) else number
 
 
+# The new template records area habitat areas in HECTARES (the unit the
+# Statutory Metric works in, and what the QGIS project's area setting produces).
+# The legacy template's Area column is whole SQUARE METRES. Every conversion
+# across that boundary has to go through these two.
+SQ_METRES_PER_HECTARE = 10000
+
+
+def hectares_to_sq_metres(value):
+    """Hectares as stored by the new template -> square metres for legacy."""
+    number = numeric(value)
+    return None if number is None else number * SQ_METRES_PER_HECTARE
+
+
+def sq_metres_to_hectares(value):
+    """Square metres as stored by legacy -> hectares for the new template."""
+    number = numeric(value)
+    return None if number is None else number / SQ_METRES_PER_HECTARE
+
+
 # ---------------------------------------------------------------------------
 # Blob header / WKB plumbing
 # ---------------------------------------------------------------------------

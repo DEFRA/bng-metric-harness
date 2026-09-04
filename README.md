@@ -254,6 +254,7 @@ the post-intervention file second.
 | **Promotes polygons** | The legacy habitats layer is registered `MULTIPOLYGON`, so polygons are wrapped as single-part multipolygons. Coordinates unchanged. |
 | **Computes the red line area** | Legacy has an `Area` column the new template does not carry. |
 | **Rounds sizes** | Legacy `Area`, `Length` and `Count` are integer columns. The service measures geometry itself, so this does not affect the calculation. |
+| **Converts area units** | The new template records `Area` in **hectares**; legacy `Area` is whole **square metres**. Both directions convert (`hectares_to_sq_metres` / `sq_metres_to_hectares` in `gpkg_common.py`). `Length` is metres on both sides and is passed through. |
 
 ### What is lost
 
