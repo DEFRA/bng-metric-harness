@@ -127,13 +127,17 @@ const QUICK_SKIPPED_PHASES = Object.freeze([
 ]);
 
 const QUICK_ENV = Object.freeze({
-  // Both halves, because a zeroed window ALONE does not skip a step — JMeter
-  // refuses to start a thread group of N users for 0 seconds ("Invalid
-  // duration 0 set in Thread Group") rather than passing over it. The step
-  // stayed suppressed, but each one logged a failure that was not a failure,
-  // and 38 of them buried the thread-group errors that would have been real.
-  // Zeroing the users too makes a skipped phase as silent as one the profile
-  // never listed. Needs bng-perf-tests' USERS_<step> override.
+  // Turn off every phase quick mode does not need, by setting both of that
+  // phase's knobs to zero: how long it runs, and how many users run it.
+  //
+  // Both, because zeroing the duration alone does not switch a phase off —
+  // JMeter refuses to start a thread group asked to run N users for 0 seconds,
+  // and logs an error instead. The phase stays off either way, but each one
+  // reports a failure that is not a failure. With 38 of them, a thread group
+  // that failed for a REAL reason is impossible to spot. Zero the users too and
+  // the phase is simply absent.
+  //
+  // Needs bng-perf-tests' USERS_<step> override (DEFRA/bng-perf-tests#15).
   ...Object.fromEntries(
     QUICK_SKIPPED_PHASES.flatMap((phase) => [
       [`WINDOW_${phase}`, "0"],
