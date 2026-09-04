@@ -29,9 +29,9 @@ adjoin, and rebuilds every baseline figure from the post-intervention geometry.
 | Habitat type | Verdict | Why |
 | --- | --- | --- |
 | **Area habitats** | **Yes, with guidance** | Every engine input is already on the row except size, and size is recoverable exactly. Area habitats must account for the whole red line — the existing `AREA_SUM_MISMATCH` check enforces that to 0.5 m² and *rejects* any file that fails — so summing the measured parcels reconstructs the baseline area in full. What remains is **attribute** coverage: a row can tile its share of the site and still leave its baseline columns blank. That is fully detectable and quantifiable. |
-| **Hedgerows** | **Yes, with guidance** | Units need only length, type and condition, all on the row. Length comes from the row's own measured geometry (see §4). The gap is **completeness**, not arithmetic: nothing ties the hedgerow layer to the red line, so a hedge removed without a row left behind is invisible. |
+| **Hedgerows** | **Yes, with guidance** | Units need only length, type and condition, all on the row, and the length is **exact** wherever the file accounts for every metre that existed — a partly-removed hedge split into a `Retained` row and a `Lost` row reconstructs to its full surveyed length (§4). The gap is **completeness**, not arithmetic, and it rests entirely on guidance: nothing ties the hedgerow layer to the red line, so a hedge removed without a row left behind is invisible and indistinguishable from one that never existed. |
 | **Watercourses** | **Yes, with guidance** | As hedgerows, plus two specifics. Re-meandering — the one case where the post-intervention length legitimately exceeds the baseline — is recoverable only through the template's dedicated meanders layer, which **could not be read at all** until this spike (see §7). And a missing encroachment value silently defaults to a multiplier of 1, which inflates the baseline; detectable and reported. |
-| **Individual trees** | **Yes, with guidance** | The cleanest case. A tree's baseline area is a four-band reference lookup with no geometry, no adjacency and no merging — and it is *already computed correctly on every post-intervention upload today and thrown away*. Arithmetically exact. Same completeness gap as the linear layers. |
+| **Individual trees** | **Yes, with guidance** | Arithmetically the cleanest case. A tree's baseline area is a four-band reference lookup with no geometry, no adjacency and no merging — and it is *already computed correctly on every post-intervention upload today and thrown away*. Same completeness gap as the linear layers, and a felled tree left as a `Lost` row counts toward the baseline exactly as it should. |
 | **Vertical area habitats, irreplaceable habitats** | **No** | The NE template has no columns for green walls, green roofs, intertidal hard structures as vertical area, or irreplaceable habitat. If a site has any, they are absent from **both** sides of the calculation. This is a template limitation, not a derivation one — it applies equally to the existing two-upload journey. |
 
 ---
@@ -163,6 +163,65 @@ directions out loud. This is the same limitation as §5's unbounded case, seen
 from the arithmetic rather than from the parcel list: **what the file does not
 contain, the derivation cannot miss.**
 
+### The linear baseline is recoverable — by discipline rather than by a gate
+
+The error above is not inherent to deriving from one file. It is the cost of a
+**breach** of guidance, and the template already contains the mechanism that
+prevents it.
+
+A hedge is never shortened to show that part of it is going. It is **split**,
+and the removed section gets its own row with retention **Lost**, drawn over the
+ground it occupied. `Lost` is already in the template's retention vocabulary, so
+this asks for discipline rather than a new convention — and, crucially, no
+reference matching between rows.
+
+Measured end to end from a GeoPackage, on one 200 m hedge of which 120 m is kept:
+
+| How the file records it | Derived baseline |
+| --- | --- |
+| 120 m `Retained` **+ 80 m `Lost`** | **200 m** — the whole surveyed hedge |
+| 120 m `Retained`, removed section deleted | 120 m — the loss is invisible |
+
+The first row is exact. Nothing is inferred, no length is assumed, and the
+`own-post-intervention-length` fallback never has to be reached, because every
+retained and enhanced line keeps its own alignment.
+
+That is why the derivation reads the layers **before** the Lost filter: a Lost
+row is not noise to be discarded, it is the only evidence that a removed feature
+ever existed.
+
+**One thing this cannot do.** The two files above differ by one row, and nothing
+inside the second distinguishes it from a site whose hedge was only ever 120 m
+long. Both are structurally valid and both pass every check. So the guidance is
+load-bearing in a way no engineering can replace — which is the subject of §6.
+
+### Why a separate baseline layer is not the answer
+
+A natural proposal is to ask users to record baseline and post-intervention
+linear features as separate rows, paired by reference — the way the map already
+*looks*, since the project ships `Hedgerow Baseline EDIT ME` and
+`Hedgerows Proposed EDIT ME` as distinct layers a user can show and hide.
+
+Those layers are not what they appear to be. The project contains **no layer
+filters at all** — zero `subsetString` entries, and none in any datasource URI —
+so all three hedgerow layers are unfiltered views of the *same rows in the same
+table*, differing only in styling and which form fields are shown. A hedgerow
+drawn once appears in all of them. They are three lenses on one row, not three
+rows.
+
+Asking for genuinely separate rows then runs into two blockers:
+
+- **The template cannot say "this row records the baseline only."** It would have
+  to be inferred from *baseline filled, proposed blank* — but the Hedgerows
+  `Retention Category` default is the literal string `Null`, so a deliberate
+  baseline-only row is byte-identical to one the surveyor has not finished.
+- **It reintroduces reference matching.** Pairing rows by `Parcel Ref` is exactly
+  the cross-row dependency §3.3 of the options paper argues against, and a file
+  that ignores the convention looks identical to one that follows it.
+
+The `Lost` decomposition above achieves the same result within the semantics the
+template already has, and needs neither.
+
 ---
 
 ## 5. Trade-offs against the two-upload journey
@@ -260,21 +319,28 @@ shipped with the template is a two-page cover sheet with no completion rules.
 reference data. It is ours to author and own, must not be presented as an NE
 requirement, and needs ecologist review before publication.**
 
+Not all of it carries equal weight. **G3 and G4 are load-bearing**: they are the
+only thing standing between the service and an overstated gain on the linear and
+point layers, because those layers have no equivalent of the red-line rule that
+makes area completeness enforceable. Everything else is either checkable, or
+affects the parcel list rather than the numbers.
+
 | # | Guidance | If ignored | Can we detect it? |
 | --- | --- | --- | --- |
 | G1 | Draw an area-habitat polygon over **every** part of the red line — no gaps, no overlaps. | Baseline area understated; the >10% test is wrong. | **Yes, fully.** The file is already *rejected*. |
 | G2 | Fill all baseline columns on **every** area row, including parcels being built on. | The row contributes no baseline units, silently inflating net gain. | **Yes.** Reported with the count *and the area share*; above a threshold the verdict is withheld rather than published wrong. |
-| G3 | Record **every** hedgerow, watercourse and tree that exists today — including ones being removed — as a row with retention category **Lost**. Do not delete the row. | The most serious failure: baseline understated, gain overstated, no ceiling. | **No.** Mitigated only by an explicit declaration and by reporting the counts on every project. |
-| G4 | Where one parcel is divided, give every part the **same** parcel reference and identical baseline attributes. | The reassembly groups wrongly; the parcel list will not reconcile with the survey. | **Partially.** We can see adjoining rows that share attributes but disagree on reference, and warn. Unit totals are unaffected either way. |
-| G5 | Never edit the Area, Length or Count columns by hand. | Nothing in the calculation — but it destroys the only cross-check that detects non-QGIS editing. | **Yes.** In QGIS these always equal the geometry, so a breach heads the report. |
-| G6 | For a re-meandered watercourse: set retention **Enhanced** and enhancement type **Enhanced by Realignment**, keep the **old** channel on the Rivers row, and draw the **new** channel in the meanders layer pointing back at it. | The length change is invisible; the enhancement is scored against the wrong length. | **Yes, both directions** — a realignment row with no child, and an orphan child. |
-| G7 | Give every row a reference that is unique within its layer. Never leave the word `Null`. | The meanders join fails; the reassembly loses its tiebreak; an assessor cannot trace a row. | **Yes.** Duplicates are not an error for area habitats — they are the split signal — but they are for watercourses. |
-| G8 | Choose on-site or off-site explicitly on every row. | Off-site parcels merge into on-site baseline parcels. | **Yes.** Including the template's own invalid `On site` default on two layers. |
-| G9 | Use the dropdowns. Do not type into controlled columns, and do not edit the file outside QGIS. | Arbitrary strings enter columns the engine looks up by exact match. | **Yes, per column.** The template's only file-level constraint is its primary key — there are no database-level checks at all. |
-| G10 | When a parcel is **Retained**, set the proposed habitat type to the same habitat as the baseline. | A retained parcel silently becomes a different habitat. | **Yes.** Area habitats are the only layer where retained can change habitat type — the template pins only the broad type there. |
-| G11 | Leave distinctiveness to the dropdown; never override it. | Distinctiveness stops matching the habitat — a direct multiplier on units. | **Yes, by recomputation.** |
-| G12 | For a newly planted tree set category **Newly Planted**; for an existing tree, **Existing**. | A new tree is counted as a baseline tree, inflating the baseline. | **Yes**, but indirectly — we key on the baseline tree size band, because the template defaults the category inconsistently across its six tree layers. |
-| G13 | Every point is one tree. If several trees share a location, draw one point per tree. | Trees undercounted on both sides. | **Partially.** A count other than 1 is reported, but QGIS resets it on the next edit, so it cannot be relied on. |
+| **G3** | **Every metre of hedgerow and watercourse, and every tree, that exists today must appear as drawn geometry on some row.** Where part of a feature is removed, **split it into sections** — one row per section, each carrying the original baseline attributes, retention **Lost** for what goes and **Retained**/**Enhanced** for what stays. Never shorten a line to show that part of it is going. | The most serious failure: the removed length was never in the derived baseline, so the loss is never subtracted and the gain is overstated with no ceiling. | **No.** A file missing a `Lost` row is byte-identical to one describing a site that never had that feature. Mitigated only by an explicit user declaration, and by the report stating row counts, `Lost` counts and total derived length on every project. |
+| **G4** | **Never re-draw a Retained or Enhanced line.** If the alignment changes, record the old line as **Lost** and the new line as **Created** — or, for a watercourse, use the meanders layer, which keeps both alignments (G7). | The row's own length is taken as its baseline length. Lengthening understates the gain; shortening overstates it. | **Partly.** A watercourse marked *Enhanced by Realignment* with no meanders child is reported, and so is an orphan child. For hedgerows there is no equivalent signal — the assumption is recorded on the feature and in the report, with its direction stated as unknown. |
+| G5 | Where one parcel is divided, give every part the **same** parcel reference and identical baseline attributes. | The reassembly groups wrongly; the parcel list will not reconcile with the survey. | **Partially.** We can see adjoining rows that share attributes but disagree on reference, and warn. Unit totals are unaffected either way. |
+| G6 | Never edit the Area, Length or Count columns by hand. | Nothing in the calculation — but it destroys the only cross-check that detects non-QGIS editing. | **Yes.** In QGIS these always equal the geometry, so a breach heads the report. |
+| G7 | For a re-meandered watercourse: set retention **Enhanced** and enhancement type **Enhanced by Realignment**, keep the **old** channel on the Rivers row, and draw the **new** channel in the meanders layer pointing back at it. | The length change is invisible; the enhancement is scored against the wrong length. | **Yes, both directions** — a realignment row with no child, and an orphan child. |
+| G8 | Give every row a reference that is unique within its layer. Never leave the word `Null`. | The meanders join fails; the reassembly loses its tiebreak; an assessor cannot trace a row. | **Yes.** Duplicates are not an error for area habitats — they are the split signal — but they are for watercourses. |
+| G9 | Choose on-site or off-site explicitly on every row. | Off-site parcels merge into on-site baseline parcels. | **Yes.** Including the template's own invalid `On site` default on two layers. |
+| G10 | Use the dropdowns. Do not type into controlled columns, and do not edit the file outside QGIS. | Arbitrary strings enter columns the engine looks up by exact match. | **Yes, per column.** The template's only file-level constraint is its primary key — there are no database-level checks at all. |
+| G11 | When a parcel is **Retained**, set the proposed habitat type to the same habitat as the baseline. | A retained parcel silently becomes a different habitat. | **Yes.** Area habitats are the only layer where retained can change habitat type — the template pins only the broad type there. |
+| G12 | Leave distinctiveness to the dropdown; never override it. | Distinctiveness stops matching the habitat — a direct multiplier on units. | **Yes, by recomputation.** |
+| G13 | For a newly planted tree set category **Newly Planted**; for an existing tree, **Existing**. | A new tree is counted as a baseline tree, inflating the baseline. | **Yes**, but indirectly — we key on the baseline tree size band, because the template defaults the category inconsistently across its six tree layers. |
+| G14 | Every point is one tree. If several trees share a location, draw one point per tree. | Trees undercounted on both sides. | **Partially.** A count other than 1 is reported, but QGIS resets it on the next edit, so it cannot be relied on. |
 
 ---
 
