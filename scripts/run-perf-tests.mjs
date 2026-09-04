@@ -53,7 +53,118 @@ const cfg = {
   image: process.env.PERF_IMAGE ?? "bng-perf-tests:local",
   failOnAssert: Boolean(process.env.PERF_FAIL_ON_ASSERT),
   skipBuild: Boolean(process.env.PERF_SKIP_BUILD),
+  // Short feedback loop. The full plan is ~18 minutes, which is far too slow to
+  // iterate on a memory or capacity change: you learn whether it worked once an
+  // hour. Quick mode shortens every phase window and loop count so the same
+  // shape of load runs in ~3 minutes. It is for iterating, NOT for judging
+  // throughput — the numbers are not comparable with a full run.
+  quick: Boolean(process.env.PERF_QUICK),
 };
+
+// PERF_QUICK: the same plan, cut to the phases that stress memory.
+//
+// The full plan is ~18 minutes because it walks 42 concurrency steps. That is
+// the right shape for judging throughput and the wrong one for iterating on a
+// memory change, where you only need the steps that put several large files in
+// flight at once.
+//
+// It works by zeroing each unwanted phase's WINDOW, which entrypoint.sh treats
+// as "skip" — and, because the phase delays are derived rather than written
+// down, a skipped phase hands its wall clock back instead of leaving dead air.
+// That is the escape hatch the suite already documents, so this needs no change
+// to bng-perf-tests, and in particular does not reintroduce the extra profiles
+// that repo deliberately deleted.
+//
+// Kept: journey_large_10 and revalidate_large_20 (the heaviest bursts, 10 and
+// 20 concurrent large uploads) and the mixed workload, shortened. NOT a
+// substitute for a full run before believing a throughput number.
+const QUICK_KEPT_PHASES = Object.freeze([
+  "journey_large_10",
+  "revalidate_large_20",
+  "mixed",
+]);
+
+const QUICK_SKIPPED_PHASES = Object.freeze([
+  "journey_normal_1",
+  "journey_normal_2",
+  "journey_normal_3",
+  "journey_normal_4",
+  "journey_normal_5",
+  "journey_normal_6",
+  "journey_normal_7",
+  "journey_normal_8",
+  "journey_normal_9",
+  "journey_normal_10",
+  "journey_medium_1",
+  "journey_medium_5",
+  "journey_medium_10",
+  "journey_large_1",
+  "journey_large_2",
+  "journey_large_3",
+  "journey_large_5",
+  "revalidate_large_1",
+  "revalidate_large_2",
+  "revalidate_large_5",
+  "revalidate_large_10",
+  "pi_normal_1",
+  "pi_normal_2",
+  "pi_normal_5",
+  "pi_normal_10",
+  "pi_large_1",
+  "pi_large_5",
+  "edit_normal_1",
+  "edit_normal_2",
+  "edit_normal_3",
+  "edit_normal_5",
+  "edit_normal_10",
+  "edit_large_1",
+  "edit_large_5",
+  "editContention_2",
+  "editContention_3",
+  "editContention_5",
+  "editContention_10",
+  "fetchRamp",
+]);
+
+const QUICK_ENV = Object.freeze({
+  // A phase is one step of the run: one operation, at one concurrency, for a set
+  // time — `journey_medium_5` is five concurrent users each doing a full upload
+  // journey with a medium file. It is one JMeter thread group, and it has three
+  // settings: how many users, how long it runs, and the pause after it. The full
+  // plan is 42 of them, mostly in ladders climbing the user count on a fixed
+  // operation, because the question is not "does it work" but "at what
+  // concurrency does it start to degrade".
+  //
+  // Quick mode keeps only the heaviest few and turns off the rest, by zeroing
+  // both of each unwanted phase's knobs: how long it runs, and how many users
+  // run it.
+  //
+  // Both, because zeroing the duration alone does not switch a phase off —
+  // JMeter refuses to start a thread group asked to run N users for 0 seconds,
+  // and logs an error instead. The phase stays off either way, but each one
+  // reports a failure that is not a failure. With 38 of them, a thread group
+  // that failed for a REAL reason is impossible to spot. Zero the users too and
+  // the phase is simply absent.
+  //
+  // Needs bng-perf-tests' USERS_<step> override (DEFRA/bng-perf-tests#15).
+  ...Object.fromEntries(
+    QUICK_SKIPPED_PHASES.flatMap((phase) => [
+      [`WINDOW_${phase}`, "0"],
+      [`USERS_${phase}`, "0"],
+    ]),
+  ),
+  EVERYDAY_PHASE_DURATION_SECONDS: "8",
+  PROBE_BASELINE_SECONDS: "8",
+  PHASE_GAP_SECONDS: "2",
+  // The mixed workload uses the same WINDOW_<phase> override as the skips.
+  WINDOW_mixed: "20",
+  CREATE_LOOPS: "2",
+  CREATE_LARGE_LOOPS: "1",
+  SIZE_LOOPS_NORMAL: "2",
+  SIZE_LOOPS_BUSY: "1",
+  SIZE_LOOPS_LARGE: "1",
+  SIZE_LOOPS_XLARGE: "1",
+});
 
 const HEALTH_ATTEMPTS = 30;
 const HEALTH_INTERVAL_MS = 1000;
@@ -134,6 +245,10 @@ function containerEnv() {
     LIST_LOOPS: cfg.loops,
     LIST_RAMP_SECONDS: cfg.ramp,
   };
+
+  if (cfg.quick) {
+    Object.assign(env, QUICK_ENV);
+  }
 
   if (cfg.scenario) {
     env.TEST_SCENARIO = cfg.scenario;
@@ -236,7 +351,9 @@ async function checkStack() {
   // The plan hits both services, and the container mints a token against the stub
   // before JMeter starts, so all three have to be up.
   for (const port of new Set([cfg.frontendPort, cfg.backendPort])) {
-    if (!(await waitForHealth(`:${port}`, `http://${cfg.host}:${port}/health`))) {
+    if (
+      !(await waitForHealth(`:${port}`, `http://${cfg.host}:${port}/health`))
+    ) {
       error(
         "Start the stack first: `docker compose up -d` in bng-metric-backend, " +
           "then `npm run dev` here.",
@@ -250,7 +367,11 @@ async function checkStack() {
 async function main() {
   requireSibling("bng-perf-tests");
 
-  info("▸ running the full suite — staging uploads, then ~18 minutes of JMeter");
+  info(
+    cfg.quick
+      ? "▸ PERF_QUICK — staging uploads, then ~2-3 minutes of JMeter (shape of the full plan, not its throughput numbers)"
+      : "▸ running the full suite — staging uploads, then ~18 minutes of JMeter",
+  );
 
   if (!(await checkStack())) {
     process.exit(1);
@@ -273,7 +394,9 @@ async function main() {
     // The entrypoint exits non-zero only on an infrastructure failure — a failed
     // token mint, seed or staging step, or no report to publish. Assertions never
     // gate it, so a non-zero code here is not a red assertion.
-    error(`The perf run failed (exit ${code}) — see the container output above.`);
+    error(
+      `The perf run failed (exit ${code}) — see the container output above.`,
+    );
     process.exit(code);
   }
 
