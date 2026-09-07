@@ -112,7 +112,12 @@ will, for every row that came from a baseline feature:
   across exactly as `1. Copy baseline to post-intervention` would have done it.
   This is what carries a parcel you deleted and re-drew as two;
 - check that each area parent is still fully covered by the rows cut from it,
-  and report any parent that is not.
+  and report any parent whose rows no longer add up, in either direction;
+- give a **split baseline feature** its own hidden id. QGIS copies every
+  attribute when it splits a feature, so both halves come out sharing one id
+  and neither can be told from the other. The half that continues the original
+  parcel keeps the id, the rest become new parcels, and it says which. This is
+  the one case where the button edits the **Baseline** layer as well.
 
 Only the locked `Baseline …` columns and `Parent Ref` are ever overwritten.
 Everything you own — your shapes, your `Proposed …` values, `Retention
