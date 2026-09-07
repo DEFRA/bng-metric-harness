@@ -51,12 +51,45 @@ Everything here is pure npm + Node — no submodules, no workspaces, no shared l
 | `npm run pull`                      | `git pull --ff-only` in all three; warns (never errors) on ff failure                                |
 | `npm run branch`                    | Current branch of each repo, side-by-side                                                            |
 | `npm run perf`                      | Full perf suite against the local stack (~18 min + staging). Drives **bng-perf-tests' own container**, so it is the same image, entrypoint and plan CDP runs. Needs frontend, backend, stub and cdp-uploader `:7337` up |
+| `npm run perf:results`              | Download a CDP perf run's **raw per-sample CSV** from the portal, store it in SQLite and build an HTML report. `-- --list` shows runs, `-- --all` grabs the whole JMeter dashboard, `-- --no-store` skips the DB/report step |
+| `npm run perf:report`               | Re-analyse what is already stored and rebuild the HTML — no re-fetch. `-- --all` rebuilds every report, `-- --list` shows the store |
 | `npm run queue-deps`                | Enqueue vetted Dependabot PRs into the repos' merge queues as the current user (bot-armed auto-merge never enqueues); `-- --dry-run` to preview, `-- backend` to target one repo |
 | `npm run fe -- <script>`            | Runs an arbitrary npm script in frontend (e.g. `npm run fe -- test`)                                 |
 | `npm run be -- <script>`            | Same for backend                                                                                     |
 | `npm run lint`                      | Runs lint in both repos (sequential)                                                                 |
 | `npm run test`                      | Runs tests in both repos (sequential)                                                                |
 | `npm run test:fe` / `test:be`       | Individual test run                                                                                  |
+
+### Perf results: store and report
+
+`npm run perf:results` pulls the raw JMeter samples the CDP portal publishes alongside
+its dashboard — the per-sample CSV `bng-perf-tests/entrypoint.sh` writes with `-l`, not
+just the rendered report. Two portal routes make that possible without credentials:
+`/test-suites/{suite}` for the run table, and
+`/test-suites/report/{env}/{suite}/{runId}/{assetPath}` which streams the S3 object.
+Requesting an asset path that cannot exist returns a 404 whose body **lists the run's
+whole folder** — the only way to learn the CSV's name, since it is stamped with the
+container's start time rather than the run's.
+
+Samples land in `perf-results/perf-runs.db` (SQLite via **`node:sqlite`** — built into
+Node 24, so the analysis needs no install; `better-sqlite3` is a devDependency here but
+would make these scripts unusable before `npm install`). Reports are written to
+`perf-results/reports/`. The whole directory is gitignored: it is all re-fetchable.
+
+The report deliberately does not re-render what the JMeter dashboard already shows. It
+covers what the dashboard cannot:
+
+- **assertion failures vs HTTP errors** — JMeter marks a sample failed when any
+  assertion fails, so a 200 that breached a latency budget and a 502 both land in one
+  "error %". They are different events and are split apart.
+- **incident clustering** — four failures 0.3s apart are one blip, not a failure mode.
+- **collateral impact** — the probe's latency plotted against live concurrency, so the
+  everyday user's experience is a timeline rather than one averaged number.
+- **ladder scaling** — `"<family> @ N user(s)"` labels reassembled into a
+  cost-vs-concurrency curve, which is the question the ladders exist to answer.
+- **run-over-run comparison and trend** — impossible in the portal, where each run's
+  dashboard lives in its own S3 prefix. Label renames are reported rather than hidden:
+  a comparison that silently returns nothing reads as "nothing changed".
 
 ### Real Defra ID (B2C) login — `npm run dev:b2c`
 

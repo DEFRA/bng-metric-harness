@@ -38,3 +38,7 @@ mkdocs.generated.yml
 
 # GeoPackage validation explainer working state — intermediates, not deliverables
 /.geopackage-validation-explainer/
+
+# Perf results downloaded from the CDP Portal (scripts/fetch-perf-results.mjs).
+# Published run artefacts — re-fetchable, so never committed.
+/perf-results/
