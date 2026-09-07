@@ -27,6 +27,7 @@ network. Neither ever modifies its input files.
 gpkg_common.py           shared GeoPackage plumbing + the canonical geometry checksum
 new_to_old.py            new template  ->  legacy pair
 old_to_new.py            legacy pair   ->  new template
+to_metric.py             new template  ->  a filled Statutory Metric workbook
 bng_template_convert/    the QGIS plugin (wraps the two above)
 build_plugin.py          packages the plugin into dist/bng_template_convert.zip
 templates/               reference copies of both templates (see templates/README.md)
@@ -93,9 +94,63 @@ in orange — anything that needs checking.
 |---|---|
 | BNG Service GeoPackage | Your site's `Layers/BNG Service Layers.gpkg` |
 | Folder to put the two legacy files in | Any empty folder |
+| What to produce | Both, or one of the two (see below) |
 | Record lineage in comments | Leave ticked |
 
-You get the baseline and post-intervention files to upload, in that order.
+**What to produce** picks the destination, because the two legacy routes want
+different files:
+
+| Choice | You get | For |
+|---|---|---|
+| Legacy GeoPackages | `… - Baseline.gpkg` and `… - Post-Intervention.gpkg` | Uploading to the older Biodiversity Metric service, baseline first |
+| GIS import tool CSVs | `GIS import tool CSVs/` holding `Habitats.csv`, `Hedgerows.csv`, `Rivers.csv` | Feeding the Excel **GIS import tool**, which fills in the Statutory Biodiversity Metric or the SSM |
+| Both | All of the above | |
+
+The CSVs are the same rows as the post-intervention GeoPackage, in the same
+column order, written the way a `Save As CSV` of the legacy Master layer would
+be. Load each one into its matching tab of the import tool with **Import GIS CSV
+Data**, then choose **On Site** or **Off Site** there before exporting to the
+metric.
+
+**Individual trees are not in the CSVs.** The import tool cannot read tree points
+at all (User Guide 2.4.1); they have to be typed into the metric by hand. The
+tool says so, with the count, whenever a site has any. Trees are still written to
+the GeoPackages.
+
+### Export to the Statutory Metric (Excel)
+
+Fills a copy of the Statutory Biodiversity Metric workbook straight from your
+habitats, with no GIS import tool in between.
+
+| Field | What to put in it |
+|---|---|
+| BNG Service GeoPackage | Your site's `Layers/BNG Service Layers.gpkg` |
+| Blank Statutory Metric workbook | Your own copy of `The_Statutory_Metric_Macro_Enabled…xlsm` |
+| Filled metric workbook to write | Any new `.xlsm` path |
+| Merge rows with matching values | Leave off unless you run out of rows |
+
+Your metric file is never modified; a filled copy is written. If the workbook
+already holds habitats the tool stops rather than overwrite them. Open the
+result in Excel and let it recalculate. Macros and sheet protection carry over
+untouched.
+
+**What it fills:** the on-site tabs for area habitats, hedgerows and
+watercourses. Each post-intervention parcel lands on the baseline tab carrying
+its parent's baseline values and its own size, with that size placed in
+*retained* or *enhanced*; whatever is left of a baseline feature is lost. The
+creation and enhancement tabs are filled to match.
+
+**What it does not fill, and you must enter by hand:** individual trees, whose
+size the metric derives from a band lookup; the off-site tabs (D, E and F),
+which carry extra allocation columns and a different layout; and irreplaceable
+habitats.
+
+**Merging rows** does what the import tool's *consolidate* button does: rows
+agreeing on everything but size become one row with the sizes added. Totals do
+not change, because units scale with size. Use it if a site has more than the
+248 rows a metric tab holds. Enhanced rows are never merged, because the
+enhancement tab is positional against the baseline tab and merging two parcels
+heading for different habitats would apply the targets to the wrong parcels.
 
 ### Convert from legacy template
 
@@ -234,6 +289,12 @@ python3 new_to_old.py "path/to/BNG Service Layers.gpkg" -o converted/
 
 Produces `… - Baseline.gpkg` and `… - Post-Intervention.gpkg`.
 
+Add **`--format csv`** for the Excel GIS import tool's three CSVs instead, or
+**`--format both`** for all five files. The CSV names carry no site prefix on
+purpose: the import tool works out which module a file holds by looking for
+`hab`, `hed` or `riv` in its name, so a site called "Riverside" would otherwise
+make the habitats file ambiguous.
+
 Add **`--carry-lineage`** to record each feature's parent reference in the legacy
 `Comment` column. The legacy service ignores it, but `old_to_new.py` reads it
 back — which is the difference between a round trip that restores the lineage
@@ -258,6 +319,7 @@ the post-intervention file second.
 | **Promotes polygons** | The legacy habitats layer is registered `MULTIPOLYGON`, so polygons are wrapped as single-part multipolygons. Coordinates unchanged. |
 | **Computes the red line area** | Legacy has an `Area` column the new template does not carry. |
 | **Rounds sizes** | Legacy `Area`, `Length` and `Count` are integer columns. The service measures geometry itself, so this does not affect the calculation. |
+| **Writes the import tool's CSVs** | On request, the same post-intervention rows are also written as `Habitats.csv`, `Hedgerows.csv` and `Rivers.csv` for the Excel GIS import tool. Trees are excluded because the tool cannot read them. |
 | **Converts area units** | The new template records `Area` in **hectares**; legacy `Area` is whole **square metres**. Both directions convert (`hectares_to_sq_metres` / `sq_metres_to_hectares` in `gpkg_common.py`). `Length` is metres on both sides and is passed through. |
 
 ### What is lost
@@ -421,10 +483,14 @@ shipped template plus stamp verification, not by executing that validator.
 
 ```
 python3 new_to_old.py INPUT.gpkg [-o OUT_DIR] [--dry-run] [--carry-lineage]
+                      [--format {gpkg,csv,both}]
 
-  -o, --out-dir     where to write the two files (default: current directory)
+  -o, --out-dir     where to write the output (default: current directory)
   --dry-run         report what would be produced; write nothing
   --carry-lineage   record parent references in the legacy Comment column
+  --format          gpkg: the legacy pair (default)
+                    csv:  the three GIS import tool CSVs
+                    both: all five files
 
 python3 old_to_new.py --baseline BASE.gpkg [--post-intervention PI.gpkg]
                       [-o OUT_DIR] [--into TARGET.gpkg] [--force] [--dry-run]
@@ -435,6 +501,14 @@ python3 old_to_new.py --baseline BASE.gpkg [--post-intervention PI.gpkg]
   --into                write into an existing template GeoPackage instead
   --force               allow --into when the target already holds features
   --dry-run             report what would be produced; write nothing
+
+python3 to_metric.py INPUT.gpkg --metric METRIC.xlsm -o OUT.xlsm
+                     [--consolidate] [--allow-occupied]
+
+  --metric              a blank copy of the Statutory Metric workbook
+  -o, --out             where to write the filled copy
+  --consolidate         merge rows agreeing on everything but size
+  --allow-occupied      write even if the metric already holds habitats
 ```
 
 Exit code is `0` on success, `1` on error.

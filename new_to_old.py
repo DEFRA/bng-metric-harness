@@ -17,6 +17,7 @@ See README.md for the full walkthrough and the list of known losses.
 """
 
 import argparse
+import csv
 import os
 import sqlite3
 import struct
@@ -734,9 +735,57 @@ def synthesise_lost_rows(baseline_rows, pi_rows, size_field, rule, tolerance):
 # ---------------------------------------------------------------------------
 
 
+# The GIS import tool takes ONE CSV per module and works out which module a
+# file holds from its NAME: it looks for 'hab', 'hed' or 'riv' (User Guide
+# 2.5.40). These names carry no site prefix on purpose. A site called
+# "Riverside" would otherwise put 'riv' into the habitats file name, and which
+# module the tool picked would depend on the order it happens to test in.
+#
+# Individual trees have no entry here because the import tool cannot take them
+# at all: the User Guide (2.4.1) says tree points are illustrative and "will
+# need to be manually filled into these tools".
+CSV_MODULES = [
+    ("Habitats", "Habitats.csv"),
+    ("Hedgerows", "Hedgerows.csv"),
+    ("Rivers", "Rivers.csv"),
+]
+
+CSV_SUBFOLDER = "GIS import tool CSVs"
+
+
+def csv_value(value):
+    """A cell as QGIS writes it: missing becomes empty, never the word None."""
+    return "" if value is None else value
+
+
+def write_module_csv(path, table, rows):
+    """One module's rows, shaped like a 'Save As CSV' of the legacy Master layer.
+
+    Same columns in the same order as the legacy table, with `fid` in front,
+    because that is what the import tool is used to reading. Geometry is left
+    out: the tool reads attributes only.
+
+    Written with a BOM so Excel opens it as UTF-8 rather than guessing a
+    code page and mangling any habitat name that is not plain ASCII.
+    """
+    column_names = [name for name, _ in LEGACY_LAYERS[table]["columns"]]
+    with open(path, "w", newline="", encoding="utf-8-sig") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["fid"] + column_names)
+        for index, (_geometry, values) in enumerate(rows, start=1):
+            writer.writerow(
+                [index] + [csv_value(values.get(name)) for name in column_names]
+            )
+    return len(rows)
+
+
 def insert_rows(conn, table, rows):
-    """Insert mapped rows, filling every legacy column (absent keys become NULL)."""
-    if not rows:
+    """Insert mapped rows, filling every legacy column (absent keys become NULL).
+
+    `conn` is None when the run was asked for CSVs only, so no GeoPackage was
+    opened. The rows are still built and still returned to the caller.
+    """
+    if conn is None or not rows:
         return 0
     spec = LEGACY_LAYERS[table]
     column_names = [name for name, _ in spec["columns"]]
@@ -814,7 +863,12 @@ def resolve_staged_tables(source, report):
     return resolved
 
 
-def convert(input_path, out_dir, carry_lineage, dry_run):
+def convert(input_path, out_dir, carry_lineage, dry_run, formats=("gpkg",)):
+    """Write the legacy pair, the GIS import tool's CSVs, or both.
+
+    `formats` may hold "gpkg", "csv" or both. It defaults to the GeoPackage
+    pair alone so a plain call keeps doing what it always did.
+    """
     report = Report()
     source = sqlite3.connect(f"file:{input_path}?mode=ro", uri=True)
 
@@ -842,36 +896,84 @@ def convert(input_path, out_dir, carry_lineage, dry_run):
         _plan_counts(staged, redline, report)
         return report
 
+    want_gpkg = "gpkg" in formats
+    want_csv = "csv" in formats
+    if not (want_gpkg or want_csv):
+        raise ValueError("nothing to write: ask for gpkg, csv or both")
+
     os.makedirs(out_dir, exist_ok=True)
     stem = os.path.splitext(os.path.basename(input_path))[0]
     baseline_path = os.path.join(out_dir, f"{stem} - Baseline.gpkg")
     pi_path = os.path.join(out_dir, f"{stem} - Post-Intervention.gpkg")
 
-    baseline_conn = create_legacy_gpkg(baseline_path, srs_rows)
-    pi_conn = create_legacy_gpkg(pi_path, srs_rows)
+    baseline_conn = pi_conn = None
+    if want_gpkg:
+        baseline_conn = create_legacy_gpkg(baseline_path, srs_rows)
+        pi_conn = create_legacy_gpkg(pi_path, srs_rows)
 
     try:
         _write_redline(baseline_conn, pi_conn, redline, site, report)
-        _write_areas(baseline_conn, pi_conn, staged["areas"], site,
-                     carry_lineage, report)
-        _write_hedgerows(baseline_conn, pi_conn, staged["hedgerows"], site,
-                         carry_lineage, report)
-        _write_watercourses(baseline_conn, pi_conn, staged["watercourses"], site,
-                            carry_lineage, report)
-        _write_trees(baseline_conn, pi_conn, staged["trees"], site,
-                     carry_lineage, report)
+        # The post-intervention rows are the ones the import tool wants: one
+        # row per feature carrying its baseline values, its retention and its
+        # proposed values side by side, which is the shape of the legacy
+        # Master layer a user would otherwise export by hand.
+        pi_rows = {
+            "Habitats": _write_areas(
+                baseline_conn, pi_conn, staged["areas"], site,
+                carry_lineage, report),
+            "Hedgerows": _write_hedgerows(
+                baseline_conn, pi_conn, staged["hedgerows"], site,
+                carry_lineage, report),
+            "Rivers": _write_watercourses(
+                baseline_conn, pi_conn, staged["watercourses"], site,
+                carry_lineage, report),
+            "Urban Trees": _write_trees(
+                baseline_conn, pi_conn, staged["trees"], site,
+                carry_lineage, report),
+        }
 
-        for conn in (baseline_conn, pi_conn):
-            for table, spec in LEGACY_LAYERS.items():
-                update_layer_extent(conn, table, spec["geom_column"])
-            conn.commit()
+        if want_gpkg:
+            for conn in (baseline_conn, pi_conn):
+                for table, spec in LEGACY_LAYERS.items():
+                    update_layer_extent(conn, table, spec["geom_column"])
+                conn.commit()
     finally:
-        baseline_conn.close()
-        pi_conn.close()
+        for conn in (baseline_conn, pi_conn):
+            if conn is not None:
+                conn.close()
 
-    report.note(f"Baseline file:          {baseline_path}")
-    report.note(f"Post-intervention file: {pi_path}")
+    if want_gpkg:
+        report.note(f"Baseline file:          {baseline_path}")
+        report.note(f"Post-intervention file: {pi_path}")
+    if want_csv:
+        _write_csvs(out_dir, pi_rows, report)
     return report
+
+
+def _write_csvs(out_dir, pi_rows, report):
+    """The three CSVs the Excel GIS import tool reads, one per module."""
+    csv_dir = os.path.join(out_dir, CSV_SUBFOLDER)
+    os.makedirs(csv_dir, exist_ok=True)
+
+    for table, filename in CSV_MODULES:
+        path = os.path.join(csv_dir, filename)
+        written = write_module_csv(path, table, pi_rows.get(table, []))
+        report.count(f"{filename}", written)
+
+    report.note(f"Import tool CSVs:       {csv_dir}")
+    report.note(
+        "Import each CSV into its own tab of the GIS import tool, then choose "
+        "On Site or Off Site there before exporting to the metric."
+    )
+
+    trees = len(pi_rows.get("Urban Trees", []))
+    if trees:
+        report.warn(
+            f"{trees} individual tree(s) are NOT in the CSVs. The import tool "
+            "cannot read tree points at all (User Guide 2.4.1), so they have to "
+            "be typed into the metric by hand. They are in the "
+            "post-intervention GeoPackage if you asked for one."
+        )
 
 
 def _write_redline(baseline_conn, pi_conn, redline, site, report):
@@ -957,6 +1059,7 @@ def _write_areas(baseline_conn, pi_conn, tables, site, carry_lineage, report):
     insert_rows(pi_conn, "Habitats", pi_rows)
     report.count("Habitats (baseline)", len(baseline_rows))
     report.count("Habitats (post-intervention)", len(pi_rows))
+    return pi_rows
 
 
 def _write_linear(
@@ -997,10 +1100,11 @@ def _write_linear(
         report.note(
             f"{table_name}: synthesised {len(losses)} 'Lost' row(s) — {detail}"
         )
+    return pi_rows
 
 
 def _write_hedgerows(baseline_conn, pi_conn, tables, site, carry_lineage, report):
-    _write_linear(
+    return _write_linear(
         baseline_conn, pi_conn, tables, site, carry_lineage, report,
         "Hedgerows", map_hedgerow_baseline, map_hedgerow_pi, hedgerow_lost_row,
         REMOVAL_RULE_SHORTFALL,
@@ -1008,7 +1112,7 @@ def _write_hedgerows(baseline_conn, pi_conn, tables, site, carry_lineage, report
 
 
 def _write_watercourses(baseline_conn, pi_conn, tables, site, carry_lineage, report):
-    _write_linear(
+    return _write_linear(
         baseline_conn, pi_conn, tables, site, carry_lineage, report,
         "Rivers", map_watercourse_baseline, map_watercourse_pi,
         watercourse_lost_row, REMOVAL_RULE_PRESENCE,
@@ -1040,6 +1144,7 @@ def _write_trees(baseline_conn, pi_conn, tables, site, carry_lineage, report):
             f"{parent.get('Tree Ref')} ({int(round(size))})" for parent, size in losses
         )
         report.note(f"Urban Trees: synthesised {len(losses)} 'Lost' row(s) — {detail}")
+    return pi_rows
 
 
 def _report_losses(staged, report):
@@ -1159,7 +1264,18 @@ def main(argv=None):
         action="store_true",
         help="report what would be produced without writing any files",
     )
+    parser.add_argument(
+        "--format",
+        choices=("gpkg", "csv", "both"),
+        default="gpkg",
+        help=(
+            "gpkg: the legacy baseline + post-intervention pair (default); "
+            "csv: the three CSVs the Excel GIS import tool reads; both"
+        ),
+    )
     args = parser.parse_args(argv)
+
+    formats = ("gpkg", "csv") if args.format == "both" else (args.format,)
 
     if not os.path.exists(args.input):
         print(f"error: input file not found: {args.input}", file=sys.stderr)
@@ -1167,7 +1283,7 @@ def main(argv=None):
 
     try:
         report = convert(
-            args.input, args.out_dir, args.carry_lineage, args.dry_run
+            args.input, args.out_dir, args.carry_lineage, args.dry_run, formats
         )
     except (sqlite3.Error, ValueError, struct.error) as error:
         print(f"error: {error}", file=sys.stderr)

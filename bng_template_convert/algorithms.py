@@ -14,6 +14,7 @@ from qgis.core import (
     QgsProcessingAlgorithm,
     QgsProcessingException,
     QgsProcessingParameterBoolean,
+    QgsProcessingParameterEnum,
     QgsProcessingParameterFile,
     QgsProcessingParameterFileDestination,
     QgsProcessingParameterFolderDestination,
@@ -21,9 +22,10 @@ from qgis.core import (
     QgsVectorLayer,
 )
 
-from . import new_to_old, old_to_new
+from . import new_to_old, old_to_new, to_metric
 
 GEOPACKAGE_FILTER = "GeoPackage (*.gpkg *.GPKG)"
+METRIC_FILTER = "Macro-enabled workbook (*.xlsm *.XLSM)"
 SOURCE_SEPARATOR = "|"
 
 
@@ -115,6 +117,15 @@ class ConvertToLegacyAlgorithm(QgsProcessingAlgorithm):
     INPUT = "INPUT"
     OUTPUT_FOLDER = "OUTPUT_FOLDER"
     CARRY_LINEAGE = "CARRY_LINEAGE"
+    OUTPUT_FORMAT = "OUTPUT_FORMAT"
+
+    # Index order is the order shown in the dropdown; the tuples are what
+    # new_to_old.convert expects.
+    FORMAT_CHOICES = [
+        ("Both", ("gpkg", "csv")),
+        ("Legacy GeoPackages only (for the older service)", ("gpkg",)),
+        ("GIS import tool CSVs only (for the Excel metric)", ("csv",)),
+    ]
 
     def flags(self):
         # Reads QgsProject to check for unsaved edits, which is main-thread only.
@@ -152,6 +163,21 @@ class ConvertToLegacyAlgorithm(QgsProcessingAlgorithm):
             "ignores it, but it lets the companion tool restore the links "
             "exactly if you ever convert back. Leave it ticked unless you need "
             "the comment column untouched.</p>"
+            "<p><b>What to produce.</b> Two different destinations want two "
+            "different things:</p>"
+            "<ul>"
+            "<li><b>Legacy GeoPackages</b> are what you upload to the older "
+            "Biodiversity Metric service, baseline first.</li>"
+            "<li><b>GIS import tool CSVs</b> are what you feed to the Excel "
+            "<i>GIS import tool</i>, which fills in the Statutory Biodiversity "
+            "Metric or the Small Sites Metric. Three files, one per module, "
+            "written into a <i>GIS import tool CSVs</i> folder. Import each "
+            "into its matching tab, then choose On Site or Off Site in the tool "
+            "before exporting.</li>"
+            "</ul>"
+            "<p><b>Individual trees are not in the CSVs.</b> The import tool "
+            "cannot read tree points at all, so trees have to be typed into the "
+            "metric by hand. They are still in the GeoPackages.</p>"
         )
 
     def initAlgorithm(self, config=None):
@@ -169,6 +195,14 @@ class ConvertToLegacyAlgorithm(QgsProcessingAlgorithm):
             )
         )
         self.addParameter(
+            QgsProcessingParameterEnum(
+                self.OUTPUT_FORMAT,
+                "What to produce",
+                options=[label for label, _ in self.FORMAT_CHOICES],
+                defaultValue=0,
+            )
+        )
+        self.addParameter(
             QgsProcessingParameterBoolean(
                 self.CARRY_LINEAGE,
                 "Record lineage in comments (recommended)",
@@ -180,20 +214,31 @@ class ConvertToLegacyAlgorithm(QgsProcessingAlgorithm):
         source = self.parameterAsFile(parameters, self.INPUT, context)
         out_dir = self.parameterAsString(parameters, self.OUTPUT_FOLDER, context)
         carry = self.parameterAsBool(parameters, self.CARRY_LINEAGE, context)
+        choice = self.parameterAsEnum(parameters, self.OUTPUT_FORMAT, context)
+        label, formats = self.FORMAT_CHOICES[choice]
 
         if not source or not os.path.exists(source):
             raise QgsProcessingException(f"Cannot find the input file: {source}")
         require_saved_edits(source, feedback)
 
-        feedback.pushInfo("Converting to the legacy template…")
-        report = new_to_old.convert(source, out_dir, carry, False)
+        feedback.pushInfo(f"Converting to the legacy template — {label}…")
+        report = new_to_old.convert(source, out_dir, carry, False, formats)
         report_to_feedback(report, feedback)
 
         feedback.pushInfo("")
-        feedback.pushInfo(
-            "Next: upload the Baseline file first, then the Post-Intervention "
-            "file."
-        )
+        feedback.pushInfo("Next steps")
+        if "gpkg" in formats:
+            feedback.pushInfo(
+                "    - Older service: upload the Baseline file first, then the "
+                "Post-Intervention file."
+            )
+        if "csv" in formats:
+            feedback.pushInfo(
+                "    - Excel metric: open the GIS import tool, and on each of "
+                "the Habitats, Hedges and Rivers tabs use 'Import GIS CSV "
+                "Data' to load the matching CSV. Choose On Site or Off Site "
+                "before exporting."
+            )
         return {self.OUTPUT_FOLDER: out_dir}
 
     def createInstance(self):
@@ -343,4 +388,120 @@ class ConvertFromLegacyAlgorithm(QgsProcessingAlgorithm):
         return ConvertFromLegacyAlgorithm()
 
 
-ALGORITHMS = (ConvertToLegacyAlgorithm, ConvertFromLegacyAlgorithm)
+class ExportToMetricAlgorithm(QgsProcessingAlgorithm):
+    """BNG Service GeoPackage -> a filled copy of the Statutory Metric."""
+
+    INPUT = "INPUT"
+    METRIC = "METRIC"
+    OUTPUT_FILE = "OUTPUT_FILE"
+    CONSOLIDATE = "CONSOLIDATE"
+
+    def flags(self):
+        # Reads QgsProject to check for unsaved edits, which is main-thread only.
+        return super().flags() | QgsProcessingAlgorithm.FlagNoThreading
+
+    def name(self):
+        return "exporttometric"
+
+    def displayName(self):
+        return "Export to the Statutory Metric (Excel)"
+
+    def group(self):
+        return "BNG template conversion"
+
+    def groupId(self):
+        return "bngtemplate"
+
+    def shortHelpString(self):
+        return (
+            "<p>Fills a copy of the <b>Statutory Biodiversity Metric</b> "
+            "workbook straight from your habitats, with no GIS import tool in "
+            "between.</p>"
+            "<p><b>Point it at a blank metric.</b> Give it your own copy of "
+            "<i>The_Statutory_Metric_Macro_Enabled</i>. The file is not "
+            "changed: a filled copy is written to wherever you choose. If the "
+            "workbook already holds habitats the tool stops rather than "
+            "overwrite them.</p>"
+            "<p><b>Open the result in Excel and let it recalculate.</b> Macros "
+            "and sheet protection are carried over untouched.</p>"
+            "<p><b>What it fills:</b> the on-site tabs for area habitats, "
+            "hedgerows and watercourses (A, B and C). Each parcel lands on the "
+            "baseline tab with its size split into retained or enhanced, and "
+            "the creation and enhancement tabs are filled to match.</p>"
+            "<p><b>What it does not fill:</b> individual trees, whose size the "
+            "metric derives from a band lookup; the off-site tabs (D, E and F), "
+            "which have a different layout; and irreplaceable habitats. Enter "
+            "those by hand.</p>"
+            "<p><i>Merge rows with matching values</i> does what the import "
+            "tool's <i>consolidate</i> button does: rows agreeing on everything "
+            "but size become one row with the sizes added up. The totals do not "
+            "change, because units scale with size. Use it if a site has more "
+            "than 248 parcels, which is all the metric holds. It costs the "
+            "parcel-by-parcel audit trail, so it is off by default.</p>"
+        )
+
+    def initAlgorithm(self, config=None):
+        self.addParameter(
+            QgsProcessingParameterFile(
+                self.INPUT,
+                "BNG Service GeoPackage (usually Layers/BNG Service Layers.gpkg)",
+                behavior=QgsProcessingParameterFile.File,
+                fileFilter=GEOPACKAGE_FILTER,
+            )
+        )
+        self.addParameter(
+            QgsProcessingParameterFile(
+                self.METRIC,
+                "Blank Statutory Metric workbook (.xlsm)",
+                behavior=QgsProcessingParameterFile.File,
+                fileFilter=METRIC_FILTER,
+            )
+        )
+        self.addParameter(
+            QgsProcessingParameterFileDestination(
+                self.OUTPUT_FILE, "Filled metric workbook to write",
+                fileFilter=METRIC_FILTER,
+            )
+        )
+        self.addParameter(
+            QgsProcessingParameterBoolean(
+                self.CONSOLIDATE,
+                "Merge rows with matching values (only if you run out of rows)",
+                defaultValue=False,
+            )
+        )
+
+    def processAlgorithm(self, parameters, context, feedback):
+        source = self.parameterAsFile(parameters, self.INPUT, context)
+        metric = self.parameterAsFile(parameters, self.METRIC, context)
+        destination = self.parameterAsFileOutput(
+            parameters, self.OUTPUT_FILE, context)
+        consolidate = self.parameterAsBool(parameters, self.CONSOLIDATE, context)
+
+        for path, label in ((source, "GeoPackage"), (metric, "metric workbook")):
+            if not path or not os.path.exists(path):
+                raise QgsProcessingException(f"Cannot find the {label}: {path}")
+        require_saved_edits(source, feedback)
+
+        feedback.pushInfo("Filling the metric workbook…")
+        try:
+            report = to_metric.convert(source, metric, destination, consolidate)
+        except ValueError as error:
+            raise QgsProcessingException(str(error))
+        report_to_feedback(report, feedback)
+
+        feedback.pushInfo("")
+        feedback.pushInfo("Next steps")
+        feedback.pushInfo(
+            "    - Open the workbook in Excel and let it recalculate.")
+        feedback.pushInfo(
+            "    - Add individual trees, irreplaceable habitats and any "
+            "off-site parcels by hand.")
+        return {self.OUTPUT_FILE: destination}
+
+    def createInstance(self):
+        return ExportToMetricAlgorithm()
+
+
+ALGORITHMS = (ConvertToLegacyAlgorithm, ConvertFromLegacyAlgorithm,
+              ExportToMetricAlgorithm)

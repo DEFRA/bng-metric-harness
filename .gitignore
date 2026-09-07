@@ -10,3 +10,4 @@ dist/
 bng_template_convert/gpkg_common.py
 bng_template_convert/new_to_old.py
 bng_template_convert/old_to_new.py
+bng_template_convert/to_metric.py

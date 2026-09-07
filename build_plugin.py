@@ -16,7 +16,8 @@ import zipfile
 
 PACKAGE = "bng_template_convert"
 DIST_DIR = "dist"
-SHARED_MODULES = ("gpkg_common.py", "new_to_old.py", "old_to_new.py")
+SHARED_MODULES = ("gpkg_common.py", "new_to_old.py", "old_to_new.py",
+                  "to_metric.py")
 PLUGIN_FILES = (
     "__init__.py",
     "metadata.txt",
