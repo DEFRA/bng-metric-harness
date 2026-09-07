@@ -311,6 +311,47 @@ a user attestation rather than dressed up as a service check.
 
 ---
 
+## 7a. What the user actually sees
+
+The derivation is only worth having if the journey reaches it, and two things
+stood between the two.
+
+**The upload landed on the previous design.** Baseline uploads have finished on
+`/projects/{id}/project-summary` since those pages were built; post-intervention
+uploads still fell through to `/projects/{id}/post-intervention-habitat-list`,
+because only the baseline upload type carried a `successRoute`. Harmless while
+every journey began with a baseline upload that had already taken the user to
+the summary. Fatal here: with a post-intervention file alone, nothing else ever
+routes there, so the current design was unreachable for the entire journey. The
+habitat list keeps its job as the editing surface — every habitat detail page
+still backs out to it.
+
+**The summary pages could not see a derived baseline.** They read
+`project.baseline` directly rather than going through `baselineData`, at six
+sites. Because `hasBaselineData` *had* been updated, the redirect guards let the
+pages render and they then contradicted themselves: a confident **0.00 units**
+under "On-site baseline", beside a **+25.20%** net change calculated from the
+derived baseline the tile was failing to show. A blank page would have been
+safer than a wrong one. All six now read the same document the headline does.
+
+Where a derived baseline is in play the tile says so three times over — the
+heading reads *On-site baseline (derived)*, a grey **Derived** tag sits beside
+it, and *How we worked this out* links to the derivation page. Where coverage is
+insufficient the figures are still shown, because they are the best the file
+supports, but the Met / Not met verdict is replaced by **Cannot be determined**
+rather than published from a baseline the service knows it could not fully
+account for.
+
+**One thing deliberately left alone.** The task list at
+`/add-project-details/{id}` still shows "On-site baseline habitats — Not yet
+started" for a post-intervention-only project, and still links that row to the
+upload page. That is accurate — no baseline file *was* uploaded — and the row is
+the entry point to the optional baseline upload the corroboration depends on.
+The project list no longer routes users through it: `has_baseline` now counts
+either document, so a derived project opens straight on the summary.
+
+---
+
 ## 8. Draft user guidance
 
 No authoritative Natural England completion guidance exists to quote — the PDF
@@ -324,6 +365,17 @@ only thing standing between the service and an overstated gain on the linear and
 point layers, because those layers have no equivalent of the red-line rule that
 makes area completeness enforceable. Everything else is either checkable, or
 affects the parcel list rather than the numbers.
+
+**One dependency on policy, not yet confirmed.** G4 tells a user that a
+re-aligned linear feature is recorded as the old line `Lost` and the new line
+`Created`. That is a policy question rather than an engineering one — creation
+and enhancement do not score the same way, so treating a moved hedgerow as a
+creation changes the answer even though the plants may be the same. The current
+expectation is that moving a hedgerow does constitute creation, and confirmation
+is being sought. **If policy decides otherwise, G4 needs rewriting and the
+enhancement route needs a way to carry the original length** — which, for
+hedgerows, the template does not have. Watercourses are unaffected either way,
+because the meanders layer keeps both alignments as drawn geometry.
 
 | # | Guidance | If ignored | Can we detect it? |
 | --- | --- | --- | --- |
