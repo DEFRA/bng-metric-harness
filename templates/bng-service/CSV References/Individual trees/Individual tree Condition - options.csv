@@ -1,0 +1,17 @@
+ID,New
+1. GoodRetained,Good
+1. GoodCreated,N/A
+2. Fairly GoodRetained,Fairly Good
+2. Fairly GoodCreated,N/A
+3. ModerateRetained,Moderate
+3. ModerateCreated,N/A
+4. Fairly PoorRetained,Fairly Poor
+4. Fairly PoorCreated,N/A
+5. PoorRetained,Poor
+5. PoorCreated,N/A
+N/ACreated,(no selection)
+N/ACreated,Good
+N/ACreated,Fairly Good
+N/ACreated,Moderate
+N/ACreated,Fairly Poor
+N/ACreated,Poor

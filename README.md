@@ -29,7 +29,11 @@ new_to_old.py            new template  ->  legacy pair
 old_to_new.py            legacy pair   ->  new template
 bng_template_convert/    the QGIS plugin (wraps the two above)
 build_plugin.py          packages the plugin into dist/bng_template_convert.zip
+templates/               reference copies of both templates (see templates/README.md)
 ```
+
+The templates themselves are in [`templates/`](templates/), so the code and the
+formats it targets stay together. Copy a folder elsewhere before working in it.
 
 ---
 
