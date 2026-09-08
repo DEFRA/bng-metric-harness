@@ -31,7 +31,7 @@ adjoin, and rebuilds every baseline figure from the post-intervention geometry.
 | **Area habitats** | **Yes, with guidance** | Every engine input is already on the row except size, and size is recoverable exactly. Area habitats must account for the whole red line — the existing `AREA_SUM_MISMATCH` check enforces that to 0.5 m² and *rejects* any file that fails — so summing the measured parcels reconstructs the baseline area in full. What remains is **attribute** coverage: a row can tile its share of the site and still leave its baseline columns blank. That is fully detectable and quantifiable. |
 | **Hedgerows** | **Yes, with guidance** | Units need only length, type and condition, all on the row, and the length is **exact** wherever the file accounts for every metre that existed — a partly-removed hedge split into a `Retained` row and a `Lost` row reconstructs to its full surveyed length (§4). The gap is **completeness**, not arithmetic, and it rests entirely on guidance: nothing ties the hedgerow layer to the red line, so a hedge removed without a row left behind is invisible and indistinguishable from one that never existed. |
 | **Watercourses** | **Yes, with guidance** | As hedgerows, plus two specifics. Re-meandering — the one case where the post-intervention length legitimately exceeds the baseline — is recoverable only through the template's dedicated meanders layer, which **could not be read at all** until this spike (see §7). And a missing encroachment value silently defaults to a multiplier of 1, which inflates the baseline; detectable and reported. |
-| **Individual trees** | **Yes, with guidance** | Arithmetically the cleanest case. A tree's baseline area is a four-band reference lookup with no geometry, no adjacency and no merging — and it is *already computed correctly on every post-intervention upload today and thrown away*. Same completeness gap as the linear layers, and a felled tree left as a `Lost` row counts toward the baseline exactly as it should. |
+| **Individual trees** | **Yes, but the weakest completeness case** | Arithmetically the cleanest case. A tree's baseline area is a four-band reference lookup with no geometry, no adjacency and no merging — and it is *already computed correctly on every post-intervention upload today and thrown away*. Same completeness gap as the linear layers, and a felled tree left as a `Lost` row counts toward the baseline exactly as it should. **The gap is worse here than the arithmetic suggests.** User Guide 2.4.1 tells users that tree points are *“for illustrative purposes only”* and *“cannot be imported into the GIS import tool or exported to the main metric or SSM”*. In the legacy workflow the layer therefore feeds nothing, no error check has ever touched it, and users have had no reason to complete it carefully. G13 and G14 rest on much weaker ground than their hedgerow and watercourse equivalents, which at least reach the CSV export. |
 | **Vertical area habitats, irreplaceable habitats** | **No** | The NE template has no columns for green walls, green roofs, intertidal hard structures as vertical area, or irreplaceable habitat. If a site has any, they are absent from **both** sides of the calculation. This is a template limitation, not a derivation one — it applies equally to the existing two-upload journey. |
 
 ---
@@ -253,6 +253,18 @@ template already has, and needs neither.
 - **The parcel list is an assumption, not a record.** Totals survive it; an
   assessor's reconciliation against the original survey does not.
 
+### A tension inside the guidance itself
+
+G3 and G4 both increase row count: a partial loss becomes two rows, a moved line
+becomes two. The legacy route has hard ceilings — **248 rows** per metric tab
+(User Guide 3.1.5) and **20** for the SSM (1.7.1), beyond which rows are dropped
+on export. NE's remedy is either splitting the site geographically or the import
+tool's consolidate button, and 3.2.3 warns that consolidating *“may be merged
+with other polygons of the same attributes within the same dataset”*, which is
+the parcel-level audit trail. On a hedgerow-rich site, "split every partial loss
+into its own row" and "stay under 248" pull against each other, and the way out
+costs the audit trail rather than the totals.
+
 ---
 
 ## 6. What the service can check, and what it must take on trust
@@ -354,11 +366,24 @@ either document, so a derived project opens straight on the summary.
 
 ## 8. Draft user guidance
 
-No authoritative Natural England completion guidance exists to quote — the PDF
-shipped with the template is a two-page cover sheet with no completion rules.
-**Everything below is inferred from the template's own dropdown filters and
-reference data. It is ours to author and own, must not be presented as an NE
-requirement, and needs ecologist review before publication.**
+Authoritative guidance does exist, and an earlier draft of this section said it
+did not. The two-page PDF shipped inside the template folder is only the cover
+of *Natural England Joint Publication JP039*; the rules are in its 42-page
+companion, **“The Statutory Biodiversity Metric and Small Sites Metric — QGIS
+template and GIS import tool: User Guide” (November 2023)**, kept alongside the
+template at `bng-template-convert/templates/legacy-ne/`.
+
+So these rules divide into three kinds, and the difference matters when they are
+put to a user:
+
+- **Restating NE.** G3 and G7 are NE's own instructions, cited below. They can be
+  presented as guidance rather than argued for.
+- **Forced by the template's own data.** G4 and G11 follow from the dropdown
+  value relations, which permit nothing else.
+- **Ours to own.** The rest are inferred, must not be presented as an NE
+  requirement, and need ecologist review before publication. **G5 and G8 go
+  further than that: they ask for something NE's guidance does not, and in G5's
+  case the opposite of what it suggests.**
 
 Not all of it carries equal weight. **G3 and G4 are load-bearing**: they are the
 only thing standing between the service and an overstated gain on the linear and
@@ -366,27 +391,38 @@ point layers, because those layers have no equivalent of the red-line rule that
 makes area completeness enforceable. Everything else is either checkable, or
 affects the parcel list rather than the numbers.
 
-**One dependency on policy, not yet confirmed.** G4 tells a user that a
-re-aligned linear feature is recorded as the old line `Lost` and the new line
-`Created`. That is a policy question rather than an engineering one — creation
-and enhancement do not score the same way, so treating a moved hedgerow as a
-creation changes the answer even though the plants may be the same. The current
-expectation is that moving a hedgerow does constitute creation, and confirmation
-is being sought. **If policy decides otherwise, G4 needs rewriting and the
-enhancement route needs a way to carry the original length** — which, for
-hedgerows, the template does not have. Watercourses are unaffected either way,
-because the meanders layer keeps both alignments as drawn geometry.
+**One dependency on policy, and the template has settled half of it.** G4 tells
+a user that a re-aligned linear feature is recorded as the old line `Lost` and
+the new line `Created`. Whether that is the right *scoring* remains a policy
+question — creation and enhancement do not score the same way, so treating a
+moved hedgerow as a creation changes the answer even though the plants may be
+the same.
+
+What is no longer open is whether the legacy template can express anything else.
+It cannot, for hedgerows. `Retention Category` is restricted on `Baseline Hedge
+Type`, and `Created` is reachable from exactly one value, `To be created`; a row
+carrying a real hedge type is offered only `Lost`, `Retained` or `Enhanced`. So
+a moved hedge is two rows whatever policy prefers. **If policy decides a moved
+hedgerow is an enhancement, G4 does not simply need rewriting: the legacy format
+has nowhere to record it**, and the enhancement route would need a way to carry
+the original length that the template does not have.
+
+Watercourses are unaffected either way, and go the other way: 2.5.31–2.5.37
+score a realignment as `Enhanced` and keep both alignments as drawn geometry. The
+same physical act is therefore a creation for a hedge and an enhancement for a
+watercourse, purely because of what the template can hold. That asymmetry is the
+sharpest form in which to put the question to policy.
 
 | # | Guidance | If ignored | Can we detect it? |
 | --- | --- | --- | --- |
 | G1 | Draw an area-habitat polygon over **every** part of the red line — no gaps, no overlaps. | Baseline area understated; the >10% test is wrong. | **Yes, fully.** The file is already *rejected*. |
 | G2 | Fill all baseline columns on **every** area row, including parcels being built on. | The row contributes no baseline units, silently inflating net gain. | **Yes.** Reported with the count *and the area share*; above a threshold the verdict is withheld rather than published wrong. |
-| **G3** | **Every metre of hedgerow and watercourse, and every tree, that exists today must appear as drawn geometry on some row.** Where part of a feature is removed, **split it into sections** — one row per section, each carrying the original baseline attributes, retention **Lost** for what goes and **Retained**/**Enhanced** for what stays. Never shorten a line to show that part of it is going. | The most serious failure: the removed length was never in the derived baseline, so the loss is never subtracted and the gain is overstated with no ceiling. | **No.** A file missing a `Lost` row is byte-identical to one describing a site that never had that feature. Mitigated only by an explicit user declaration, and by the report stating row counts, `Lost` counts and total derived length on every project. |
-| **G4** | **Never re-draw a Retained or Enhanced line.** If the alignment changes, record the old line as **Lost** and the new line as **Created** — or, for a watercourse, use the meanders layer, which keeps both alignments (G7). | The row's own length is taken as its baseline length. Lengthening understates the gain; shortening overstates it. | **Partly.** A watercourse marked *Enhanced by Realignment* with no meanders child is reported, and so is an orphan child. For hedgerows there is no equivalent signal — the assumption is recorded on the feature and in the report, with its direction stated as unknown. |
-| G5 | Where one parcel is divided, give every part the **same** parcel reference and identical baseline attributes. | The reassembly groups wrongly; the parcel list will not reconcile with the survey. | **Partially.** We can see adjoining rows that share attributes but disagree on reference, and warn. Unit totals are unaffected either way. |
+| **G3** | **Every metre of hedgerow and watercourse, and every tree, that exists today must appear as drawn geometry on some row.** Where part of a feature is removed, **split it into sections** — one row per section, each carrying the original baseline attributes, retention **Lost** for what goes and **Retained**/**Enhanced** for what stays. Never shorten a line to show that part of it is going. **This is NE's own instruction, not ours.** User Guide 6.1.17: *“users should not manually delete sections of linear features that are to be lost — rather select the appropriate options within the attribute table to reflect this outcome.”* And 6.1.16: *“existing features subdivided where there are differences in proposed outcomes (for example partial losses).”* | The most serious failure: the removed length was never in the derived baseline, so the loss is never subtracted and the gain is overstated with no ceiling. | **No.** A file missing a `Lost` row is byte-identical to one describing a site that never had that feature. Mitigated only by an explicit user declaration, and by the report stating row counts, `Lost` counts and total derived length on every project. |
+| **G4** | **Never re-draw a Retained or Enhanced line.** If the alignment changes, record the old line as **Lost** and the new line as **Created** — or, for a watercourse, use the meanders layer, which keeps both alignments (G7). **The template permits nothing else for hedgerows.** `Retention Category` is a restricted list keyed on `Baseline Hedge Type` (Appendix A, Table 7-2), and `Hedgerow Retention Options.csv` offers `Created` on exactly one baseline value, `To be created`. A row carrying a real hedge type can only be `Lost`, `Retained` or `Enhanced`, so a moved hedge cannot be one row. Watercourses get the opposite answer for the same act, because 2.5.31–2.5.37 give them a realignment workflow scored as `Enhanced`. That asymmetry is a property of the template, not an ecological principle, and is the form the open policy question should take. | The row's own length is taken as its baseline length. Lengthening understates the gain; shortening overstates it. | **Partly.** A watercourse marked *Enhanced by Realignment* with no meanders child is reported, and so is an orphan child. For hedgerows there is no equivalent signal — the assumption is recorded on the feature and in the report, with its direction stated as unknown. |
+| G5 | Where one parcel is divided, give every part the **same** parcel reference and identical baseline attributes. **Asks for the opposite of NE's only concrete suggestion**, so it cannot be presented as guidance and should be expected to be widely unmet. The User Guide specifies no reference convention anywhere: it never says what becomes of `Parcel Ref` when a feature is subdivided, though it tells users to subdivide in 2.5.24, 6.1.12 and 6.1.16. Its one practical tip, 2.5.19, is to set `Parcel Ref` from the hidden `fid`, which is *“automatically populated with unique values”* — giving every **row** a distinct reference, so the parts of a split parcel come out with different ones. | The reassembly groups wrongly; the parcel list will not reconcile with the survey. | **Partially.** We can see adjoining rows that share attributes but disagree on reference, and warn. Unit totals are unaffected either way, which is why this stays advisory. |
 | G6 | Never edit the Area, Length or Count columns by hand. | Nothing in the calculation — but it destroys the only cross-check that detects non-QGIS editing. | **Yes.** In QGIS these always equal the geometry, so a breach heads the report. |
-| G7 | For a re-meandered watercourse: set retention **Enhanced** and enhancement type **Enhanced by Realignment**, keep the **old** channel on the Rivers row, and draw the **new** channel in the meanders layer pointing back at it. | The length change is invisible; the enhancement is scored against the wrong length. | **Yes, both directions** — a realignment row with no child, and an orphan child. |
-| G8 | Give every row a reference that is unique within its layer. Never leave the word `Null`. | The meanders join fails; the reassembly loses its tiebreak; an assessor cannot trace a row. | **Yes.** Duplicates are not an error for area habitats — they are the split signal — but they are for watercourses. |
+| G7 | For a re-meandered watercourse: set retention **Enhanced** and enhancement type **Enhanced by Realignment**, keep the **old** channel on the Rivers row, and draw the **new** channel in the meanders layer pointing back at it. | The length change is invisible; the enhancement is scored against the wrong length. **Confirmed by NE.** 2.5.32 has the baseline watercourse keeping its own alignment while the realigned channel is drawn separately, and 2.5.35 has the child carrying a `Baseline Parcel Ref` *“completed to match the parcel ref for the baseline polyline”* — the only parent-pointer field NE ever specified, for one habitat type. **Caveat:** 2.5.37 calls that layer *“for illustration only”* and has the user type the new length into the metric by hand, so a user following NE exactly may have drawn it loosely. Reading it as authoritative geometry is better than NE's own tooling, but the report should say the length came from it. | **Yes, both directions** — a realignment row with no child, and an orphan child. |
+| G8 | Give every row a reference that is unique within its layer. Never leave the word `Null`. **Conflicts with NE**, which endorses the default: 2.5.19 says `Parcel Ref` *“should be left to automatically fill in as ‘Null’ or filled in with the relevant reference”*, and Appendix A repeats *“Edit with free text or leave as ‘Null’, do not leave blank”*. Literal `Null` should therefore be expected as the common case rather than treated as neglect. Where a user does want references, 2.5.19's `fid` tip is the route to suggest. | The meanders join fails; the reassembly loses its tiebreak; an assessor cannot trace a row. | **Yes.** Duplicates are not an error for area habitats — they are the split signal — but they are for watercourses. |
 | G9 | Choose on-site or off-site explicitly on every row. | Off-site parcels merge into on-site baseline parcels. | **Yes.** Including the template's own invalid `On site` default on two layers. |
 | G10 | Use the dropdowns. Do not type into controlled columns, and do not edit the file outside QGIS. | Arbitrary strings enter columns the engine looks up by exact match. | **Yes, per column.** The template's only file-level constraint is its primary key — there are no database-level checks at all. |
 | G11 | When a parcel is **Retained**, set the proposed habitat type to the same habitat as the baseline. | A retained parcel silently becomes a different habitat. | **Yes.** Area habitats are the only layer where retained can change habitat type — the template pins only the broad type there. |
