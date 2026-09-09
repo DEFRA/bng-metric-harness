@@ -4,14 +4,16 @@
  * Structure of the output:
  *   Page 1  site heading, key figures (pdfkit's built-in tagged table),
  *           baseline and post-intervention site maps side by side, legend
- *   Page 2+ one row per habitat parcel: mini-map, ref, type, condition, area
+ *   Page 2+ the habitat parcels, in one of two layouts:
+ *             cards (default) — one card per parcel, every recorded attribute
+ *                               on its own line, in `habitat-cards.mjs`
+ *             table           — one row per parcel: mini-map, ref, type,
+ *                               condition, area. Here, in `addHabitatPages`
  *
  * Every map is a `Figure` with a bbox and alt text, and every map is followed
- * by the same information as real table rows — a map conveys nothing to a
- * screen reader, so the table is what actually carries the content.
+ * by the same information as real text — a map conveys nothing to a screen
+ * reader, so the rows or the card lines are what carry the content.
  */
-
-import path from 'node:path'
 
 import PDFDocument from 'pdfkit'
 
@@ -20,23 +22,20 @@ import {
   withFrameClip, HABITAT_STYLES
 } from './map.mjs'
 import { gridIntervalMetres } from './tiles.mjs'
-import { envelopeOf, envelopeOfAll, polygonAreaSqm, lineLengthMetres } from './geometry.mjs'
+import { envelopeOfAll, polygonAreaSqm, lineLengthMetres } from './geometry.mjs'
 import { pickZoom, effectiveDpi } from './grid.mjs'
-import { fitEnvelopeToFrame, makeProjector, projectorFor } from './projector.mjs'
+import { projectorFor } from './projector.mjs'
+import { addHabitatCards } from './habitat-cards.mjs'
+import { drawMiniMap, prepareThumbnails } from './thumbnail.mjs'
+import { BODY, BOLD, labelAsArtifact, plural, registerFonts } from './page-furniture.mjs'
+import {
+  A4_PORTRAIT, BORDER, CONTENT_WIDTH, HABITAT_ROW_HEIGHT, INK, MAP_PAD, MARGIN,
+  MINI_MAP_SIZE, MUTED, SITE_MAP_HEIGHT
+} from './layout.mjs'
 
-const A4_PORTRAIT = [595.28, 841.89]
-const MARGIN = 40
-const CONTENT_WIDTH = A4_PORTRAIT[0] - MARGIN * 2
-
-// GOV.UK palette (govuk-frontend colour names).
-const INK = '#0b0c0c'
-const MUTED = '#505a5f'
-const BORDER = '#b1b4b6'
-
-const SITE_MAP_HEIGHT = 210
-const MINI_MAP_SIZE = 52
-const HABITAT_ROW_HEIGHT = 62
-const MAP_PAD = 0.08
+// Re-exported: the alt-text test imports it from here, and this is still the
+// module that decides what a map's alt text says.
+export { plural }
 
 /**
  * Build the PDF.
@@ -48,42 +47,17 @@ const MAP_PAD = 0.08
  * @param {Function} options.tileSource
  * @param {boolean} options.graticule  draw the registration proof overlay
  * @param {boolean} options.habitatBasemap  basemap behind each parcel thumbnail
+ * @param {'cards'|'table'} options.layout  how the parcels are presented
  * @returns {Promise<{ doc: PDFDocument, stats: object }>}
  */
-/**
- * Embed the body fonts.
- *
- * PDF/UA 7.21.4.1 requires every font PROGRAM to be embedded. pdfkit's
- * defaults — Helvetica and friends — are the PDF base-14: they are referenced
- * by name and resolved by the viewer, never embedded, so a document using them
- * can never pass however well tagged it is. veraPDF caught this; nothing about
- * the rendered page looks different either way.
- *
- * Noto Sans is used because it is SIL OFL 1.1 and therefore safe to commit.
- * A real service should use GDS Transport, which is what GOV.UK sets in the
- * browser; it is licensed for GOV.UK services but is not redistributable here,
- * so swapping it in is a licensing step, not a code change — replace the two
- * files and the paths below.
- */
-const FONT_DIR = path.resolve(import.meta.dirname, '..', 'assets', 'fonts')
-const BODY = 'Body'
-const BOLD = 'Bold'
-
-function registerFonts(doc) {
-  doc.registerFont(BODY, path.join(FONT_DIR, 'NotoSans-Regular.ttf'))
-  doc.registerFont(BOLD, path.join(FONT_DIR, 'NotoSans-Bold.ttf'))
-  // pdfkit starts every document on Helvetica; without this, anything drawn
-  // before the first explicit font() call would reintroduce the failure.
-  doc.font(BODY)
-}
-
 export async function buildSummaryPdf({
   baseline,
   postIntervention = null,
   grid,
   tileSource,
   graticule = false,
-  habitatBasemap = true
+  habitatBasemap = true,
+  layout = 'cards'
 }) {
   const siteName = baseline.siteName ?? 'BNG site'
   const title = `Biodiversity net gain summary — ${siteName}`
@@ -111,7 +85,11 @@ export async function buildSummaryPdf({
   doc.addStructure(root)
 
   await addSummaryPage({ doc, root, baseline, postIntervention, grid, tileSource, graticule, stats, siteName })
-  await addHabitatPages({
+
+  // Same parcels, same mini-maps, same alt text; the layouts differ only in
+  // how much of the file they have room to show. See habitat-cards.mjs.
+  const addParcels = layout === 'table' ? addHabitatPages : addHabitatCards
+  await addParcels({
     doc, root, baseline, postIntervention, grid, tileSource,
     withBasemap: habitatBasemap, stats
   })
@@ -300,18 +278,6 @@ function siteMapAltText(label, site, drawn) {
   )
 }
 
-/**
- * "1 watercourse", not "1 watercourses".
- *
- * Trivial, and worth doing properly: this string is not decoration, it is what
- * a screen-reader user actually hears in place of the map. Automated
- * conformance checking cannot catch it — veraPDF confirms alt text EXISTS, not
- * that it reads well — which is precisely why a human pass is still required.
- */
-export function plural(count, noun) {
-  return `${count} ${noun}${count === 1 ? '' : 's'}`
-}
-
 /* --------------------------------------------------------- key figures */
 
 function addKeyFiguresTable(doc, section, baseline, postIntervention) {
@@ -430,8 +396,15 @@ function buildLegend(doc, panels) {
   })
 }
 
-/* ------------------------------------------------------- habitat pages */
+/* ------------------------------------------- habitat pages, table layout */
 
+/**
+ * One row per parcel: mini-map, ref, type, condition, area.
+ *
+ * Kept, and selectable with `--table`, because it is the compact answer —
+ * eleven parcels a page against the card layout's two. What it cannot do is
+ * carry more than about five attributes, which is what `--cards` is for.
+ */
 async function addHabitatPages({
   doc, root, baseline, postIntervention, grid, tileSource, withBasemap, stats
 }) {
@@ -498,39 +471,6 @@ async function addHabitatPages({
 
   table.end()
   section.end()
-}
-
-/**
- * Work out each thumbnail's extent and fetch its tiles, before any drawing.
- */
-async function prepareThumbnails({ features, grid, tileSource, withBasemap }) {
-  const square = { x: 0, y: 0, width: MINI_MAP_SIZE, height: MINI_MAP_SIZE }
-  const thumbnails = new Map()
-
-  for (const feature of features) {
-    const padded = padEnvelopeBy(envelopeOf(feature.geometry), MINI_MAP_PAD)
-    const extent = fitEnvelopeToFrame(padded, square)
-
-    if (!withBasemap) {
-      thumbnails.set(feature, { extent, z: null, tiles: null })
-      continue
-    }
-    const z = pickZoom(grid, extent, square.width, 150)
-    const { tiles } = await fetchTiles(grid, z, extent, tileSource)
-    thumbnails.set(feature, { extent, z, tiles })
-  }
-  return thumbnails
-}
-
-function padEnvelopeBy(envelope, fraction) {
-  const padX = (envelope.maxX - envelope.minX) * fraction
-  const padY = (envelope.maxY - envelope.minY) * fraction
-  return {
-    minX: envelope.minX - padX,
-    minY: envelope.minY - padY,
-    maxX: envelope.maxX + padX,
-    maxY: envelope.maxY + padY
-  }
 }
 
 function habitatColumns() {
@@ -630,86 +570,6 @@ function buildHabitatRow({
   return doc.struct('TR', cells)
 }
 
-/**
- * A parcel thumbnail, zoomed to the parcel itself so its shape is legible.
- *
- * Neighbouring parcels and the site boundary are drawn faintly underneath for
- * orientation — without them a lone polygon on a blank square tells you the
- * shape but not where it sits.
- *
- * The basemap is ON by default, decided by looking at real OS output rather
- * than by argument: at 18 mm the raster reads as useful context, not noise.
- *
- * It is not free. On the 120-parcel example against real OS it takes the
- * document from 851 kB / 12 tiles to 4.6 MB / 262 tiles. Wall-clock barely
- * moves (+0.4 s) because neighbouring parcels overlap and the proxy cache
- * absorbs the repeats, so SIZE is the cost to watch, not time. If that becomes
- * the constraint, halve the thumbnails' target DPI before dropping the basemap
- * — at 60 pt square the difference is invisible.
- *
- * `--no-habitat-basemap` turns it off.
- */
-const MINI_MAP_PAD = 0.35
-const CONTEXT_FILL = '#d8d4d0'
-const CONTEXT_STROKE = '#b1b4b6'
-
-function drawMiniMap({ doc, frame, feature, style, site, grid, thumbnail }) {
-  // The extent was computed against an identically sized frame, so rebuilding
-  // the projector here only moves the origin — the scale is unchanged.
-  const projector = makeProjector(thumbnail.extent, frame)
-
-  doc.save()
-  doc.rect(frame.x, frame.y, frame.width, frame.height).fillColor('#f8f8f8').fill()
-  doc.restore()
-
-  let tileCount = 0
-  withFrameClip(doc, frame, () => {
-    if (thumbnail.tiles) {
-      tileCount = drawBasemap(doc, {
-        grid, z: thumbnail.z, projector, tiles: thumbnail.tiles
-      }).tileCount
-    }
-
-    // Context first, so the subject parcel draws over it.
-    for (const other of site.layers.habitats?.features ?? []) {
-      if (other !== feature) {
-        drawGeometry(doc, other.geometry, projector, {
-          fill: CONTEXT_FILL,
-          stroke: CONTEXT_STROKE,
-          fillOpacity: 0.45,
-          lineWidth: 0.3
-        })
-      }
-    }
-    if (site.redLine) {
-      drawGeometry(doc, site.redLine.geometry, projector, {
-        stroke: HABITAT_STYLES.redLine.stroke,
-        lineWidth: 0.8
-      })
-    }
-    drawGeometry(doc, feature.geometry, projector, { ...style, lineWidth: 0.8 })
-  })
-
-  doc.save().lineWidth(0.5).strokeColor(BORDER)
-  doc.rect(frame.x, frame.y, frame.width, frame.height).stroke()
-  doc.restore()
-
-  return { tileCount, projector }
-}
-
 function columnX(columns, index) {
   return MARGIN + columns.slice(0, index).reduce((sum, column) => sum + column.width, 0)
-}
-
-/* ----------------------------------------------------------- utilities */
-
-/**
- * Mark drawing as an artifact — decoration that carries no information and
- * must be skipped by assistive technology. Tagged PDF requires that all
- * non-structure content be marked this way.
- */
-function labelAsArtifact(doc, draw) {
-  doc.markContent('Artifact', { type: 'Layout' })
-  draw()
-  doc.endMarkedContent()
 }

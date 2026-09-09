@@ -5,7 +5,12 @@
  *   node src/cli.mjs                       # defaults, synthetic basemap
  *   node src/cli.mjs --graticule           # overlay the registration proof
  *   node src/cli.mjs --no-habitat-basemap  # drop the per-parcel thumbnail basemap
+ *   node src/cli.mjs --table               # the compact one-row-per-parcel layout
  *   node src/cli.mjs --baseline <file> --post <file> --out <file>
+ *
+ * Parcels are shown as cards by default — one card each, every attribute the
+ * file records on its own line. `--table` selects the original layout, which
+ * fits eleven parcels to a page but only four attributes to a parcel.
  *
  *   node src/cli.mjs --proxy               # tiles via the real /os-tiles proxy,
  *                                          # backed by a stub upstream (no key)
@@ -61,6 +66,7 @@ export function parseArgs(argv) {
     out: path.resolve(import.meta.dirname, '../out/site-summary.pdf'),
     graticule: false,
     habitatBasemap: true,
+    layout: 'cards',
     proxy: false,
     os: false,
     proxyVector: false,
@@ -77,6 +83,12 @@ export function parseArgs(argv) {
       // Must be matched explicitly: the generic `--key value` branch below
       // would otherwise swallow the NEXT argument as its value.
       args.habitatBasemap = false
+    } else if (arg === '--cards') {
+      args.layout = 'cards'
+    } else if (arg === '--table') {
+      // Matched explicitly for the same reason as the --no-* flags: the
+      // generic `--key value` branch below would swallow the next argument.
+      args.layout = 'table'
     } else if (arg === '--proxy') {
       args.proxy = true
     } else if (arg === '--os') {
@@ -168,6 +180,7 @@ async function main() {
   console.log(`Baseline   : ${path.basename(args.baseline)}`)
   console.log(`Post       : ${args.post ? path.basename(args.post) : '(none)'}`)
   console.log(`Basemap    : ${kind}${args.graticule ? ' + graticule proof' : ''}`)
+  console.log(`Parcels    : ${args.layout === 'table' ? 'table, one row each' : 'cards, one card each'}`)
 
   const { doc, stats } = await buildSummaryPdf({
     baseline,
@@ -175,7 +188,8 @@ async function main() {
     grid,
     tileSource,
     graticule: args.graticule,
-    habitatBasemap: args.habitatBasemap
+    habitatBasemap: args.habitatBasemap,
+    layout: args.layout
   })
 
   fs.mkdirSync(path.dirname(args.out), { recursive: true })
@@ -192,7 +206,8 @@ async function main() {
   const { size } = fs.statSync(args.out)
   console.log(
     `\nWrote ${args.out}\n` +
-      `  ${(size / 1024).toFixed(1)} kB · ${stats.maps} site maps · ${stats.habitats} habitat rows · ` +
+      `  ${(size / 1024).toFixed(1)} kB · ${stats.maps} site maps · ` +
+      `${stats.habitats} habitat ${args.layout === 'table' ? 'rows' : 'cards'} · ` +
       `${stats.tiles} tiles · zoom ${stats.zooms.join(', ')}`
   )
 }

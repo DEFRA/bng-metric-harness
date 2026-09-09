@@ -44,6 +44,18 @@ test('the vector flags are matched explicitly and do not swallow arguments', () 
   assert.equal(stub.post, null)
 })
 
+test('parcels are cards unless asked otherwise', () => {
+  assert.equal(parseArgs([]).layout, 'cards')
+  assert.equal(parseArgs(['--cards']).layout, 'cards')
+})
+
+test('--table selects the compact layout without swallowing the next argument', () => {
+  const args = parseArgs(['--table', '--graticule'])
+
+  assert.equal(args.layout, 'table')
+  assert.equal(args.graticule, true, '--graticule must survive the preceding --table')
+})
+
 test('--key value pairs still parse', () => {
   const args = parseArgs(['--out', 'somewhere.pdf', '--baseline', 'b.gpkg'])
   assert.equal(args.out, 'somewhere.pdf')

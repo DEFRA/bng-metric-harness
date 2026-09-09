@@ -16,8 +16,9 @@ cd spikes/bmd-984-pdf-export
 npm install
 
 npm run build                 # out/site-summary.pdf
-npm test                      # 72 tests, no network
+npm test                      # 88 tests, no network
 
+node src/cli.mjs --table              # one row per parcel instead of one card
 node src/cli.mjs --graticule          # the registration proof (see below)
 node src/cli.mjs --no-habitat-basemap # drop the per-parcel thumbnail basemap
 node src/cli.mjs --baseline <f.gpkg> --post <f.gpkg> --out <f.pdf>
@@ -47,6 +48,39 @@ OS_MAPS_MAX_ZOOM=13 node src/cli.mjs --os
 npm run serve:tiles                   # run the proxy on :3100 and poke it
 ```
 
+## Two parcel layouts
+
+Page 1 is the same either way. The parcel pages come in two shapes, and the
+choice is about how much of the file a parcel can show.
+
+| | `--cards` (default) | `--table` |
+| --- | --- | --- |
+| Shape | One card per parcel, full page width | One row per parcel |
+| Attributes shown | Every one the GeoPackage records — up to 20 lines | Four: ref, type, condition, area |
+| Mini-map | 96 pt | 52 pt |
+| Density | ~2 parcels a page | ~11 parcels a page |
+| 20 parcels | 11 pages, 322 kB | 3 pages, 222 kB |
+| Table `/Headers` | Not applicable — there are no cells | Absent; see below |
+
+A table has to fit each attribute into a column, so the number of attributes it
+can carry is bounded by the width of the page. A card turns that ninety
+degrees: each attribute is its own line, so the report can show the baseline a
+parcel is changing from, its distinctiveness, strategic significance, retention
+category, spatial risk and survey provenance — rather than the four that
+happened to fit.
+
+It also sidesteps the `/Headers` problem recorded below. The table layout is
+hand-laid, because a `doc.table()` cell cannot hold a drawing and pdfkit only
+emits `/Headers` inside `doc.table()`, so its cells carry `/Scope` and nothing
+links a value to the header describing it. A card has no cells: each line is a
+paragraph reading "Condition: Poor", which needs no table navigation at all.
+**Both layouts pass PDF/UA-1 under veraPDF.**
+
+The layout lives in `src/habitat-cards.mjs`, ported from
+`bng-metric-backend/src/services/report/pdf/habitat-cards.js` — the backend
+reads the same parcels from PostGIS and the project document, so it can also
+show calculated biodiversity units, which a file on its own cannot.
+
 ## What it proves
 
 | Question | Answer |
@@ -54,7 +88,8 @@ npm run serve:tiles                   # run the proxy on :3100 and poke it
 | Can pure-JS produce a tagged PDF? | Yes — `Document/Sect/H1/H2/P/Table/TR/TH/TD/Figure`, `/Alt`, `/BBox`, `/Scope`, `/Headers`, `/Lang`, XMP `pdfuaid:part 1` |
 | Can we draw habitat geometry as vectors? | Yes — 20 parcels, hedgerows, watercourses, trees, red line |
 | Can a raster basemap sit under it, aligned? | Yes, exactly — see the graticule proof |
-| Mini-map per habitat in a table? | Yes — 20 rows, each a tagged `TD > Figure` with alt text |
+| Mini-map per habitat? | Yes — one per parcel, a tagged `Figure` with alt text, in either layout |
+| Can a parcel show more than a table column's worth? | Yes — the card layout puts every recorded attribute on its own line (see [Two parcel layouts](#two-parcel-layouts)) |
 | Native dependencies? | **None.** `pdfkit` only |
 | Output size | 134 kB for 3 pages / 22 maps (204 kB with thumbnail basemaps) |
 | Does it scale? | 120 parcels → 12 pages, 774 kB, **0.38 s** end to end |
