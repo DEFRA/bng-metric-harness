@@ -194,9 +194,13 @@ Ref stops being the carry-forward key and becomes the first of three tiers:
 1. **Ref**, when it is non-sentinel and unambiguous on both sides. Cheap, exact,
    and correct for the well-kept files that have it. **Built.**
 2. **Geometry**, otherwise: the canonical checksum this template already
-   defines, byte-identical across the backend, the QGIS actions and
-   `gpkg_common.py`. An unedited feature re-uploads to the same fingerprint
-   whatever its ref says. **Not built** — see below.
+   defines — canonicalise, `TYPE|ser(coords)` at three decimals, first 16 hex
+   of sha256 — so an unedited feature re-uploads to the same fingerprint
+   whatever its ref says. **Not built on this branch.** The JS implementation
+   exists, as `src/validation/geopackage/lineage/geometry-checksum.js` on
+   `spike/baseline-pi-lineage`, matching the QGIS action's Python and
+   `gpkg_common.py` byte for byte. Porting it is the prerequisite for tier 2
+   and for most of the reference strategies below.
 3. **A fresh id**, when neither resolves. Exactly today's fallback. **Built.**
 
 Tier 2 is what would make identity independent of the ref altogether: a file of
@@ -299,6 +303,105 @@ forwarding rather than only the resolution.
 Conversion to the legacy format keeps de-duplicating regardless: legacy really
 does reject repeated habitat refs, which is an external constraint on that route
 and not evidence for one here.
+
+#### Manufacturing a reference where the file has none
+
+Everything above is about not *rejecting* a reference. This is the other half:
+what the service should *publish* as a reference, given that users like refs,
+usually supply them, and reasonably expect the list they get back to be
+nameable and sortable.
+
+The two halves only reconcile if uniqueness moves sides. It stops being a rule
+enforced on **input** — that is the check just removed — and becomes a property
+guaranteed on **output**. The service accepts whatever the file says and takes
+responsibility for producing a label that is unique within its own dataset.
+
+**That needs three fields where there is currently one.**
+
+| Field | Holds | Manufactured? | Used for matching? |
+| --- | --- | --- | --- |
+| `ref` | exactly what the surveyor typed, or `null` | **Never.** Preserved verbatim so the file can always be reconciled to its source | Yes — as a hint, at tier 1 |
+| `displayRef` | the label the service publishes, unique within (document, layer) | Where needed, by the strategies below | **Never** |
+| `featureId` | identity | Already exists | It *is* the identity |
+
+The middle row is new. The rule that makes it safe is the third column:
+**a manufactured reference must never take part in matching.** Carry-forward,
+the meanders join and merge corroboration read `ref` and geometry only. If a
+generated label could match, the service would be matching on its own invention
+and reporting the result as though the file had said it — corroboration that
+corroborates nothing.
+
+Uniqueness is scoped to **(document, layer)**, not globally. Habitats,
+hedgerows, watercourses and trees are already separate reference columns, and
+baseline `H2` and post-intervention `H2` naming the same parcel is the linkage
+rather than a collision.
+
+##### The strategies, in precedence order
+
+The first one that applies wins. `refSource` is the machine-readable record of
+which did, so provenance lives in a field rather than in the spelling of the
+string.
+
+| # | Strategy | Fires when | Example | `refSource` | What makes it stable across a re-upload |
+| --- | --- | --- | --- | --- | --- |
+| 1 | **Verbatim** | A non-sentinel ref, carried by one feature only in its namespace | `PR-1` → `PR-1` | `user` | The user's own input |
+| 2 | **Shared-ref consensus** | A reassembled parcel whose every part carries the same ref | `H2`, `H2`, `H2` → `H2` | `user` | Same |
+| 3 | **Stem promotion** *(built)* | A reassembled parcel whose parts are numbered pieces of one stem | `H2-1` … `H2-10` → `H2` | `stem-inferred` | The stem is a function of the group, not of read order |
+| 4 | **Composite** *(built)* | A reassembled parcel whose parts carry unrelated names | `North Field` + `Long Meadow` → `derived:Long Meadow+North Field` | `composite` | Refs sorted before joining |
+| 5 | **Disambiguating suffix** | One ref on features that did **not** merge | `PR-1`, `PR-1` → `PR-1a`, `PR-1b` | `user-suffixed` | Letters assigned in **geometry-checksum order**, and stickily — a letter already bound to a surviving `featureId` is never reassigned |
+| 6 | **Habitat-derived** | Ref is blank or sentinel | Grassland parcel → `GRA-001` | `habitat-derived` | Generated **once and stored**; never regenerated, because habitat type is editable after upload |
+| 7 | **Layer-derived** | As 6, if a habitat vocabulary is not wanted | `A-001` / `HG-001` / `WC-001` / `TR-001` | `layer-derived` | Immune to any attribute changing |
+| 8 | **Geometry-derived** | Nothing above resolves, and a label is still required | `A-3f9c2a` | `geometry-derived` | The checksum itself — cannot drift, cannot collide |
+| 9 | **No label** | Nothing above, and the caller wants none | `null` | `none` | Today's behaviour; the parcel is identified by geometry alone |
+
+Strategies 6, 7 and 8 all number or key their output from the **canonical
+geometry checksum**, never from read order. That is what makes a generated
+reference reproducible: the same file uploaded twice, or with its rows in a
+different order, yields the same labels. It is also why the checksum port named
+above is the prerequisite for most of this table.
+
+Fixed-width counters (`001`, not `1`) are worth keeping even though the
+frontend's `refSortValue` already zero-pads digit runs for the habitat grid:
+the CSV export, the metric spreadsheet and the warehouse all sort the raw
+string with no such help.
+
+##### Aligning with the intervention categories
+
+A post-intervention row can also take its label from the baseline parcel it
+belongs to, with a marker for what is being done to it.
+
+| Situation | Baseline parcel | Post-intervention rows | Notes |
+| --- | --- | --- | --- |
+| Parcel kept whole, improved | `H2` | `H2/E` | |
+| Parcel split, part kept and part improved | `H2` | `H2/R1`, `H2/E1` | The stem is the linkage; the marker says what happened to each part |
+| Parcel split three ways across categories | `H2` | `H2/R1`, `H2/E1`, `H2/L1` | |
+| New habitat on previously bare ground | *(none)* | `C-001` | A Created row has **no parent**, so it cannot take a baseline stem and needs its own namespace |
+
+Two facts constrain this and are easy to get wrong.
+
+**Retention is a property of the intervention, not of the parcel.** It is
+deliberately excluded from the merge key for exactly this reason: in
+`example-files/valid/Post-intervention - complete.gpkg` the ten parts of one
+divided parcel carry *Lost*, *Retained* and *Enhanced* between them. A category
+marker in a post-intervention ref is therefore genuinely informative, and it
+does not break the link home because the stem carries that.
+
+**The marker must read the raw column, not the resolved category.**
+`resolveRetentionCategory` maps an area habitat's `Lost` to `Created`, and
+`filterLostPostInterventionLayers` drops Lost hedgerows, watercourses and trees
+from the document altogether. A marker built from the resolved value would
+label a lost parcel as created, which is precisely backwards.
+
+##### What must not happen
+
+- **No manufactured reference is ever written back to `ref`.** The user's input
+  is evidence and stays intact.
+- **No strategy re-introduces a rejection.** Every one of them has an answer for
+  every input; strategy 9 is the floor.
+- **No manufactured reference participates in matching**, per the rule above.
+- **No strategy is retroactive.** A label generated on one upload is stored and
+  carried forward, so a project's parcel names do not change underneath an
+  assessor because an attribute was edited.
 
 #### Choosing the label for a reassembled parcel
 
