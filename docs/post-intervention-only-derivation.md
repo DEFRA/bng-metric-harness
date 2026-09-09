@@ -102,17 +102,83 @@ One ambiguity is irreducible: no threshold separates "one parcel split down the
 middle" from "two parcels that always abutted". Two 10×10 squares sharing a full
 edge read identically either way. That is handled by labelling, not by geometry.
 
-### Naming a reassembled parcel
+### How references are handled
 
-Where every part is a numbered piece of one name — `H2-1` … `H2-10` — the
-reassembled parcel takes that name, and records that **the service chose it**.
-Parts named any other way get a composite that claims nothing.
+One principle governs all of it: **a reference never decides what is joined to
+what.** Parcels are reassembled from geometry and baseline attributes, and only
+then is a reference read, to put a *label* on the result and to keep a feature's
+identity stable across a re-upload. Nothing in the calculation moves if every
+ref in the file is wrong, absent, or identical.
 
-Only the *label* is ever inferred. The parcel is put back together from geometry
-and matching attributes before any reference is read, and every source row is
-listed alongside it, so the naming guess cannot move a number or change which
-rows were joined. That keeps the options paper's objection to reference-based
-lineage intact: nothing here depends on a naming practice being followed.
+That matters because refs cannot be relied on. The template's own default is the
+literal string `Null` rather than an empty cell, published guidance endorses
+leaving it that way (§8, G8), and no convention has ever been specified for what
+happens to a ref when a parcel is subdivided.
+
+**Sentinels.** `''`, `Null`, `N/A` and `(no selection)` are treated as saying
+nothing, compared case-insensitively after trimming. A sentinel ref is dropped
+before any label is chosen.
+
+**Choosing the label for a reassembled parcel.** After the group is formed,
+`mergedRef` looks at the distinct non-sentinel refs across its members:
+
+| Distinct real refs in the group | Label the parcel carries | Marked inferred? |
+| --- | --- | --- |
+| Exactly one | That ref | No, it is the parcel's own |
+| Several, all numbered pieces of one stem (`H2-1` … `H2-10`) | The stem, `H2` | **Yes** |
+| Several, unrelated (`North Field`, `Long Meadow`) | `derived:Long Meadow+North Field` | No, it claims nothing |
+| None (all sentinel) | `null` | No |
+
+The stem rule accepts `-`, `_`, `.`, `/` or a space before a purely numeric
+tail, and requires every member to agree on the stem. `H2-1` beside `H3-1` gives
+no stem, and neither does `H2-north`, because that is a name rather than a piece
+number. Refs are sorted before the composite is built, so the label is a
+function of the group rather than of read order.
+
+Whatever is chosen, `derivation.sourceRefs` lists every contributing ref and
+`derivation.refInferred` records whether the service picked the name. The
+parcel's own `featureId` is the lowest member id, so re-uploading the same file
+reassembles to the same identity.
+
+### What happens to a reference, scenario by scenario
+
+The first column is what is actually in the post-intervention file. Note that
+two of these never reach the derivation at all, because the upload is rejected
+first.
+
+| In the file (area habitats) | At upload | In the derived baseline | Reported |
+| --- | --- | --- | --- |
+| `H1`, `H2`, `H3` — distinct, one row each | Accepted | Each parcel keeps its own ref | Nothing to report |
+| `H2-1` … `H2-10` — one parcel divided, parts suffixed | Accepted | Group merges; parcel labelled `H2`, `refInferred: true`, all ten in `sourceRefs` | The merge, with its evidence and the inferred name |
+| `H2`, `H2`, `H2` — one parcel divided, parts keep the parent ref | **REJECTED**, `DUPLICATE_HABITAT_REF` | Never reached | Upload fails with the repeated ref named |
+| `Null`, `Null`, `Null` — untouched, the template's default | **REJECTED** on two or more rows | Never reached | Upload fails, naming `Null` as the duplicate |
+| `''` or the column absent | Accepted | Sentinel; merged parcel gets `ref: null` | Blank refs counted |
+| `H2` on one part, `Null` on the other | Accepted | Sentinel dropped, one real ref survives, parcel labelled `H2`, not inferred | The merge |
+| `North Field`, `Long Meadow` — adjoining, same attributes | Accepted | Merged, labelled `derived:Long Meadow+North Field` | The merge, and that the refs disagree |
+| Hedgerow, watercourse or tree refs repeated | Accepted, **not checked on those layers** | Refs unused for grouping there; no merging happens | Nothing today |
+
+Two consequences are worth stating plainly, because they cut against advice
+given elsewhere in this document and have been corrected there.
+
+**Duplicate area-habitat refs are a hard failure, not a signal.**
+`checkDuplicateHabitatRefs` runs on every upload, is not variant-aware, and sets
+`valid: false`. It ignores `null` and `''` but **not** the literal `Null`, so a
+file left exactly as the template writes it fails as soon as it has two area
+habitats. Verified directly against the check: `['Null','Null','Null']`,
+`['PR-1','PR-1','PR-2']` and `['H2','H2','H2']` are all rejected, while
+`['H2-1','H2-2','H2-3']` and `['','','']` pass.
+
+**So the only division convention that survives upload is a suffixed one**, and
+that is also the only one the reassembly can name. A shared parent ref never
+reaches the derivation.
+
+**Across a re-upload**, `carry-forward-feature-ids` keeps a feature's `featureId`
+when its ref is non-blank and unambiguous **on both sides**. Uniqueness is only
+enforced on habitats, so hedgerows, watercourses and trees may legitimately
+repeat a ref, and a repeated one carries nothing forward: those features get a
+fresh id, exactly as before the carry-forward existed. `Null` is not treated as
+blank here either, so a file full of `Null` refs carries nothing forward, which
+is the right outcome reached for the wrong reason.
 
 ---
 
@@ -285,7 +351,9 @@ direction it pushes the net gain:**
    file was edited outside QGIS
 6. Retained area rows whose proposed habitat type differs from the baseline
 7. Every merge group, with member references and both shared-boundary fractions
-8. Duplicate, blank or literal-`Null` references
+8. Blank and literal-`Null` references, and refs that disagree across a
+   merge group. Duplicates on area habitats never appear here: they fail the
+   upload outright
 9. Meanders links that fail, in both directions
 10. Rows producing no units at all — otherwise silently dropped from the totals
 11. Red-line coverage and parcel overlaps — the **only** structural completeness
@@ -419,10 +487,10 @@ sharpest form in which to put the question to policy.
 | G2 | Fill all baseline columns on **every** area row, including parcels being built on. | The row contributes no baseline units, silently inflating net gain. | **Yes.** Reported with the count *and the area share*; above a threshold the verdict is withheld rather than published wrong. |
 | **G3** | **Every metre of hedgerow and watercourse, and every tree, that exists today must appear as drawn geometry on some row.** Where part of a feature is removed, **split it into sections** — one row per section, each carrying the original baseline attributes, retention **Lost** for what goes and **Retained**/**Enhanced** for what stays. Never shorten a line to show that part of it is going. **This is NE's own instruction, not ours.** User Guide 6.1.17: *“users should not manually delete sections of linear features that are to be lost — rather select the appropriate options within the attribute table to reflect this outcome.”* And 6.1.16: *“existing features subdivided where there are differences in proposed outcomes (for example partial losses).”* | The most serious failure: the removed length was never in the derived baseline, so the loss is never subtracted and the gain is overstated with no ceiling. | **No.** A file missing a `Lost` row is byte-identical to one describing a site that never had that feature. Mitigated only by an explicit user declaration, and by the report stating row counts, `Lost` counts and total derived length on every project. |
 | **G4** | **Never re-draw a Retained or Enhanced line.** If the alignment changes, record the old line as **Lost** and the new line as **Created** — or, for a watercourse, use the meanders layer, which keeps both alignments (G7). **The template permits nothing else for hedgerows.** `Retention Category` is a restricted list keyed on `Baseline Hedge Type` (Appendix A, Table 7-2), and `Hedgerow Retention Options.csv` offers `Created` on exactly one baseline value, `To be created`. A row carrying a real hedge type can only be `Lost`, `Retained` or `Enhanced`, so a moved hedge cannot be one row. Watercourses get the opposite answer for the same act, because 2.5.31–2.5.37 give them a realignment workflow scored as `Enhanced`. That asymmetry is a property of the template, not an ecological principle, and is the form the open policy question should take. | The row's own length is taken as its baseline length. Lengthening understates the gain; shortening overstates it. | **Partly.** A watercourse marked *Enhanced by Realignment* with no meanders child is reported, and so is an orphan child. For hedgerows there is no equivalent signal — the assumption is recorded on the feature and in the report, with its direction stated as unknown. |
-| G5 | Where one parcel is divided, give every part the **same** parcel reference and identical baseline attributes. **Asks for the opposite of NE's only concrete suggestion**, so it cannot be presented as guidance and should be expected to be widely unmet. The User Guide specifies no reference convention anywhere: it never says what becomes of `Parcel Ref` when a feature is subdivided, though it tells users to subdivide in 2.5.24, 6.1.12 and 6.1.16. Its one practical tip, 2.5.19, is to set `Parcel Ref` from the hidden `fid`, which is *“automatically populated with unique values”* — giving every **row** a distinct reference, so the parts of a split parcel come out with different ones. | The reassembly groups wrongly; the parcel list will not reconcile with the survey. | **Partially.** We can see adjoining rows that share attributes but disagree on reference, and warn. Unit totals are unaffected either way, which is why this stays advisory. |
+| G5 | Where one parcel is divided, **give each part the parent's name with a numbered suffix** — `H2-1`, `H2-2` — and identical baseline attributes. **Corrected: an earlier draft asked for the same ref on every part, which fails the upload.** `checkDuplicateHabitatRefs` rejects any repeated area-habitat ref outright, so a shared parent ref never reaches the derivation. A suffixed ref is the only division convention that both survives upload and lets the reassembly recover the parent name. Published guidance specifies no convention at all here, and its one tip (2.5.19, set the ref from the unique `fid`) also yields a distinct ref per row, so this asks for a particular shape of distinctness rather than for distinctness itself. | The parts still merge on geometry and attributes, so the totals hold, but the parcel is labelled `derived:…` and the list will not reconcile with the survey by name. | **Partially.** Adjoining rows that share attributes but disagree on reference are reported with the merge. Unit totals are unaffected either way, which is why this stays advisory. |
 | G6 | Never edit the Area, Length or Count columns by hand. | Nothing in the calculation — but it destroys the only cross-check that detects non-QGIS editing. | **Yes.** In QGIS these always equal the geometry, so a breach heads the report. |
 | G7 | For a re-meandered watercourse: set retention **Enhanced** and enhancement type **Enhanced by Realignment**, keep the **old** channel on the Rivers row, and draw the **new** channel in the meanders layer pointing back at it. | The length change is invisible; the enhancement is scored against the wrong length. **Confirmed by NE.** 2.5.32 has the baseline watercourse keeping its own alignment while the realigned channel is drawn separately, and 2.5.35 has the child carrying a `Baseline Parcel Ref` *“completed to match the parcel ref for the baseline polyline”* — the only parent-pointer field NE ever specified, for one habitat type. **Caveat:** 2.5.37 calls that layer *“for illustration only”* and has the user type the new length into the metric by hand, so a user following NE exactly may have drawn it loosely. Reading it as authoritative geometry is better than NE's own tooling, but the report should say the length came from it. | **Yes, both directions** — a realignment row with no child, and an orphan child. |
-| G8 | Give every row a reference that is unique within its layer. Never leave the word `Null`. **Conflicts with NE**, which endorses the default: 2.5.19 says `Parcel Ref` *“should be left to automatically fill in as ‘Null’ or filled in with the relevant reference”*, and Appendix A repeats *“Edit with free text or leave as ‘Null’, do not leave blank”*. Literal `Null` should therefore be expected as the common case rather than treated as neglect. Where a user does want references, 2.5.19's `fid` tip is the route to suggest. | The meanders join fails; the reassembly loses its tiebreak; an assessor cannot trace a row. | **Yes.** Duplicates are not an error for area habitats — they are the split signal — but they are for watercourses. |
+| G8 | Give every row a reference that is unique within its layer, and **never leave the literal `Null`** — on area habitats it is not merely unhelpful, it fails the upload. **Conflicts with published guidance**, which endorses the default: 2.5.19 says `Parcel Ref` *“should be left to automatically fill in as ‘Null’ or filled in with the relevant reference”*, and Appendix A repeats *“Edit with free text or leave as ‘Null’, do not leave blank”*. A file left exactly as the template writes it therefore fails as soon as it has two area habitats. 2.5.19's `fid` tip is the fix to hand users. | Upload fails on area habitats. On the other layers the meanders join fails, the reassembly loses its tiebreak, and a re-upload cannot carry feature identity forward. | **Yes, and fatally so on area habitats.** Corrected: an earlier draft said duplicates there were the split signal rather than an error, and that watercourses were checked. Neither is true — area habitats are the *only* layer with a duplicate check, and it rejects. |
 | G9 | Choose on-site or off-site explicitly on every row. | Off-site parcels merge into on-site baseline parcels. | **Yes.** Including the template's own invalid `On site` default on two layers. |
 | G10 | Use the dropdowns. Do not type into controlled columns, and do not edit the file outside QGIS. | Arbitrary strings enter columns the engine looks up by exact match. | **Yes, per column.** The template's only file-level constraint is its primary key — there are no database-level checks at all. |
 | G11 | When a parcel is **Retained**, set the proposed habitat type to the same habitat as the baseline. | A retained parcel silently becomes a different habitat. | **Yes.** Area habitats are the only layer where retained can change habitat type — the template pins only the broad type there. |
