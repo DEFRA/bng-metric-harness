@@ -1,6 +1,6 @@
 # Deriving the baseline from the post-intervention file alone
 
-**BMD-1001 · spike · status: analysis complete; the derivation is built and sits behind a feature flag**
+**BMD-1001 · spike · status: analysis complete**
 
 Whether the full BNG calculation can be produced from a single post-intervention
 upload in the **unaltered** Natural England QGIS template, what that costs, and
@@ -15,14 +15,16 @@ wherever the template or the service settles them.
 ## How to read this
 
 Sections 1 to 3 explain the idea and show that it works, including how divided
-parcels are put back together. Section 4 covers parcel references in full: how
-they are read, why the rule requiring them to be unique has been removed, and how
-a parcel should be named when the file does not name it. Section 5 covers
-hedgerows and watercourses, where the original length has to come from somewhere.
-Sections 6 and 7 set out what is gained and lost against the current two-upload
-journey, and what the service can and cannot check. Sections 8 and 8a record
-defects found along the way and what a user now sees on screen. Section 9 is the
-draft guidance for ecologists, which is the part most likely to need review.
+parcels are put back together. Section 4 sets out in full how parcel references
+should be handled, from a file that names everything to one that names nothing.
+Section 5 covers hedgerows and watercourses, where the original length has to
+come from somewhere. Sections 6 and 7 set out what is gained and lost against the
+two-upload journey, and what the service can and cannot check. Section 8
+describes what a user should see. Section 9 is the draft guidance for ecologists,
+which is the part most likely to need review.
+
+The paper describes the outcome the service should reach, given what the NE
+template can and cannot hold. It is not a record of any particular build.
 
 No engineering knowledge is assumed. Where a fact was established by reading the
 service's own code or by running it against the shipped example files, that is
@@ -49,8 +51,8 @@ post-intervention geometry.
 | --- | --- | --- |
 | **Area habitats** | **Yes, with guidance** | Every figure the calculation needs is already on the row except size, and size is recoverable exactly. Area habitats must account for the whole red line, and the service already rejects any file that fails that check to within half a square metre, so summing the measured parcels rebuilds the baseline area in full. What remains is whether the baseline **columns** were filled in. A row can cover its share of the site and still leave them blank. That is fully detectable and can be quantified. |
 | **Hedgerows** | **Yes, with guidance** | Units need only length, type and condition, all of which are on the row. The length is **exact** wherever the file accounts for every metre that existed: a partly removed hedge split into a Retained row and a Lost row rebuilds to its full surveyed length (§5). The gap is **completeness**, not arithmetic, and it rests entirely on guidance. Nothing ties the hedgerow layer to the red line, so a hedge removed without a row left behind is invisible, and looks identical to one that never existed. |
-| **Watercourses** | **Yes, with guidance** | As hedgerows, plus two specifics. Re-meandering is the one case where the post-intervention length can legitimately exceed the baseline, and it is recoverable only through the template's dedicated meanders layer, which could not be read at all until this spike (§8). And a missing encroachment value quietly defaults to a multiplier of 1, which inflates the baseline. That is detectable and reported. |
-| **Individual trees** | **Yes, but the weakest completeness case** | Arithmetically the cleanest case of all. A tree's baseline area is a four-band lookup with no geometry, no adjacency and no merging, and it is already worked out correctly on every post-intervention upload today and then thrown away. Same completeness gap as hedgerows and watercourses, and a felled tree left as a Lost row counts toward the baseline exactly as it should. **The gap is worse here than the arithmetic suggests.** User Guide 2.4.1 tells users that tree points are *"for illustrative purposes only"* and *"cannot be imported into the GIS import tool or exported to the main metric or SSM"*. In the legacy workflow the layer therefore feeds nothing, no error check has ever touched it, and users have had no reason to complete it carefully. G13 and G14 rest on much weaker ground than their hedgerow and watercourse equivalents, which at least reach the CSV export. |
+| **Watercourses** | **Yes, with guidance** | As hedgerows, plus two specifics. Re-meandering is the one case where the post-intervention length can legitimately exceed the baseline, and it is recoverable only through the template's dedicated meanders layer. And a missing encroachment value quietly defaults to a multiplier of 1, which inflates the baseline. That is detectable and reported. |
+| **Individual trees** | **Yes, but the weakest completeness case** | Arithmetically the cleanest case of all. A tree's baseline area is a four-band lookup with no geometry, no adjacency and no merging, so it needs nothing the post-intervention row does not already carry. Same completeness gap as hedgerows and watercourses, and a felled tree left as a Lost row counts toward the baseline exactly as it should. **The gap is worse here than the arithmetic suggests.** User Guide 2.4.1 tells users that tree points are *"for illustrative purposes only"* and *"cannot be imported into the GIS import tool or exported to the main metric or SSM"*. In the legacy workflow the layer therefore feeds nothing, no error check has ever touched it, and users have had no reason to complete it carefully. G13 and G14 rest on much weaker ground than their hedgerow and watercourse equivalents, which at least reach the CSV export. |
 | **Vertical area habitats, irreplaceable habitats** | **No** | The NE template has no columns for green walls, green roofs, intertidal hard structures as vertical area, or irreplaceable habitat. If a site has any, they are missing from **both** sides of the calculation. That is a limit of the template, not of the derivation, and it applies equally to the current two-upload journey. |
 
 ---
@@ -72,8 +74,8 @@ Three things are deliberately left out of the grouping test.
 - **Parcel reference is not used.** The template fills it with the word `Null` on
   untouched rows, so grouping on it would merge every unfilled row into one.
   Agreement between real references raises confidence, and disagreement is
-  reported, but neither decides the group. Agreement can now actually arrive: the
-  rule that used to reject a file for repeating a reference has been removed.
+  reported, but neither decides the group. Section 4 sets out how a name is
+  chosen once the group has been formed.
 - **Baseline distinctiveness is not used.** It follows exactly from habitat type
   across every row of the reference data, so it adds nothing. It is worked out
   again instead, and any mismatch is reported.
@@ -128,385 +130,231 @@ a full edge look identical either way. That is handled by naming, not by shape.
 
 ---
 
-## 4. How parcel references are handled
+## 4. Parcel references
 
-**A reference is a name, never an identity.** Parcels are put back together from
-shape and baseline values, and only then is a reference read. The calculation
-does not move if every reference in the file is wrong, absent, or identical.
+Ecologists name their parcels, and expect the list they get back to carry those
+names. The template does not make that easy. It fills the reference column with
+the word `Null` rather than leaving it empty, published guidance says leaving it
+that way is fine (§9, G8), and no convention has ever been set for what happens
+to a reference when a parcel is subdivided. So a file may arrive fully named,
+partly named, not named at all, or named with the same word three times over, and
+every one of those is a legitimate file.
 
-That has to be the design, because references cannot be relied on. The template
-fills the column with the word `Null` rather than leaving it empty, published
-guidance says leaving it that way is fine (§9, G8), and no convention has ever
-been set for what happens to a reference when a parcel is subdivided.
+This section sets out what the service should do with each of them.
+
+### A reference is a name, never an identity
+
+Parcels are put back together from shape and baseline values, as §3 describes,
+and only then is a reference read. The calculation does not move if every
+reference in the file is wrong, absent, or identical. Nothing in the reassembly,
+the unit totals, the area reconciliation or the trading rules depends on a name.
+
+That has to be the design, because names cannot be relied on. It also means the
+service is free to give a parcel a good name without any risk of changing an
+answer.
+
+**Uniqueness is a promise about what comes out, not a rule about what goes in.**
+No file is ever refused for repeating a name. Every published list is free of
+repeats, because the service makes it so.
 
 **Words that say nothing.** An empty cell, `Null`, `N/A` and `(no selection)` are
-all treated as no answer. They are compared ignoring case and surrounding spaces,
-and dropped before any name is chosen. The rest of this section calls anything
-else a **real** reference.
+all treated as no answer. They are compared ignoring case and surrounding spaces.
+Anything else is a **real** name.
 
-### Three jobs, only one of which a reference should do
+### Three fields, not one
 
-| Job | What it used to key on | What it should key on |
+| Field | Holds | Ever invented? |
 | --- | --- | --- |
-| **Grouping**, which rows were one baseline parcel | shape and baseline values | unchanged, this is right |
-| **Identity**, which stored parcel a row *is* across a re-upload | the reference | shape, with the reference as a hint |
-| **Naming**, what an assessor calls the parcel | the reference | unchanged, this is right |
+| The surveyor's reference | exactly what was typed, or nothing | **Never.** Kept as written, so the file can always be reconciled to its source |
+| The published name | what the service shows, exports and reports | Where the file gives none, or gives one that cannot be used as written |
+| The parcel's identity | which parcel this is, across re-uploads | It is the identity, and it is never a name |
 
-Only the middle row was wrong, and it is the reason a uniqueness rule was ever
-needed. The service keeps a parcel's internal identifier across a re-upload when
-its reference matches on both sides, so that a corrected file reads as an update
-rather than as everything being deleted and re-created. The reference was chosen
-for that job because a check already forced it to be unique. The check was the
-leftover, not the requirement, and it has been removed.
+Keeping the first two apart is what makes everything below safe. The surveyor's
+column is evidence and stays exactly as written. The published name is the
+service's own, and where the two differ the report shows both.
 
-### Uniqueness was never a real rule
+**A published name is never used to match anything.** Rejoining parcels, linking
+a realigned channel to the reach it replaces, and recognising a parcel on
+re-upload all work from the surveyor's own reference and from shape. If an
+invented name could match, the service would be matching on its own invention and
+reporting the result as though the file had said it.
 
-The check rejected any repeated area-habitat reference and failed the whole file.
-It did not distinguish baseline from post-intervention uploads, so it applied to
-both, and it ignored a genuinely empty cell but **not** the word `Null`. Run
-directly against it before removal:
+### The resolver, in six steps
 
-```
-REJECTED  Null, Null, Null      what the template writes by default
-REJECTED  PR-1, PR-1, PR-2
-REJECTED  H2, H2, H2            the parts of one divided parcel
-accepted  H2-1, H2-2, H2-3
-accepted  (three empty cells)
-```
+Applied to one layer of one map at a time. Habitats, hedgerows, watercourses and
+trees have separate reference columns and are resolved separately.
 
-So a file left exactly as the template wrote it failed as soon as it held two
-area habitats, and the one division convention that names the parent honestly
-failed too. Neither outcome is defensible, and neither was required by anything
-downstream: **nothing in the reassembly, the units, the area reconciliation or
-the trading rules reads a reference at all.**
+1. **Rejoin the parcels.** Naming comes after reassembly, because until the parts
+   of a division are back together there is no parcel to name.
+2. **Reserve every real name in the file.** Nothing invented later may take one,
+   so an invented name can never collide with a real one somewhere else on the
+   site.
+3. **Ask what the parts say, ignoring the blanks.** This decides the baseline
+   parcel's name, and the next section sets out every case.
+4. **Invent a name for any parcel the file did not name**, from its habitat.
+5. **Number the parts, and separate any parcels that still share a name.**
+6. **Keep what was given.** A name, once published, stays with its parcel.
 
-**The check is gone.** The example file built to trip it,
-*Baseline - duplicate habitat ref.gpkg*, now passes with no errors. So does
-*Baseline - complete but null area refs.gpkg*, whose three rows all carry the
-word `Null`, and whose place among the valid files had been an open question for
-exactly this reason.
+Step 3 is where nearly all the work happens, and it reduces to one sentence worth
+giving to users directly:
 
-### What each state of the column does now
+> **Naming one part of a division names the whole parcel.**
 
-| In the file | Before | Now |
-| --- | --- | --- |
-| Distinct real references, one row each | Accepted, each parcel keeps its name | Unchanged |
-| All `Null`, untouched | **Rejected** | Accepted. No name; identity from shape; counted in the report |
-| Parts of a split sharing the parent's name (`H2`, `H2`) | **Rejected** | Accepted, and treated as **evidence**. Rows that agree on values, adjoin, *and* share a name are a stronger case for merging than shape alone |
-| Suffixed parts (`H2-1` to `H2-10`) | Accepted, parent name worked out | Unchanged, and the strongest case of all |
-| Two unrelated parcels both called `PR-1` | **Rejected** | Accepted. They do not adjoin and do not share values, so they never merge. The clash is reported and changes nothing |
-| Partly filled: `H2` on one part, `Null` on another | Accepted | Unchanged. The blank is ignored and the real name labels the parcel |
-| Unrelated names on adjoining parts | Accepted, combined name | Unchanged, and the disagreement is reported |
-| Repeated names on hedgerows, watercourses, trees | Accepted, never checked | Accepted, and the watercourse join no longer depends on them |
+Blanks inside a group are silence, not disagreement, and silence is ignored. An
+ecologist only has to name one part of a division for the parcel to come back
+with the right name, which is a far lighter ask than naming every part
+consistently.
 
-The third row is the prize. A shared name used to be fatal. It is now the one
-piece of supporting evidence the file offers for a merge the service would
-otherwise have to justify from shape alone.
+### Worked outcomes
 
-Where one name ends up on more than one reconstructed parcel, the report says so.
-It is recorded as information rather than a warning, because it genuinely changes
-nothing, and it exists so that a clash stays visible now that nothing else in the
-service mentions one.
+Every case, with what the post-intervention file says on the left and what the
+service publishes on the right.
 
-### Identity across a re-upload, without unique references
-
-The reference stops being the key for carrying a parcel's identity forward and
-becomes the first of three tiers.
-
-1. **The reference**, where it is real and unambiguous on both sides. Cheap,
-   exact, and right for the well-kept files that have one. **Built.**
-2. **The shape**, otherwise. The template already defines a fingerprint for a
-   shape that ignores meaningless differences, so an unedited parcel re-uploads
-   to the same fingerprint whatever its name says. **Not built here.** The code
-   exists, on the earlier lineage spike branch, and matches the QGIS template's
-   own copy action exactly. Bringing it across is the prerequisite for this tier
-   and for most of the naming strategies below.
-3. **A fresh identifier**, where neither resolves. Today's fallback. **Built.**
-
-Tier 2 is what would make identity independent of the name altogether. A file of
-nothing but `Null` references would still carry identity forward, because the
-shapes would be the identity. It fails only where a parcel was both re-drawn and
-unnamed, which no scheme could resolve.
-
-**Its absence blocks nothing, and never did.** The service has always refused an
-ambiguous reference and fallen back to a fresh identifier. Habitats were the only
-layer the removed check ever covered, so hedgerows, watercourses and trees have
-arrived with repeated names since the beginning and been handled this way.
-Dropping the check widens an existing fallback rather than changing what it does.
-What is lost without tier 2 is continuity for the downstream reporting database
-across a re-upload of an unnamed file. That is a convenience rather than a matter
-of correctness. It stays on the list.
-
-### What removing the rule required
-
-Less than it first appeared. Removal is safe for the derivation, which reads no
-references, and one of the two places that looked like a blocker turned out never
-to run at all.
-
-**The hedgerow and watercourse length lookup was already inactive here.** It is
-built from an uploaded baseline's own rows, so a project with no uploaded
-baseline hands it nothing and every enhanced line falls straight through to the
-rules in §5. It cannot be confused by a repeated name because it never has a row
-to be confused about. It still wants a guard for the two-upload journey, where a
-repeated name means the last row quietly wins, but that is a defect on a path
-this document does not describe.
-
-**The meanders link was the real one, and no column on the baseline row can
-replace it.** The Rivers layer carries 29 columns and exactly one length, which
-QGIS keeps in step with the row's own shape. Per 2.5.32 that shape is the **old**
-channel, so the column is the baseline length. The realigned length exists
-nowhere on that row. It exists only on the meanders layer, whose entire content
-is a parent reference and a length.
-
-Guidance 2.5.37 is sometimes read as pointing at a column on the baseline row:
-
-> …this will need to be manually filled out in the *Length Enhanced* column of
-> the chosen metric, using the value in the attributes table in the *enhanced by
-> realignment* column.
-
-The template does not support that reading. No Rivers column is named or labelled
-anything of the kind, and the three "Realigned Proposed" layers are views of the
-meanders table. The instruction is to read the length from the attribute table of
-the Enhancement by Realignment layer, which is the meanders layer's own length
-column. Calling that layer illustrative means only that it does not export to
-Excel automatically. It is still the sole record of the new alignment.
-
-The derivation does not need that column, because it measures the shape it
-already reads. What it needs is the **link** between a realigned channel and the
-Rivers row it replaces, and in the legacy template that link is expressed only as
-a reference.
-
-So the meanders link now follows the same three tiers as identity, and this part
-**is built**.
-
-1. **The parent reference**, where it names exactly one watercourse marked
-   *Enhanced by Realignment*.
-2. **The shape**, where it does not. A realigned channel is a re-drawing of one
-   specific reach and is drawn alongside it, so nearness identifies the parent
-   the name could not. Every such link is reported as inferred and named in the
-   row's audit note.
-3. **Neither**, which is reported as an unlinked meanders row, unchanged.
-
-Two things had to change underneath it. Children are now attached to the
-watercourse row's own internal identifier rather than to its name, because two
-rows sharing a name would otherwise each claim the full length of the shared new
-channel and the same metres would be counted twice. That is exactly the failure
-the uniqueness rule was standing in front of. And the nearness test is expressed
-entirely in ratios rather than in metres: a candidate qualifies within half its
-own extent and has to be twice as near as the next best. A GeoPackage may arrive
-in national grid coordinates or in latitude and longitude, so any fixed distance
-would be wrong by a factor of about a hundred thousand on half the example files.
-
-**The shape tier matters far beyond repeated names.** The parent reference on the
-meanders layer is plain free text with no dropdown, and the template's default
-for it is the word `Null`. So before this change, every file that left the column
-alone linked nothing at all, and its realigned watercourses quietly took their
-own old channel as their new one.
-
-That removes the last thing the uniqueness rule was protecting. Two watercourse
-rows sharing a name stop being a rejection and become a case the shape resolves.
-
-**A connection missing between two working parts.** The meanders links have been
-worked out correctly since the derivation landed, and then thrown away before
-anything could use them. Neither they nor the derivation's own on/off switch
-reached the code that works out hedgerow and watercourse lengths, so the whole
-derived length path could not run at all, whatever the switch said. Both are now
-connected, with a test on the connection rather than only on the result.
-
-Conversion to the legacy format keeps removing duplicate names regardless. The
-legacy import tool really does reject repeated habitat references. That is an
-external constraint on that route and not evidence for one here.
-
-### Giving a parcel a name when the file has none
-
-Everything above is about not *rejecting* a name. This is the other half: what
-the service should *publish* as one. Users like references, usually supply them,
-and reasonably expect the list they get back to be nameable and sortable.
-
-The two halves only reconcile if uniqueness changes sides. It stops being a rule
-enforced on what comes **in**, which is the check just removed, and becomes a
-promise about what goes **out**. The service accepts whatever the file says and
-takes responsibility for producing a name that is unique within its own map.
-
-**That needs three fields where there is one today.**
-
-| Field | Holds | Ever invented? | Used for matching? |
+| # | Post-intervention file | Baseline parcel | Post-intervention rows |
 | --- | --- | --- | --- |
-| The reference | exactly what the surveyor typed, or nothing | **Never.** Kept as written, so the file can always be reconciled to its source | Yes, as a hint |
-| The published name | what the service shows and exports, unique within one layer of one map | Where needed, by the strategies below | **Never** |
-| The internal identifier | identity | Already exists | It *is* the identity |
+| 1 | One row, `H1` | `H1` | `H1` |
+| 2 | Two rows, `H1-a` and `H1-b`, rejoined | **`H1`** | `H1-a`, `H1-b` |
+| 3 | Ten rows, `H2-1` to `H2-10`, rejoined | `H2` | `H2-1` to `H2-10` |
+| 4 | Three rows, all `H3`, rejoined | **`H3`** | **`H3-1`, `H3-2`, `H3-3`** |
+| 5 | Three rows, `H4`, blank, blank, rejoined | `H4` | `H4-1`, `H4-2`, `H4-3` |
+| 6 | Three rows, `H5`, `H5-1`, blank, rejoined | `H5` | `H5-1`, `H5-2`, `H5-3` |
+| 7 | Two rows, `North Field` and `Long Meadow`, rejoined | `GRA001` | `GRA001-1`, `GRA001-2` |
+| 8 | Two rows, both `PR-1`, **not** rejoined | `PR-1` and `PR-1 (2)` | `PR-1`, `PR-1 (2)` |
+| 9 | Two rows, both blank, rejoined | `GRA001` | `GRA001-1`, `GRA001-2` |
+| 10 | One row, blank, retention **Created** | none | `WOO001` |
+| 11 | One hedgerow row, `HG1` | `HG1` | `HG1` |
 
-The middle row is the new one, and the rule that makes it safe is the last
-column: **an invented name must never take part in matching.** Carrying identity
-forward, linking meanders, and corroborating a merge all read the surveyor's own
-reference and the shape. If an invented name could match, the service would be
-matching on its own invention and reporting the result as though the file had
-said it.
+Row 2 is the case the whole scheme has to get right. **A division named `H1-a`
+and `H1-b` must rebuild to a baseline parcel called `H1`.** The parts announce
+their parent in their own names, and the baseline is where that parent belongs.
+The parts keep the names the ecologist gave them, because they are correct and
+already distinct.
 
-Uniqueness is promised **within one layer of one map**, not across everything.
-Habitats, hedgerows, watercourses and trees already have separate reference
-columns, and a baseline parcel `H2` and its post-intervention parts sharing that
-name is the link home rather than a clash.
+Row 4 is the same idea reached from the other direction. Three parts all called
+`H3` are three statements that this was one parcel called `H3`, so the baseline
+takes that name outright. The parts then need telling apart, so they are numbered.
 
-#### The strategies
+Rows 5 and 6 show why blanks and mixtures do not need a convention. In row 5 one
+named part is enough. In row 6 the parts disagree only in form, since `H5` and
+`H5-1` both point at `H5`, so `H5` wins. **A part never keeps the parcel's bare
+name**, or the published list would hold two different things called `H5`.
 
-| # | Strategy | Applies when | Example | What keeps it stable |
-| --- | --- | --- | --- | --- |
-| 1 | **Take what is given** | A real reference on a parcel nothing else shares | `PR-1` stays `PR-1` | The surveyor's own input |
-| 2 | **Agree on the shared name** | A rebuilt parcel whose parts all say the same thing | `H2`, `H2`, `H2` becomes `H2` | The same |
-| 3 | **Take the parent from the parts** | A rebuilt parcel whose parts are numbered from one name | `H2-1` to `H2-10` becomes `H2` | The parent name is worked out from the whole group, not from row order |
-| 4 | **Keep both names** | A rebuilt parcel whose parts carry unrelated names | `North Field` plus `Long Meadow` becomes a combined name | Names sorted before combining |
-| 5 | **Add a letter** | One name on parcels that did **not** merge | `PR-1`, `PR-1` becomes `PR-1a`, `PR-1b` | Letters given out in shape order, and never taken back from a parcel that still exists |
-| 6 | **Name it after the habitat** | Nothing real to work from | a grassland parcel becomes `GRA-001` | Given once and stored, never worked out again |
-| 7 | **Name it after the layer** | As 6, if habitat codes are not wanted | `A-001`, `HG-001`, `WC-001`, `TR-001` | Unaffected by any value changing |
-| 8 | **Name it after the shape** | Nothing above resolves and a name is still required | `A-3f9c2a` | The shape fingerprint itself |
-| 9 | **No name** | Nothing above, and none is wanted | blank | Today's behaviour. The parcel is identified by its shape |
+Row 7 is a genuine disagreement, and it is not resolved by choosing a favourite.
+Two unrelated names mean the file offers no name for the rejoined parcel, so one
+is made, and the report records that the parts were called `North Field` and
+`Long Meadow` so a person can settle it.
 
-#### The recommended approach, in plain English
+Row 8 is two different parcels that happen to share a name. They do not adjoin
+and do not share baseline values, so they were never going to be rejoined. Both
+keep the ecologist's name and the second is marked.
 
-No single strategy is the answer. They are steps in one order of preference,
-applied to each parcel in turn, and a real file will use several of them at once.
-A site with forty parcels might name thirty-two from what the surveyor typed,
-work out the parent name for two split parcels, add a letter to two that clashed,
-and invent names for the four left blank. That is the normal case, not an
-awkward one.
+Row 10 has no baseline parcel at all, because nothing was there before. Its name
+comes from the habitat being created rather than from one that existed.
 
-**First, put the parcels back together. Then name them.** Naming has to come
-second, because until the parts of a split have been rejoined there is no parcel
-to name.
+Row 11 stands for all three linear and point layers. Hedgerows, watercourses and
+trees are one row each and are never rejoined, so their names pass straight
+through, with steps 4 and 5 applying if a name is missing or repeated.
 
-**Second, set aside every name the surveyor actually typed.** Those are spoken
-for. Nothing invented later may take one of them, so an invented `GRA-001` can
-never collide with a real `GRA-001` somewhere else on the site.
+**When the parts keep their own names, and when they are renumbered.** Rows 2 and
+3 keep what the ecologist typed; rows 4, 5 and 6 do not. One rule covers both:
 
-**Third, ask what the parts of each parcel say, ignoring the blanks.** This is
-the rule that does most of the work, and it is the answer to split parcels that
-were only partly named:
+> The parts keep the names they were given when **every** part has a distinct
+> one. Otherwise every part is numbered, including the parts that were already
+> named.
 
-> **Naming one part of a split names the whole parcel.**
+Renumbering the whole set rather than filling the gaps is deliberate. Numbering
+only the unnamed parts of row 5 would give `H4`, `H4-1`, `H4-2`, which leaves one
+part carrying the parcel's own name and reads as though the parcel had been
+divided into itself plus two others. A set of names is easier to trust when it
+was decided by one rule than when it is half the ecologist's and half the
+service's.
 
-A parcel rebuilt from three parts labelled `H2`, blank and blank is called `H2`.
-So is one labelled `H2-1`, blank, `H2-3`. Blanks inside a group are not
-disagreement, they are silence, and silence is ignored. A user therefore only has
-to name one part of a division for the parcel to come back with the right name,
-which is a far lighter ask than naming every part consistently.
+### What a suffix means
 
-With the blanks dropped, what remains decides the name:
+**`-1`, `-2`, `-3`: a part of the parcel named by the stem.** Nothing else uses
+this form, so a reader can always tell a part from a parcel at a glance.
 
-- **Nothing left.** The parcel has no name from the file, so one is invented at
-  the fourth step.
-- **One name.** That is the parcel's name. This covers both the fully consistent
-  split, `H2`, `H2`, `H2`, and the partly filled one above.
-- **Several names, all numbered from one parent.** `H2-1` to `H2-10` gives `H2`,
-  and the service records that it worked the name out rather than reading it.
-- **Several names, one of which is the parent of the others.** `H2` beside `H2-1`
-  should give `H2`. **This case is currently wrong.** Run against the service as
-  it stands, `H2`, `H2-1`, blank produces the combined name `derived:H2+H2-1`,
-  and `H2`, `H2-1`, `H2-2` produces `derived:H2+H2-1+H2-2`. Both should be `H2`.
-  The rule needs one addition: a name that is the stem of every other name in the
-  group wins outright. This is the single most likely mixed convention in the
-  wild, because it is what happens when a user names the original parcel and then
-  numbers the pieces they cut from it.
-- **Several unrelated names.** `North Field` beside `Long Meadow` is a genuine
-  disagreement and should not be resolved by guessing. Both names are kept,
-  combined, and the disagreement is reported so a person can settle it. This is
-  deliberately the ugliest outcome in the list, because it should prompt a fix.
+**` (2)`, ` (3)`: another parcel that happens to carry the same name.** The
+first keeps the bare name. The bracket is deliberately unlike a suffix, because
+these are not parts of anything.
 
-**Fourth, invent a name for anything still unnamed.** Prefer the habitat-based
-form, `GRA-001` for grassland, because it tells a reader something and groups
-sensibly in a sorted list. Where a habitat vocabulary is unwanted, or where the
-habitat itself may be edited later, the plain layer form `A-001` is the safer
-choice. Number them in **shape order** rather than row order, so that
-re-uploading the same file, or the same file with its rows shuffled, produces the
-same names. Shape order means sorting on the fingerprint of each parcel's
-outline, the same one described under identity above, so it depends on the ground
-rather than on how the file happened to be saved.
-Use a fixed width, `001` rather than `1`, so the names sort correctly everywhere,
-not just on the screens that already pad them.
+The service reads more generously than it writes. A part suffix supplied by an
+ecologist is accepted in any of the forms people actually use, letters or
+numbers, separated by a hyphen, underscore, dot, slash or space, so `H1-a`,
+`H1_2`, `H1.3` and `H1 4` all announce `H1` as the parent. When the service has
+to supply a suffix itself it always uses the one canonical form.
 
-**Fifth, resolve any clash that is left.** If two genuinely different parcels
-have ended up with the same name, add a letter: `PR-1a`, `PR-1b`. Letters go in
-shape order for the same reason, and once a letter is attached to a parcel it
-stays with that parcel for as long as the parcel exists. Adding a third `PR-1` on
-a later upload must not renumber the first two under an assessor who has already
-read them.
+### Names made from the habitat
 
-**Sixth, keep it.** A name, once given, is stored with the parcel and carried
-forward. It is not worked out again on the next upload. Otherwise editing a
-habitat type would silently rename a parcel, which is precisely the trust a
-reference exists to provide.
+A parcel the file does not name takes a three-letter code for its broad habitat
+and a number.
 
-**And throughout, never overwrite what the surveyor typed.** The published name
-may differ from the reference in the file, and where it does, both are shown. The
-surveyor's own column is evidence and stays exactly as written.
-
-#### Fitting the intervention categories
-
-A post-intervention row takes its name from the baseline parcel it belongs to.
-The question is whether the name should also say what is being done to it.
-
-| Situation | Baseline parcel | Post-intervention rows |
+| Broad habitat or layer | Code | Example |
 | --- | --- | --- |
-| Kept whole and improved | `H2` | `H2` |
-| Split, part kept and part improved | `H2` | `H2-1`, `H2-2` |
-| Split three ways across categories | `H2` | `H2-1`, `H2-2`, `H2-3` |
-| New habitat on ground that had none | none | `C-001` |
+| Grassland | GRA | `GRA001` |
+| Woodland and forest | WOO | `WOO001` |
+| Heathland and shrub | HEA | `HEA001` |
+| Cropland | CRO | `CRO001` |
+| Wetland | WET | `WET001` |
+| Urban | URB | `URB001` |
+| Sparsely vegetated land | SPA | `SPA001` |
+| Lakes | LAK | `LAK001` |
+| Hedgerows | HED | `HED001` |
+| Watercourses | WAT | `WAT001` |
+| Individual trees | TRE | `TRE001` |
 
-**The recommendation is to keep the category out of the name.** It is tempting to
-write `H2/R1` for the retained part and `H2/E1` for the enhanced part, and it
-does make a list easier to scan. It also breaks the one thing a reference is for.
-The surveyor's field notes say `H2`, the report would say `H2/E1`, and the two no
-longer reconcile. Retention is already its own column and belongs there. A plain
-number is enough to tell the parts of a split apart, and the shared stem is what
-carries the link home.
+The habitat is the **baseline** habitat, because the name belongs to the parcel
+as it was. A created row has no baseline habitat, so it takes the code of the
+habitat being created.
 
-Two facts constrain this and are easy to get wrong.
+Three details matter more than they look.
 
-**Retention describes the intervention, not the parcel.** That is why it is kept
-out of the grouping test. In the shipped example file the ten parts of one
-divided parcel carry *Lost*, *Retained* and *Enhanced* between them, so a single
-parcel has no single category to put in its name.
+**The number is fixed width.** `GRA001` rather than `GRA1`, so the names sort
+correctly in a spreadsheet, in an export and in the metric, and not only on
+screens that know to pad them.
 
-**A created habitat has no parent.** It did not come from a baseline parcel, so
-there is no name for it to inherit and it has to be given one of its own, from a
-separate series. That is the one place where the naming does have to know about
-the categories, and it is a created-or-not question rather than a three-way one.
+**There is no separator before the number.** That leaves the hyphen free to mean
+one thing and one thing only, so the parts of `GRA001` are `GRA001-1` and
+`GRA001-2` with no ambiguity about where the parcel name ends.
 
-#### What must not happen
+**The numbers are given out in shape order**, meaning sorted on a fingerprint of
+each parcel's outline. Two uploads of the same file, or of the same file with its
+rows in a different order, produce the same names.
 
-- **No invented name is ever written back into the surveyor's column.**
-- **No strategy re-introduces a rejection.** Every one of them has an answer for
-  every input, and "no name" is the floor.
-- **No invented name takes part in matching**, per the rule above.
-- **No name changes retroactively.** A parcel's name does not move under an
-  assessor because a value was edited elsewhere.
+### Continuity when the file is uploaded again
 
-### Choosing the name for a rebuilt parcel, as built today
+Re-uploading a corrected post-intervention file is normal, and an assessor who
+has already read the parcel list must not find it renamed underneath them.
 
-The rules in force are the first four strategies above, applied to the real
-references across a group's parts:
+**A parcel is recognised by the ecologist's own reference where there is one, and
+by its shape where there is not.** Neither depends on a name the service
+invented. An unedited parcel therefore comes back as the same parcel however the
+file was saved.
 
-| Distinct real names in the group | Name the parcel carries | Marked as worked out? |
-| --- | --- | --- |
-| Exactly one | That name | No, it is the parcel's own |
-| Several, all numbered from one parent (`H2-1` to `H2-10`) | The parent, `H2` | **Yes** |
-| Several, unrelated (`North Field`, `Long Meadow`) | Both, combined | No, it claims nothing |
-| None | blank | No |
+**A recognised parcel keeps the name it was published under.** That includes
+invented names, which are stored with the parcel rather than worked out afresh.
+Editing a habitat type never renames a parcel, and adding a fortieth parcel never
+renumbers the first thirty-nine.
 
-The parent rule accepts a hyphen, underscore, dot, slash or space before a purely
-numeric tail, and every part has to agree. `H2-1` beside `H3-1` gives no parent,
-and neither does `H2-north`, because that is a name rather than a piece number.
-Names are sorted before being combined, so the result depends on the group rather
-than on the order the rows were read.
+**A name the ecologist adds later wins, and the change is reported.** If a parcel
+published as `GRA001` arrives with `Long Meadow` typed into its reference, it
+becomes `Long Meadow`. The report says which parcel changed and what it was
+called before, so the two lists can be lined up.
 
-Two additions are outstanding, both described above: a group whose parts all
-carry the same name should be recorded as the surveyor's own rather than as
-worked out, and a name that is the parent of the others in its group should win
-outright.
+**A letter or number given to break a clash stays put.** Where `PR-1` and
+`PR-1 (2)` already exist, a third parcel called `PR-1` becomes `PR-1 (3)`. The
+first two are untouched.
 
-Whatever is chosen, the report lists every contributing name and records whether
-the service picked it. The parcel keeps the lowest identifier among its parts, so
-re-uploading the same file rebuilds to the same identity.
+### What the resolver guarantees
+
+1. Every published parcel has a name.
+2. No two parcels in one layer of one map share a published name.
+3. The ecologist's own reference column is never overwritten.
+4. A parcel keeps its published name across re-uploads of the same site.
+5. A name says where a parcel sits: a hyphen and a number means part of the
+   parcel named before it.
+6. Every invented name, every added suffix and every name that changed is stated
+   in the report, so nothing about the list is silent.
 
 ---
 
@@ -525,7 +373,7 @@ watercourse was realigned.
 
 ### Which way that errs, and it errs both ways
 
-The calculation already caps the baseline length at the post-intervention length
+The calculation caps the baseline length at the post-intervention length
 whenever the line did not grow. So:
 
 - for any feature whose alignment did not change, the derived figure is
@@ -697,71 +545,47 @@ the user attests to rather than dressed up as a service check.
 
 ---
 
-## 8. Three defects found in the template, the checks and the plumbing
+## 8. What the user should see
 
-- **A trailing space in a column name.** The meanders layer's advance-years
-  column ends in a space, the only column in the entire template with stray
-  whitespace. The service's column comparison ignored case but not spaces, so
-  **until this spike, no file containing a populated meanders table could be
-  uploaded at all.** The one clean route out of the re-meandering problem was
-  unreachable. Fixed.
-- **The meanders layer was never read.** It was missing from the service's list
-  of known layers entirely, so even a well-formed file would have had it ignored.
-- **The meanders links were worked out and then thrown away.** With the two
-  above fixed, they were produced correctly and then dropped before anything
-  could use them. Neither they nor the derivation's own on/off switch reached the
-  code that works out hedgerow and watercourse lengths, so the entire derived
-  length path could not run at all, no matter what the switch said. Found by
-  asking what a repeated reference would break in the meanders link, and
-  discovering the link had never run. Both are now connected, with a test on the
-  connection rather than only on the result.
+A derived baseline is a reconstruction, and the journey has to say so without
+burying the figures it produces.
 
----
+**The baseline tile says the figures were derived, in three places.** The heading
+reads *On-site baseline (derived)*, a tag beside it repeats the word, and a link
+offers the explanation of how the figures were reached. One marker is missed; one
+marker plus a tag plus a route to the reasoning is not.
 
-## 8a. What the user actually sees
-
-The derivation is only worth having if the journey reaches it, and two things
-stood between the two.
-
-**The upload finished on the wrong page.** Baseline uploads have finished on the
-project summary since those pages were built. Post-intervention uploads still
-fell through to the habitat list, because only the baseline upload carried an
-instruction about where to go next. That was harmless while every journey began
-with a baseline upload that had already taken the user to the summary. It was
-fatal here: with a post-intervention file alone, nothing else ever routes there,
-so the whole design was unreachable for the entire journey. The habitat list
-keeps its job as the editing surface, and every habitat detail page still backs
+**A post-intervention upload finishes on the project summary**, the same place a
+baseline upload finishes. That is the page carrying the derived tile, the net
+change and the verdict, so it is the page that has something to say. The habitat
+list keeps its job as the editing surface, and every habitat detail page backs
 out to it.
 
-**The summary pages could not see a derived baseline.** They read the uploaded
-baseline directly, in six places, rather than asking for whichever baseline the
-project has. Because the check controlling access had already been updated, the
-pages rendered and then contradicted themselves: a confident **0.00 units** under
-"On-site baseline", beside a **+25.20%** net change worked out from the derived
-baseline the tile was failing to show. A blank page would have been safer than a
-wrong one. All six now read the same document the headline does.
+**Every page reads the same baseline the headline does.** A summary that shows
+0.00 baseline units beside a positive net change worked out from a baseline it is
+not displaying is worse than showing nothing: the two figures on screen
+contradict each other and there is no way for a reader to tell which is wrong.
 
-Where a derived baseline is in play the tile says so three times over. The
-heading reads *On-site baseline (derived)*, a grey **Derived** tag sits beside
-it, and *How we worked this out* links to an explanation. Where coverage is
-insufficient the figures are still shown, because they are the best the file
-supports, but the Met or Not met verdict is replaced by **Cannot be determined**
-rather than published from a baseline the service knows it could not fully
-account for.
+**Where coverage is too thin to stand behind, the figures are still shown and the
+verdict is not.** The numbers are the best the file supports and withholding them
+helps nobody. The Met or Not met answer is replaced by **Cannot be determined**,
+because publishing a verdict from a baseline the service knows it could not fully
+account for is the one thing it must not do.
 
-**One thing deliberately left alone.** The task list still shows "On-site
-baseline habitats, not yet started" for a post-intervention-only project, and
-still links that row to the upload page. That is accurate, because no baseline
-file was uploaded, and the row is the way in to the optional baseline upload that
-corroboration depends on. The project list no longer routes users through it, so
-a derived project opens straight on the summary.
+**The task list still offers the baseline upload.** No baseline file was
+uploaded, so a row saying so is accurate, and it is the way in for a user who
+does have a baseline export and wants the two compared. Comparing a derived
+baseline against an uploaded one is the only independent evidence available that
+nothing was left out of the post-intervention file, and it needs no name matching
+of any kind. A project with a derived baseline opens on its summary rather than
+being routed through that row.
 
 ---
 
 ## 9. Draft user guidance
 
-Authoritative guidance does exist, and an earlier draft of this section said it
-did not. The two-page PDF shipped inside the template folder is only the cover of
+Authoritative guidance does exist, and is easy to miss. The two-page PDF shipped
+inside the template folder is only the cover of
 *Natural England Joint Publication JP039*. The rules are in its 42-page
 companion, **"The Statutory Biodiversity Metric and Small Sites Metric: QGIS
 template and GIS import tool: User Guide" (November 2023)**, kept alongside the
@@ -812,30 +636,13 @@ sharpest form in which to put the question to policy.
 | G2 | Fill all baseline columns on **every** area row, including parcels being built on. | The row contributes no baseline units, quietly inflating net gain. | **Yes.** Reported with the count and the share of area. Above a threshold the verdict is withheld rather than published wrong. |
 | **G3** | **Every metre of hedgerow and watercourse, and every tree, that exists today must appear as a drawn shape on some row.** Where part of a feature is removed, **split it into sections**, one row per section, each carrying the original baseline values, retention **Lost** for what goes and **Retained** or **Enhanced** for what stays. Never shorten a line to show that part of it is going. **This is NE's own instruction.** User Guide 6.1.17: *"users should not manually delete sections of linear features that are to be lost, rather select the appropriate options within the attribute table to reflect this outcome."* And 6.1.16: *"existing features subdivided where there are differences in proposed outcomes (for example partial losses)."* | The most serious failure. The removed length was never in the derived baseline, so the loss is never subtracted and the gain is overstated with no ceiling. | **No.** A file missing a Lost row is identical to one describing a site that never had that feature. Mitigated only by an explicit user declaration, and by the report stating row counts, Lost counts and total derived length on every project. |
 | **G4** | **Never re-draw a Retained or Enhanced line.** If the alignment changes, record the old line as **Lost** and the new line as **Created**, or for a watercourse use the meanders layer, which keeps both alignments (G7). **The template permits nothing else for hedgerows.** Retention category is a restricted list keyed on baseline hedge type, and Created is offered on exactly one baseline value, *To be created*. Watercourses get the opposite answer for the same act, because 2.5.31 to 2.5.37 give them a realignment workflow scored as Enhanced. That asymmetry is a property of the template, not an ecological principle. | The row's own length is taken as its baseline length. Lengthening understates the gain; shortening overstates it. | **Partly.** A watercourse marked *Enhanced by Realignment* with no meanders row is reported, and so is a meanders row that links to nothing. For hedgerows there is no equivalent signal. The assumption is recorded on the row and in the report, with its direction stated as unknown. |
-| G5 | Where one parcel is divided, **give each part the parent's name**, either repeated (`H2`, `H2`) or numbered (`H2-1`, `H2-2`), with identical baseline values. **Twice corrected.** An earlier draft asked for the same name on every part, which is right in principle but used to fail the upload. The next draft asked for numbering only, which is narrower than necessary. Uniqueness has now been dropped, so both work, and a repeated name is the better one: it says the parts are one parcel rather than leaving the service to work it out. Naming **one** part is enough. Published guidance sets no convention here at all. | The parts still merge on shape and values, so the totals hold, but the parcel gets a combined name and the list will not reconcile with the survey by name. | **Partly.** Adjoining rows that share values but disagree on name are reported with the merge. Unit totals are unaffected either way, which is why this stays advisory. |
+| G5 | Where one parcel is divided, **give the parts the parent's name**, either repeated (`H2`, `H2`) or numbered (`H2-1`, `H2-2`), with identical baseline values. Either form rebuilds to a baseline parcel called `H2` (§4). A repeated name is marginally the better of the two, because it states outright that the parts are one parcel. **Naming one part is enough**, so this is a light ask. Published guidance sets no convention here at all. | The parts still merge on shape and values, so the totals hold, but the file offers no agreed name and the parcel is named from its habitat instead, so the list will not reconcile with the survey by name. | **Partly.** Adjoining rows that share values but disagree on name are reported with the merge. Unit totals are unaffected either way, which is why this stays advisory. |
 | G6 | Never edit the Area, Length or Count columns by hand. | Nothing in the calculation, but it destroys the only cross-check that detects editing outside QGIS. | **Yes.** In QGIS these always match the shape, so a breach heads the report. |
 | G7 | For a re-meandered watercourse: set retention **Enhanced** and enhancement type **Enhanced by Realignment**, keep the **old** channel on the Rivers row, and draw the **new** channel in the meanders layer pointing back at it. | The length change is invisible and the enhancement is scored against the wrong length. **Confirmed by NE.** 2.5.32 has the baseline watercourse keeping its own alignment while the realigned channel is drawn separately, and 2.5.35 has the new channel carrying a parent reference *"completed to match the parcel ref for the baseline polyline"*, the only parent-pointer NE ever specified, for one habitat type. **Caveat:** 2.5.37 calls that layer *"for illustration only"* and has the user type the new length into the metric by hand, so a user following NE exactly may have drawn it loosely. Reading it as authoritative is better than NE's own tooling, but the report should say the length came from it. | **Yes, both directions.** A realignment row with no new channel, and a new channel linking to nothing. |
-| G8 | Give every row a name that means something, and prefer a real one to the word `Null`. **This is not a uniqueness rule.** An earlier draft demanded names unique within a layer, which reflected a validator constraint that was itself a leftover. Published guidance points the other way: 2.5.19 says the parcel reference *"should be left to automatically fill in as 'Null' or filled in with the relevant reference"*, and Appendix A repeats *"Edit with free text or leave as 'Null', do not leave blank"*. A file of `Null` names is a perfectly good file whose parcels the service simply cannot name. | Nothing in the units, the reassembly or the reconciliation. An assessor loses the ability to trace a parcel by name, and a re-upload falls back to matching on shape. | **Yes**, counted and reported. A repeated area-habitat name used to reject the file while no other layer was checked at all. Both were artefacts of the constraint rather than intended behaviour, and the check has been removed. |
+| G8 | Give every row a name that means something, and prefer a real one to the word `Null`. **This is not a uniqueness rule**, and no file is refused for repeating a name. Published guidance is explicit that a blank is acceptable: 2.5.19 says the parcel reference *"should be left to automatically fill in as 'Null' or filled in with the relevant reference"*, and Appendix A repeats *"Edit with free text or leave as 'Null', do not leave blank"*. A file of `Null` names is a perfectly good file, and its parcels are named from their habitats instead (§4). | Nothing in the units, the reassembly or the reconciliation. An assessor loses the ability to trace a parcel by the name in their own survey, and a re-upload is recognised by shape rather than by name. | **Yes**, counted and reported. |
 | G9 | Choose on-site or off-site explicitly on every row. | Off-site parcels merge into on-site baseline parcels. | **Yes**, including the template's own invalid `On site` default on two layers. |
 | G10 | Use the dropdowns. Do not type into controlled columns, and do not edit the file outside QGIS. | Arbitrary text enters columns the calculation looks up by exact match. | **Yes, per column.** The template's only file-level constraint is its primary key. There are no other checks inside the file at all. |
 | G11 | When a parcel is **Retained**, set the proposed habitat type to the same habitat as the baseline. | A retained parcel quietly becomes a different habitat. | **Yes.** Area habitats are the only layer where retained can change habitat type, because the template pins only the broad type there. |
 | G12 | Leave distinctiveness to the dropdown. Never override it. | Distinctiveness stops matching the habitat, and it multiplies units directly. | **Yes**, by working it out again. |
 | G13 | For a newly planted tree set category **Newly Planted**; for an existing tree, **Existing**. | A new tree is counted as a baseline tree, inflating the baseline. | **Yes**, but indirectly. The service keys on the baseline tree size band, because the template defaults the category inconsistently across its six tree layers. |
 | G14 | Every point is one tree. If several trees share a location, draw one point per tree. | Trees undercounted on both sides. | **Partly.** A count other than 1 is reported, but QGIS resets it on the next edit, so it cannot be relied on. |
-
----
-
-## 10. Separately: two pre-existing defects in the tree path
-
-Found while mapping, **present in the shipped two-upload journey**, and
-deliberately **not fixed here**, because fixing them would move existing results
-and needs its own sign-off.
-
-- A tree's top-level area is overwritten with its *proposed* notional area, so an
-  enhanced tree whose baseline and proposed size bands differ is scored with the
-  proposed band on **both** sides of the calculation.
-- Tree advance and delay years never reach the calculation at all, because the
-  Urban Trees layer spells both columns differently from every other layer.
-
-Both make tree net gain optimistic. The new derivation does not repeat either,
-and rows affected by the first are named in the report.
