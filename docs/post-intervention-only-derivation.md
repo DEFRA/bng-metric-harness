@@ -54,9 +54,9 @@ Three deliberate exclusions from the grouping key:
 - **Parcel reference is not in the key.** It defaults to the literal string
   `Null` on untouched rows, so keying on it would merge every unfilled row.
   Agreement between real references raises confidence and disagreement is
-  reported, but neither decides the group. Note that agreement can only actually
-  arrive once the uniqueness constraint is dropped: today a shared ref fails the
-  upload before the reassembly sees it.
+  reported, but neither decides the group. Agreement can now actually arrive:
+  the uniqueness constraint that used to fail a shared ref before the reassembly
+  ever saw it has been removed.
 - **Baseline distinctiveness is not in the key.** It is a strict one-to-one
   function of habitat type across every row of the reference data, so it adds
   nothing. It is recomputed instead, and a mismatch is reported.
@@ -132,14 +132,15 @@ Only the middle row is wrong, and it is the reason a uniqueness constraint was
 ever needed. `carry-forward-feature-ids` keeps a stored `featureId` when a ref
 matches on both sides, so that a corrected re-upload reads as an update rather
 than a delete-and-reinsert. Ref was chosen as the natural key because a check
-already enforced its uniqueness. The check is the hangover, not the requirement.
+already enforced its uniqueness. The check was the hangover, not the
+requirement, and it has been removed.
 
-#### Uniqueness is not a real constraint
+#### Uniqueness was not a real constraint
 
-`checkDuplicateHabitatRefs` rejects any repeated area-habitat `Parcel Ref` and
-sets `valid: false`. It is not variant-aware, so it applies to a
-post-intervention upload too, and it ignores `null` and `''` but **not** the
-literal `Null`. Exercised directly:
+`checkDuplicateHabitatRefs` rejected any repeated area-habitat `Parcel Ref` and
+set `valid: false`. It was not variant-aware, so it applied to a
+post-intervention upload too, and it ignored `null` and `''` but **not** the
+literal `Null`. Exercised directly, before removal:
 
 ```
 REJECTED  ['Null','Null','Null']    what the template writes by default
@@ -149,18 +150,24 @@ accepted  ['H2-1','H2-2','H2-3']
 accepted  ['','','']
 ```
 
-So a file left exactly as the template writes it fails as soon as it holds two
+So a file left exactly as the template wrote it failed as soon as it held two
 area habitats, and the one division convention that names the parent honestly
-fails too. Neither outcome is defensible, and neither is required by anything
+failed too. Neither outcome was defensible, and neither was required by anything
 downstream of the derivation: **nothing in the reassembly, the units, the area
 reconciliation or the trading rules reads a ref at all.**
 
-The constraint is treated here as removable, and the rest of this section
+**The check is gone.** `duplicate-ref-check.js` and the `DUPLICATE_HABITAT_REF`
+error code are deleted, and the corpus fixture built to trip it —
+`attribute-problems/Baseline - duplicate habitat ref.gpkg` — now validates with
+`valid: true` and an empty error list. So does
+`valid/Baseline - complete but null area refs.gpkg`, whose three rows all carry
+the literal `Null`; its place in `valid/` had been an open question in the
+corpus README precisely because of this check. The rest of this section
 describes the behaviour that follows.
 
 #### What each ref state should do
 
-| In the file | Today | Proposed |
+| In the file | Before | Now |
 | --- | --- | --- |
 | Distinct real refs, one row each | Accepted, each parcel keeps its ref | Unchanged |
 | All `Null`, untouched | **Rejected** | Accepted. No label; identity from geometry; counted in the report |
@@ -171,31 +178,46 @@ describes the behaviour that follows.
 | Unrelated names on adjoining parts | Accepted, `derived:…` label | Unchanged, and the disagreement is reported |
 | Repeated refs on hedgerows, watercourses, trees | Accepted, never checked | Accepted, but see the two joins below |
 
-The middle row is the prize. Today a shared ref is fatal; under this design it
-becomes the one piece of corroborating evidence the file offers for a merge the
-service would otherwise have to justify from geometry alone.
+The middle row is the prize. A shared ref used to be fatal; it is now the one
+piece of corroborating evidence the file offers for a merge the service would
+otherwise have to justify from geometry alone.
+
+A ref carried by more than one derived parcel is reported as a `ref-collision`
+finding on the derivation report — severity `info`, `netGainBias: none`, because
+it genuinely changes nothing. It exists so that a collision is still visible to
+an assessor now that nothing else in the service mentions one.
 
 #### Identity across a re-upload, without unique refs
 
 Ref stops being the carry-forward key and becomes the first of three tiers:
 
 1. **Ref**, when it is non-sentinel and unambiguous on both sides. Cheap, exact,
-   and correct for the well-kept files that have it.
+   and correct for the well-kept files that have it. **Built.**
 2. **Geometry**, otherwise: the canonical checksum this template already
    defines, byte-identical across the backend, the QGIS actions and
    `gpkg_common.py`. An unedited feature re-uploads to the same fingerprint
-   whatever its ref says.
-3. **A fresh id**, when neither resolves. Exactly today's fallback.
+   whatever its ref says. **Not built** — see below.
+3. **A fresh id**, when neither resolves. Exactly today's fallback. **Built.**
 
-Tier 2 is what makes the constraint droppable: a file of nothing but `Null`
-refs still carries identity forward, because the shapes are the identity.
-It fails only where a feature was both re-drawn and unlabelled, which is the
-case no scheme could resolve.
+Tier 2 is what would make identity independent of the ref altogether: a file of
+nothing but `Null` refs would still carry identity forward, because the shapes
+would be the identity. It fails only where a feature was both re-drawn and
+unlabelled, which is the case no scheme could resolve.
 
-#### What actually blocks removing the check
+**Its absence does not block anything, and never did.**
+`carry-forward-feature-ids` has always refused an ambiguous ref and fallen back
+to a fresh UUID — habitats were the only layer the removed check covered, so
+hedgerows, watercourses and trees have arrived with repeated refs since the
+beginning and been handled this way. Dropping the check widens that existing
+fallback to habitats; it does not change what the fallback does. What is lost
+without tier 2 is only continuity for a downstream relational consumer across a
+re-upload of an unlabelled file, which is a quality-of-life property rather than
+a correctness one. It stays on the list.
 
-Less than it first appeared. Removing it is safe for the derivation, which reads
-no refs, and one of the two joins that looked like a blocker turns out not to be
+#### What removing the check required
+
+Less than it first appeared. Removal is safe for the derivation, which reads no
+refs, and one of the two joins that looked like a blocker turned out not to be
 reachable at all.
 
 **`buildBaselineLinearLengthByRef` is a two-upload construct and is already
@@ -234,18 +256,45 @@ already reads. What it needs is the **association** between a realigned channel
 and the Rivers row it replaces, and in the legacy format that association is
 expressed only as a ref.
 
-So the meanders join should follow the same tiering as identity:
+So the meanders join now follows the same tiering as identity, and this part
+**is built**:
 
 1. **`Baseline Parcel Ref`**, when it resolves to exactly one
    Enhanced-by-Realignment Rivers row.
 2. **Geometry**, when it does not: a realigned channel is a re-drawing of a
-   specific old channel and sits alongside it, so proximity and overlap identify
-   the parent where a ref cannot. Recorded as inferred, exactly as a merged
-   parcel's name is.
-3. **Neither**, which is today's `meanders-child-orphan` finding, unchanged.
+   specific old channel and sits alongside it, so proximity identifies the
+   parent where a ref cannot. Reported as `meanders-child-joined-by-geometry`
+   and named in the row's audit note, exactly as a merged parcel's name is.
+3. **Neither**, which is the `meanders-child-orphan` finding, unchanged.
+
+Two things had to change underneath it. Children are now keyed on the parent
+Rivers row's **`featureId`** rather than on its ref: keying on the ref would
+hand two rows sharing one the same new channel and count the same metres twice,
+which is exactly the failure the uniqueness check was standing in front of. And
+tier 2's thresholds are **unit-free** — a candidate qualifies at half its own
+bounding-box diagonal and must be twice as near as the runner-up — because a
+GeoPackage may arrive in EPSG:27700 or EPSG:4326 and is not reprojected before
+this point, so any constant in metres would be wrong by five orders of magnitude
+on half the corpus.
+
+Tier 2 turns out to matter well beyond the duplicate case. `Baseline Parcel Ref`
+on the meanders layer is a plain TextEdit widget with no ValueRelation, and the
+template's default for it is the literal `Null` — so before this, **every file
+that left the column alone joined nothing at all**, and its realigned
+watercourses silently took their own old channel as their new one.
 
 That removes the last thing the uniqueness constraint was protecting. Two Rivers
 rows sharing a ref stop being a rejection and become a case tier 2 resolves.
+
+**A wiring defect found while doing it.** The meanders index has been built by
+`extractPostIntervention` since the derivation landed, but
+`save-upload-for-project.js` destructured only `{ document, geometries }` from
+the extract and `enrichPostInterventionDocumentWithUnits` forwarded only the
+bare `baselineLengthByRef` Map — so neither `meanderContext` nor
+`derivedBaselineEnabled` ever reached the linear enrichers. The whole derived
+linear-length path, meanders join included, was unreachable in production
+whatever the flag said. Both are now threaded through, and a test asserts the
+forwarding rather than only the resolution.
 
 Conversion to the legacy format keeps de-duplicating regardless: legacy really
 does reject repeated habitat refs, which is an external constraint on that route
@@ -450,9 +499,9 @@ direction it pushes the net gain:**
 6. Retained area rows whose proposed habitat type differs from the baseline
 7. Every merge group, with member references and both shared-boundary fractions
 8. Blank and literal-`Null` references, refs that disagree across a merge
-   group, and refs repeated across parcels that did not merge. The last of
-   those cannot arise until the uniqueness constraint is dropped, because it
-   fails the upload first
+   group, and refs repeated across parcels that did not merge — the last of
+   those as the `ref-collision` finding, now that the uniqueness constraint no
+   longer fails such a file before the derivation sees it
 9. Meanders links that fail, in both directions
 10. Rows producing no units at all — otherwise silently dropped from the totals
 11. Red-line coverage and parcel overlaps — the **only** structural completeness
@@ -476,7 +525,7 @@ a user attestation rather than dressed up as a service check.
 
 ---
 
-## 7. Two defects found in the template and the gate
+## 7. Three defects found in the template, the gate and the wiring
 
 - **A trailing space in a column name.** The meanders layer's
   `Habitat created in advance/years ` column carries a trailing space — the only
@@ -487,6 +536,16 @@ a user attestation rather than dressed up as a service check.
   both sides of the comparison.
 - **The meanders layer was never read.** It was absent from the backend's layer
   aliases entirely, so even a well-formed file would have had it ignored.
+- **The meanders index was built and then dropped on the floor.** With the two
+  above fixed, `extractPostIntervention` produced the index correctly — and
+  `save-upload-for-project.js` destructured only `{ document, geometries }` from
+  it, while `enrichPostInterventionDocumentWithUnits` forwarded only the bare
+  `baselineLengthByRef` Map. Neither `meanderContext` nor
+  `derivedBaselineEnabled` reached the linear enrichers, so the entire derived
+  linear-length path was unreachable in production no matter what the flag said.
+  Found by asking what a duplicate ref would break in the meanders join and
+  discovering the join had never run. Both are now threaded through, with a test
+  on the forwarding rather than only on the resolution.
 
 ---
 
@@ -586,10 +645,10 @@ sharpest form in which to put the question to policy.
 | G2 | Fill all baseline columns on **every** area row, including parcels being built on. | The row contributes no baseline units, silently inflating net gain. | **Yes.** Reported with the count *and the area share*; above a threshold the verdict is withheld rather than published wrong. |
 | **G3** | **Every metre of hedgerow and watercourse, and every tree, that exists today must appear as drawn geometry on some row.** Where part of a feature is removed, **split it into sections** — one row per section, each carrying the original baseline attributes, retention **Lost** for what goes and **Retained**/**Enhanced** for what stays. Never shorten a line to show that part of it is going. **This is NE's own instruction, not ours.** User Guide 6.1.17: *“users should not manually delete sections of linear features that are to be lost — rather select the appropriate options within the attribute table to reflect this outcome.”* And 6.1.16: *“existing features subdivided where there are differences in proposed outcomes (for example partial losses).”* | The most serious failure: the removed length was never in the derived baseline, so the loss is never subtracted and the gain is overstated with no ceiling. | **No.** A file missing a `Lost` row is byte-identical to one describing a site that never had that feature. Mitigated only by an explicit user declaration, and by the report stating row counts, `Lost` counts and total derived length on every project. |
 | **G4** | **Never re-draw a Retained or Enhanced line.** If the alignment changes, record the old line as **Lost** and the new line as **Created** — or, for a watercourse, use the meanders layer, which keeps both alignments (G7). **The template permits nothing else for hedgerows.** `Retention Category` is a restricted list keyed on `Baseline Hedge Type` (Appendix A, Table 7-2), and `Hedgerow Retention Options.csv` offers `Created` on exactly one baseline value, `To be created`. A row carrying a real hedge type can only be `Lost`, `Retained` or `Enhanced`, so a moved hedge cannot be one row. Watercourses get the opposite answer for the same act, because 2.5.31–2.5.37 give them a realignment workflow scored as `Enhanced`. That asymmetry is a property of the template, not an ecological principle, and is the form the open policy question should take. | The row's own length is taken as its baseline length. Lengthening understates the gain; shortening overstates it. | **Partly.** A watercourse marked *Enhanced by Realignment* with no meanders child is reported, and so is an orphan child. For hedgerows there is no equivalent signal — the assumption is recorded on the feature and in the report, with its direction stated as unknown. |
-| G5 | Where one parcel is divided, **give each part the parent's name** — either repeated (`H2`, `H2`) or suffixed (`H2-1`, `H2-2`) — and identical baseline attributes. **Twice corrected.** An earlier draft asked for the same ref on every part, which is right in principle but fails the upload today; the next draft asked for suffixes only, which is narrower than necessary. Once uniqueness is dropped both forms work, and a repeated ref is the better one: it says the parts are one parcel rather than leaving the service to infer a stem. Published guidance specifies no convention here at all. | The parts still merge on geometry and attributes, so the totals hold, but the parcel is labelled `derived:…` and the list will not reconcile with the survey by name. | **Partially.** Adjoining rows that share attributes but disagree on reference are reported with the merge. Unit totals are unaffected either way, which is why this stays advisory. |
+| G5 | Where one parcel is divided, **give each part the parent's name** — either repeated (`H2`, `H2`) or suffixed (`H2-1`, `H2-2`) — and identical baseline attributes. **Twice corrected.** An earlier draft asked for the same ref on every part, which is right in principle but fails the upload today; the next draft asked for suffixes only, which is narrower than necessary. Uniqueness has now been dropped, so both forms work, and a repeated ref is the better one: it says the parts are one parcel rather than leaving the service to infer a stem. Published guidance specifies no convention here at all. | The parts still merge on geometry and attributes, so the totals hold, but the parcel is labelled `derived:…` and the list will not reconcile with the survey by name. | **Partially.** Adjoining rows that share attributes but disagree on reference are reported with the merge. Unit totals are unaffected either way, which is why this stays advisory. |
 | G6 | Never edit the Area, Length or Count columns by hand. | Nothing in the calculation — but it destroys the only cross-check that detects non-QGIS editing. | **Yes.** In QGIS these always equal the geometry, so a breach heads the report. |
 | G7 | For a re-meandered watercourse: set retention **Enhanced** and enhancement type **Enhanced by Realignment**, keep the **old** channel on the Rivers row, and draw the **new** channel in the meanders layer pointing back at it. | The length change is invisible; the enhancement is scored against the wrong length. **Confirmed by NE.** 2.5.32 has the baseline watercourse keeping its own alignment while the realigned channel is drawn separately, and 2.5.35 has the child carrying a `Baseline Parcel Ref` *“completed to match the parcel ref for the baseline polyline”* — the only parent-pointer field NE ever specified, for one habitat type. **Caveat:** 2.5.37 calls that layer *“for illustration only”* and has the user type the new length into the metric by hand, so a user following NE exactly may have drawn it loosely. Reading it as authoritative geometry is better than NE's own tooling, but the report should say the length came from it. | **Yes, both directions** — a realignment row with no child, and an orphan child. |
-| G8 | Give every row a reference that means something, and prefer a real one to the literal `Null`. **Not a uniqueness rule.** An earlier draft demanded refs unique within a layer; that reflected a validator constraint which is itself a hangover, not a requirement of the calculation. Published guidance points the other way: 2.5.19 says `Parcel Ref` *“should be left to automatically fill in as ‘Null’ or filled in with the relevant reference”*, and Appendix A repeats *“Edit with free text or leave as ‘Null’, do not leave blank”*. A file of `Null` refs is a perfectly good file whose parcels the service simply cannot name. | Nothing in the units, the reassembly or the reconciliation. An assessor loses the ability to trace a parcel by name, and a re-upload falls back to matching on geometry rather than on the ref. | **Yes**, counted and reported. Note what is NOT true: today a repeated area-habitat ref *rejects the file*, and no other layer is checked at all. Both are artefacts of the constraint rather than intended behaviour. |
+| G8 | Give every row a reference that means something, and prefer a real one to the literal `Null`. **Not a uniqueness rule.** An earlier draft demanded refs unique within a layer; that reflected a validator constraint which is itself a hangover, not a requirement of the calculation. Published guidance points the other way: 2.5.19 says `Parcel Ref` *“should be left to automatically fill in as ‘Null’ or filled in with the relevant reference”*, and Appendix A repeats *“Edit with free text or leave as ‘Null’, do not leave blank”*. A file of `Null` refs is a perfectly good file whose parcels the service simply cannot name. | Nothing in the units, the reassembly or the reconciliation. An assessor loses the ability to trace a parcel by name, and a re-upload falls back to matching on geometry rather than on the ref. | **Yes**, counted and reported. A repeated area-habitat ref used to *reject the file* while no other layer was checked at all; both were artefacts of the constraint rather than intended behaviour, and the check has since been removed. |
 | G9 | Choose on-site or off-site explicitly on every row. | Off-site parcels merge into on-site baseline parcels. | **Yes.** Including the template's own invalid `On site` default on two layers. |
 | G10 | Use the dropdowns. Do not type into controlled columns, and do not edit the file outside QGIS. | Arbitrary strings enter columns the engine looks up by exact match. | **Yes, per column.** The template's only file-level constraint is its primary key — there are no database-level checks at all. |
 | G11 | When a parcel is **Retained**, set the proposed habitat type to the same habitat as the baseline. | A retained parcel silently becomes a different habitat. | **Yes.** Area habitats are the only layer where retained can change habitat type — the template pins only the broad type there. |
