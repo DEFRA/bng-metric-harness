@@ -192,25 +192,64 @@ refs still carries identity forward, because the shapes are the identity.
 It fails only where a feature was both re-drawn and unlabelled, which is the
 case no scheme could resolve.
 
-#### Two joins that must stop trusting refs first
+#### What actually blocks removing the check
 
-Removing the check is safe for the derivation, which reads no refs. It is not
-safe for two places that key on refs today and assume they cannot repeat:
+Less than it first appeared. Removing it is safe for the derivation, which reads
+no refs, and one of the two joins that looked like a blocker turns out not to be
+reachable at all.
 
-- **`buildBaselineLinearLengthByRef`** builds `ref -> length` with `Map.set`, so
-  a repeated ref means **the last row silently wins** and an Enhanced linear
-  feature can be scored against the wrong baseline length. It must detect the
-  collision and refuse the join rather than pick. This is a two-upload path, so
-  it does not affect a post-intervention-only project, but it does affect
-  corroboration (§8, G7).
-- **The meanders join** matches a child's `Baseline Parcel Ref` to a Rivers row.
-  Two Rivers rows sharing a ref make it ambiguous. It already reports orphans
-  and unjoinable children and never errors, so it needs the ambiguous case added
-  to that set rather than new machinery.
+**`buildBaselineLinearLengthByRef` is a two-upload construct and is already
+inert here.** It is built in `save-upload-for-project.js` as
+`buildBaselineLinearLengthByRef(baseline?.hedgerows ?? [], baseline?.watercourses ?? [])`,
+so a project with no uploaded baseline hands it two empty arrays, the map comes
+out empty, and every Enhanced linear row falls straight through to the tiers in
+§4. It cannot mis-key on a duplicate ref because it never has a row to key. It
+still wants a collision guard for the two-upload journey and for corroboration,
+where `Map.set` means the last row of a repeated ref silently wins, but that is
+a defect on a path this document does not describe rather than a precondition
+for anything here.
+
+**The meanders join is the real one, and no column on the baseline row can
+replace it.** The Rivers layer carries 29 columns and exactly one length,
+`Length`, which is a `$length` default expression over the row's own geometry.
+Per 2.5.32 that geometry is the OLD channel, so `Length` is the baseline length.
+The realigned length exists nowhere on that row. It exists only on the meanders
+layer, whose entire schema is `Baseline Parcel Ref` and `Length`.
+
+Guidance 2.5.37 is sometimes read as pointing at a column on the baseline row:
+
+> …this will need to be manually filled out in the *Length Enhanced* column of
+> the chosen metric, using the value in the attributes table in the *enhanced by
+> realignment* column.
+
+The template does not support that reading. No Rivers column is named or aliased
+anything of the kind, and the three `Realigned Proposed …` layers are views of
+the meanders table. The instruction is to read the Length from the attribute
+table of the Enhancement by Realignment layer, which is the meanders layer's own
+`Length`. Calling that layer illustrative means only that it does not export to
+Excel automatically; it is still the sole record of the new alignment.
+
+The derivation does not need that column, because it measures the geometry it
+already reads. What it needs is the **association** between a realigned channel
+and the Rivers row it replaces, and in the legacy format that association is
+expressed only as a ref.
+
+So the meanders join should follow the same tiering as identity:
+
+1. **`Baseline Parcel Ref`**, when it resolves to exactly one
+   Enhanced-by-Realignment Rivers row.
+2. **Geometry**, when it does not: a realigned channel is a re-drawing of a
+   specific old channel and sits alongside it, so proximity and overlap identify
+   the parent where a ref cannot. Recorded as inferred, exactly as a merged
+   parcel's name is.
+3. **Neither**, which is today's `meanders-child-orphan` finding, unchanged.
+
+That removes the last thing the uniqueness constraint was protecting. Two Rivers
+rows sharing a ref stop being a rejection and become a case tier 2 resolves.
 
 Conversion to the legacy format keeps de-duplicating regardless: legacy really
-does reject repeated habitat refs, which is an external constraint on that
-route and not evidence for one here.
+does reject repeated habitat refs, which is an external constraint on that route
+and not evidence for one here.
 
 #### Choosing the label for a reassembled parcel
 
