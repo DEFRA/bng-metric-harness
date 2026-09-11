@@ -37,12 +37,22 @@ def _layer_file(layer):
 
 
 def _same_file(left, right):
+    """Whether two paths name the same file.
+
+    samefile answers it properly when both exist. The fallback is for when one
+    does not, and it folds case as well as separators: on Windows the same
+    GeoPackage can reach us as C:\\Site\\x.gpkg from one place and
+    c:/site/x.gpkg from another, and a plain string comparison would call
+    those different files. Getting that wrong means the guards below quietly
+    stop guarding.
+    """
     if not left or not right:
         return False
     try:
         return os.path.samefile(left, right)
     except OSError:
-        return os.path.normpath(left) == os.path.normpath(right)
+        return (os.path.normcase(os.path.normpath(left))
+                == os.path.normcase(os.path.normpath(right)))
 
 
 def _layers_for_file(path):

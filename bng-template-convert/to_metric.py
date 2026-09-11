@@ -49,9 +49,9 @@ import xml.etree.ElementTree as ET
 from collections import OrderedDict, defaultdict
 
 try:
-    from .gpkg_common import numeric
+    from .gpkg_common import numeric, read_only_uri
 except ImportError:  # pragma: no cover - running as a plain script
-    from gpkg_common import numeric
+    from gpkg_common import numeric, read_only_uri
 
 NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 REL = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
@@ -162,7 +162,7 @@ def read_table(conn, table, present):
 
 
 def read_staged(path):
-    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    conn = sqlite3.connect(read_only_uri(path), uri=True)
     try:
         present = {
             row[0] for row in conn.execute(

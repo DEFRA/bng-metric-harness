@@ -8,6 +8,7 @@ a feature is copied between files, the blob's bytes are reused untouched.
 
 import hashlib
 import math
+import pathlib
 import struct
 
 # ---------------------------------------------------------------------------
@@ -50,6 +51,25 @@ WKB_TYPE_NAMES = {
 SINGLE_PART_COUNT = 1
 MIN_LINE_VERTICES = 2
 MIN_RING_VERTICES = 3
+
+
+def read_only_uri(path):
+    """A SQLite URI that opens this file read-only, whatever it is called.
+
+    Interpolating a path into "file:{path}?mode=ro" looks harmless and is not.
+    SQLite reads everything after a `?` as URI parameters and everything after
+    a `#` as a fragment, so a site folder called "Site #3" opens a database
+    that is not there, and reports it as `no such table: gpkg_contents`, which
+    sends the reader looking at the GeoPackage rather than at its name.
+
+    On Windows the same interpolation is wrong before any of that: a URI path
+    wants forward slashes and a drive letter needs the triple-slash form, so
+    C:\\Users\\... has to become file:///C:/Users/... . Percent signs in a
+    folder name are read as escapes.
+
+    Path.as_uri() handles all of it, which is the point of using it.
+    """
+    return pathlib.Path(path).resolve().as_uri() + "?mode=ro"
 
 
 def quote_ident(name):

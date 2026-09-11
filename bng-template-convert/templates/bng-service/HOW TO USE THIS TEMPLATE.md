@@ -58,6 +58,14 @@ identically — same buttons, same copy action — except where flagged in Part 
 
 ### 1.1 Open it
 
+**First, on Windows: put the folder somewhere local, not in OneDrive.** Your
+map lives in a database file that QGIS writes to as you work. A folder that
+syncs to the cloud can take a copy halfway through a save, or hold the file
+while it uploads, and either can damage a day's mapping. Somewhere like
+`C:\BNG\` is right. A short path helps for a second reason: Windows refuses
+file names longer than 260 characters altogether, and this folder uses up 87
+of them on its own.
+
 Double-click **`BNG Service Habitat Mapping.qgz`**. QGIS opens with an empty map
 and a **Layers** panel down the left, organised into groups:
 
@@ -635,6 +643,10 @@ watercourses, leave both watercourse layers empty — empty tables are fine.
 **The dropdowns are empty.** The lookup tables in the **Reference data** group
 did not load. Check the
 `CSV References` folder is still beside the `.qgz` file.
+
+**Something went wrong saving, on Windows.** Check where the folder lives. In
+OneDrive, or anywhere else that syncs, the sync can take the file while QGIS
+is writing to it. Move the whole folder somewhere local and open it again.
 
 **I cannot draw.** Either the layer is not selected in the Layers panel, or you
 have not clicked the pencil.

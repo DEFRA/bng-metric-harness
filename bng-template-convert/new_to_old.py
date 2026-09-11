@@ -38,6 +38,7 @@ try:
         quote_ident,
         quoted_names,
         read_feature_table,
+        read_only_uri,
         read_srs_rows,
         resolve_table_name,
         update_layer_extent,
@@ -54,6 +55,7 @@ except ImportError:  # pragma: no cover - running as a plain script
         quote_ident,
         quoted_names,
         read_feature_table,
+        read_only_uri,
         read_srs_rows,
         resolve_table_name,
         update_layer_extent,
@@ -1010,7 +1012,7 @@ def convert(input_path, out_dir, carry_lineage, dry_run, formats=("gpkg",),
     habitat out of those merges, and is on unless deliberately turned off.
     """
     report = Report()
-    source = sqlite3.connect(f"file:{input_path}?mode=ro", uri=True)
+    source = sqlite3.connect(read_only_uri(input_path), uri=True)
 
     staged_tables = resolve_staged_tables(source, report)
     staged = {}

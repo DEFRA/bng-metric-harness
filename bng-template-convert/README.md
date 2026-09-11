@@ -563,6 +563,29 @@ python3 to_metric.py INPUT.gpkg --metric METRIC.xlsm -o OUT.xlsm
 
 Exit code is `0` on success, `1` on error.
 
+## On Windows
+
+Everything here is standard-library Python running inside QGIS, so it behaves
+the same on Windows as anywhere else. Three things about Windows itself are
+worth knowing, and only the first has ever caused a problem.
+
+**Keep the site folder out of OneDrive.** A GeoPackage is a live SQLite
+database, and the template's buttons write to it as you work. A folder that
+syncs to the cloud can take a copy mid-write, or hold a lock while it
+uploads, and neither ends well for the file. Somewhere local, such as
+`C:\BNG\`, is the safe place. This applies to the template itself, not just
+to the converters.
+
+**Watch the folder depth.** Windows refuses paths over 260 characters unless
+long paths are enabled, and the longest name inside the template is 87
+characters. That leaves plenty of room from `C:\BNG\`, and much less from a
+redirected Documents folder several projects deep.
+
+**Punctuation in folder names is fine.** It was not always: a path holding a
+`#` or a `?` used to make the converters report `no such table:
+gpkg_contents`, which pointed the reader at the GeoPackage rather than at its
+name. That is fixed, and the fix is one place, `read_only_uri`.
+
 ## Notes for maintainers
 
 - The legacy schema in `new_to_old.py` mirrors the service's own reference

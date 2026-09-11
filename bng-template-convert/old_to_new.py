@@ -49,6 +49,7 @@ try:
         quote_ident,
         quoted_names,
         read_feature_table,
+        read_only_uri,
         read_srs_rows,
         register_spatial_functions,
         resolve_table_name,
@@ -68,6 +69,7 @@ except ImportError:  # pragma: no cover - running as a plain script
         quote_ident,
         quoted_names,
         read_feature_table,
+        read_only_uri,
         read_srs_rows,
         register_spatial_functions,
         resolve_table_name,
@@ -375,7 +377,7 @@ def new_uuid():
 
 def read_legacy(path):
     """Read every layer of a legacy GeoPackage we know how to carry over."""
-    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    conn = sqlite3.connect(read_only_uri(path), uri=True)
     try:
         return {
             "redline": read_feature_table(conn, LEGACY_REDLINE),
