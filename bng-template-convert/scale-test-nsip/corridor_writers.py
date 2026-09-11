@@ -469,11 +469,16 @@ def write_trees(conn, mesh):
         size = lin._pick([('Small', 0.74), ('Medium', 0.26)], _hash01(seed, 2017))
         advance, delay = sc.timing_for('Created', seed)
         counts['created'] += 1
+        # A planted tree is priced as an area habitat, so it needs a real
+        # condition: the metric cannot value one recorded as not applicable.
+        proposed_condition = lin._pick(
+            [('1. Good', 0.34), ('2. Fairly Good', 0.42), ('3. Moderate', 0.24)],
+            _hash01(seed, 2029))
         pi_rows.append((
             gw.point_blob(point), f'TN-{extra + 1:05d}', None, 'N/A', 'N/A',
             'N/A', 'N/A', 'N/A', 'Created', size, 'Native',
             'Urban tree' if zone == sc.MITIGATION and
-            _hash01(seed, 2027) < 0.12 else 'Rural tree', 'N/A',
+            _hash01(seed, 2027) < 0.12 else 'Rural tree', proposed_condition,
             lin.significance(seed), 'Newly Planted', advance, delay, ON_SITE,
             1, None, None, None))
 

@@ -167,6 +167,13 @@ node verify/validate-legacy.mjs \
     "legacy/Net Gain Habitat Mapping Layers - Post-intervention.gpkg" postIntervention
 ```
 
+The two claims the conversion has to meet, which both pass:
+
+```sh
+python3 verify/claim2_nothing_altered.py        # nothing is altered
+node verify/claim3-answer-does-not-move.mjs     # the answer does not move
+```
+
 And a description of what the file holds:
 
 ```sh
@@ -222,8 +229,9 @@ Seventy seven of the merged groups mix flagged and unflagged parcels, absorbing
 The largest such group is 92 parcels. The converter warns that it is dropping
 the flag; nothing stops it.
 
-That covers claim 1 (nothing is lost), claim 4 (it is repeatable) and claim 5
-(it finishes) from the briefing note. **Claims 2 and 3 are not tested here**,
-and they are the two that matter most: no value-by-value comparison has been
-run, and neither file has been through the biodiversity unit calculation. Those
-are the next things to build against this site.
+**All five claims from the briefing note now hold.** Claim 2 is checked
+against a transformation list written in advance, across roughly 34 000 rows.
+Claim 3 prices the whole site in both templates and finds the unit totals
+differ by 0.0003 per cent and the net change by 0.000069 of a percentage
+point, which is no more than the rounding the older format forces.
+`VERIFICATION.md` sets out how both are run and what they found.

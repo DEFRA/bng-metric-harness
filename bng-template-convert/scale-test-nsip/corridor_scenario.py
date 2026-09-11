@@ -103,6 +103,13 @@ def condition_for(habitat, roll):
     return _pick([(label, weight / total) for label, weight in weighted], roll)
 
 
+def best_condition(habitat):
+    """The best condition the metric allows for this habitat."""
+    allowed = [label for label, _ in CONDITION_WEIGHTS
+               if label in CONDITIONS.get(habitat, [])]
+    return allowed[0] if allowed else (CONDITIONS.get(habitat) or ['6. N/A - Other'])[0]
+
+
 def better_condition(habitat, current):
     """One step up the condition scale, where the habitat has a scale."""
     allowed = [label for label, _ in CONDITION_WEIGHTS
@@ -232,9 +239,13 @@ ENHANCEMENT_TARGET = {
     'Cereal crops': 'Arable field margins tussocky',
     'Non-cereal crops': 'Arable field margins tussocky',
     'Temporary grass and clover leys': 'Other neutral grassland',
-    'Bare ground': 'Ruderal/Ephemeral',
-    'Vacant or derelict land': 'Ruderal/Ephemeral',
-    'Bramble scrub': 'Mixed scrub',
+    # Every target here has been checked against the metric's own
+    # time-to-target table: enhancing into it from the habitat on the left,
+    # at the best condition the target allows, is a transition the metric
+    # will price. Bramble scrub is absent on purpose; it is only ever
+    # recorded as unassessed, and the metric refuses to enhance from there.
+    'Bare ground': 'Other neutral grassland',
+    'Vacant or derelict land': 'Other neutral grassland',
     'Hawthorn scrub': 'Mixed scrub',
     'Bracken': 'Other lowland acid grassland',
     'Introduced shrub': 'Mixed scrub',
@@ -269,9 +280,19 @@ def intervention(zone, habitat, condition, seed):
 
 
 def _enhance(habitat, condition, seed):
+    """Improve the parcel, or leave it alone if there is nothing to gain.
+
+    An enhancement that changes habitat goes to the best condition the new
+    habitat allows. That is not decoration: the metric prices an enhancement
+    from a time-to-target table, and a target that is no better than where
+    the parcel already is has no entry in it. A parcel already at the top
+    stays as it is.
+    """
     target = ENHANCEMENT_TARGET.get(habitat)
     if target and _hash01(seed, 5519) < 0.7:
-        return ENHANCED, target, condition_for(target, _hash01(seed, 5521))
+        proposed = best_condition(target)
+        if proposed != condition:
+            return ENHANCED, target, proposed
     improved = better_condition(habitat, condition)
     if improved == condition:
         return RETAINED, habitat, condition

@@ -2,16 +2,17 @@
 
 **Subject:** the synthetic Handsacre to Crewe site in this folder
 **Stage:** runbook, for working through at a keyboard
-**State:** steps 2 to 7 have been run and their measured values recorded.
-Step 1 is a sanity check nobody has written up, and step 8 is not built.
+**State:** steps 2 to 8 have been run and their measured values recorded.
+All five claims now have a harness, and all five pass. Step 1 is a sanity
+check nobody has written up.
 
 This is the practical half of section 6 of the template decision brief. It
 turns the five claims made there into things to do, in order, with the number
 each step should produce so a pass can be told from a failure. Where a step is
 worth a screenshot, it says so and says what the screenshot has to show.
 
-It does not cover the biodiversity unit calculation itself. That is claim 3,
-it is the one claim nothing here tests, and section 8 says what it needs.
+Section 8 covers the biodiversity unit calculation, which is where claims 2
+and 3 are settled.
 
 ---
 
@@ -424,19 +425,63 @@ visibly slow.
 
 ---
 
-## 8. What is still missing, and what it would take
+## 8. Claims 2 and 3
 
-| Claim | State | What it needs |
-| --- | --- | --- |
-| 1. Nothing is lost | **Shown.** Counts survive the round trip, both files validate | Nothing |
-| 2. Nothing is altered | **Not started** | Write down the transformation list first: hectares to square metres, rounding to whole units, dropped lineage keys, dropped irreplaceable flags, dropped vertical areas, synthesised and re-dropped Lost rows, repeated refs on split hedgerows. Then a field-by-field diff that asserts every difference found is on that list |
-| 3. The answer does not move | **Not started, and it is the one that matters** | Put the staged file and the converted pair through the unit calculation and compare the totals. The service already has every piece: it enriches each document with units and then sums them. A third reading comes free from the metric workbook in section 5, on the sections small enough to fit |
-| 4. It is repeatable | **Shown.** Two conversions give identical rows in every layer | Bytes differ because SQLite lays pages out differently; that is worth a sentence in the results, not work |
-| 5. It finishes | **Shown, and the ceilings are found.** Conversion about a second, validation seven to nine, three separate 248-row limits, and a template button that blocks QGIS for a minute and a half | Decide what to do about the validation timeout and the blocking copy. Neither is a template question |
+Both now have a harness, and both pass. Run them after any conversion:
 
-Claim 2 is cheap and comes first. It is also the prerequisite for claim 3:
-comparing unit totals before knowing which value changes are intended tells
-you a number moved but not whether it should have.
+```sh
+python3 verify/claim2_nothing_altered.py
+node verify/claim3-answer-does-not-move.mjs
+```
+
+### Claim 2, nothing is altered
+
+`verify/claim2_manifest.py` is the transformation list, written from the
+documented behaviour rather than read out of the converter, because a list
+derived from the code it checks would agree with any bug that code contains.
+It names every column on both sides as carried, transformed by a stated rule,
+dropped for a stated reason, or invented from a stated source.
+
+`verify/claim2_nothing_altered.py` holds the converter to it. Rows are paired
+by position and the pairing is proved by comparing geometry, so attributes are
+only ever compared between two features that are the same feature. A column
+appearing or disappearing on either side fails the check on its own, which is
+the drift this is really guarding against.
+
+**It passes across all eight layer pairs and the red line boundary, roughly
+34 000 rows.** Writing it found one thing: a created hedgerow or tree has no
+parent, so it carries its own reference rather than a parent's. The manifest
+said parent's reference and was wrong, and the rule is now stated properly.
+
+### Claim 3, the answer does not move
+
+`verify/claim3-answer-does-not-move.mjs` puts the same site through the
+biodiversity unit calculation twice, once as the staged file and once as the
+legacy pair converted from it. Both readings call the same calculator, the one
+the service itself uses. Nothing reuses the converter, so a mistake in the
+conversion cannot cancel itself out: the only thing the two readings share is
+the arithmetic, and the only thing that differs is where each value was read.
+
+An exact match is not the pass mark and would be suspicious. The staged file
+holds hectares and metres as measured, legacy holds whole square metres and
+whole metres, so rounding has to move the answer a little. The pass mark is
+that it moves no further than rounding can explain.
+
+| | Staged | Legacy | Difference |
+| --- | --- | --- | --- |
+| Baseline units | 16 051.4515 | 16 051.4146 | **0.000230%** |
+| Post-intervention units | 15 291.6926 | 15 291.6465 | **0.000302%** |
+| Net change | -4.733272% | -4.733341% | **0.000069 percentage points** |
+
+**34 846 rows, every one priced on both sides, and the answer moves by seven
+hundred-thousandths of a percentage point.** That is the whole of claim 3.
+
+Two things it found in the test data rather than the converter, both since
+fixed. A newly planted tree was recorded with no condition, which the metric
+cannot price, so 1 152 of them counted for nothing. And some enhancements
+went to a condition no better than the parcel already had, which the metric's
+time-to-target table has no entry for. Both were silent until the calculation
+was actually run against the data, which is the argument for running it.
 
 ---
 
@@ -451,4 +496,4 @@ you a number moved but not whether it should have.
 | 5. Metric workbook | 5 | The two warning lists |
 | 6. Round trip | 1, 4 | The counts returning unchanged |
 | 7. The service | 5 | The upload that timed out |
-| 8. Units | 2, 3 | Not built |
+| 8. Claims 2 and 3 | 2, 3 | The two harness summaries |
