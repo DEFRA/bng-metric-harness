@@ -755,6 +755,12 @@ CSV_MODULES = [
     ("Rivers", "Rivers.csv"),
 ]
 
+# The legacy template's project file looks for its data at
+# ./Layers/Net Gain Habitat Mapping Layers.gpkg, by that exact name. Naming
+# the output to match means a user only has to move it and drop the stage
+# suffix, rather than work out what to call it.
+LEGACY_LAYERS_STEM = "Net Gain Habitat Mapping Layers"
+
 CSV_SUBFOLDER = "GIS import tool CSVs"
 IRREPLACEABLE_CSV = "Irreplaceable habitats.csv"
 
@@ -1036,9 +1042,8 @@ def convert(input_path, out_dir, carry_lineage, dry_run, formats=("gpkg",),
         raise ValueError("nothing to write: ask for gpkg, csv or both")
 
     os.makedirs(out_dir, exist_ok=True)
-    stem = os.path.splitext(os.path.basename(input_path))[0]
-    baseline_path = os.path.join(out_dir, f"{stem} - Baseline.gpkg")
-    pi_path = os.path.join(out_dir, f"{stem} - Post-Intervention.gpkg")
+    baseline_path = os.path.join(out_dir, f"{LEGACY_LAYERS_STEM} - Baseline.gpkg")
+    pi_path = os.path.join(out_dir, f"{LEGACY_LAYERS_STEM} - Post-intervention.gpkg")
 
     baseline_conn = pi_conn = None
     if want_gpkg:
@@ -1079,6 +1084,13 @@ def convert(input_path, out_dir, carry_lineage, dry_run, formats=("gpkg",),
     if want_gpkg:
         report.note(f"Baseline file:          {baseline_path}")
         report.note(f"Post-intervention file: {pi_path}")
+        report.note(
+            "To open either in the legacy QGIS template, take a copy of the "
+            f"whole template folder for that stage, put the file in its "
+            f"Layers folder and rename it to "
+            f"'{LEGACY_LAYERS_STEM}.gpkg'. The project looks for that exact "
+            "name, so baseline and post-intervention need a folder each."
+        )
     if want_csv:
         _write_csvs(out_dir, pi_rows, report, consolidate, split_irreplaceable)
     return report

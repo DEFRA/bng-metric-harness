@@ -104,7 +104,7 @@ different files:
 
 | Choice | You get | For |
 |---|---|---|
-| Legacy GeoPackages | `… - Baseline.gpkg` and `… - Post-Intervention.gpkg` | Uploading to the older Biodiversity Metric service, baseline first |
+| Legacy GeoPackages | `Net Gain Habitat Mapping Layers - Baseline.gpkg` and `… - Post-intervention.gpkg` | Uploading to the older Biodiversity Metric service, baseline first, or opening in the legacy QGIS template |
 | GIS import tool CSVs | `GIS import tool CSVs/` holding `Habitats.csv`, `Hedgerows.csv`, `Rivers.csv` | Feeding the Excel **GIS import tool**, which fills in the Statutory Biodiversity Metric or the SSM |
 | Both | All of the above | |
 
@@ -289,7 +289,26 @@ repeated Parcel Ref on the habitats layer, so they cannot stay as they are.
 python3 new_to_old.py "path/to/BNG Service Layers.gpkg" -o converted/
 ```
 
-Produces `… - Baseline.gpkg` and `… - Post-Intervention.gpkg`.
+Produces `Net Gain Habitat Mapping Layers - Baseline.gpkg` and
+`Net Gain Habitat Mapping Layers - Post-intervention.gpkg`.
+
+### Opening the result in the legacy QGIS template
+
+The two files are named after the legacy template's own layer file on
+purpose, because they are drop-in replacements for it.
+
+Its project looks for its data at `./Layers/Net Gain Habitat Mapping
+Layers.gpkg`, by that exact name, so each stage needs a template folder of its
+own:
+
+1. Copy the whole `templates/legacy-ne/` folder twice, once for the baseline
+   and once for the post-intervention state.
+2. Into each copy's `Layers/` folder, put the matching file and rename it to
+   `Net Gain Habitat Mapping Layers.gpkg`, replacing the empty one.
+3. Open `Net Gain Habitat Mapping.qgz` in that folder.
+
+Proven at scale: a converted site of 11 554 baseline parcels opens in the
+legacy template and draws correctly.
 
 Add **`--format csv`** for the Excel GIS import tool's three CSVs instead, or
 **`--format both`** for all five files. The CSV names carry no site prefix on

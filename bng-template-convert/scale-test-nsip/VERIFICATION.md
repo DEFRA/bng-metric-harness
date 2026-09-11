@@ -88,7 +88,7 @@ of them has seen eleven thousand.
 
 | Button | Layer | Measured | Verdict |
 | --- | --- | --- | --- |
-| 1. Copy baseline to post-intervention | Habitats Post-Intervention | **1 min 28 s**, frozen throughout, copying all 11 554 features fresh | **Was too slow. Rewritten; 7.9 s with an attribute table open, 3.4 s without** |
+| 1. Copy baseline to post-intervention | Habitats Post-Intervention | **1 min 28 s**, frozen throughout, copying all 11 554 features fresh. After the rewrite, **about 5 seconds in QGIS** | Fixed |
 | 2. Tidy PI refs after splitting | Habitats Post-Intervention | **1 second**, nothing to change | Fine |
 | 4. Refresh from baseline | Habitats Post-Intervention | **9 seconds**, nothing to bring in | Fine on this path |
 | 3. Rename a ref | Habitats Baseline | not yet timed | |
@@ -143,10 +143,12 @@ seconds for 11 554 rows when a table is open, and 0.02 seconds when none is,
 because a signal with no receivers costs nothing.
 
 Measured against this site with an attribute table model attached, standing in
-for the dialog: **11 554 features in 7.9 seconds with the table updating
-itself**, 3.4 seconds with no table open, a re-run in **0.4 seconds** with
-nothing to do, and `parent_checksum` values matching the converter's own for
-all 11 554 rows. Against 1 minute 28 seconds frozen.
+for the dialog: 11 554 features in 7.9 seconds with the table updating itself,
+3.4 seconds with no table open, a re-run in 0.4 seconds with nothing to do, and
+`parent_checksum` values matching the converter's own for all 11 554 rows.
+
+**Confirmed in QGIS: about 5 seconds, interface responsive, table correct
+without reopening.** Against 1 minute 28 seconds frozen.
 
 The remaining checks below have not been run.
 
@@ -208,6 +210,26 @@ synthesises a `Lost` row for every feature that has none: **688** hedgerows,
 **Worth a screenshot:** the plugin's log panel showing the row counts and the
 warnings, because it is the clearest single picture of what conversion does
 and does not carry.
+
+### Opening the result in the legacy QGIS template
+
+**Run, and it works.** The two files are named after the legacy template's own
+layer file because they replace it. Its project looks for
+`./Layers/Net Gain Habitat Mapping Layers.gpkg` by that exact name, so each
+stage needs a template folder of its own.
+
+1. Copy `templates/legacy-ne/` twice, one folder per stage.
+2. Put the matching file into each copy's `Layers/` folder and rename it to
+   `Net Gain Habitat Mapping Layers.gpkg`, replacing the empty one.
+3. Open `Net Gain Habitat Mapping.qgz` in that folder.
+
+**Confirmed: the converted 11 554 parcel site opens in the legacy template and
+draws correctly.** That is the end-to-end proof that a site of this size
+survives the round trip into the format Natural England's own tooling reads.
+
+**Worth a screenshot:** the legacy template open on the converted site. It is
+the single most persuasive image in the whole exercise, because it is the
+thing the divergence argument is about.
 
 ---
 
@@ -341,8 +363,8 @@ pointing at the two files section 3 produced.
 
 ```sh
 python3 ../old_to_new.py \
-    --baseline "legacy/BNG Service Layers - Baseline.gpkg" \
-    --post-intervention "legacy/BNG Service Layers - Post-Intervention.gpkg" \
+    --baseline "legacy/Net Gain Habitat Mapping Layers - Baseline.gpkg" \
+    --post-intervention "legacy/Net Gain Habitat Mapping Layers - Post-intervention.gpkg" \
     -o roundtrip
 ```
 
@@ -365,8 +387,8 @@ counts. Comparing values field by field is claim 2 and is section 8.
 
 1. Start the stack, sign in, create a project.
 2. On the task list choose **On-site baseline habitats** and upload
-   `legacy/BNG Service Layers - Baseline.gpkg`.
-3. Then upload `legacy/BNG Service Layers - Post-Intervention.gpkg`.
+   `legacy/Net Gain Habitat Mapping Layers - Baseline.gpkg`.
+3. Then upload `legacy/Net Gain Habitat Mapping Layers - Post-intervention.gpkg`.
 
 **Expected:** both accepted. **Worth a screenshot:** the project summary
 showing both tasks completed, with an 11 554 parcel baseline behind it.
@@ -387,7 +409,7 @@ The same check without the interface:
 
 ```sh
 node verify/validate-legacy.mjs \
-    "legacy/BNG Service Layers - Baseline.gpkg" baseline
+    "legacy/Net Gain Habitat Mapping Layers - Baseline.gpkg" baseline
 ```
 
 **Expected:** `valid true`, and a summed parcel area of
@@ -424,7 +446,7 @@ you a number moved but not whether it should have.
 | --- | --- | --- |
 | 1. Open in QGIS | none, it is a sanity check | Baseline and post-intervention side by side |
 | 2. The four buttons | 5, at the template end | Done. The copy taking 1 min 28 s with QGIS frozen |
-| 3. Convert to legacy | 1, 5 | The log panel with counts and warnings |
+| 3. Convert to legacy, and open it in the legacy template | 1, 5 | The legacy template open on the converted site |
 | 4. CSVs and consolidation | 1, 5, and all of section 3.4 | 4 222 rows against 4 145 |
 | 5. Metric workbook | 5 | The two warning lists |
 | 6. Round trip | 1, 4 | The counts returning unchanged |

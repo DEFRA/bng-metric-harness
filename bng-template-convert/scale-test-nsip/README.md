@@ -162,9 +162,9 @@ backend's own compose stack provides one.
 The converted pair, against the service's baseline validation:
 
 ```sh
-node verify/validate-legacy.mjs "legacy/BNG Service Layers - Baseline.gpkg" baseline
+node verify/validate-legacy.mjs "legacy/Net Gain Habitat Mapping Layers - Baseline.gpkg" baseline
 node verify/validate-legacy.mjs \
-    "legacy/BNG Service Layers - Post-Intervention.gpkg" postIntervention
+    "legacy/Net Gain Habitat Mapping Layers - Post-intervention.gpkg" postIntervention
 ```
 
 And a description of what the file holds:

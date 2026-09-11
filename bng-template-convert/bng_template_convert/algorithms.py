@@ -252,7 +252,13 @@ class ConvertToLegacyAlgorithm(QgsProcessingAlgorithm):
         if "gpkg" in formats:
             feedback.pushInfo(
                 "    - Older service: upload the Baseline file first, then the "
-                "Post-Intervention file."
+                "Post-intervention file."
+            )
+            feedback.pushInfo(
+                "    - Legacy QGIS template: take a copy of the whole template "
+                "folder for each stage, put the matching file in its Layers "
+                "folder, and rename it to 'Net Gain Habitat Mapping "
+                "Layers.gpkg'. The project looks for that exact name."
             )
         if "csv" in formats:
             feedback.pushInfo(
