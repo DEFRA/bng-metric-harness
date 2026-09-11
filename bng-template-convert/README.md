@@ -56,6 +56,24 @@ writes nothing. Use it first, and read the warnings before you upload anything.
 
 # Using it inside QGIS (recommended)
 
+## Where the tools appear
+
+Three tools, in two places, and either will do:
+
+- **Plugins → BNG Template Convert**, which lists all three by name;
+- **Processing Toolbox → BNG Template Convert → BNG template conversion**,
+  where they sit with every other Processing algorithm. Open the Toolbox with
+  `Ctrl+Alt+T`, or **Processing → Toolbox**.
+
+| Tool | What it does |
+| --- | --- |
+| Convert to legacy template | The legacy GeoPackage pair, the import tool CSVs, or both |
+| Convert from legacy template | A legacy pair back into one BNG Service GeoPackage |
+| Export to the Statutory Metric | Fills a copy of the metric workbook directly |
+
+If the menu shows fewer than three, QGIS is running an older copy of the
+plugin: install the current one and restart QGIS.
+
 Most people should never see a command line. The same two converters ship as a
 QGIS plugin, where they appear as ordinary tools with file pickers.
 

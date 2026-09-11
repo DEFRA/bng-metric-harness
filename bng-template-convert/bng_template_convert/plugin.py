@@ -1,9 +1,14 @@
 """
 Plugin entry point.
 
-Registers the Processing provider and adds two menu items, so the tools can be
-reached either from the Processing Toolbox or from Plugins > BNG Template
-Convert without anyone having to find the Toolbox first.
+Registers the Processing provider and puts every algorithm on the Plugins
+menu, so the tools can be reached without anyone having to find the Processing
+Toolbox first.
+
+Every algorithm belongs on that menu. One of them was once left off, and the
+result was a tool nobody could find: it was in the Toolbox, where a user who
+does not already know it exists has no reason to look. MENU_ITEMS below is the
+whole list, and adding an algorithm means adding it here too.
 """
 
 import os
@@ -15,8 +20,11 @@ from qgis.PyQt.QtWidgets import QAction
 from .provider import PROVIDER_ID, BngTemplateProvider
 
 MENU_TITLE = "&BNG Template Convert"
-TO_LEGACY_ALGORITHM = f"{PROVIDER_ID}:converttolegacy"
-FROM_LEGACY_ALGORITHM = f"{PROVIDER_ID}:convertfromlegacy"
+MENU_ITEMS = (
+    ("Convert to legacy template…", f"{PROVIDER_ID}:converttolegacy"),
+    ("Convert from legacy template…", f"{PROVIDER_ID}:convertfromlegacy"),
+    ("Export to the Statutory Metric…", f"{PROVIDER_ID}:exporttometric"),
+)
 
 
 class BngTemplateConvertPlugin:
@@ -32,10 +40,7 @@ class BngTemplateConvertPlugin:
     def initGui(self):
         self.initProcessing()
         icon = self._icon()
-        for label, algorithm_id in (
-            ("Convert to legacy template…", TO_LEGACY_ALGORITHM),
-            ("Convert from legacy template…", FROM_LEGACY_ALGORITHM),
-        ):
+        for label, algorithm_id in MENU_ITEMS:
             action = QAction(icon, label, self.iface.mainWindow())
             action.triggered.connect(
                 lambda _checked, identifier=algorithm_id: self._run(identifier)

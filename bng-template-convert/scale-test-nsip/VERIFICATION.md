@@ -358,7 +358,11 @@ much as one metric will take.
 
 ### Filling the metric from that section
 
-In QGIS, Processing Toolbox, **Export to the Statutory Metric (Excel)**:
+In QGIS, either **Plugins → BNG Template Convert → Export to the Statutory
+Metric**, or the Processing Toolbox under **BNG Template Convert → BNG
+template conversion**. If the Plugins menu shows only the two converters,
+QGIS is running a copy of the plugin from before this tool was added to it:
+reinstall and restart.
 
 | Field | What to put in it |
 | --- | --- |
