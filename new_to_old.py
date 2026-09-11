@@ -22,7 +22,7 @@ import os
 import sqlite3
 import struct
 import sys
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 
 # Works both as a standalone script and as a module inside the QGIS
 # plugin package, where the import has to be relative.
@@ -431,6 +431,11 @@ def map_area_pi(row, site, carry_lineage):
             ),
             "Spatial risk category": row.get("Spatial risk category"),
             "Area": rounded_size(hectares_to_sq_metres(row.get("Area"))),
+            # Private, and dropped by every writer: both of them iterate the
+            # legacy column list. Kept so CSV consolidation can group on it.
+            IRREPLACEABLE_KEY: normalise_irreplaceable(
+                row.get("Irreplaceable Habitat")
+            ),
         },
         site,
         "Comment",
@@ -751,6 +756,91 @@ CSV_MODULES = [
 ]
 
 CSV_SUBFOLDER = "GIS import tool CSVs"
+IRREPLACEABLE_CSV = "Irreplaceable habitats.csv"
+
+
+IRREPLACEABLE_KEY = "_irreplaceable"
+
+# Columns that do not take part in grouping: the reference and comment are
+# rebuilt for the merged row, and the size is what gets summed.
+CSV_MERGE_EXCLUDED = frozenset(
+    {"Parcel Ref", "Comment", "Comments", "Area", "Length"}
+)
+CSV_SIZE_COLUMNS = ("Area", "Length")
+
+# The GIS import tool holds this many rows per module (User Guide 3.1.5).
+IMPORT_TOOL_ROW_LIMIT = 248
+
+
+def normalise_irreplaceable(value):
+    """'Yes' or 'No'. Anything blank or unrecognised is treated as 'No'."""
+    text = "" if value is None else str(value).strip().lower()
+    return "Yes" if text in ("yes", "y", "true", "1") else "No"
+
+
+def consolidate_csv_rows(table, rows, split_irreplaceable=True):
+    """Group rows agreeing on every metric attribute, summing their size.
+
+    This is the same merge the import tool's Consolidate Data button performs,
+    done here instead so the grouping key is ours to choose. It is
+    arithmetically free: units are linear in size and merged rows share every
+    multiplier, so no total moves. What it costs is the per-parcel audit trail,
+    which is why guidance 3.2.3 tells a user who needs that trail not to
+    consolidate at all.
+
+    Doing it here buys the one thing the tool cannot do. Irreplaceable habitat
+    has no column in the legacy CSVs, so two parcels differing only in whether
+    they are irreplaceable look identical to the tool and are merged into a row
+    that reads as ordinary habitat. Keeping the flag in the grouping key stops
+    that.
+
+    Returns (rows, groups_that_were_split_by_the_flag).
+    """
+    column_names = [name for name, _ in LEGACY_LAYERS[table]["columns"]]
+    size_columns = [name for name in CSV_SIZE_COLUMNS if name in column_names]
+    key_columns = [name for name in column_names if name not in CSV_MERGE_EXCLUDED]
+    comment_column = "Comments" if "Comments" in column_names else "Comment"
+
+    groups = OrderedDict()
+    for geometry, values in rows:
+        key = tuple(values.get(name) for name in key_columns)
+        if split_irreplaceable:
+            key += (values.get(IRREPLACEABLE_KEY, "No"),)
+        entry = groups.get(key)
+        if entry is None:
+            groups[key] = entry = {
+                "geometry": geometry,
+                "values": dict(values),
+                "members": [],
+            }
+            for name in size_columns:
+                entry["values"][name] = 0
+        entry["members"].append(values.get("Parcel Ref"))
+        for name in size_columns:
+            entry["values"][name] = (
+                numeric(entry["values"].get(name)) or 0
+            ) + (numeric(values.get(name)) or 0)
+
+    merged = []
+    flagged_groups = 0
+    for index, entry in enumerate(groups.values(), start=1):
+        values = entry["values"]
+        irreplaceable = values.get(IRREPLACEABLE_KEY, "No") == "Yes"
+        if irreplaceable:
+            flagged_groups += 1
+        # A distinct reference and comment, so a reader can tell the rows
+        # apart and so the import tool has something to tell them apart by if
+        # its own grouping happens to include either column.
+        suffix = "-IRR" if irreplaceable and split_irreplaceable else ""
+        values["Parcel Ref"] = f"G{index:04d}{suffix}"
+        note = f"{len(entry['members'])} parcel(s) consolidated"
+        if irreplaceable:
+            note += "; IRREPLACEABLE HABITAT, do not merge with other rows"
+        values[comment_column] = note
+        for name in size_columns:
+            values[name] = rounded_size(values[name])
+        merged.append((entry["geometry"], values))
+    return merged, flagged_groups
 
 
 def csv_value(value):
@@ -777,6 +867,44 @@ def write_module_csv(path, table, rows):
                 [index] + [csv_value(values.get(name)) for name in column_names]
             )
     return len(rows)
+
+
+def _write_irreplaceable_listing(csv_dir, flagged_rows, report, consolidate,
+                                 split_irreplaceable):
+    """List irreplaceable parcels on their own, because the CSVs cannot say so.
+
+    The legacy CSVs have no irreplaceable habitat column, so whatever is done
+    about grouping, the flag itself does not reach the import tool. The metric
+    treats irreplaceable habitat separately anyway, so the useful thing is a
+    list the user can work from by hand.
+    """
+    if not flagged_rows:
+        return
+    path = os.path.join(csv_dir, IRREPLACEABLE_CSV)
+    column_names = [name for name, _ in LEGACY_LAYERS["Habitats"]["columns"]]
+    with open(path, "w", newline="", encoding="utf-8-sig") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["fid"] + column_names + ["Irreplaceable Habitat"])
+        for index, (_geometry, values) in enumerate(flagged_rows, start=1):
+            writer.writerow(
+                [index]
+                + [csv_value(values.get(name)) for name in column_names]
+                + ["Yes"]
+            )
+    report.count(IRREPLACEABLE_CSV, len(flagged_rows))
+    report.warn(
+        f"{len(flagged_rows)} parcel(s) are irreplaceable habitat. The legacy "
+        f"CSVs have no column for that, so they are also listed on their own "
+        f"in {IRREPLACEABLE_CSV}. "
+        + (
+            "They were kept in separate rows here, but do NOT press "
+            "Consolidate Data in the import tool: it cannot see the flag and "
+            "would merge them back into ordinary habitat."
+            if consolidate and split_irreplaceable
+            else "Do NOT press Consolidate Data in the import tool: it cannot "
+            "see the flag and would merge them into ordinary habitat."
+        )
+    )
 
 
 def insert_rows(conn, table, rows):
@@ -863,11 +991,17 @@ def resolve_staged_tables(source, report):
     return resolved
 
 
-def convert(input_path, out_dir, carry_lineage, dry_run, formats=("gpkg",)):
+def convert(input_path, out_dir, carry_lineage, dry_run, formats=("gpkg",),
+            consolidate=False, split_irreplaceable=True):
     """Write the legacy pair, the GIS import tool's CSVs, or both.
 
     `formats` may hold "gpkg", "csv" or both. It defaults to the GeoPackage
     pair alone so a plain call keeps doing what it always did.
+
+    `consolidate` merges CSV rows that agree on every metric attribute. It
+    affects the CSVs only: the GeoPackages carry geometry, and merging that
+    away would destroy the map. `split_irreplaceable` keeps irreplaceable
+    habitat out of those merges, and is on unless deliberately turned off.
     """
     report = Report()
     source = sqlite3.connect(f"file:{input_path}?mode=ro", uri=True)
@@ -946,19 +1080,50 @@ def convert(input_path, out_dir, carry_lineage, dry_run, formats=("gpkg",)):
         report.note(f"Baseline file:          {baseline_path}")
         report.note(f"Post-intervention file: {pi_path}")
     if want_csv:
-        _write_csvs(out_dir, pi_rows, report)
+        _write_csvs(out_dir, pi_rows, report, consolidate, split_irreplaceable)
     return report
 
 
-def _write_csvs(out_dir, pi_rows, report):
+def _write_csvs(out_dir, pi_rows, report, consolidate=False,
+                split_irreplaceable=True):
     """The three CSVs the Excel GIS import tool reads, one per module."""
     csv_dir = os.path.join(out_dir, CSV_SUBFOLDER)
     os.makedirs(csv_dir, exist_ok=True)
 
+    flagged_rows = [
+        (geometry, values)
+        for geometry, values in pi_rows.get("Habitats", [])
+        if values.get(IRREPLACEABLE_KEY) == "Yes"
+    ]
+
     for table, filename in CSV_MODULES:
+        rows = pi_rows.get(table, [])
+        before = len(rows)
+        flagged_groups = 0
+        if consolidate:
+            rows, flagged_groups = consolidate_csv_rows(
+                table, rows, split_irreplaceable)
+            report.count(f"{filename}", len(rows))
+            report.note(
+                f"{filename}: {before} row(s) consolidated to {len(rows)}"
+                + (f", of which {flagged_groups} hold irreplaceable habitat "
+                   "and were kept apart" if flagged_groups else "")
+            )
+        else:
+            report.count(f"{filename}", len(rows))
         path = os.path.join(csv_dir, filename)
-        written = write_module_csv(path, table, pi_rows.get(table, []))
-        report.count(f"{filename}", written)
+        write_module_csv(path, table, rows)
+        if len(rows) > IMPORT_TOOL_ROW_LIMIT:
+            report.warn(
+                f"{filename} holds {len(rows)} rows and the import tool takes "
+                f"{IMPORT_TOOL_ROW_LIMIT} (User Guide 3.1.5). Split the site "
+                "into geographic sections and import each separately"
+                + ("" if consolidate else ", or consolidate the rows")
+                + "."
+            )
+
+    _write_irreplaceable_listing(csv_dir, flagged_rows, report,
+                                 consolidate, split_irreplaceable)
 
     report.note(f"Import tool CSVs:       {csv_dir}")
     report.note(
@@ -1265,6 +1430,25 @@ def main(argv=None):
         help="report what would be produced without writing any files",
     )
     parser.add_argument(
+        "--consolidate",
+        action="store_true",
+        help=(
+            "CSV output only: merge rows that agree on every metric attribute "
+            "and sum their size, the way the import tool's Consolidate Data "
+            "button does. Off by default, because it loses the per-parcel "
+            "audit trail (User Guide 3.2.3)"
+        ),
+    )
+    parser.add_argument(
+        "--merge-irreplaceable",
+        action="store_true",
+        help=(
+            "allow irreplaceable habitat to be consolidated together with "
+            "otherwise identical habitat that is not irreplaceable. Off by "
+            "default, and turning it on hides the distinction"
+        ),
+    )
+    parser.add_argument(
         "--format",
         choices=("gpkg", "csv", "both"),
         default="gpkg",
@@ -1283,7 +1467,9 @@ def main(argv=None):
 
     try:
         report = convert(
-            args.input, args.out_dir, args.carry_lineage, args.dry_run, formats
+            args.input, args.out_dir, args.carry_lineage, args.dry_run, formats,
+            consolidate=args.consolidate,
+            split_irreplaceable=not args.merge_irreplaceable,
         )
     except (sqlite3.Error, ValueError, struct.error) as error:
         print(f"error: {error}", file=sys.stderr)

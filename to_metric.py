@@ -46,7 +46,7 @@ import sqlite3
 import sys
 import zipfile
 import xml.etree.ElementTree as ET
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 
 try:
     from .gpkg_common import numeric
@@ -237,7 +237,9 @@ def build_lines(tables, size_field, type_field, consolidate):
             "number": row.get("Parcel Ref"),
             "broad": row.get("Baseline Broad Habitat Type"),
             "habitat": row.get(f"Baseline {type_field}"),
-            "irreplaceable": None,
+            # Its own flag, not None: a wholly lost parcel is still
+            # irreplaceable habitat, and consolidation groups on this.
+            "irreplaceable": row.get("Irreplaceable Habitat"),
             "size": numeric(row.get(size_field)) or 0.0,
             "condition": row.get("Baseline Condition"),
             "significance": row.get("Baseline Strategic Significance"),
@@ -257,6 +259,13 @@ def consolidate_lines(lines):
     The import tool offers the same thing. It is arithmetically free: units are
     linear in size and merged lines share every multiplier, so the totals do
     not move. What it costs is the per-parcel audit trail.
+
+    IRREPLACEABLE LINES ARE NEVER MERGED WITH REPLACEABLE ONES. The key below
+    is built from every field except size and reference, and `irreplaceable`
+    is one of those fields, so a flagged parcel can only ever join a group of
+    flagged parcels. That is the difference between doing this here and
+    pressing Consolidate Data in the import tool, which cannot see the flag
+    at all because the legacy CSVs have no column for it.
 
     ENHANCED LINES ARE NEVER MERGED. The enhancement sheet is positional
     against the baseline sheet: its Nth row belongs to the Nth baseline row
@@ -340,6 +349,30 @@ def cell_is_empty(archive, paths, sheet, ref):
     return match is None or not (match.group(1) or "").strip()
 
 
+def drop_incomplete_rows(xml, values):
+    """Discard every edit on a row the sheet cannot hold in full.
+
+    Some columns run out of styled cells a row or two before others do. Writing
+    the cells that exist and silently skipping the rest would leave a row
+    carrying a size with no habitat against it, which the metric would then
+    total. A row that cannot be written whole is not written at all.
+
+    Returns (values to write, refs that were dropped).
+    """
+    present = set(re.findall(r'<c r="([A-Z]+\d+)"', xml))
+    by_row = defaultdict(list)
+    for ref in values:
+        by_row[re.sub(r"^[A-Z]+", "", ref)].append(ref)
+
+    keep, dropped = {}, []
+    for refs in by_row.values():
+        if all(ref in present for ref in refs):
+            keep.update({ref: values[ref] for ref in refs})
+        else:
+            dropped.extend(sorted(refs))
+    return keep, dropped
+
+
 def write_workbook(template, out_path, edits):
     """Apply edits to a copy of the metric workbook. Everything else is kept."""
     with zipfile.ZipFile(template) as archive:
@@ -350,9 +383,13 @@ def write_workbook(template, out_path, edits):
     missing = {}
     for sheet, values in edits.items():
         path = paths[sheet]
-        xml, gone = set_cells(payload[path].decode("utf-8"), values)
+        xml = payload[path].decode("utf-8")
+        values, dropped = drop_incomplete_rows(xml, values)
+        if dropped:
+            missing[sheet] = dropped
+        xml, gone = set_cells(xml, values)
         if gone:
-            missing[sheet] = gone
+            missing.setdefault(sheet, []).extend(gone)
         payload[path] = xml.encode("utf-8")
 
     workbook = payload["xl/workbook.xml"].decode("utf-8")
@@ -457,7 +494,11 @@ def convert(input_path, template_path, out_path, consolidate=False,
 
     missing = write_workbook(template_path, out_path, edits)
     for sheet, refs in missing.items():
-        report.warn(f"{sheet}: {len(refs)} cell(s) not found, e.g. {refs[:5]}")
+        rows = sorted({re.sub(r"^[A-Z]+", "", ref) for ref in refs}, key=int)
+        report.warn(
+            f"{sheet}: {len(rows)} row(s) skipped because the sheet runs out "
+            f"of cells before the last row of its stated range "
+            f"(row(s) {', '.join(rows)}). Nothing partial was written.")
 
     report.count("cells written", sum(len(v) for v in edits.values()))
     report.note(f"Metric workbook: {out_path}")

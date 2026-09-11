@@ -118,6 +118,8 @@ class ConvertToLegacyAlgorithm(QgsProcessingAlgorithm):
     OUTPUT_FOLDER = "OUTPUT_FOLDER"
     CARRY_LINEAGE = "CARRY_LINEAGE"
     OUTPUT_FORMAT = "OUTPUT_FORMAT"
+    CONSOLIDATE = "CONSOLIDATE"
+    SPLIT_IRREPLACEABLE = "SPLIT_IRREPLACEABLE"
 
     # Index order is the order shown in the dropdown; the tuples are what
     # new_to_old.convert expects.
@@ -209,11 +211,29 @@ class ConvertToLegacyAlgorithm(QgsProcessingAlgorithm):
                 defaultValue=True,
             )
         )
+        self.addParameter(
+            QgsProcessingParameterBoolean(
+                self.CONSOLIDATE,
+                "CSVs: merge rows with matching values (only if you run out "
+                "of rows in the import tool)",
+                defaultValue=False,
+            )
+        )
+        self.addParameter(
+            QgsProcessingParameterBoolean(
+                self.SPLIT_IRREPLACEABLE,
+                "CSVs: keep irreplaceable habitat in its own rows (recommended)",
+                defaultValue=True,
+            )
+        )
 
     def processAlgorithm(self, parameters, context, feedback):
         source = self.parameterAsFile(parameters, self.INPUT, context)
         out_dir = self.parameterAsString(parameters, self.OUTPUT_FOLDER, context)
         carry = self.parameterAsBool(parameters, self.CARRY_LINEAGE, context)
+        consolidate = self.parameterAsBool(parameters, self.CONSOLIDATE, context)
+        split = self.parameterAsBool(
+            parameters, self.SPLIT_IRREPLACEABLE, context)
         choice = self.parameterAsEnum(parameters, self.OUTPUT_FORMAT, context)
         label, formats = self.FORMAT_CHOICES[choice]
 
@@ -222,7 +242,9 @@ class ConvertToLegacyAlgorithm(QgsProcessingAlgorithm):
         require_saved_edits(source, feedback)
 
         feedback.pushInfo(f"Converting to the legacy template — {label}…")
-        report = new_to_old.convert(source, out_dir, carry, False, formats)
+        report = new_to_old.convert(
+            source, out_dir, carry, False, formats,
+            consolidate=consolidate, split_irreplaceable=split)
         report_to_feedback(report, feedback)
 
         feedback.pushInfo("")
@@ -239,6 +261,12 @@ class ConvertToLegacyAlgorithm(QgsProcessingAlgorithm):
                 "Data' to load the matching CSV. Choose On Site or Off Site "
                 "before exporting."
             )
+            if split:
+                feedback.pushInfo(
+                    "    - Do NOT press 'Consolidate Data' in the import "
+                    "tool. It cannot see the irreplaceable habitat flag and "
+                    "would merge those parcels into ordinary habitat."
+                )
         return {self.OUTPUT_FOLDER: out_dir}
 
     def createInstance(self):
@@ -466,7 +494,9 @@ class ExportToMetricAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(
             QgsProcessingParameterBoolean(
                 self.CONSOLIDATE,
-                "Merge rows with matching values (only if you run out of rows)",
+                "Merge rows with matching values (only if you run out of "
+                "rows). Irreplaceable habitat is never merged with habitat "
+                "that is not irreplaceable.",
                 defaultValue=False,
             )
         )
