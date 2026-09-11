@@ -1,0 +1,206 @@
+"""Make `1. Copy baseline to post-intervention` fast and interruptible.
+
+    python3 tools/speed_up_copy_action.py "<project>.qgz"
+
+Already applied to templates/bng-service. Kept so it can be applied to a
+working copy of the template that predates the change, including the live
+master outside this repository. It expects the old body and stops without
+writing if it does not find it, so running it twice is safe.
+
+
+Measured on the 11 554 parcel test site, the action took 1 min 28 s with QGIS
+frozen throughout. The same work headless takes 3.1 seconds, so the time was
+never the data: it was 11 554 separate `addFeature` calls on an edit buffer,
+each one telling a 55-layer project that a feature had arrived.
+
+Three changes, in order of how much they matter:
+
+  * write through the data provider in batches rather than one feature at a
+    time through the edit buffer, so the project is told once per batch;
+  * stop the canvas redrawing while the batch is written, and redraw once at
+    the end;
+  * show a modal progress dialog with a Cancel button, so the operation is
+    visibly working and can be stopped.
+
+Cancelling is safe. Batches already written stay written, and the action
+skips anything already copied, so running it again carries on where it left
+off.
+
+The body is edited as text rather than regenerated, so the per-type lines in
+each of the five copies (Baseline Length for the linear types, Category for
+trees) survive untouched.
+"""
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from qgz_actions import read_project, replace_bodies, write_project
+
+ACTION = "1. Copy baseline to post-intervention"
+
+OLD_IMPORTS = """from qgis.core import QgsProject, QgsFeature, QgsGeometry
+from qgis.utils import iface
+import hashlib, json
+"""
+NEW_IMPORTS = """from qgis.core import (QgsProject, QgsFeature, QgsFeatureRequest,
+                       QgsGeometry)
+from qgis.PyQt.QtWidgets import QApplication, QProgressDialog
+from qgis.utils import iface
+import hashlib, json
+
+# Features written per transaction. Large enough that the per-batch cost
+# disappears, small enough that the progress bar moves and Cancel answers.
+CHUNK = 1000
+# parent_geom records the shape the row was cut from. The checksum beside it
+# rounds to three decimals, so full precision doubles the text for nothing:
+# 11.6 MB against 5.3 MB across this site.
+WKT_DECIMALS = 3
+"""
+
+OLD_SCAN = """done_uuids = set()
+done_refs = set()
+for f in pi.getFeatures():
+"""
+NEW_SCAN = """done_uuids = set()
+done_refs = set()
+# Two columns, no geometry. Fetching everything would drag every parent_geom
+# in the layer through Python for a membership test.
+_scan = QgsFeatureRequest().setSubsetOfAttributes(
+    ["parent_uuid", "Parent Ref"], pi.fields())
+try:
+    _scan.setFlags(QgsFeatureRequest.NoGeometry)
+except AttributeError:
+    pass
+for f in pi.getFeatures(_scan):
+"""
+
+OLD_WKT = '            feat["parent_geom"] = src.geometry().asWkt()'
+NEW_WKT = '            feat["parent_geom"] = src.geometry().asWkt(WKT_DECIMALS)'
+
+OLD_OPEN = """    pi.startEditing()
+    n = 0
+    for src in todo:
+        feat = QgsFeature(pi.fields())
+"""
+NEW_OPEN = """    def build_row(src):
+        feat = QgsFeature(pi.fields())
+"""
+
+OLD_TAIL = """        pi.addFeature(feat)
+        n += 1
+    pi.commitChanges()
+    msg = "Copied %d feature(s) into %s." % (n, PI)
+    if skipped:
+        msg += " %d already had a row and were left alone." % skipped
+    iface.messageBar().pushSuccess("Copy baseline", msg)"""
+NEW_TAIL = '''        return feat
+
+    provider = pi.dataProvider()
+    canvas = iface.mapCanvas()
+    was_rendering = canvas.renderFlag()
+    canvas.setRenderFlag(False)
+
+    progress = QProgressDialog(
+        "Copying %d feature(s) into %s..." % (len(todo), PI),
+        "Cancel", 0, len(todo), iface.mainWindow())
+    progress.setWindowTitle("Copy baseline")
+    progress.setModal(True)
+    progress.setAutoClose(False)
+    progress.setAutoReset(False)
+    progress.setMinimumDuration(0)
+    progress.setValue(0)
+
+    n = 0
+    failed = 0
+    cancelled = False
+    batch = []
+
+    def flush(rows):
+        ok, _ = provider.addFeatures(rows)
+        return len(rows) if ok else 0
+
+    try:
+        for src in todo:
+            batch.append(build_row(src))
+            if len(batch) >= CHUNK:
+                written = flush(batch)
+                n += written
+                failed += len(batch) - written
+                batch = []
+                progress.setValue(n + failed)
+                QApplication.processEvents()
+                if progress.wasCanceled():
+                    cancelled = True
+                    break
+        if batch and not cancelled:
+            written = flush(batch)
+            n += written
+            failed += len(batch) - written
+    finally:
+        progress.close()
+        pi.reload()
+        pi.updateExtents()
+        canvas.setRenderFlag(was_rendering)
+        pi.triggerRepaint()
+
+    msg = "Copied %d feature(s) into %s." % (n, PI)
+    if skipped:
+        msg += " %d already had a row and were left alone." % skipped
+    if cancelled:
+        iface.messageBar().pushWarning("Copy baseline", msg
+            + " Cancelled. What was copied is saved, and running this again"
+              " carries on from there.")
+    elif failed:
+        iface.messageBar().pushWarning("Copy baseline", msg
+            + " %d could not be written." % failed)
+    else:
+        iface.messageBar().pushSuccess("Copy baseline", msg)'''
+
+OLD_GUARD = """if not todo:
+    iface.messageBar().pushSuccess("Copy baseline",
+        "Every baseline feature already has a row in %s." % PI)
+else:"""
+NEW_GUARD = """if pi.isEditable():
+    iface.messageBar().pushWarning("Copy baseline",
+        "%s has unsaved edits. Save or discard them, then run this again."
+        % PI)
+elif not todo:
+    iface.messageBar().pushSuccess("Copy baseline",
+        "Every baseline feature already has a row in %s." % PI)
+else:"""
+
+SWAPS = [
+    (OLD_IMPORTS, NEW_IMPORTS),
+    (OLD_SCAN, NEW_SCAN),
+    (OLD_WKT, NEW_WKT),
+    (OLD_GUARD, NEW_GUARD),
+    (OLD_OPEN, NEW_OPEN),
+    (OLD_TAIL, NEW_TAIL),
+]
+
+
+def rewrite(old):
+    body = old
+    for before, after in SWAPS:
+        if body.count(before) != 1:
+            raise SystemExit(
+                f"expected exactly one occurrence of:\n{before[:120]}\n"
+                f"found {body.count(before)}")
+        body = body.replace(before, after)
+    compile(body, "action", "exec")           # syntax, before it reaches QGIS
+    return body
+
+
+def main(path):
+    qgs, payload = read_project(path)
+    xml = payload[qgs].decode("utf-8")
+    xml, count = replace_bodies(xml, ACTION, rewrite)
+    if count != 5:
+        raise SystemExit(f"expected 5 copy actions, rewrote {count}")
+    write_project(path, qgs, payload, xml)
+    print(f"rewrote {count} copies of '{ACTION}' in {path}")
+    print(f"backup at {path}.backup")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1])

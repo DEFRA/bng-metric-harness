@@ -31,6 +31,8 @@ to_metric.py             new template  ->  a filled Statutory Metric workbook
 bng_template_convert/    the QGIS plugin (wraps the two above)
 build_plugin.py          packages the plugin into dist/bng_template_convert.zip
 templates/               reference copies of both templates (see templates/README.md)
+tools/                   editing the Python actions stored inside a .qgz
+scale-test-nsip/         a generated NSIP-scale site, and how to verify against it
 ```
 
 The templates themselves are in [`templates/`](templates/), so the code and the

@@ -41,17 +41,34 @@ PRISTINE = os.path.join(TEMPLATE_DIR, 'Layers', 'BNG Service Layers.gpkg')
 
 
 
-def ensure_working_copy():
-    """Make the working copy of the template if it is not there yet.
+# Everything in the working copy except the data: refreshed from the template
+# on every run, so a change to the QGIS project or the reference lists reaches
+# an existing working copy instead of only a newly created one.
+TEMPLATE_ASSETS = ('BNG Service Habitat Mapping.qgz', 'CSV References',
+                   'HOW TO USE THIS TEMPLATE.md')
 
-    Only the QGIS project and the reference lists are copied. The GeoPackage
-    itself is written fresh below, so there is no point copying the empty one
-    first.
+
+def ensure_working_copy():
+    """Create or refresh the working copy of the template.
+
+    The whole folder is generated, so there is nothing here worth preserving
+    against the template: the data lives in the GeoPackage, which is written
+    fresh below.
     """
-    if os.path.isdir(WORKING_DIR):
+    if not os.path.isdir(WORKING_DIR):
+        print(f'creating the working copy from {TEMPLATE_DIR}')
+        shutil.copytree(TEMPLATE_DIR, WORKING_DIR)
         return
-    print(f'creating the working copy from {TEMPLATE_DIR}')
-    shutil.copytree(TEMPLATE_DIR, WORKING_DIR)
+    for name in TEMPLATE_ASSETS:
+        source = os.path.join(TEMPLATE_DIR, name)
+        target = os.path.join(WORKING_DIR, name)
+        if not os.path.exists(source):
+            continue
+        if os.path.isdir(source):
+            shutil.rmtree(target, ignore_errors=True)
+            shutil.copytree(source, target)
+        else:
+            shutil.copy2(source, target)
 
 
 def main():

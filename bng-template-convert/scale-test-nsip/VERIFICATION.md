@@ -88,7 +88,7 @@ of them has seen eleven thousand.
 
 | Button | Layer | Measured | Verdict |
 | --- | --- | --- | --- |
-| 1. Copy baseline to post-intervention | Habitats Post-Intervention | **1 min 28 s**, copying all 11 554 features fresh after the post-intervention layer was emptied | **Too slow, and it blocks QGIS completely for the whole time** |
+| 1. Copy baseline to post-intervention | Habitats Post-Intervention | **1 min 28 s**, frozen throughout, copying all 11 554 features fresh | **Was too slow. Rewritten; now 3.4 s in a headless run of the same work** |
 | 2. Tidy PI refs after splitting | Habitats Post-Intervention | **1 second**, nothing to change | Fine |
 | 4. Refresh from baseline | Habitats Post-Intervention | **9 seconds**, nothing to bring in | Fine on this path |
 | 3. Rename a ref | Habitats Baseline | not yet timed | |
@@ -99,12 +99,38 @@ at this row count. It took nine seconds. That figure is for the cheapest path
 though, with no baseline change to carry across, so it is a floor rather than
 a typical case: time it again after actually editing some baseline parcels.
 
-**The copy is the one to fix.** A minute and a half with a frozen interface
-reads as a crash to anyone who has not been told to expect it, and a surveyor
-on a large site will run it more than once. Two things would change that
-without changing what it does: run it in a background task so QGIS stays
-responsive and shows progress, and write the features in one batched
-transaction rather than feature by feature. Neither is a template redesign.
+**The copy has been rewritten, and the diagnosis was not what it looked
+like.** The same work headless takes 3.1 seconds, so the minute and a half was
+never the data. It was 11 554 separate calls to add one feature to an edit
+buffer, each of which tells a 55-layer project that a feature has arrived, and
+each of which asks the canvas to redraw. A background thread would have solved
+the wrong problem, and touching a map layer off the main thread is unsafe in
+QGIS anyway.
+
+What it does now:
+
+- writes through the data provider in batches of 1 000 rather than one feature
+  at a time through the edit buffer, so the project is told twelve times
+  instead of 11 554;
+- stops the canvas redrawing while a batch is written, and redraws once at the
+  end;
+- shows a modal progress dialog with a working Cancel button;
+- records `parent_geom` at three decimal places, which is all the checksum
+  beside it uses, halving that column from 11.6 MB to 5.3 MB across this site;
+- reads only the two columns it needs when working out what is already copied,
+  rather than dragging every `parent_geom` in the layer through Python;
+- refuses to run while the layer has unsaved edits, rather than writing
+  underneath them.
+
+**Cancelling is safe.** Batches already written stay written, and the action
+skips anything already copied, so running it again carries on from where it
+stopped.
+
+Run headless against this site, the rewritten action copies 11 554 features in
+**3.4 seconds**, re-runs in **0.4 seconds** with nothing to do, and produces
+`parent_checksum` values that match the converter's own for all 11 554 rows.
+**The figure to confirm is what it does inside QGIS**, with the canvas and the
+attribute table attached, because that is where the original lost its time.
 
 The remaining checks below have not been run.
 
