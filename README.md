@@ -145,6 +145,35 @@ This repo contains scripts to generate example GeoPackage files for testing:
 
 See [docs/generate-test-data.md](docs/generate-test-data.md) for details.
 
+### NSIP-scale test site
+
+`bng-template-convert/scale-test-nsip/` generates a much larger one: a 56 km
+rail corridor with 11 554 baseline habitat parcels, 13 682 post-intervention
+parcels, hedgerows, watercourses and trees, across 3 184 hectares. It exists to
+test the QGIS template, the converter plugin and the service at the scale of a
+nationally significant infrastructure project.
+
+```sh
+cd bng-template-convert/scale-test-nsip && python3 generate.py
+```
+
+About seven seconds, deterministic to the byte, and the output is gitignored
+rather than committed. `VERIFICATION.md` in that folder is the step-by-step
+runbook for exercising everything against it.
+
+## QGIS templates and the converter plugin
+
+`bng-template-convert/` holds the habitat-mapping templates, the converter
+between the BNG Service template and the Natural England one, the QGIS plugin
+that wraps it, and the scale test above. Pure Python, standard library only.
+
+```sh
+cd bng-template-convert && python3 build_plugin.py   # -> dist/*.zip
+```
+
+Then in QGIS: **Plugins → Manage and Install Plugins… → Install from ZIP**.
+See [bng-template-convert/README.md](bng-template-convert/README.md).
+
 ## Tilt
 
 [Tilt](https://tilt.dev/) is a local development orchestrator. Instead of manually running `docker compose up` and `npm run dev` separately, Tilt starts the full stack — Docker services **and** both Node apps — in one command, with dependency ordering (apps wait for their backing services to be healthy) and a web dashboard for logs and restarts.
