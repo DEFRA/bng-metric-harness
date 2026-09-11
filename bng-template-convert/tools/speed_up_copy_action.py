@@ -26,6 +26,17 @@ Cancelling is safe. Batches already written stay written, and the action
 skips anything already copied, so running it again carries on where it left
 off.
 
+A provider write has one cost, and the second half of this script pays it.
+An open attribute table is built on a cache that only listens to the layer's
+own `featureAdded` signal, which a provider write does not emit, so the table
+shows nothing until it is closed and reopened. Nothing else refreshes it:
+`reload`, `dataChanged`, `triggerRepaint`, `updateFields`, an empty edit
+session, invalidating the cache and resetting the subset string were all
+measured and all left the table empty. Emitting `featureAdded` for the rows
+just written is what puts it back in step. It costs 4.7 s for 11 554 rows
+when a table is open and 0.02 s when none is, because a signal with no
+receivers is free.
+
 The body is edited as text rather than regenerated, so the per-type lines in
 each of the five copies (Baseline Length for the linear types, Category for
 trees) survive untouched.
@@ -178,15 +189,72 @@ SWAPS = [
     (OLD_TAIL, NEW_TAIL),
 ]
 
+# Keeping an open attribute table in step. Applied on its own to a project
+# that already has the batched body, and after SWAPS to one that does not.
+OLD_FLUSH = """    def flush(rows):
+        ok, _ = provider.addFeatures(rows)
+        return len(rows) if ok else 0
+"""
+NEW_FLUSH = """    # The ids the provider hands back, so an open attribute table can be
+    # told which rows arrived.
+    added_ids = []
 
-def rewrite(old):
-    body = old
-    for before, after in SWAPS:
+    def flush(rows):
+        ok, written = provider.addFeatures(rows)
+        if not ok:
+            return 0
+        added_ids.extend(f.id() for f in written)
+        return len(written)
+"""
+
+OLD_FINALLY = """    finally:
+        progress.close()
+        pi.reload()
+        pi.updateExtents()
+        canvas.setRenderFlag(was_rendering)
+        pi.triggerRepaint()
+"""
+NEW_FINALLY = """    finally:
+        # Rows written through the provider do not reach an open attribute
+        # table. It is built on a cache that listens to the layer's own
+        # featureAdded signal, and a provider write never emits one, so the
+        # table stays empty until it is closed and opened again. Emitting the
+        # signal here is what keeps it in step; with no table open there are
+        # no receivers and the loop costs nothing.
+        if added_ids:
+            progress.setLabelText("Updating the table view...")
+            QApplication.processEvents()
+            pi.reload()
+            for fid in added_ids:
+                pi.featureAdded.emit(fid)
+        progress.close()
+        pi.updateExtents()
+        canvas.setRenderFlag(was_rendering)
+        pi.triggerRepaint()
+"""
+
+TABLE_SWAPS = [(OLD_FLUSH, NEW_FLUSH), (OLD_FINALLY, NEW_FINALLY)]
+
+
+def apply_swaps(body, swaps):
+    for before, after in swaps:
         if body.count(before) != 1:
             raise SystemExit(
                 f"expected exactly one occurrence of:\n{before[:120]}\n"
                 f"found {body.count(before)}")
         body = body.replace(before, after)
+    return body
+
+
+def rewrite(old):
+    """Bring a body up to date from whichever version it is on."""
+    body = old
+    if "QProgressDialog" not in body:
+        body = apply_swaps(body, SWAPS)
+    if "added_ids" not in body:
+        body = apply_swaps(body, TABLE_SWAPS)
+    if body == old:
+        raise SystemExit("already up to date; nothing to do")
     compile(body, "action", "exec")           # syntax, before it reaches QGIS
     return body
 

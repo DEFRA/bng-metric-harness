@@ -88,7 +88,7 @@ of them has seen eleven thousand.
 
 | Button | Layer | Measured | Verdict |
 | --- | --- | --- | --- |
-| 1. Copy baseline to post-intervention | Habitats Post-Intervention | **1 min 28 s**, frozen throughout, copying all 11 554 features fresh | **Was too slow. Rewritten; now 3.4 s in a headless run of the same work** |
+| 1. Copy baseline to post-intervention | Habitats Post-Intervention | **1 min 28 s**, frozen throughout, copying all 11 554 features fresh | **Was too slow. Rewritten; 7.9 s with an attribute table open, 3.4 s without** |
 | 2. Tidy PI refs after splitting | Habitats Post-Intervention | **1 second**, nothing to change | Fine |
 | 4. Refresh from baseline | Habitats Post-Intervention | **9 seconds**, nothing to bring in | Fine on this path |
 | 3. Rename a ref | Habitats Baseline | not yet timed | |
@@ -120,17 +120,33 @@ What it does now:
 - reads only the two columns it needs when working out what is already copied,
   rather than dragging every `parent_geom` in the layer through Python;
 - refuses to run while the layer has unsaved edits, rather than writing
-  underneath them.
+  underneath them;
+- tells an open attribute table what arrived, so it does not have to be
+  closed and reopened.
 
 **Cancelling is safe.** Batches already written stay written, and the action
 skips anything already copied, so running it again carries on from where it
 stopped.
 
-Run headless against this site, the rewritten action copies 11 554 features in
-**3.4 seconds**, re-runs in **0.4 seconds** with nothing to do, and produces
-`parent_checksum` values that match the converter's own for all 11 554 rows.
-**The figure to confirm is what it does inside QGIS**, with the canvas and the
-attribute table attached, because that is where the original lost its time.
+**The attribute table was the cost all along, and it had to be paid back.**
+Writing through the provider is fast precisely because it bypasses the
+layer's own signals, and an open attribute table is built on a cache that
+listens to exactly those signals. So the first version of this rewrite left
+the table showing nothing until it was closed and reopened.
+
+Nothing tidy fixes that. Reloading the layer, emitting `dataChanged`,
+repainting, updating fields, running an empty edit session, invalidating the
+cache and resetting the subset string were each measured, and each left the
+table empty. What works is emitting `featureAdded` for the rows the provider
+just wrote, which is the signal the table is waiting for. It costs 4.7
+seconds for 11 554 rows when a table is open, and 0.02 seconds when none is,
+because a signal with no receivers costs nothing.
+
+Measured against this site with an attribute table model attached, standing in
+for the dialog: **11 554 features in 7.9 seconds with the table updating
+itself**, 3.4 seconds with no table open, a re-run in **0.4 seconds** with
+nothing to do, and `parent_checksum` values matching the converter's own for
+all 11 554 rows. Against 1 minute 28 seconds frozen.
 
 The remaining checks below have not been run.
 
