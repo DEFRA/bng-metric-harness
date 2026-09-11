@@ -30,4 +30,5 @@ second run is harmless.
 python3 tools/speed_up_copy_action.py "path/to/BNG Service Habitat Mapping.qgz"
 ```
 
-It writes a `.backup` beside the project before changing anything.
+It writes a timestamped `.backup-YYYYMMDD-HHMMSS` beside the project before
+changing anything.

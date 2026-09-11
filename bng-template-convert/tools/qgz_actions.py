@@ -8,6 +8,7 @@ every other byte alone.
 import html
 import re
 import shutil
+import time
 import zipfile
 
 OPEN_RE = re.compile(r'<actionsetting\s+name="(?P<name>[^"]*)"')
@@ -50,11 +51,19 @@ def read_project(path):
 
 
 def write_project(path, qgs, payload, xml):
+    """Rewrite the project, keeping a timestamped copy of what was there.
+
+    Timestamped rather than a fixed `.backup`, which a second run would
+    overwrite with the already-changed file, destroying the only copy of the
+    original. It also matches how the template's own backups are named.
+    """
     payload[qgs] = xml.encode("utf-8")
-    shutil.copyfile(path, path + ".backup")
+    backup = f"{path}.backup-{time.strftime('%Y%m%d-%H%M%S')}"
+    shutil.copyfile(path, backup)
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as out:
         for name, data in payload.items():
             out.writestr(name, data)
+    return backup
 
 
 def replace_bodies(xml, action_name, make_body):

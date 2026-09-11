@@ -197,9 +197,9 @@ def main(path):
     xml, count = replace_bodies(xml, ACTION, rewrite)
     if count != 5:
         raise SystemExit(f"expected 5 copy actions, rewrote {count}")
-    write_project(path, qgs, payload, xml)
+    backup = write_project(path, qgs, payload, xml)
     print(f"rewrote {count} copies of '{ACTION}' in {path}")
-    print(f"backup at {path}.backup")
+    print(f"backup at {backup}")
 
 
 if __name__ == "__main__":
