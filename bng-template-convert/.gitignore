@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+
+# Build output: the installable plugin zip.
+dist/
+
+# Copied into the plugin package by build_plugin.py at build time. The
+# canonical versions live at the repository root — do not commit these, or the
+# two copies will drift.
+bng_template_convert/gpkg_common.py
+bng_template_convert/new_to_old.py
+bng_template_convert/old_to_new.py
+bng_template_convert/to_metric.py
