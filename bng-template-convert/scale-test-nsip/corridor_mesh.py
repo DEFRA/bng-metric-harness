@@ -170,11 +170,20 @@ def _width_at(fraction):
 # --------------------------------------------------------------------- mesh
 
 class CorridorMesh:
-    """Nodes, edge chains and cell rings for the corridor."""
+    """Nodes, edge chains and cell rings for the corridor.
 
-    def __init__(self):
+    `fraction` builds a shorter section of the same scheme, measured from the
+    southern end. A whole nationally significant project does not fit in the
+    Statutory Metric workbook, which holds 248 rows a sheet, and the published
+    guidance says to split it into geographic sections; this is that split.
+    """
+
+    def __init__(self, fraction=1.0):
         dense = _catmull_rom(WAYPOINTS)
         self.centre = _resample(dense, STATION_M)
+        if fraction < 1.0:
+            keep = max(2, int(len(self.centre) * fraction))
+            self.centre = self.centre[:keep]
         self.stations = len(self.centre) - 1
         self.lanes = LANES
         headings = _smoothed_headings(self.centre, HEADING_SMOOTHING_STATIONS)

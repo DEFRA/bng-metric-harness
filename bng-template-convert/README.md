@@ -32,6 +32,7 @@ bng_template_convert/    the QGIS plugin (wraps the two above)
 build_plugin.py          packages the plugin into dist/bng_template_convert.zip
 templates/               reference copies of both templates (see templates/README.md)
 tools/                   editing the Python actions stored inside a .qgz
+reference/               the metric, the GIS import tool and the NE guidance
 scale-test-nsip/         a generated NSIP-scale site, and how to verify against it
 ```
 
@@ -127,7 +128,7 @@ habitats, with no GIS import tool in between.
 | Field | What to put in it |
 |---|---|
 | BNG Service GeoPackage | Your site's `Layers/BNG Service Layers.gpkg` |
-| Blank Statutory Metric workbook | Your own copy of `The_Statutory_Metric_Macro_Enabled…xlsm` |
+| Blank Statutory Metric workbook | A blank copy of the metric. There is one in `reference/` |
 | Filled metric workbook to write | Any new `.xlsm` path |
 | Merge rows with matching values | Leave off unless you run out of rows |
 
@@ -146,6 +147,15 @@ creation and enhancement tabs are filled to match.
 size the metric derives from a band lookup; the off-site tabs (D, E and F),
 which carry extra allocation columns and a different layout; and irreplaceable
 habitats.
+
+**How many rows will fit.** Each sheet of the metric holds **248 rows**, and
+the export says so plainly when a site needs more, naming the sheet and the
+number it needed. Merging rows buys a large factor, but a nationally
+significant project exceeds 248 even merged: the NSIP-scale test site in
+`scale-test-nsip/` needs 1 619 baseline rows after merging, against a capacity
+of 248. Such a site has to be split into geographic sections and entered as
+several metrics, which is what the published guidance says to do.
+`scale-test-nsip/generate.py --fraction` builds one such section.
 
 **Merging rows** does what the import tool's *consolidate* button does: rows
 agreeing on everything but size become one row with the sizes added. Totals do
@@ -525,6 +535,7 @@ python3 old_to_new.py --baseline BASE.gpkg [--post-intervention PI.gpkg]
 
 python3 to_metric.py INPUT.gpkg --metric METRIC.xlsm -o OUT.xlsm
                      [--consolidate] [--allow-occupied]
+                     # no CSVs and no import tool: this writes the workbook
 
   --metric              a blank copy of the Statutory Metric workbook
   -o, --out             where to write the filled copy

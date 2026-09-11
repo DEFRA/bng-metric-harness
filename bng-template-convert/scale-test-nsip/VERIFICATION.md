@@ -321,41 +321,99 @@ section is then a separate import and a separate metric.
 
 ## 5. Plugin: export to the Statutory Metric workbook
 
-**Run, and it works, with a hard limit.** Processing Toolbox, **Export to the
-Statutory Metric (Excel)**.
+**Run, and it works, once the site is small enough.**
 
-Run it twice, once with **Merge rows with matching values** off and once on.
+### What this route actually is
 
-**Expected:** both produce a workbook of about **3.5 MB**, and both warn.
-Consolidation cuts what the sheets are asked to hold:
+**It does not use the CSVs, and the GIS import tool is not involved.** That is
+worth saying because it is the natural assumption. There are three ways out of
+the service template and this is the third: the plugin opens a blank copy of
+the metric workbook, writes cell values straight into its on-site sheets, and
+saves the result. The CSVs in section 4 feed the import tool, which is a
+separate route to the same spreadsheet.
 
-| Sheet | Rows needed, not consolidated | Consolidated | Sheet holds |
-| --- | --- | --- | --- |
-| A-1 On-Site Habitat Baseline | **6 377** | **1 619** | 248 |
-| A-2 On-Site Habitat Creation | **7 305** | **389** | 248 |
-| A-3 On-Site Habitat Enhancement | **1 468** | **1 468** | 248 |
-| B-1 On-Site Hedge Baseline | **1 409** | **332** | 248 |
+An `.xlsm` is a zip of XML, so no Excel and no library is needed. Every cell
+it fills already exists in the sheet as an empty, styled cell, so filling one
+replaces a value in place and nothing else moves. Macros, sheet protection and
+every other part are copied through untouched, and the workbook is marked for
+a full recalculation when Excel next opens it.
 
-Enhancement rows are never merged, deliberately: the enhancement sheet is
-positional against the baseline sheet, and merging would silently apply the
-wrong target to the wrong parcel.
+### The limit, and why a section is needed
 
-**So the finding here is unambiguous. A site this size does not fit in the
-Statutory Metric, consolidated or not.** It needs splitting into roughly seven
-geographic sections even after consolidation. That is a property of the
-workbook, not of either template, and it applies equally whichever template
-Natural England settles on. It is worth saying out loud in the results,
-because it is the real ceiling on NSIP-scale BNG and it is not one the service
-can lift.
+**Each sheet holds 248 rows.** That is the same number as the import tool, and
+the full NSIP site is far past it: 6 377 baseline rows unmerged, 1 619 merged.
+So the full site cannot be entered in one metric, and the published guidance
+says what to do about it, which is to split the site into geographic sections.
 
-**Worth a screenshot:** the two warning lists side by side.
+`generate.py --fraction` builds one such section of the same scheme, from the
+southern end, with the feature density unchanged:
 
-**Then open the consolidated workbook in Excel**, let it recalculate, and
-check that the on-site habitat sheets carry sensible values as far as row 248.
-Irreplaceable habitat is never written to the workbook and has to be entered
-by hand; the export says so.
+```sh
+python3 generate.py --fraction 0.12
+```
 
----
+That writes `hs2-phase2a-subsection-12pc/`: 6.7 km of corridor, 379 hectares,
+1 362 baseline parcels. Roughly an eighth of the scheme, which is about as
+much as one metric will take.
+
+### Filling the metric from that section
+
+In QGIS, Processing Toolbox, **Export to the Statutory Metric (Excel)**:
+
+| Field | What to put in it |
+| --- | --- |
+| BNG Service GeoPackage | `hs2-phase2a-subsection-12pc/Layers/BNG Service Layers.gpkg` |
+| Blank Statutory Metric workbook | `reference/The_Statutory_Metric_Macro_Enabled_1.0.4.xlsm` |
+| Filled metric workbook to write | anywhere, ending `.xlsm` |
+| Merge rows with matching values | **on** |
+
+Or from a terminal:
+
+```sh
+python3 ../to_metric.py \
+    "hs2-phase2a-subsection-12pc/Layers/BNG Service Layers.gpkg" \
+    --metric "../reference/The_Statutory_Metric_Macro_Enabled_1.0.4.xlsm" \
+    -o "metric-out/Section 1 - consolidated.xlsm" --consolidate
+```
+
+**Expected, and this is the pass mark: no warnings at all.**
+
+| Sheet | Rows written | Sheet holds |
+| --- | --- | --- |
+| A-1 On-Site Habitat Baseline | **239** | 248 |
+| A-2 On-Site Habitat Creation | **182** | 248 |
+| A-3 On-Site Habitat Enhancement | **135** | 248 |
+| B-1 On-Site Hedge Baseline | **65** | 248 |
+| C-1 On-Site WaterC' Baseline | **15** | 248 |
+
+4 628 cells written, in about 20 seconds.
+
+**Then open it in Excel and let it recalculate.** Check the on-site habitat
+tabs carry habitat names, sizes and conditions against the rows you expect,
+and that the metric's own headline units are populated rather than showing an
+error. **Worth a screenshot:** tab A-1 filled, because a filled metric is the
+end of the whole chain.
+
+### The contrasts worth running
+
+**Without merging, the same section overflows.** Untick the box and it needs
+783 baseline rows and 923 creation rows against 248 each, and says so per
+sheet. That is the demonstration of why the option exists.
+
+**The full site overflows even merged**, at 1 619 baseline rows. Run it to see
+the warning, not to get a usable workbook.
+
+**Two mistakes are caught rather than half-done.** Pointing it at the `.xlsb`
+GIS import tool stops with a message saying so, and pointing it at a workbook
+that already holds a site refuses rather than overwriting it.
+
+### What it never fills
+
+Individual trees, whose size the metric derives from a band lookup rather than
+from the map; the off-site tabs, which carry allocation columns and a
+different layout; and irreplaceable habitats. The export says so every time it
+runs. Those go in by hand, and on this site that means 428 trees and 266
+parcels of ancient woodland.
 
 ## 6. Plugin: convert back, and round trip
 

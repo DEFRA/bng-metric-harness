@@ -40,9 +40,12 @@ MAPPED_BY = 'Corridor Ecology Team'
 COMPANY = 'Synthetic test data, not a real scheme'
 BASE_MAP = 'OS MasterMap Topography, May 2026'
 
-TREE_COUNT = 3600
-CREATED_HEDGE_COUNT = 900
-CREATED_TREE_COUNT = 1900
+# Densities rather than counts, so a shorter section of the scheme carries
+# proportionally fewer features instead of the whole scheme's worth squeezed
+# into it. The rates are the full corridor's, per 40 m station.
+TREES_PER_STATION = 3600 / 1396
+CREATED_HEDGE_ATTEMPTS_PER_STATION = 900 / 1396
+CREATED_TREE_ATTEMPTS_PER_STATION = 1900 / 1396
 SQ_M_PER_HECTARE = 10000
 ON_SITE = 'N/A'
 
@@ -260,7 +263,8 @@ def write_hedgerows(conn, mesh):
                 significance, advance, delay, ON_SITE, child_length,
                 feature_uuid, checksum, wkt))
 
-    for extra in range(CREATED_HEDGE_COUNT):
+    for extra in range(round(mesh.stations
+                             * CREATED_HEDGE_ATTEMPTS_PER_STATION)):
         seed = 90000 + extra
         station = 2 + int(_hash01(seed, 1409) * (mesh.stations - 6))
         lane = 1 + int(_hash01(seed, 1411) * (mesh.lanes - 2))
@@ -424,7 +428,8 @@ def write_trees(conn, mesh):
     base_rows, pi_rows = [], []
     counts = {'lost': 0, 'created': 0}
 
-    for index, point, station, lane in lin.build_trees(mesh, TREE_COUNT):
+    tree_count = round(mesh.stations * TREES_PER_STATION)
+    for index, point, station, lane in lin.build_trees(mesh, tree_count):
         seed = index + 1
         ref = f'TR-{seed:05d}'
         size = lin._pick(lin.TREE_SIZES, _hash01(seed, 1901))
@@ -451,7 +456,8 @@ def write_trees(conn, mesh):
             'Retained', size, tree_type, setting, condition, significance,
             'Existing', '', '', ON_SITE, count, feature_uuid, checksum, wkt))
 
-    for extra in range(CREATED_TREE_COUNT):
+    for extra in range(round(mesh.stations
+                             * CREATED_TREE_ATTEMPTS_PER_STATION)):
         seed = 700000 + extra
         station = 1 + _hash01(seed, 2003) * (mesh.stations - 2)
         lane = 1.0 + _hash01(seed, 2011) * (mesh.lanes - 2.0)

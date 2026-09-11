@@ -11,6 +11,7 @@ hs2-phase2a-subsection/Layers/BNG Service Layers.gpkg, replacing whatever that
 file holds.
 """
 
+import argparse
 import os
 import shutil
 import sqlite3
@@ -71,9 +72,28 @@ def ensure_working_copy():
             shutil.copy2(source, target)
 
 
-def main():
+def parse_args(argv):
+    parser = argparse.ArgumentParser(
+        description="Build the NSIP-scale synthetic site.")
+    parser.add_argument(
+        "--fraction", type=float, default=1.0,
+        help=("build a shorter section of the same scheme, as a fraction of "
+              "the route, into a folder of its own. Use it to get a site "
+              "small enough for the Statutory Metric workbook, which holds "
+              "248 rows a sheet"))
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    if not 0 < args.fraction <= 1:
+        raise SystemExit("--fraction must be above 0 and at most 1")
+    global WORKING_DIR, TARGET
+    if args.fraction < 1:
+        WORKING_DIR = f"{WORKING_DIR}-{round(args.fraction * 100)}pc"
+        TARGET = os.path.join(WORKING_DIR, 'Layers', 'BNG Service Layers.gpkg')
     ensure_working_copy()
-    mesh = CorridorMesh()
+    mesh = CorridorMesh(args.fraction)
     print(f'route {mesh.route_length_m / 1000:.1f} km, '
           f'{mesh.stations} stations x {mesh.lanes} lanes')
 

@@ -27,7 +27,7 @@ describes a real scheme or a real survey.
 | `gpkg_write.py` | GeoPackage geometry encoding |
 | `generate.py` | Run this |
 | `VERIFICATION.md` | The step-by-step runbook: QGIS, every plugin feature, the service |
-| `verify/` | Validation, summary and preview scripts |
+| `verify/` | Validation, the claim 2 and 3 harnesses, summary and preview |
 | `preview.png` | A 1.8 km window, before and after, for a sanity check by eye |
 
 Nothing here needs QGIS, GDAL or a network connection. A GeoPackage is a
@@ -129,6 +129,15 @@ reconciles a child against its parent.
 python3 generate.py
 python3 ../new_to_old.py \
     "hs2-phase2a-subsection/Layers/BNG Service Layers.gpkg" -o legacy
+```
+
+`--fraction` builds a shorter section of the same scheme, from the southern
+end, at the same feature density. Use it when a whole site is too large for
+what it is being fed into: each sheet of the Statutory Metric holds 248 rows,
+and about an eighth of this scheme is what one metric will take.
+
+```sh
+python3 generate.py --fraction 0.12      # -> hs2-phase2a-subsection-12pc/
 ```
 
 Generation takes about 7 seconds and conversion about 1 second on a laptop.
