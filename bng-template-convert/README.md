@@ -133,6 +133,15 @@ be. Load each one into its matching tab of the import tool with **Import GIS CSV
 Data**, then choose **On Site** or **Off Site** there before exporting to the
 metric.
 
+**A module over 248 rows is written as several numbered CSVs.** The import
+tool holds 248 rows per module (User Guide 3.1.5), so `Habitats.csv` becomes
+`Habitats 1 of 4.csv` … `Habitats 4 of 4.csv` when it has to, with the rows
+dealt out evenly and a header on every file. A module that fits keeps its
+plain name. CSV rows carry no reference to each other, so any run of them is a
+valid import on its own: load each file into its own copy of the tool and add
+the resulting metric figures together. Merging rows first will usually cut the
+number of files.
+
 **Individual trees are not in the CSVs.** The import tool cannot read tree points
 at all (User Guide 2.4.1); they have to be typed into the metric by hand. The
 tool says so, with the count, whenever a site has any. Trees are still written to
@@ -166,21 +175,39 @@ size the metric derives from a band lookup; the off-site tabs (D, E and F),
 which carry extra allocation columns and a different layout; and irreplaceable
 habitats.
 
-**How many rows will fit.** Each sheet of the metric holds **248 rows**, and
-the export says so plainly when a site needs more, naming the sheet and the
-number it needed. Merging rows buys a large factor, but a nationally
-significant project exceeds 248 even merged: the NSIP-scale test site in
-`scale-test-nsip/` needs 1 619 baseline rows after merging, against a capacity
-of 248. Such a site has to be split into geographic sections and entered as
-several metrics, which is what the published guidance says to do.
-`scale-test-nsip/generate.py --fraction` builds one such section.
+**How many rows will fit, and what happens when they do not.** Each sheet of
+the metric holds **248 rows**, except the three enhancement tabs and the area
+creation tab, which hold **246**: those four keep a totals row two rows inside
+their apparent range. So one workbook takes 248 baseline parcels, of which at
+most 246 can be enhancements.
+
+A site needing more is **written as several numbered workbooks** rather than
+truncated. `Site.xlsm` becomes `Site 1 of 6.xlsm` … `Site 6 of 6.xlsm`, one
+file is still just `Site.xlsm`, and the rows are dealt out evenly so no
+workbook sits at the limit while another is nearly empty. Each is a complete,
+valid metric for its own share of the site.
+
+Two rules make the split safe. An enhancement always lands in the same
+workbook as the baseline parcel it improves, because the enhancement tab is
+positional against the baseline tab within a workbook. And the part count is
+raised until no workbook's enhancements overflow its smaller enhancement tab,
+which a whole-site row count cannot see because it is the run that overflows,
+not the total.
+
+**Add the totals across the set.** The site's answer is the sum of the unit
+columns from every workbook. A net gain percentage read off one workbook
+describes only the parcels in that workbook and means nothing on its own.
+
+The NSIP-scale test site in `scale-test-nsip/` needs 1 254 baseline rows after
+merging and comes out as six workbooks. `scale-test-nsip/generate.py
+--fraction` builds a section small enough for one.
 
 **Merging rows** does what the import tool's *consolidate* button does: rows
 agreeing on everything but size become one row with the sizes added. Totals do
-not change, because units scale with size. Use it if a site has more than the
-248 rows a metric tab holds. Enhanced rows are never merged, because the
-enhancement tab is positional against the baseline tab and merging two parcels
-heading for different habitats would apply the targets to the wrong parcels.
+not change, because units scale with size. Use it to fit a large site into
+fewer workbooks. Enhanced rows are never merged, because the enhancement tab is
+positional against the baseline tab and merging two parcels heading for
+different habitats would apply the targets to the wrong parcels.
 
 ### Convert from legacy template
 

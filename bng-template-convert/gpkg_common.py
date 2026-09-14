@@ -8,6 +8,7 @@ a feature is copied between files, the blob's bytes are reused untouched.
 
 import hashlib
 import math
+import os
 import pathlib
 import struct
 
@@ -85,6 +86,48 @@ def quote_ident(name):
 # it. Naming a handful and counting the rest keeps the line scannable and
 # loses nothing, because a user chasing individual features opens the file.
 REF_SAMPLE_SIZE = 8
+
+
+def parts_needed(count, capacity):
+    """How many equally-sized containers hold `count` items, at least one."""
+    if capacity <= 0:
+        raise ValueError("capacity must be positive")
+    if count <= 0:
+        return 1
+    return -(-count // capacity)
+
+
+def split_into_parts(items, parts):
+    """Deal `items` into `parts` near-equal runs, keeping the original order.
+
+    Even runs rather than fill-then-spill, so a site needing two workbooks
+    gives two half-full ones instead of one at the limit and one nearly empty.
+    A reader who has to add up several files can see at a glance that none of
+    them is the odd one out.
+    """
+    items = list(items)
+    if parts <= 1:
+        return [items]
+    size, remainder = divmod(len(items), parts)
+    runs = []
+    start = 0
+    for index in range(parts):
+        take = size + (1 if index < remainder else 0)
+        runs.append(items[start:start + take])
+        start += take
+    return runs
+
+
+def part_path(path, index, total):
+    """`Site.xlsm` -> `Site 2 of 3.xlsm`. One part keeps the name it was given.
+
+    The number goes before the extension so the files sort together and Excel
+    still recognises the type.
+    """
+    if total <= 1:
+        return path
+    stem, extension = os.path.splitext(path)
+    return f"{stem} {index + 1} of {total}{extension}"
 
 
 def summarise_list(items, limit=REF_SAMPLE_SIZE):

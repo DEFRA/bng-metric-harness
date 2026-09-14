@@ -40,7 +40,10 @@ try:
         read_feature_table,
         read_only_uri,
         read_srs_rows,
+        part_path,
+        parts_needed,
         resolve_table_name,
+        split_into_parts,
         summarise_list,
         update_layer_extent,
     )
@@ -58,7 +61,10 @@ except ImportError:  # pragma: no cover - running as a plain script
         read_feature_table,
         read_only_uri,
         read_srs_rows,
+        part_path,
+        parts_needed,
         resolve_table_name,
+        split_into_parts,
         summarise_list,
         update_layer_extent,
     )
@@ -1127,14 +1133,23 @@ def _write_csvs(out_dir, pi_rows, report, consolidate=False,
             )
         else:
             report.count(f"{filename}", len(rows))
-        path = os.path.join(csv_dir, filename)
-        write_module_csv(path, table, rows)
-        if len(rows) > IMPORT_TOOL_ROW_LIMIT:
+        # The import tool takes 248 rows per module, so a site with more is
+        # written as several files rather than one the tool cannot read.
+        # Rows carry no reference to each other, so any run of them is a
+        # valid import on its own.
+        count = parts_needed(len(rows), IMPORT_TOOL_ROW_LIMIT)
+        for index, run in enumerate(split_into_parts(rows, count)):
+            path = part_path(os.path.join(csv_dir, filename), index, count)
+            write_module_csv(path, table, run)
+        if count > 1:
             report.warn(
-                f"{filename} holds {len(rows)} rows and the import tool takes "
-                f"{IMPORT_TOOL_ROW_LIMIT} (User Guide 3.1.5). Split the site "
-                "into geographic sections and import each separately"
-                + ("" if consolidate else ", or consolidate the rows")
+                f"{filename}: {len(rows)} rows against the import tool's "
+                f"{IMPORT_TOOL_ROW_LIMIT} per module (User Guide 3.1.5), so "
+                f"it was written as {count} files. Import each into its own "
+                "copy of the tool and add the resulting metric figures "
+                "together"
+                + ("" if consolidate else ", or consolidate the rows to fit "
+                   "fewer files")
                 + "."
             )
 

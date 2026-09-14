@@ -49,9 +49,21 @@ import xml.etree.ElementTree as ET
 from collections import OrderedDict, defaultdict
 
 try:
-    from .gpkg_common import numeric, read_only_uri
+    from .gpkg_common import (
+        numeric,
+        part_path,
+        parts_needed,
+        read_only_uri,
+        split_into_parts,
+    )
 except ImportError:  # pragma: no cover - running as a plain script
-    from gpkg_common import numeric, read_only_uri
+    from gpkg_common import (
+        numeric,
+        part_path,
+        parts_needed,
+        read_only_uri,
+        split_into_parts,
+    )
 
 NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 REL = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
@@ -72,17 +84,26 @@ RETAINED, ENHANCED, CREATED = "Retained", "Enhanced", "Created"
 # A-1 column D. Overwrite D and every enhancement row loses its baseline with
 # nothing shown on screen. The user's reference goes in "Habitat reference
 # number" instead.
+# The last row is the last one the workbook treats as DATA, which is not
+# always the last row of the visible block. Four of the nine sheets keep a
+# totals row two rows inside their apparent range. The numbers below were
+# measured from the blank workbook rather than read off the screen: a
+# baseline or creation data row carries the metric's own line number as a
+# literal in its Ref column, and an enhancement data row carries the formula
+# that reaches back to its baseline sheet. A-2, A-3, B-3 and C-3 stop at 246
+# rows where the rest hold 248, so a habitat sheet can take 248 baseline
+# parcels but only 246 of them can be enhancements.
 LAYOUT = {
     "areas": {
         "baseline": ("A-1 On-Site Habitat Baseline", 11, 258,
                      dict(broad="E", habitat="F", irreplaceable="G", size="H",
                           condition="K", significance="M", retained="S",
                           enhanced="T", comment="Z", ref="AB")),
-        "creation": ("A-2 On-Site Habitat Creation", 11, 258,
+        "creation": ("A-2 On-Site Habitat Creation", 11, 256,
                      dict(broad="D", habitat="E", size="G", condition="J",
                           significance="L", advance="P", delay="Q",
                           comment="Z", ref="AB")),
-        "enhancement": ("A-3 On-Site Habitat Enhancement", 12, 259,
+        "enhancement": ("A-3 On-Site Habitat Enhancement", 12, 257,
                         dict(habitat="R", condition="Y", significance="AA",
                              advance="AE", delay="AF")),
     },
@@ -95,7 +116,7 @@ LAYOUT = {
                      dict(number="C", habitat="D", size="E", condition="H",
                           significance="J", advance="N", delay="O",
                           comment="X", ref="Z")),
-        "enhancement": ("B-3 On-Site Hedge Enhancement", 12, 259,
+        "enhancement": ("B-3 On-Site Hedge Enhancement", 12, 257,
                         dict(habitat="M", condition="S", significance="U",
                              advance="Y", delay="Z")),
     },
@@ -108,7 +129,7 @@ LAYOUT = {
                      dict(habitat="C", size="D", condition="G",
                           significance="I", advance="M", delay="N",
                           comment="AA", ref="AC")),
-        "enhancement": ("C-3 On-Site WaterC' Enhancement", 12, 259,
+        "enhancement": ("C-3 On-Site WaterC' Enhancement", 12, 257,
                         dict(habitat="N", condition="T", significance="V",
                              advance="Z", delay="AA")),
     },
@@ -131,12 +152,27 @@ OCCUPIED_PROBE = ("A-1 On-Site Habitat Baseline", "E11")
 
 SIZE_FIELDS = ("size", "retained", "enhanced")
 
+# An enhanced baseline line carries its own enhancement under this key rather
+# than living in a parallel list. The enhancement sheet is positional against
+# the baseline sheet, so the two have to be split across workbooks together,
+# and a line that carries its own is impossible to separate from it by
+# accident. Stripped before anything is written: it is not a column.
+ENHANCEMENT_KEY = "_enhancement"
+
 
 class Report:
+    """Counts, notes and warnings, plus every file the run wrote.
+
+    `paths` exists so a caller that has to name its output (the QGIS plugin
+    declares one file) can find out that a site was split, rather than
+    pointing a user at a path nothing was written to.
+    """
+
     def __init__(self):
         self.lines = []
         self.warnings = []
         self.counts = {}
+        self.paths = []
 
     def note(self, message):
         self.lines.append(message)
@@ -184,7 +220,7 @@ def build_lines(tables, size_field, type_field, consolidate):
     by_uuid = {row.get("feature_uuid"): row
                for row in baseline_rows if row.get("feature_uuid")}
 
-    baseline, creation, enhancement = [], [], []
+    baseline, creation = [], []
     derived_from = set()
 
     for row in pi_rows:
@@ -208,7 +244,7 @@ def build_lines(tables, size_field, type_field, consolidate):
             })
             continue
 
-        baseline.append({
+        line = {
             "ref": row.get("PI Ref"),
             "number": row.get("PI Ref"),
             "broad": parent.get("Baseline Broad Habitat Type"),
@@ -219,15 +255,16 @@ def build_lines(tables, size_field, type_field, consolidate):
             "significance": parent.get("Baseline Strategic Significance"),
             "retained": size if retention == RETAINED else 0,
             "enhanced": size if retention == ENHANCED else 0,
-        })
+        }
         if retention == ENHANCED:
-            enhancement.append({
+            line[ENHANCEMENT_KEY] = {
                 "habitat": row.get(f"Proposed {type_field}"),
                 "condition": row.get("Proposed Condition"),
                 "significance": row.get("Proposed Strategic Significance"),
                 "advance": row.get("Habitat created in advance/years"),
                 "delay": row.get("Delay in starting habitat creation/years"),
-            })
+            }
+        baseline.append(line)
 
     for row in baseline_rows:
         if row.get("feature_uuid") in derived_from:
@@ -250,7 +287,20 @@ def build_lines(tables, size_field, type_field, consolidate):
     if consolidate:
         baseline = consolidate_lines(baseline)
         creation = consolidate_lines(creation)
-    return baseline, creation, enhancement
+    return baseline, creation
+
+
+def enhancements_for(baseline_lines):
+    """The enhancement rows belonging to a run of baseline rows, in order.
+
+    The metric collects the enhanced baseline rows into a dense list of its
+    own and the enhancement sheet reads that list one row at a time, so the
+    nth enhancement row belongs to the nth ENHANCED baseline row rather than
+    to the nth baseline row. Filtering in baseline order reproduces exactly
+    that, for a whole site or for one workbook's share of it.
+    """
+    return [line[ENHANCEMENT_KEY] for line in baseline_lines
+            if ENHANCEMENT_KEY in line]
 
 
 def consolidate_lines(lines):
@@ -280,8 +330,9 @@ def consolidate_lines(lines):
         if line.get("enhanced"):
             kept.append(line)
             continue
-        key = tuple(sorted((k, v) for k, v in line.items()
-                           if k not in SIZE_FIELDS and k not in ("ref", "number")))
+        key = tuple(sorted(
+            (k, v) for k, v in line.items()
+            if k not in SIZE_FIELDS and k not in ("ref", "number", ENHANCEMENT_KEY)))
         if key in merged:
             for field in SIZE_FIELDS:
                 if field in line:
@@ -437,26 +488,101 @@ def cells_for(row_number, columns, line, scale):
     return out
 
 
-def build_edits(staged, consolidate, report):
-    edits = {}
-    for kind, _base, _pi, size_field, type_field, scale in MODULES:
-        baseline, creation, enhancement = build_lines(
-            staged[kind], size_field, type_field, consolidate)
+def stage_capacity(kind, stage):
+    _sheet, first, last, _columns = LAYOUT[kind][stage]
+    return last - first + 1
+
+
+def plan_parts(staged, consolidate, report):
+    """Split the site into as many workbooks as its longest sheet requires.
+
+    Every sheet in the metric takes 248 rows, and a site that needs more than
+    that cannot be priced in one workbook at all. The parts are cut from the
+    baseline and creation lines of each module and dealt out evenly, so a site
+    needing two workbooks produces two half-full ones.
+
+    Baseline and enhancement are cut together, never independently: the
+    enhancement sheet reads the enhanced baseline rows of ITS OWN workbook, so
+    an enhancement separated from its baseline would be applied to whichever
+    parcel happened to take that position.
+    """
+    lines = {}
+    for kind, _base, _pi, size_field, _type_field, _scale in MODULES:
+        baseline, creation = build_lines(
+            staged[kind], size_field, _type_field, consolidate)
+        lines[kind] = (baseline, creation)
         report.count(f"{kind} baseline", len(baseline))
         report.count(f"{kind} creation", len(creation))
-        report.count(f"{kind} enhancement", len(enhancement))
-        for stage, lines in (("baseline", baseline), ("creation", creation),
-                             ("enhancement", enhancement)):
+        report.count(f"{kind} enhancement", len(enhancements_for(baseline)))
+
+    parts = 1
+    for kind, (baseline, creation) in lines.items():
+        parts = max(
+            parts,
+            parts_needed(len(baseline), stage_capacity(kind, "baseline")),
+            parts_needed(len(creation), stage_capacity(kind, "creation")),
+            parts_needed(len(enhancements_for(baseline)),
+                         stage_capacity(kind, "enhancement")),
+        )
+    parts = widen_for_enhancements(lines, parts)
+
+    runs = {
+        kind: (split_into_parts(baseline, parts),
+               split_into_parts(creation, parts))
+        for kind, (baseline, creation) in lines.items()
+    }
+    return [build_edits(runs, index, report) for index in range(parts)]
+
+
+def widen_for_enhancements(lines, parts):
+    """Add parts until no run of baseline rows overflows its enhancement sheet.
+
+    The enhancement sheet holds two fewer rows than the baseline sheet it
+    serves, so a run of 248 baseline parcels that happen to be all
+    enhancements needs a finer split even though the baseline sheet has room.
+    Counting the whole site cannot see that, because it is the run that
+    overflows, not the total. Splitting further can only shorten the longest
+    run, so this terminates.
+    """
+    while True:
+        longest = 0
+        for kind, (baseline, _creation) in lines.items():
+            capacity = stage_capacity(kind, "enhancement")
+            for run in split_into_parts(baseline, parts):
+                longest = max(longest, len(enhancements_for(run)) - capacity)
+        if longest <= 0 or parts >= max(
+                (len(baseline) for baseline, _ in lines.values()), default=1):
+            return parts
+        parts += 1
+
+
+def build_edits(runs, index, report):
+    """The cell edits for one workbook: each module's share of each stage."""
+    edits = {}
+    for kind, _base, _pi, _size_field, _type_field, scale in MODULES:
+        baseline_runs, creation_runs = runs[kind]
+        baseline = baseline_runs[index]
+        staged_lines = (
+            ("baseline", baseline),
+            ("creation", creation_runs[index]),
+            ("enhancement", enhancements_for(baseline)),
+        )
+        for stage, module_lines in staged_lines:
             sheet, first, last, columns = LAYOUT[kind][stage]
             capacity = last - first + 1
-            if len(lines) > capacity:
+            if len(module_lines) > capacity:
+                # Unreachable by construction: the part count is taken from
+                # the longest stage, and an enhancement run can never be
+                # longer than the baseline run it was filtered from. Kept so
+                # a future layout change fails loudly rather than silently
+                # dropping rows.
                 report.warn(
-                    f"{sheet} holds {capacity} rows and this site needs "
-                    f"{len(lines)}. The extra rows were NOT written. Try "
-                    f"consolidating, or split the site.")
-                lines = lines[:capacity]
+                    f"{sheet} holds {capacity} rows and part {index + 1} "
+                    f"needs {len(module_lines)}. The extra rows were NOT "
+                    "written.")
+                module_lines = module_lines[:capacity]
             target = edits.setdefault(sheet, {})
-            for offset, line in enumerate(lines):
+            for offset, line in enumerate(module_lines):
                 target.update(cells_for(first + offset, columns, line, scale))
     return edits
 
@@ -488,20 +614,42 @@ def convert(input_path, template_path, out_path, consolidate=False,
             "Point this at a blank copy of the metric so nothing is "
             "overwritten.")
 
-    edits = build_edits(staged, consolidate, report)
-    if not any(edits.values()):
+    parts = plan_parts(staged, consolidate, report)
+    if not any(any(edits.values()) for edits in parts):
         report.warn("Nothing was written: the GeoPackage holds no habitats.")
 
-    missing = write_workbook(template_path, out_path, edits)
-    for sheet, refs in missing.items():
-        rows = sorted({re.sub(r"^[A-Z]+", "", ref) for ref in refs}, key=int)
-        report.warn(
-            f"{sheet}: {len(rows)} row(s) skipped because the sheet runs out "
-            f"of cells before the last row of its stated range "
-            f"(row(s) {', '.join(rows)}). Nothing partial was written.")
+    written = 0
+    for index, edits in enumerate(parts):
+        target = part_path(out_path, index, len(parts))
+        missing = write_workbook(template_path, target, edits)
+        for sheet, refs in missing.items():
+            rows = sorted({re.sub(r"^[A-Z]+", "", ref) for ref in refs},
+                          key=int)
+            report.warn(
+                f"{os.path.basename(target)}, {sheet}: {len(rows)} row(s) "
+                "skipped because the sheet runs out of cells before the last "
+                f"row of its stated range (row(s) {', '.join(rows)}). Nothing "
+                "partial was written.")
+        written += sum(len(v) for v in edits.values())
+        report.paths.append(target)
+        report.note(f"Metric workbook: {target}")
 
-    report.count("cells written", sum(len(v) for v in edits.values()))
-    report.note(f"Metric workbook: {out_path}")
+    report.count("cells written", written)
+    report.count("workbooks written", len(parts))
+    if len(parts) > 1:
+        report.warn(
+            "This site does not fit one workbook, so it was written as "
+            f"{len(parts)} of them. The metric holds "
+            f"{stage_capacity('areas', 'baseline')} rows per sheet, and "
+            f"{stage_capacity('areas', 'enhancement')} on the enhancement "
+            "sheets. Each workbook is a "
+            "complete, valid metric for its own share of the site, and the "
+            "site's answer is the SUM of their unit columns. Do not read a "
+            "net gain percentage off one workbook: a percentage of part of a "
+            "site means nothing. Add the baseline units and the "
+            f"post-intervention units across all {len(parts)}, then take the "
+            "percentage of those two totals."
+        )
     report.note("Open it in Excel and let it recalculate. On-site tabs only.")
 
     return report

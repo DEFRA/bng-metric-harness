@@ -476,12 +476,20 @@ class ExportToMetricAlgorithm(QgsProcessingAlgorithm):
             "metric derives from a band lookup; the off-site tabs (D, E and F), "
             "which have a different layout; and irreplaceable habitats. Enter "
             "those by hand.</p>"
+            "<p><b>A site too large for one workbook is written as "
+            "several.</b> Every sheet in the metric holds 248 rows, and 246 "
+            "on the enhancement tabs. A site needing more is dealt evenly "
+            "into numbered workbooks, each a complete and valid metric for "
+            "its own share of the site. An enhancement always stays in the "
+            "same workbook as the baseline parcel it improves. Add the unit "
+            "totals across the set: a net gain percentage read off one "
+            "workbook describes only the part of the site it holds.</p>"
             "<p><i>Merge rows with matching values</i> does what the import "
             "tool's <i>consolidate</i> button does: rows agreeing on everything "
             "but size become one row with the sizes added up. The totals do not "
-            "change, because units scale with size. Use it if a site has more "
-            "than 248 parcels, which is all the metric holds. It costs the "
-            "parcel-by-parcel audit trail, so it is off by default.</p>"
+            "change, because units scale with size. Use it to fit a large site "
+            "into fewer workbooks. It costs the parcel-by-parcel audit trail, "
+            "so it is off by default.</p>"
         )
 
     def initAlgorithm(self, config=None):
@@ -503,7 +511,9 @@ class ExportToMetricAlgorithm(QgsProcessingAlgorithm):
         )
         self.addParameter(
             QgsProcessingParameterFileDestination(
-                self.OUTPUT_FILE, "Filled metric workbook to write",
+                self.OUTPUT_FILE,
+                "Filled metric workbook to write (a site over 248 rows is "
+                "written as several, numbered)",
                 fileFilter=METRIC_FILTER,
             )
         )
@@ -536,14 +546,28 @@ class ExportToMetricAlgorithm(QgsProcessingAlgorithm):
             raise QgsProcessingException(str(error))
         report_to_feedback(report, feedback)
 
+        # A site too large for one workbook is written as several, numbered
+        # beside the name that was asked for, so the chosen path itself may
+        # not exist. Hand back the first part rather than a path QGIS would
+        # then fail to open.
+        written = report.paths or [destination]
+
         feedback.pushInfo("")
         feedback.pushInfo("Next steps")
-        feedback.pushInfo(
-            "    - Open the workbook in Excel and let it recalculate.")
+        if len(written) > 1:
+            feedback.pushInfo(
+                f"    - This site needed {len(written)} workbooks. Open each "
+                "in Excel and let it recalculate.")
+            feedback.pushInfo(
+                "    - Add the unit totals across all of them. A net gain "
+                "percentage from one workbook covers only part of the site.")
+        else:
+            feedback.pushInfo(
+                "    - Open the workbook in Excel and let it recalculate.")
         feedback.pushInfo(
             "    - Add individual trees, irreplaceable habitats and any "
             "off-site parcels by hand.")
-        return {self.OUTPUT_FILE: destination}
+        return {self.OUTPUT_FILE: written[0]}
 
     def createInstance(self):
         return ExportToMetricAlgorithm()
