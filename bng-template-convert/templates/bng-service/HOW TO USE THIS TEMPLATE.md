@@ -76,6 +76,12 @@ and a **Layers** panel down the left, organised into groups:
   hedges, watercourses, walls and trees are never buried under the polygons.
 - a collapsed **Reference data** group at the bottom — the lookup tables that
   drive the dropdowns. Leave it collapsed; never edit anything inside it.
+  Every list in it is checked against `The_Statutory_Metric_Macro_Enabled_1.0.4.xlsm`
+  (see `reference/`): habitat names and their distinctiveness bands, which
+  conditions each habitat allows, hedgerow and watercourse types, encroachment
+  values, tree sizes, and the spatial risk and strategic significance wordings.
+  Natural England's own template still carries the Metric 4.0 bands for five
+  habitats; this one does not.
 
 ### 1.2 Turn on the toolbars you need
 

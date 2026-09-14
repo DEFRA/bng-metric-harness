@@ -4,7 +4,6 @@ Arable field margins game bird mix,Medium
 Arable field margins pollen and nectar,Medium
 Arable field margins tussocky,Medium
 Cereal crops,Low
-Cereal crops other,Low
 Winter stubble,Low
 Horticulture,Low
 Intensive orchards,Low
@@ -97,7 +96,7 @@ Upland birchwoods,High
 Upland mixed ashwoods,High
 Upland oakwood,High
 Wet woodland,High
-Wood-pasture and parkland,High
+Wood-pasture and parkland,V.High
 Replacement for felled woodland,High
 Coastal lagoons,High
 High energy littoral rock,High
@@ -108,11 +107,11 @@ Low energy littoral rock,High
 "Low energy littoral rock - on peat, clay or chalk",V.High
 Features of littoral rock,High
 "Features of littoral rock - on peat, clay or chalk",V.High
-Saltmarshes and saline reedbeds,Medium
-Artificial saltmarshes and saline reedbeds,High
-Littoral coarse sediment,High
+Saltmarshes and saline reedbeds,High
+Artificial saltmarshes and saline reedbeds,Low
+Littoral coarse sediment,Medium
 Littoral mud,High
-Littoral mixed sediments,Low
+Littoral mixed sediments,High
 Littoral seagrass,High
 "Littoral seagrass on peat, clay or chalk",V.High
 Littoral biogenic reefs - Mussels,High
