@@ -78,6 +78,37 @@ def quote_ident(name):
     return f'"{escaped}"'
 
 
+# A report line that names every offending feature is unreadable the moment a
+# real site is converted: one run of the 11 554-parcel test site produced a
+# single line listing 688 hedgerow references, and the warnings below it were
+# the same shape. A reader skimming for the one line that matters cannot find
+# it. Naming a handful and counting the rest keeps the line scannable and
+# loses nothing, because a user chasing individual features opens the file.
+REF_SAMPLE_SIZE = 8
+
+
+def summarise_list(items, limit=REF_SAMPLE_SIZE):
+    """Join already-formatted entries, keeping at most `limit` of them.
+
+    Order is the caller's, because an entry like "HR-00065 -> 2" carries a
+    value the caller has chosen to sort by.
+    """
+    items = list(items)
+    if len(items) <= limit:
+        return ", ".join(items)
+    return f"{', '.join(items[:limit])} and {len(items) - limit} more"
+
+
+def summarise_refs(refs, limit=REF_SAMPLE_SIZE):
+    """Render references as a short, sorted sample plus a count of the rest.
+
+    Deduplicates, because a reference repeated across rows is one feature to
+    the reader.
+    """
+    distinct = sorted({str(ref) for ref in refs if ref not in (None, "")})
+    return summarise_list(distinct, limit)
+
+
 def numeric(value):
     """Coerce a stored value to float, treating blanks and junk as missing."""
     if value is None or value == "":

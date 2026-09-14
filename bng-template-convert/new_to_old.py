@@ -41,6 +41,7 @@ try:
         read_only_uri,
         read_srs_rows,
         resolve_table_name,
+        summarise_list,
         update_layer_extent,
     )
 except ImportError:  # pragma: no cover - running as a plain script
@@ -58,6 +59,7 @@ except ImportError:  # pragma: no cover - running as a plain script
         read_only_uri,
         read_srs_rows,
         resolve_table_name,
+        summarise_list,
         update_layer_extent,
     )
 
@@ -1201,7 +1203,7 @@ def deduplicate_area_refs(pi_rows, report):
     for ref, renamed in renames:
         report.note(
             f"Habitats: '{ref}' appeared {len(renamed)} times — renamed to "
-            f"{', '.join(renamed)} (legacy requires unique Parcel Refs)"
+            f"{summarise_list(renamed)} (legacy requires unique Parcel Refs)"
         )
     return renames
 
@@ -1272,7 +1274,7 @@ def _write_linear(
     report.count(f"{table_name} (baseline)", len(baseline_rows))
     report.count(f"{table_name} (post-intervention)", len(pi_rows))
     if losses:
-        detail = ", ".join(
+        detail = summarise_list(
             f"{parent.get('Parcel Ref')} ({int(round(size))} m)"
             for parent, size in losses
         )
@@ -1319,7 +1321,7 @@ def _write_trees(baseline_conn, pi_conn, tables, site, carry_lineage, report):
     report.count("Urban Trees (baseline)", len(baseline_rows))
     report.count("Urban Trees (post-intervention)", len(pi_rows))
     if losses:
-        detail = ", ".join(
+        detail = summarise_list(
             f"{parent.get('Tree Ref')} ({int(round(size))})" for parent, size in losses
         )
         report.note(f"Urban Trees: synthesised {len(losses)} 'Lost' row(s) — {detail}")
@@ -1359,7 +1361,9 @@ def _report_splits(staged, report):
                 children[parent] += 1
         split = {ref: n for ref, n in children.items() if n > 1}
         if split:
-            detail = ", ".join(f"{ref} -> {n}" for ref, n in sorted(split.items()))
+            detail = summarise_list(
+                f"{ref} -> {n}" for ref, n in sorted(split.items())
+            )
             report.warn(
                 f"{habitat_type}: {len(split)} baseline feature(s) were split into "
                 f"several post-intervention features ({detail}). Legacy expects one "

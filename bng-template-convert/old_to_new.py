@@ -54,6 +54,8 @@ try:
         register_spatial_functions,
         resolve_table_name,
         sq_metres_to_hectares,
+        summarise_list,
+        summarise_refs,
         update_layer_extent,
     )
 except ImportError:  # pragma: no cover - running as a plain script
@@ -74,6 +76,8 @@ except ImportError:  # pragma: no cover - running as a plain script
         register_spatial_functions,
         resolve_table_name,
         sq_metres_to_hectares,
+        summarise_list,
+        summarise_refs,
         update_layer_extent,
     )
 
@@ -438,23 +442,48 @@ def read_breadcrumbs(rows):
     return found
 
 
-def drop_lost_rows(rows, ref_key, label, report):
-    """Remove legacy 'Lost' rows — the new template records removal by absence.
+def drop_lost_rows(rows, ref_key, label, report, index=None):
+    """Remove legacy 'Lost' rows: the new template records removal by absence.
 
     Done before references are made unique so a feature that merely outlived a
     sibling is not renamed for nothing.
+
+    Dropping a 'Lost' row is only safe while the baseline still holds the
+    feature, because the baseline is then the sole surviving record that it
+    ever existed and the service recovers the loss by subtraction. A legacy
+    pair is two files a user maintains by hand, so the two can disagree, and a
+    'Lost' row naming a reference the baseline does not have is that
+    disagreement: the feature is dropped here, was never in the baseline, and
+    leaves the conversion having never existed. The loss goes unrecorded and
+    the reported gain is too large. Passing the baseline index turns that
+    silent case into a warning; omitting it keeps the old behaviour for callers
+    that have no index to offer.
     """
-    kept = [row for row in rows if row.get("Retention Category") != RETENTION_LOST]
-    dropped = [
-        row.get(ref_key)
-        for row in rows
-        if row.get("Retention Category") == RETENTION_LOST
-    ]
+    kept = []
+    dropped = []
+    orphaned = []
+    for row in rows:
+        if row.get("Retention Category") != RETENTION_LOST:
+            kept.append(row)
+            continue
+        ref = row.get(ref_key)
+        dropped.append(ref)
+        if index is not None and index.get(ref) is None:
+            orphaned.append(ref)
     if dropped:
-        listed = ", ".join(str(ref) for ref in dropped)
         report.note(
-            f"{label}: dropped {len(dropped)} 'Lost' row(s) ({listed}) — the new "
-            "template records removal by leaving the feature out"
+            f"{label}: dropped {len(dropped)} 'Lost' row(s) "
+            f"({summarise_refs(dropped)}) — the new template records removal "
+            "by leaving the feature out"
+        )
+    if orphaned:
+        report.warn(
+            f"{label}: {len(orphaned)} 'Lost' row(s) name a baseline feature "
+            f"that is not in the baseline file ({summarise_refs(orphaned)}). "
+            "Those features are removed by the scheme but were never recorded "
+            "as existing, so nothing is left to subtract and the reported gain "
+            "will be too large. Check the baseline file covers everything the "
+            "post-intervention file says was lost."
         )
     return kept
 
@@ -489,10 +518,18 @@ def unique_pi_refs(rows, ref_key, report, label):
     for row in rows:
         row.setdefault("_pi_ref", row.get(ref_key))
 
-    for ref, names in renamed_groups:
+    # One line for the layer, not one per reference: a site that splits a
+    # thousand features would otherwise bury every other line in the report.
+    if renamed_groups:
+        # Four, not the usual eight: each entry is itself a list of names.
+        examples = summarise_list(
+            (f"'{ref}' -> {', '.join(names)}" for ref, names in renamed_groups),
+            limit=4,
+        )
         report.note(
-            f"{label}: '{ref}' appeared {len(names)} times — post-intervention "
-            f"refs set to {', '.join(names)}, all with Parent Ref '{ref}'"
+            f"{label}: {len(renamed_groups)} reference(s) appeared on more "
+            f"than one post-intervention row and were given distinct PI Refs, "
+            f"each keeping its original as Parent Ref ({examples})"
         )
 
 
@@ -893,9 +930,9 @@ def _report_unmatched(unmatched, label, report):
     report.warn(
         f"{label}: {len(unmatched)} post-intervention feature(s) reference "
         f"{len(distinct)} baseline feature(s) that do not exist "
-        f"({', '.join(distinct)}). They are left without a recorded parent, so "
-        "the service will infer one from the geometry and warn you — review "
-        "those before relying on the result."
+        f"({summarise_refs(distinct)}). They are left without a recorded "
+        "parent, so the service will infer one from the geometry and warn "
+        "you — review those before relying on the result."
     )
 
 
@@ -1074,12 +1111,15 @@ def convert(baseline_path, pi_path, out_dir, into_path, force, dry_run,
             )
 
         post["hedgerows"] = drop_lost_rows(
-            post["hedgerows"], "Parcel Ref", "Hedgerows", report
+            post["hedgerows"], "Parcel Ref", "Hedgerows", report, hedge_index
         )
         post["watercourses"] = drop_lost_rows(
-            post["watercourses"], "Parcel Ref", "Watercourses", report
+            post["watercourses"], "Parcel Ref", "Watercourses", report,
+            water_index,
         )
-        post["trees"] = drop_lost_rows(post["trees"], "Tree Ref", "Trees", report)
+        post["trees"] = drop_lost_rows(
+            post["trees"], "Tree Ref", "Trees", report, tree_index
+        )
 
         unique_pi_refs(post["areas"], "Parcel Ref", report, "Habitats")
         unique_pi_refs(post["hedgerows"], "Parcel Ref", report, "Hedgerows")
