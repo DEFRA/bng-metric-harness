@@ -3,7 +3,7 @@
  *
  * The permutations runner constructs each "net gain" scenario to be clearly
  * Met (>= 10%) or Unmet (< 10%); this module then reads the habitats back and
- * runs each through the real `bng-metric-engine` calculators, so the manifest
+ * runs each through the real `bng-library/metric` calculators, so the manifest
  * records the actual net-gain percentage and the runner can assert it landed on
  * the expected side of the 10% threshold. The net-gain rule is an area-habitat
  * concept, so only the Habitats layer is priced here.
@@ -114,7 +114,7 @@ function readHabitats(file) {
  * price (skipped) are counted so the caller can distinguish "no gain" from
  * "incomplete data".
  *
- * @param {object} engine loaded bng-metric-engine namespace
+ * @param {object} engine loaded bng-library/metric namespace
  * @param {string} file path to the post-intervention gpkg (carries both sides)
  */
 export function priceHabitats(engine, file) {

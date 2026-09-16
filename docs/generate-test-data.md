@@ -221,7 +221,7 @@ The catalogue covers the axes from BMD-934:
 - **conditions** — one parcel per condition band (Good → Poor).
 - **strategic-significance** — one parcel per multiplier band, incl. "Low (1)".
 - **net-gain** — Met (≥ 10%) and Unmet (< 10%) fixtures. The runner prices the
-  habitats through the real `bng-metric-engine` and **fails** if a fixture does
+  habitats through the real `bng-library/metric` and **fails** if a fixture does
   not actually land on its expected side of the 10% threshold, so the labels
   can never drift from the arithmetic. The computed percentage is recorded in
   the manifest.

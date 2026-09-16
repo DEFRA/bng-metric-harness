@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -9,7 +9,6 @@ import {
   PERMUTATION_PURPOSES as PURPOSES,
   PERMUTATION_SCENARIOS as SCENARIOS,
 } from "#bng-lib";
-import { repoPath } from "../../../scripts/_lib.mjs";
 import {
   meetsNetGain,
   priceHabitats,
@@ -58,17 +57,10 @@ describe("permutations catalogue integrity", () => {
   });
 });
 
-// The engine lives in the backend sibling; skip the arithmetic checks when it
-// is not checked out (e.g. a library-only CI job).
-const engineEntry = path.join(
-  repoPath("bng-metric-backend"),
-  "bng-metric-engine",
-  "src",
-  "index.js",
-);
-const describeEngine = existsSync(engineEntry) ? describe : describe.skip;
-
-describeEngine("engine-accurate net gain", () => {
+// The engine is a devDependency of this harness now that it lives in
+// bng-library, so these arithmetic checks always run — they used to be skipped
+// whenever the backend sibling was not checked out.
+describe("engine-accurate net gain", () => {
   let engine;
   let outDir;
 
@@ -125,7 +117,7 @@ describeEngine("engine-accurate net gain", () => {
   });
 });
 
-describeEngine("full-catalogue coverage", () => {
+describe("full-catalogue coverage", () => {
   let outRoot;
 
   beforeAll(() => {
@@ -150,7 +142,7 @@ describeEngine("full-catalogue coverage", () => {
   });
 });
 
-describeEngine("seeded reproducibility", () => {
+describe("seeded reproducibility", () => {
   let root;
 
   beforeAll(() => {

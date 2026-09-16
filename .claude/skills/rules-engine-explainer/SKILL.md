@@ -66,10 +66,13 @@ Writes the engine's version, git provenance, public API, source inventory and
 reference tables (small ones verbatim, large ones hashed). Passing the same path to
 `--compare` diffs against the previous run before overwriting.
 
-**The engine moves.** It lives in `bng-metric-backend` today but is slated for
-`bng-library` (see `docs/move-engine-into-bng-lib.md`). The script searches known
-locations and honours `BNG_ENGINE_DIR`. If it cannot find the engine, add the new
-location to `CANDIDATE_DIRS` rather than working around it.
+**Where the engine lives.** It moved out of `bng-metric-backend` into
+`bng-library`, and is now the `bng-library/metric` entry point backed by
+`bng-library/src/metric`. The script searches known locations — the sibling
+checkout first, then the harness's own `node_modules` copy — and honours
+`BNG_ENGINE_DIR`, which may name either the library checkout or its `src/metric`
+directory. If it cannot find the engine, add the new location to
+`CANDIDATE_DIRS` rather than working around it.
 
 **In check mode, act on the diff:**
 

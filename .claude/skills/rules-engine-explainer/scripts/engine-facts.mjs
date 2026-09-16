@@ -15,14 +15,22 @@
  *   node engine-facts.mjs [--out <path>] [--compare <previous-facts.json>]
  *
  * Env:
- *   BNG_ENGINE_DIR  Explicit path to the engine package, overriding discovery.
+ *   BNG_ENGINE_DIR  Explicit path to the bng-library checkout (or its
+ *                   src/metric directory), overriding discovery.
  */
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { parseArgs } from 'node:util'
-import { importEngine, locateEngine, WORKSPACE_ROOT } from './_lib.mjs'
+import {
+  importEngine,
+  libraryRoot,
+  locateEngine,
+  readPackageManifest,
+  SOURCE_EXTENSION,
+  WORKSPACE_ROOT
+} from './_lib.mjs'
 
 const HASH_LENGTH = 12
 /** Abbreviated git sha length used in console output. */
@@ -37,7 +45,7 @@ function hash(content) {
 }
 
 function gitProvenance(engineDir) {
-  const repoDir = path.dirname(engineDir)
+  const repoDir = libraryRoot(engineDir)
   try {
     const format = '%H%n%cI%n%s'
     const out = execFileSync(
@@ -69,7 +77,7 @@ function describeShape(value, depth = 0) {
 }
 
 function collectTables(engineDir) {
-  const referenceDir = path.join(engineDir, 'src', 'reference')
+  const referenceDir = path.join(engineDir, 'reference')
   if (!existsSync(referenceDir)) {
     return {}
   }
@@ -95,12 +103,12 @@ function collectTables(engineDir) {
 }
 
 function collectSourceFiles(engineDir) {
-  const srcDir = path.join(engineDir, 'src')
   const files = {}
-  for (const file of readdirSync(srcDir).filter(
-    (f) => f.endsWith('.js') && !f.endsWith('.test.js')
+  for (const file of readdirSync(engineDir).filter(
+    (f) =>
+      f.endsWith(SOURCE_EXTENSION) && !f.endsWith(`.test${SOURCE_EXTENSION}`)
   )) {
-    const raw = readFileSync(path.join(srcDir, file), 'utf8')
+    const raw = readFileSync(path.join(engineDir, file), 'utf8')
     files[file] = { hash: hash(raw), lines: raw.split('\n').length }
   }
   return files
@@ -223,9 +231,7 @@ const previousFacts =
     : null
 
 const engineDir = locateEngine()
-const manifest = JSON.parse(
-  readFileSync(path.join(engineDir, 'package.json'), 'utf8')
-)
+const manifest = readPackageManifest(engineDir)
 
 console.log(`Engine located at: ${engineDir}`)
 
@@ -241,9 +247,9 @@ const facts = {
   sourceFiles: collectSourceFiles(engineDir),
   referenceTables: collectTables(engineDir),
   referenceDataProvenance: existsSync(
-    path.join(engineDir, 'src', 'reference', 'README.md')
+    path.join(engineDir, 'reference', 'README.md')
   )
-    ? readFileSync(path.join(engineDir, 'src', 'reference', 'README.md'), 'utf8')
+    ? readFileSync(path.join(engineDir, 'reference', 'README.md'), 'utf8')
     : null
 }
 
