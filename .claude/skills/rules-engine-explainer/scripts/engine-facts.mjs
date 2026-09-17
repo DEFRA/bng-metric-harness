@@ -20,7 +20,14 @@
  */
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  lstatSync,
+  realpathSync,
+  writeFileSync
+} from 'node:fs'
 import path from 'node:path'
 import { parseArgs } from 'node:util'
 import {
@@ -70,7 +77,9 @@ function gitLogProvenance(repoDir, engineDir) {
     const out = execFileSync(
       'git',
       ['log', '-1', `--format=${format}`, '--', engineDir],
-      { cwd: repoDir, encoding: 'utf8' }
+      // A miss is an expected outcome here, so keep git's "not a git
+      // repository" off the console rather than alarming the reader.
+      { cwd: repoDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
     ).trim()
     if (out === '') {
       return null
@@ -80,6 +89,50 @@ function gitLogProvenance(repoDir, engineDir) {
   } catch {
     return null
   }
+}
+
+/** The installed copy of the library — the one this harness's lockfile pins. */
+const INSTALLED_LIBRARY_DIR = path.join(
+  HARNESS_ROOT,
+  'node_modules',
+  PACKAGE_NAME
+)
+
+/** Canonical path, or null when the directory does not exist. */
+function realPath(dir) {
+  try {
+    return realpathSync(dir)
+  } catch {
+    return null
+  }
+}
+
+function isSymlink(dir) {
+  try {
+    return lstatSync(dir).isSymbolicLink()
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Is this the dependency the lockfile actually describes?
+ *
+ * Only one directory is: the harness's own installed package, compared
+ * canonically so a relative or symlinked route to it still matches. The pin
+ * says nothing about any other directory's contents.
+ *
+ * A linked library (`npm run lib:link`) is excluded even though it sits at that
+ * path, because linking is the moment the pin stops describing what is there —
+ * the trap the README warns about. A link to a real checkout never reaches
+ * here, having already been read from git.
+ */
+function isHarnessInstall(repoDir) {
+  if (isSymlink(INSTALLED_LIBRARY_DIR)) {
+    return false
+  }
+  const resolved = realPath(repoDir)
+  return resolved !== null && resolved === realPath(INSTALLED_LIBRARY_DIR)
 }
 
 /**
@@ -107,7 +160,11 @@ function gitProvenance(engineDir) {
     return { repo, source: GIT_SOURCE, ...fromGit }
   }
 
-  const sha = pinnedSha()
+  // The pin describes the harness's installed copy and nothing else. Applying
+  // it to any other directory without git history — an untracked copy behind
+  // BNG_ENGINE_DIR, say — would invent provenance rather than record it, which
+  // is precisely what the unavailable state exists to prevent.
+  const sha = isHarnessInstall(repoDir) ? pinnedSha() : null
   if (sha) {
     return { repo, source: LOCKFILE_SOURCE, sha }
   }

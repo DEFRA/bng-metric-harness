@@ -76,10 +76,12 @@ directory. If it cannot find the engine, add the new location to
 
 **Where the revision comes from.** `git.source` in the facts file says how the
 engine's commit was established: `git` when the library is a checkout, giving
-commit, date and subject; `lockfile` when it was installed as a dependency, an
-installed copy having no history of its own, so the pinned commit is all that is
-known; `unavailable` when neither. Quote only what is there — never state a date
-the facts file does not carry.
+commit, date and subject; `lockfile` when it is the harness's own installed
+dependency, an installed copy having no history of its own, so the pinned commit
+is all that is known; `unavailable` otherwise — a linked library or an untracked
+copy behind `BNG_ENGINE_DIR` is at no knowable revision, and the pin does not
+describe it. Quote only what is there — never state a commit or a date the facts
+file does not carry.
 
 **In check mode, act on the diff:**
 
