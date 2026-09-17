@@ -3,7 +3,7 @@
  * Deterministic fact extraction for the BNG rules engine.
  *
  * Locates the engine package wherever it currently lives, then emits a JSON
- * "facts" file describing it: package identity, git provenance, public exports,
+ * "facts" file describing it: package identity, revision provenance, public exports,
  * source-file inventory, and every reference lookup table (small tables verbatim,
  * large ones summarised + hashed).
  *
@@ -24,9 +24,11 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { parseArgs } from 'node:util'
 import {
+  HARNESS_ROOT,
   importEngine,
   libraryRoot,
   locateEngine,
+  PACKAGE_NAME,
   readPackageManifest,
   SOURCE_EXTENSION,
   WORKSPACE_ROOT
@@ -39,13 +41,30 @@ const SHORT_SHA_DISPLAY = 8
 const SMALL_TABLE_MAX_LEAVES = 60
 /** Number of sample keys shown for a table too large to inline. */
 const SAMPLE_KEY_COUNT = 5
+/** A git dependency pin, as it appears after the `#` in a lockfile URL. */
+const FULL_SHA_PATTERN = /^[0-9a-f]{40}$/
+
+/**
+ * How the recorded revision was obtained. `git` is the full record; `lockfile`
+ * carries the commit only; `unavailable` means the document must not claim one.
+ */
+const GIT_SOURCE = 'git'
+const LOCKFILE_SOURCE = 'lockfile'
+const UNAVAILABLE_SOURCE = 'unavailable'
 
 function hash(content) {
   return createHash('sha256').update(content).digest('hex').slice(0, HASH_LENGTH)
 }
 
-function gitProvenance(engineDir) {
-  const repoDir = libraryRoot(engineDir)
+/**
+ * The engine's own commit, from the history of the repo it sits in.
+ *
+ * Returns null when that history has nothing to say. An installed dependency
+ * has no `.git` of its own, so git resolves the enclosing repo instead — the
+ * harness — where the engine path is gitignored and `git log` succeeds with no
+ * output. Empty is therefore a miss, not a commit, and the catch never sees it.
+ */
+function gitLogProvenance(repoDir, engineDir) {
   try {
     const format = '%H%n%cI%n%s'
     const out = execFileSync(
@@ -53,11 +72,46 @@ function gitProvenance(engineDir) {
       ['log', '-1', `--format=${format}`, '--', engineDir],
       { cwd: repoDir, encoding: 'utf8' }
     ).trim()
+    if (out === '') {
+      return null
+    }
     const [sha, committedAt, subject] = out.split('\n')
-    return { repo: path.basename(repoDir), sha, committedAt, subject }
+    return { sha, committedAt, subject }
   } catch {
-    return { repo: path.basename(repoDir), sha: null }
+    return null
   }
+}
+
+/**
+ * The commit this harness pins bng-library to, read from its lockfile — the
+ * only record of the revision when the engine was installed rather than checked
+ * out. A git dependency resolves to `<url>#<sha>`; anything else is not a pin.
+ */
+function pinnedSha() {
+  const lockPath = path.join(HARNESS_ROOT, 'package-lock.json')
+  if (!existsSync(lockPath)) {
+    return null
+  }
+  const lock = JSON.parse(readFileSync(lockPath, 'utf8'))
+  const resolved = lock.packages?.[`node_modules/${PACKAGE_NAME}`]?.resolved
+  const fragment = resolved?.split('#')[1]
+  return FULL_SHA_PATTERN.test(fragment ?? '') ? fragment : null
+}
+
+function gitProvenance(engineDir) {
+  const repoDir = libraryRoot(engineDir)
+  const repo = path.basename(repoDir)
+
+  const fromGit = gitLogProvenance(repoDir, engineDir)
+  if (fromGit) {
+    return { repo, source: GIT_SOURCE, ...fromGit }
+  }
+
+  const sha = pinnedSha()
+  if (sha) {
+    return { repo, source: LOCKFILE_SOURCE, sha }
+  }
+  return { repo, source: UNAVAILABLE_SOURCE, sha: null }
 }
 
 /** Count leaf (non-object) values so we know whether a table can be inlined. */
@@ -267,7 +321,7 @@ if (args.compare) {
   if (previousFacts) {
     console.log(
       `\nComparing against the previous run (engine commit ` +
-        `${previousFacts.git?.sha?.slice(0, SHORT_SHA_DISPLAY) ?? 'unknown'}).`
+        `${previousFacts.git?.sha?.slice(0, SHORT_SHA_DISPLAY) || 'unknown'}).`
     )
     printDiff(summariseDiff(facts, previousFacts))
   } else {

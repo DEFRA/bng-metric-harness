@@ -195,6 +195,10 @@ facts file.
 
 Open the document with a short provenance block: what it describes, that it is
 generated and how to regenerate it, and the engine version and commit it reflects.
+Take the commit from `git.sha` and the date from `git.committedAt`, which is present
+only when `git.source` is `git` — a commit recovered from the lockfile carries no
+date. If the facts file has no commit at all, say the revision is unrecorded rather
+than dropping the block or inventing one.
 Anyone finding a stale copy should immediately know it is generated rather than
 hand-maintained, so they fix the generator instead of editing the output.
 

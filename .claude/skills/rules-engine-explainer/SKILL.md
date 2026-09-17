@@ -74,6 +74,13 @@ checkout first, then the harness's own `node_modules` copy — and honours
 directory. If it cannot find the engine, add the new location to
 `CANDIDATE_DIRS` rather than working around it.
 
+**Where the revision comes from.** `git.source` in the facts file says how the
+engine's commit was established: `git` when the library is a checkout, giving
+commit, date and subject; `lockfile` when it was installed as a dependency, an
+installed copy having no history of its own, so the pinned commit is all that is
+known; `unavailable` when neither. Quote only what is there — never state a date
+the facts file does not carry.
+
 **In check mode, act on the diff:**
 
 - *No changes* — the document is still accurate. Say so, name the commit checked
