@@ -51,6 +51,7 @@ Everything here is pure npm + Node — no submodules, no workspaces, no shared l
 | `npm run pull`                      | `git pull --ff-only` in all three; warns (never errors) on ff failure                                |
 | `npm run branch`                    | Current branch of each repo, side-by-side                                                            |
 | `npm run perf`                      | Full perf suite against the local stack (~18 min + staging). Drives **bng-perf-tests' own container**, so it is the same image, entrypoint and plan CDP runs. Needs frontend, backend, stub and cdp-uploader `:7337` up |
+| `npm run uploads:burst`             | Fire N concurrent baseline uploads at a deployed service in tiled browser windows, to watch a burst happen. Delegates to bng-perf-tests' `scripts/concurrent-uploads.mjs`, so it uploads the same size-labelled fixtures JMeter does. Capped at 12 windows; `-- --help` for options |
 | `npm run queue-deps`                | Enqueue vetted Dependabot PRs into the repos' merge queues as the current user (bot-armed auto-merge never enqueues); `-- --dry-run` to preview, `-- backend` to target one repo |
 | `npm run fe -- <script>`            | Runs an arbitrary npm script in frontend (e.g. `npm run fe -- test`)                                 |
 | `npm run be -- <script>`            | Same for backend                                                                                     |
