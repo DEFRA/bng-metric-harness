@@ -497,16 +497,16 @@ notional area for their size band rather than a measured one.
 
 | What it does | File | Reference tables it reads |
 | --- | --- | --- |
-| Picks distinctiveness, condition, time and difficulty | `src/multipliers.js` | distinctiveness, condition, difficulty, time-to-target |
-| The advance and delay arithmetic, shared by all habitat types | `src/linear-time-target-utils.js` | — |
-| Baseline habitat | `src/baseline.js` | — |
-| Retained, created and enhanced habitat | `src/post-intervention.js` | — |
-| Hedgerow and watercourse multipliers | `src/linear-multipliers.js` | hedgerow and watercourse tables |
-| Hedgerow and watercourse calculations | `src/linear-baseline.js`, `src/linear-post-intervention.js` | — |
-| Watercourse encroachment | `src/linear-resolvers.js` | encroachment, riparian encroachment |
-| Input validation and the year limits | `src/validate.js` | — |
+| Picks distinctiveness, condition, time and difficulty | `src/metric/multipliers.mjs` | distinctiveness, condition, difficulty, time-to-target |
+| The advance and delay arithmetic, shared by all habitat types | `src/metric/linear-time-target-utils.mjs` | — |
+| Baseline habitat | `src/metric/baseline.mjs` | — |
+| Retained, created and enhanced habitat | `src/metric/post-intervention.mjs` | — |
+| Hedgerow and watercourse multipliers | `src/metric/linear-multipliers.mjs` | hedgerow and watercourse tables |
+| Hedgerow and watercourse calculations | `src/metric/linear-baseline.mjs`, `src/metric/linear-post-intervention.mjs` | — |
+| Watercourse encroachment | `src/metric/linear-resolvers.mjs` | encroachment, riparian encroachment |
+| Input validation and the year limits | `src/metric/validate.mjs` | — |
 
-The engine is the `bng-metric-engine` package, currently at
-`bng-metric-backend/bng-metric-engine`. It holds 22 source files and 23 reference
+The engine is the `bng-library/metric` entry point of the `bng-library`
+package, at `bng-library/src/metric`. It holds 22 source files and 23 reference
 tables, all extracted from the Statutory Biodiversity Metric published by Natural
 England.

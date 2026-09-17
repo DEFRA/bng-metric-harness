@@ -89,6 +89,72 @@ see the frontend's `.env.example`.
 | `npm run install:all` | `npm install` in harness + both siblings         |
 | `npm run install:fe`  | `npm install` in frontend only                   |
 | `npm run install:be`  | `npm install` in backend only                    |
+| `npm run lib:link`    | Point this repo at your local `../bng-library`   |
+| `npm run lib:status`  | Whether `bng-library` is linked or on its pin    |
+| `npm run lib:unlink`  | Go back to the pinned commit                     |
+
+### Working on `bng-library`
+
+`bng-library` is a **separate repo consumed as a git dependency**, not a sibling
+the dev scripts drive. Three repos depend on it — this harness, the backend and
+the digital prototype — and each pins it independently:
+
+```json
+"bng-library": "github:DEFRA/bng-library#<commit-sha>"
+```
+
+Pins are **commit SHAs, not tags** — there are no releases to point at. The
+three are not kept in step automatically, so they routinely sit on different
+commits. `npm run branch` won't show this; check the pin in each `package.json`.
+
+To see a library change in a consumer without pushing anything, link it. The
+same three commands exist in this harness, `bng-metric-backend` and
+`bng-metric-digital-prototype`:
+
+```sh
+npm run lib:status   # bng-library: installed from pin (not linked)
+npm run lib:link     # bng-library: LINKED -> /path/to/bng-library
+npm run lib:unlink   # back to the pinned commit
+```
+
+A link follows whatever branch `../bng-library` is checked out on, so you can
+switch branches there and the consumer picks it up with no reinstall. Two things
+to know:
+
+- **Link one repo at a time** unless you mean otherwise. Linking the harness
+  does not link the backend — each has to be linked and unlinked separately, and
+  it is easy to leave one linked and wonder why CI disagrees with you.
+- **Always `lib:unlink` before you commit.** The link lives in `node_modules`
+  and never reaches git, so a green local run against a linked library proves
+  nothing about the pin your PR actually ships.
+
+### Releasing a `bng-library` change
+
+Library changes reach the apps only when a consumer's pin moves. Dependabot does
+not track SHA-pinned git dependencies, so **every bump is manual**:
+
+1. Merge the change in `bng-library` and take the **merge commit SHA**.
+2. In each consumer that needs it, set the pin to that SHA and install.
+3. Run that repo's tests against the new pin, then raise a PR for the bump.
+
+A consumer PR must never be merged while its pin points at a **branch head**
+rather than a merged commit — the branch can be force-pushed or deleted, and the
+pin then resolves to nothing. Re-pin to the merge commit first.
+
+In `bng-metric-backend` and `bng-metric-digital-prototype`, a plain
+`npm install` fails while re-pinning:
+
+```
+npm error --min-release-age cannot be provided when using --before
+npm error git dep preparation failed
+```
+
+Their `.npmrc` sets `min-release-age` (supply-chain cooldown), which collides
+with the prepare step npm always runs for a git dependency — npm/cli#9005. The
+Dockerfile and the CI workflows strip the setting for the duration of the
+install; in the backend, `npm run lib:unlink` handles it for you. Doing it by
+hand means removing the `min-release-age=` line from `.npmrc`, installing, and
+putting it back. This harness is unaffected — it does not set the cooldown.
 
 ## Git operations across repos
 

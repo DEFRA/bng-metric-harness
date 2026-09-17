@@ -6,7 +6,8 @@
   "type": "module",
   "imports": {
     "#gpkg-io": "bng-library/gpkg-io",
-    "#bng-lib": "bng-library"
+    "#bng-lib": "bng-library",
+    "#metric": "bng-library/metric"
   },
   "engines": {
     "node": ">=24.14.1"
@@ -55,7 +56,7 @@
   },
   "devDependencies": {
     "better-sqlite3": "^13.0.3",
-    "bng-library": "github:DEFRA/bng-library#af307d543e0dd0a1e6d1fe9a90496d63beedc2c3",
+    "bng-library": "github:DEFRA/bng-library#5e5d4dc49f6d04222b142709289202a762388380",
     "husky": "9.1.7",
     "likec4": "^1.59.3",
     "remark-parse": "^11.0.0",

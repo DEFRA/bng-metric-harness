@@ -16,7 +16,8 @@
  *   node run-worked-examples.mjs <examples.json> [--out <table.md>] [--json <results.json>]
  *
  * Env:
- *   BNG_ENGINE_DIR  Explicit path to the engine package, overriding discovery.
+ *   BNG_ENGINE_DIR  Explicit path to the bng-library checkout (or its
+ *                   src/metric directory), overriding discovery.
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { parseArgs } from 'node:util'

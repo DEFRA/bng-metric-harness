@@ -221,7 +221,7 @@ The catalogue covers the axes from BMD-934:
 - **conditions** — one parcel per condition band (Good → Poor).
 - **strategic-significance** — one parcel per multiplier band, incl. "Low (1)".
 - **net-gain** — Met (≥ 10%) and Unmet (< 10%) fixtures. The runner prices the
-  habitats through the real `bng-metric-engine` and **fails** if a fixture does
+  habitats through the real `bng-library/metric` and **fails** if a fixture does
   not actually land on its expected side of the 10% threshold, so the labels
   can never drift from the arithmetic. The computed percentage is recorded in
   the manifest.
@@ -239,8 +239,10 @@ npm run generate:gpkg:all -- --only net-gain # one purpose only
 npm run generate:gpkg:all -- --outdir /tmp/p # write elsewhere
 ```
 
-The net-gain scenarios need the **backend sibling** checked out (that is where
-the metric engine lives); run `npm run bootstrap` first if it is missing.
+The net-gain scenarios price habitats through `bng-library/metric`, which this
+harness carries as a dependency — run `npm install` if it is missing. The backend
+sibling is no longer needed: the engine moved into `bng-library`, so fixtures now
+generate from an installed package rather than from a neighbouring checkout.
 
 ## Reproducible output (`--seed`)
 

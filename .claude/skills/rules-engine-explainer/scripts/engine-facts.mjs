@@ -3,7 +3,7 @@
  * Deterministic fact extraction for the BNG rules engine.
  *
  * Locates the engine package wherever it currently lives, then emits a JSON
- * "facts" file describing it: package identity, git provenance, public exports,
+ * "facts" file describing it: package identity, revision provenance, public exports,
  * source-file inventory, and every reference lookup table (small tables verbatim,
  * large ones summarised + hashed).
  *
@@ -15,14 +15,31 @@
  *   node engine-facts.mjs [--out <path>] [--compare <previous-facts.json>]
  *
  * Env:
- *   BNG_ENGINE_DIR  Explicit path to the engine package, overriding discovery.
+ *   BNG_ENGINE_DIR  Explicit path to the bng-library checkout (or its
+ *                   src/metric directory), overriding discovery.
  */
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  lstatSync,
+  realpathSync,
+  writeFileSync
+} from 'node:fs'
 import path from 'node:path'
 import { parseArgs } from 'node:util'
-import { importEngine, locateEngine, WORKSPACE_ROOT } from './_lib.mjs'
+import {
+  HARNESS_ROOT,
+  importEngine,
+  libraryRoot,
+  locateEngine,
+  PACKAGE_NAME,
+  readPackageManifest,
+  SOURCE_EXTENSION,
+  WORKSPACE_ROOT
+} from './_lib.mjs'
 
 const HASH_LENGTH = 12
 /** Abbreviated git sha length used in console output. */
@@ -31,25 +48,127 @@ const SHORT_SHA_DISPLAY = 8
 const SMALL_TABLE_MAX_LEAVES = 60
 /** Number of sample keys shown for a table too large to inline. */
 const SAMPLE_KEY_COUNT = 5
+/** A git dependency pin, as it appears after the `#` in a lockfile URL. */
+const FULL_SHA_PATTERN = /^[0-9a-f]{40}$/
+
+/**
+ * How the recorded revision was obtained. `git` is the full record; `lockfile`
+ * carries the commit only; `unavailable` means the document must not claim one.
+ */
+const GIT_SOURCE = 'git'
+const LOCKFILE_SOURCE = 'lockfile'
+const UNAVAILABLE_SOURCE = 'unavailable'
 
 function hash(content) {
   return createHash('sha256').update(content).digest('hex').slice(0, HASH_LENGTH)
 }
 
-function gitProvenance(engineDir) {
-  const repoDir = path.dirname(engineDir)
+/**
+ * The engine's own commit, from the history of the repo it sits in.
+ *
+ * Returns null when that history has nothing to say. An installed dependency
+ * has no `.git` of its own, so git resolves the enclosing repo instead — the
+ * harness — where the engine path is gitignored and `git log` succeeds with no
+ * output. Empty is therefore a miss, not a commit, and the catch never sees it.
+ */
+function gitLogProvenance(repoDir, engineDir) {
   try {
     const format = '%H%n%cI%n%s'
     const out = execFileSync(
       'git',
       ['log', '-1', `--format=${format}`, '--', engineDir],
-      { cwd: repoDir, encoding: 'utf8' }
+      // A miss is an expected outcome here, so keep git's "not a git
+      // repository" off the console rather than alarming the reader.
+      { cwd: repoDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
     ).trim()
+    if (out === '') {
+      return null
+    }
     const [sha, committedAt, subject] = out.split('\n')
-    return { repo: path.basename(repoDir), sha, committedAt, subject }
+    return { sha, committedAt, subject }
   } catch {
-    return { repo: path.basename(repoDir), sha: null }
+    return null
   }
+}
+
+/** The installed copy of the library — the one this harness's lockfile pins. */
+const INSTALLED_LIBRARY_DIR = path.join(
+  HARNESS_ROOT,
+  'node_modules',
+  PACKAGE_NAME
+)
+
+/** Canonical path, or null when the directory does not exist. */
+function realPath(dir) {
+  try {
+    return realpathSync(dir)
+  } catch {
+    return null
+  }
+}
+
+function isSymlink(dir) {
+  try {
+    return lstatSync(dir).isSymbolicLink()
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Is this the dependency the lockfile actually describes?
+ *
+ * Only one directory is: the harness's own installed package, compared
+ * canonically so a relative or symlinked route to it still matches. The pin
+ * says nothing about any other directory's contents.
+ *
+ * A linked library (`npm run lib:link`) is excluded even though it sits at that
+ * path, because linking is the moment the pin stops describing what is there —
+ * the trap the README warns about. A link to a real checkout never reaches
+ * here, having already been read from git.
+ */
+function isHarnessInstall(repoDir) {
+  if (isSymlink(INSTALLED_LIBRARY_DIR)) {
+    return false
+  }
+  const resolved = realPath(repoDir)
+  return resolved !== null && resolved === realPath(INSTALLED_LIBRARY_DIR)
+}
+
+/**
+ * The commit this harness pins bng-library to, read from its lockfile — the
+ * only record of the revision when the engine was installed rather than checked
+ * out. A git dependency resolves to `<url>#<sha>`; anything else is not a pin.
+ */
+function pinnedSha() {
+  const lockPath = path.join(HARNESS_ROOT, 'package-lock.json')
+  if (!existsSync(lockPath)) {
+    return null
+  }
+  const lock = JSON.parse(readFileSync(lockPath, 'utf8'))
+  const resolved = lock.packages?.[`node_modules/${PACKAGE_NAME}`]?.resolved
+  const fragment = resolved?.split('#')[1]
+  return FULL_SHA_PATTERN.test(fragment ?? '') ? fragment : null
+}
+
+function gitProvenance(engineDir) {
+  const repoDir = libraryRoot(engineDir)
+  const repo = path.basename(repoDir)
+
+  const fromGit = gitLogProvenance(repoDir, engineDir)
+  if (fromGit) {
+    return { repo, source: GIT_SOURCE, ...fromGit }
+  }
+
+  // The pin describes the harness's installed copy and nothing else. Applying
+  // it to any other directory without git history — an untracked copy behind
+  // BNG_ENGINE_DIR, say — would invent provenance rather than record it, which
+  // is precisely what the unavailable state exists to prevent.
+  const sha = isHarnessInstall(repoDir) ? pinnedSha() : null
+  if (sha) {
+    return { repo, source: LOCKFILE_SOURCE, sha }
+  }
+  return { repo, source: UNAVAILABLE_SOURCE, sha: null }
 }
 
 /** Count leaf (non-object) values so we know whether a table can be inlined. */
@@ -69,7 +188,7 @@ function describeShape(value, depth = 0) {
 }
 
 function collectTables(engineDir) {
-  const referenceDir = path.join(engineDir, 'src', 'reference')
+  const referenceDir = path.join(engineDir, 'reference')
   if (!existsSync(referenceDir)) {
     return {}
   }
@@ -95,12 +214,12 @@ function collectTables(engineDir) {
 }
 
 function collectSourceFiles(engineDir) {
-  const srcDir = path.join(engineDir, 'src')
   const files = {}
-  for (const file of readdirSync(srcDir).filter(
-    (f) => f.endsWith('.js') && !f.endsWith('.test.js')
+  for (const file of readdirSync(engineDir).filter(
+    (f) =>
+      f.endsWith(SOURCE_EXTENSION) && !f.endsWith(`.test${SOURCE_EXTENSION}`)
   )) {
-    const raw = readFileSync(path.join(srcDir, file), 'utf8')
+    const raw = readFileSync(path.join(engineDir, file), 'utf8')
     files[file] = { hash: hash(raw), lines: raw.split('\n').length }
   }
   return files
@@ -223,9 +342,7 @@ const previousFacts =
     : null
 
 const engineDir = locateEngine()
-const manifest = JSON.parse(
-  readFileSync(path.join(engineDir, 'package.json'), 'utf8')
-)
+const manifest = readPackageManifest(engineDir)
 
 console.log(`Engine located at: ${engineDir}`)
 
@@ -241,9 +358,9 @@ const facts = {
   sourceFiles: collectSourceFiles(engineDir),
   referenceTables: collectTables(engineDir),
   referenceDataProvenance: existsSync(
-    path.join(engineDir, 'src', 'reference', 'README.md')
+    path.join(engineDir, 'reference', 'README.md')
   )
-    ? readFileSync(path.join(engineDir, 'src', 'reference', 'README.md'), 'utf8')
+    ? readFileSync(path.join(engineDir, 'reference', 'README.md'), 'utf8')
     : null
 }
 
@@ -261,7 +378,7 @@ if (args.compare) {
   if (previousFacts) {
     console.log(
       `\nComparing against the previous run (engine commit ` +
-        `${previousFacts.git?.sha?.slice(0, SHORT_SHA_DISPLAY) ?? 'unknown'}).`
+        `${previousFacts.git?.sha?.slice(0, SHORT_SHA_DISPLAY) || 'unknown'}).`
     )
     printDiff(summariseDiff(facts, previousFacts))
   } else {
