@@ -33,6 +33,9 @@ export const ENTRY_POINT = 'bng-library/metric'
 /** Where the engine sits inside a bng-library checkout. */
 const METRIC_SUBDIR = path.join('src', 'metric')
 
+/** Named in the recovery advice, since `npm run bootstrap` does not clone it. */
+const LIBRARY_REMOTE = 'git@github.com:DEFRA/bng-library.git'
+
 /** Source files are .mjs here, and the entry point is index.mjs. */
 export const SOURCE_EXTENSION = '.mjs'
 const ENGINE_INDEX = 'index.mjs'
@@ -63,15 +66,26 @@ function isEngineDir(dir) {
   )
 }
 
-/** Find the engine sources on disk, or exit 1 with guidance. */
+/**
+ * Find the engine sources on disk, or exit 1 with guidance.
+ *
+ * The advice deliberately does not mention `npm run bootstrap`: that clones the
+ * frontend and backend siblings only, so for every candidate below it would
+ * report success and leave this failing identically. {@link PACKAGE_NAME} is a
+ * dependency of the harness, satisfied by installing it or by checking it out.
+ */
 export function locateEngine() {
   const found = CANDIDATE_DIRS.find(isEngineDir)
   if (!found) {
     console.error(
       `Could not find the ${ENTRY_POINT} sources. Looked in:\n` +
         CANDIDATE_DIRS.map((d) => `  - ${d}`).join('\n') +
-        `\n\nSet BNG_ENGINE_DIR to the bng-library checkout (or its src/metric` +
-        ` directory), or run 'npm run bootstrap' in the harness.`
+        `\n\n${PACKAGE_NAME} is a dependency of this harness, not a sibling` +
+        ` that 'npm run bootstrap' clones. Install it with 'npm install' (or` +
+        ` 'npm ci') in the harness, or check it out beside the harness:\n` +
+        `  git clone ${LIBRARY_REMOTE}\n\n` +
+        `Set BNG_ENGINE_DIR to override discovery — it may name the bng-library` +
+        ` checkout or its ${METRIC_SUBDIR} directory.`
     )
     process.exit(1)
   }

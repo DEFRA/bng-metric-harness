@@ -239,8 +239,10 @@ npm run generate:gpkg:all -- --only net-gain # one purpose only
 npm run generate:gpkg:all -- --outdir /tmp/p # write elsewhere
 ```
 
-The net-gain scenarios need the **backend sibling** checked out (that is where
-the metric engine lives); run `npm run bootstrap` first if it is missing.
+The net-gain scenarios price habitats through `bng-library/metric`, which this
+harness carries as a dependency — run `npm install` if it is missing. The backend
+sibling is no longer needed: the engine moved into `bng-library`, so fixtures now
+generate from an installed package rather than from a neighbouring checkout.
 
 ## Reproducible output (`--seed`)
 
