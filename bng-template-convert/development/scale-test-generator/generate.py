@@ -129,6 +129,16 @@ def main(argv=None):
     conn.close()
     os.replace(building, TARGET)
 
+    # os.replace moves the database and nothing else. SQLite's side files are
+    # named after it, so they are left behind under the scratch name -- and
+    # '.gpkg.building-shm' does not match the '*.gpkg-shm' the .gitignore
+    # excludes, so a stray one gets picked up and shipped with the site.
+    for side in ('-shm', '-wal'):
+        try:
+            os.remove(building + side)
+        except FileNotFoundError:
+            pass
+
     print()
     for name, counts in totals.items():
         print(f'{name:14s} {counts}')
