@@ -110,11 +110,41 @@ Then `npm run dev` in this harness starts the two Node apps against those servic
 - Log what the script is doing as it does it.
 - **Always attempt to respect default SonarCloud conventions where possible** — write to them in the first draft rather than waiting for the scan to flag them. Code is scanned by SonarCloud (project key in `sonar-project.properties`); after pushing, run `/check-sonar-pr` to see PR-scoped issues. Rules most likely to be flagged: brace every single-line `if`/`for` body (S121), extract magic numbers to named constants (S109), keep nesting ≤ 3 levels (S134), keep cognitive complexity per function low (S3776), prefer `replaceAll` and template literals over `replace`/concat, and remove dead/commented-out code (S125).
 
+## `bng-template-convert/` — the QGIS templates and their tooling
+
+Lives here rather than in a sibling because it is not application code and has
+no runtime: it is the QGIS habitat-mapping templates, a converter between them,
+a QGIS plugin wrapping that converter, and the synthetic test site they are all
+exercised against. Merged in with `git subtree`, so its own history came with
+it.
+
+| Path | What |
+| --- | --- |
+| `templates/` | The BNG Service template, the Natural England one, and the vertical-area fork |
+| `new_to_old.py` / `old_to_new.py` | Convert between the two, in both directions |
+| `to_metric.py` | Fill a Statutory Metric workbook straight from the staged template |
+| `bng_template_convert/` | The QGIS plugin; `build_plugin.py` packages it |
+| `scale-test-nsip/` | A generated NSIP-scale site (11 554 parcels) plus the verification runbook |
+
+Pure Python, standard library only — no GDAL, no QGIS, no network — so the
+converters run anywhere. The plugin needs QGIS, obviously.
+
+**The scale-test output is generated, not committed.** `generate.py` rebuilds
+the site deterministically to the byte in about seven seconds; the outputs come
+to roughly 100 MB and are gitignored. `scale-test-nsip/VERIFICATION.md` is the
+runbook for exercising the template, every plugin feature and the service
+against it.
+
+**`bng_template_convert/{gpkg_common,new_to_old,old_to_new,to_metric}.py` are
+gitignored copies.** `build_plugin.py` copies them in from the repository root
+at build time. Edit the root ones; never the copies.
+
 ## Not in scope for this repo
 
 - ❌ Docker/compose files (siblings own theirs)
-- ❌ Shared source code, types, or application logic
+- ❌ Shared source code, types, or application logic **for the two apps** (the
+  QGIS tooling above is neither: it ships to surveyors, not to a server)
 - ❌ CI/CD for the sibling apps (each sibling owns its own pipeline; the harness's only workflow is `pages.yml`, which builds the docs site)
 - ❌ git hooks / husky that reach into siblings
-- ❌ npm workspaces, submodules, subtrees
+- ❌ npm workspaces and submodules (`bng-template-convert/` is a subtree, which needs no tooling and no client-side setup)
 - ❌ `CLAUDE.md` files in the sibling repos — they are responsible for their own
