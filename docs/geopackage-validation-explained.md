@@ -119,7 +119,6 @@ Example files are paths under `example-files/` in this repository, worked out by
 | Rule and example file | What it checks |
 | --- | --- |
 | `HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE` — *attribute-problems/Baseline - habitat distinctiveness out of scope.gpkg* | A habitat falls in the High or Very High distinctiveness band, which this service does not yet handle. Applies to area habitats, hedgerows and watercourses, and to habitats proposed as well as existing. Around half of all area habitat types are affected, and an ordinary river or stream always is. The user sees its own message. |
-| `DUPLICATE_HABITAT_REF` — *attribute-problems/Baseline - duplicate habitat ref.gpkg* | Two rows in the Habitats layer share a parcel reference. Blank references are ignored, and matching is exact, so references differing only by capitalisation or a trailing space are treated as distinct. The user sees a generic message. |
 | `ADVANCE_AND_DELAY_BOTH_SET` — *attribute-problems/Post-intervention - advance and delay both set.gpkg* | One feature carries both advance years and delay years, which the statutory metric forbids as they are opposite directions on the same timeline. Applies to area habitats, hedgerows and watercourses; urban trees are excluded because the service does not read those columns on that layer. The user sees its own message. |
 
 ### Service faults, not your file
