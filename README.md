@@ -220,12 +220,14 @@ test the QGIS template, the converter plugin and the service at the scale of a
 nationally significant infrastructure project.
 
 ```sh
-cd bng-template-convert/scale-test-nsip && python3 generate.py
+cd bng-template-convert/development/scale-test-generator && python3 generate.py
 ```
 
 About seven seconds, deterministic to the byte, and the output is gitignored
-rather than committed. `VERIFICATION.md` in that folder is the step-by-step
-runbook for exercising everything against it.
+rather than committed. Every run also refreshes the project file, the reference
+lists and the surveyor's guide from the empty template, so the two cannot drift
+apart. `scale-test-nsip/VERIFICATION.md` is the step-by-step runbook for
+exercising everything against the site.
 
 ## QGIS templates and the converter plugin
 
@@ -234,7 +236,8 @@ between the BNG Service template and the Natural England one, the QGIS plugin
 that wraps it, and the scale test above. Pure Python, standard library only.
 
 ```sh
-cd bng-template-convert && python3 build_plugin.py   # -> dist/*.zip
+cd bng-template-convert/plugin && python3 build_plugin.py
+# -> plugin/dist/bng_template_convert.zip
 ```
 
 Then in QGIS: **Plugins → Manage and Install Plugins… → Install from ZIP**.

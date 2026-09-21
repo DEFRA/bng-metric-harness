@@ -115,29 +115,39 @@ Then `npm run dev` in this harness starts the two Node apps against those servic
 Lives here rather than in a sibling because it is not application code and has
 no runtime: it is the QGIS habitat-mapping templates, a converter between them,
 a QGIS plugin wrapping that converter, and the synthetic test site they are all
-exercised against. Merged in with `git subtree`, so its own history came with
-it.
+exercised against.
 
 | Path | What |
 | --- | --- |
-| `templates/` | The BNG Service template, the Natural England one, and the vertical-area fork |
-| `new_to_old.py` / `old_to_new.py` | Convert between the two, in both directions |
-| `to_metric.py` | Fill a Statutory Metric workbook straight from the staged template |
-| `bng_template_convert/` | The QGIS plugin; `build_plugin.py` packages it |
-| `scale-test-nsip/` | A generated NSIP-scale site (11 554 parcels) plus the verification runbook |
+| `templates/bng-service/` | The template: an empty QGIS project, its reference lists, and `HOW TO USE THIS TEMPLATE.md`, the surveyor's guide |
+| `templates/legacy-ne*/` | Natural England's template as it ships, and the fork of it carrying vertical area habitats |
+| `plugin/` | The QGIS plugin: source, `build_plugin.py`, and `plugin/README.md`, the installation and usage guide |
+| `reference/` | The Statutory Metric workbook, the Excel GIS import tool and the published guidance. Every reference list in the template is checked against these |
+| `scale-test-nsip/` | A generated NSIP-scale site (11 554 baseline parcels) plus `VERIFICATION.md`, the runbook |
+| `development/` | Everything needed to maintain the above and nothing needed to use it: the site generator and the template maintenance tools |
 
-Pure Python, standard library only — no GDAL, no QGIS, no network — so the
-converters run anywhere. The plugin needs QGIS, obviously.
+Pure Python, standard library only — no GDAL, no QGIS imports in the conversion
+code, no network — so the converters run anywhere. The plugin needs QGIS.
 
-**The scale-test output is generated, not committed.** `generate.py` rebuilds
-the site deterministically to the byte in about seven seconds; the outputs come
-to roughly 100 MB and are gitignored. `scale-test-nsip/VERIFICATION.md` is the
-runbook for exercising the template, every plugin feature and the service
-against it.
+**`plugin/bng_template_convert/` is the only copy of the four conversion
+modules.** `build_plugin.py` zips the package as it stands, so there is nothing
+to keep in step:
 
-**`bng_template_convert/{gpkg_common,new_to_old,old_to_new,to_metric}.py` are
-gitignored copies.** `build_plugin.py` copies them in from the repository root
-at build time. Edit the root ones; never the copies.
+```sh
+cd bng-template-convert/plugin && python3 build_plugin.py
+# -> plugin/dist/bng_template_convert.zip
+```
+
+**The scale-test output is generated, not committed.** The generator lives in
+`development/scale-test-generator/` and rebuilds the site deterministically to
+the byte in about seven seconds; the outputs come to roughly 100 MB and are
+gitignored. Every run refreshes the project file, the reference lists and the
+surveyor's guide from `templates/bng-service/`, so the example site and the
+empty template cannot drift apart.
+
+`bng-template-convert/README.md` is the maintainer's guide, including why the
+template's buttons have to be edited through `development/tools/` rather than
+by writing the project out through QGIS.
 
 ## Not in scope for this repo
 
@@ -146,5 +156,5 @@ at build time. Edit the root ones; never the copies.
   QGIS tooling above is neither: it ships to surveyors, not to a server)
 - ❌ CI/CD for the sibling apps (each sibling owns its own pipeline; the harness's only workflow is `pages.yml`, which builds the docs site)
 - ❌ git hooks / husky that reach into siblings
-- ❌ npm workspaces and submodules (`bng-template-convert/` is a subtree, which needs no tooling and no client-side setup)
+- ❌ npm workspaces, submodules and subtrees (`bng-template-convert/` is an ordinary tracked directory, needing no tooling and no client-side setup)
 - ❌ `CLAUDE.md` files in the sibling repos — they are responsible for their own
