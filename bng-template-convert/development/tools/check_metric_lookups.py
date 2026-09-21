@@ -8,7 +8,7 @@ site's units come out as zero, with no error anywhere to say why.
 This reads the values a filled workbook holds and answers the only question
 that matters: would the workbook's own lookup find them.
 
-    python3 tools/check_metric_lookups.py "Filled metric.xlsm"
+    python3 development/tools/check_metric_lookups.py "Filled metric.xlsm"
 """
 import re
 import sys

@@ -10,7 +10,7 @@ Taking the numbers out therefore means putting the stored order right, or the
 menu offers the last step first. This does both, and running it twice changes
 nothing.
 
-    python3 tools/rename_actions.py <project.qgz> [<project.qgz> ...]
+    python3 development/tools/rename_actions.py <project.qgz> [<project.qgz> ...]
 """
 import os
 import re

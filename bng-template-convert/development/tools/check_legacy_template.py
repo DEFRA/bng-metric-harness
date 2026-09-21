@@ -2,7 +2,7 @@
 
 Run it against a fresh download to confirm nothing here is stale:
 
-    python3 tools/check_legacy_template.py
+    python3 development/tools/check_legacy_template.py
 
 Reads only. Every finding prints the evidence it was drawn from, so a reader
 can follow it back into the file rather than take the verdict on trust.
@@ -19,7 +19,7 @@ import urllib.parse
 import xml.etree.ElementTree as ET
 import zipfile
 
-HERE = pathlib.Path(__file__).resolve().parent.parent
+HERE = pathlib.Path(__file__).resolve().parent.parent.parent
 PROJECT = HERE / "templates/legacy-ne/Net Gain Habitat Mapping.qgz"
 LEGACY_CSV = HERE / "templates/legacy-ne/CSV References/Habitats"
 SERVICE_CSV = HERE / "templates/bng-service/CSV References/Habitats"
