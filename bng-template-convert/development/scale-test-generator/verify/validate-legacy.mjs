@@ -7,11 +7,11 @@
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-// Default to the harness's own `backend` symlink, which is three levels up
-// once this folder sits inside the harness. Override with BACKEND_DIR for any
-// other checkout.
+// Default to the harness's own `backend` symlink, four levels up from
+// bng-template-convert/development/scale-test-generator/verify. Override with
+// BACKEND_DIR for any other checkout.
 const BACKEND = process.env.BACKEND_DIR
-  ?? path.resolve(import.meta.dirname, '..', '..', '..', 'backend')
+  ?? path.resolve(import.meta.dirname, '..', '..', '..', '..', 'backend')
 const load = (relative) =>
   import(pathToFileURL(path.join(BACKEND, relative)).href)
 

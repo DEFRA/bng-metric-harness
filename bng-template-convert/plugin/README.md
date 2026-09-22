@@ -175,6 +175,17 @@ ticked unless the comment column has to stay untouched.
 points at all, so trees have to be typed into the metric by hand. They are
 still in the GeoPackages.
 
+**A site part-way through converts.** The baseline file always holds the whole
+baseline. The post-intervention file holds what has been drawn, so until
+post-intervention is finished it does not cover the red line, and the older
+service refuses it; the log says which parcels are missing. The CSVs are
+different, because the import tool builds the metric's baseline from them
+alone: every baseline parcel not yet carried forward gets a *Lost* row there,
+as removed hedgerows and watercourses always have, so the baseline stays
+complete. Values the metric needs and your layers leave blank are listed in
+the log, layer by layer, and travel into the legacy files and the CSVs as
+blanks.
+
 **To open a converted file in the legacy QGIS template**, take a copy of the
 whole legacy template folder for that stage, put the file in its `Layers`
 folder and rename it to `Net Gain Habitat Mapping Layers.gpkg`, replacing the
@@ -203,6 +214,11 @@ post-intervention feature came from. This tool links what it can prove, from
 matching references or from breadcrumbs left by the companion tool, and
 deliberately leaves the rest blank so the service works them out from the
 shapes and says which ones it inferred. The log reports how many were linked.
+
+**A partial site comes back exactly as it went out.** A baseline with nothing
+in post-intervention, or a post-intervention layer only partly drawn, returns
+with the same rows and the same parent links, and blanks stay blank. The log
+lists any value the metric needs that the legacy files left blank.
 
 **Afterwards you must** fill in Irreplaceable Habitat, which has no legacy
 column, and add any vertical area habitats such as green walls.

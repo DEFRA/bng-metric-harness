@@ -81,6 +81,18 @@ except ImportError:  # pragma: no cover - running as a plain script
         update_layer_extent,
     )
 
+try:
+    from .to_metric import MODULES as METRIC_MODULES, check_needed_values
+except ImportError:  # pragma: no cover - running as a plain script
+    from to_metric import MODULES as METRIC_MODULES, check_needed_values
+
+# What a blank costs on the way in: the converted site carries the gap.
+# Irreplaceable Habitat is left out of the check because the legacy format
+# has no such column, and that is already said once for the whole file.
+INCOMING_GAP_CONSEQUENCE = (
+    "Fill them in before uploading or exporting to the metric: until then "
+    "neither can score those rows.")
+
 # ---------------------------------------------------------------------------
 # New-template schema — mirrors Layers/BNG Service Layers.gpkg exactly, so the
 # output can replace that file inside a copy of the template project.
@@ -1189,6 +1201,8 @@ def convert(baseline_path, pi_path, out_dir, into_path, force, dry_run,
 
     _report_lineage_quality(tables, report)
     _report_manual_steps(tables, report)
+    check_needed_values(_as_staged(tables), report, INCOMING_GAP_CONSEQUENCE,
+                        skip=("Irreplaceable Habitat",))
 
     if dry_run:
         return report
@@ -1231,6 +1245,15 @@ def convert(baseline_path, pi_path, out_dir, into_path, force, dry_run,
 
     report.note(f"Staged file: {target}")
     return report
+
+
+def _as_staged(tables):
+    """The converted rows, in the shape the needed-values check reads."""
+    return {
+        kind: {"baseline": [values for _, values in tables[base]],
+               "pi": [values for _, values in tables[pi]]}
+        for kind, base, pi, *_rest in METRIC_MODULES
+    }
 
 
 def _report_lineage_quality(tables, report):

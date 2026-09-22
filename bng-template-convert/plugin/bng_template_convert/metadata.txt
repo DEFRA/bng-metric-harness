@@ -17,6 +17,7 @@ changelog=1.3.0
     The baseline tabs now hold the whole baseline layer. The ground under a created parcel, a shortened hedge's missing length and a feature not carried forward are written as lost, where before they dropped out of the baseline. A watercourse that continues is written at its surveyed length.
     Watercourse encroachment values are written, without which the metric gave watercourses no units.
     A site part-way through is supported: the log lists every blank value the metric needs, layer by layer, says when a post-intervention layer is empty, and names irreplaceable habitat written as lost.
+    Convert to legacy: the import tool CSVs now carry a Lost row for area habitat not yet carried forward to post-intervention, so a site part-way through keeps its whole baseline there. The log says when the legacy post-intervention file does not yet cover the red line, and both legacy tools list blank values the metric needs.
   1.2.0
     Conditions and retention categories now reach the Statutory Metric and the import tool CSVs without the list number in front of them, so habitat and watercourse rows score instead of reporting Check Data. Watercourse rows also reach the retained, enhanced and enhancement columns for the first time.
     Filling the metric is about ten times faster, shows how far along it is, and no longer holds up the rest of QGIS while it runs.

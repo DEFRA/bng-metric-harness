@@ -28,6 +28,7 @@ from collections import OrderedDict, defaultdict
 # plugin package, where the import has to be relative.
 try:
     from .gpkg_common import (
+        SQ_METRES_PER_HECTARE,
         create_feature_table,
         create_gpkg_system_tables,
         feature_table_names,
@@ -50,6 +51,7 @@ try:
     )
 except ImportError:  # pragma: no cover - running as a plain script
     from gpkg_common import (
+        SQ_METRES_PER_HECTARE,
         create_feature_table,
         create_gpkg_system_tables,
         feature_table_names,
@@ -71,11 +73,24 @@ except ImportError:  # pragma: no cover - running as a plain script
         update_layer_extent,
     )
 
+try:
+    from .to_metric import check_needed_values
+except ImportError:  # pragma: no cover - running as a plain script
+    from to_metric import check_needed_values
+
 # Sizes below this are treated as "no shortfall" when deciding whether a
 # baseline feature was partly removed. Legacy stores whole metres, and the
-# service itself rounds linear sizes to whole metres before use.
+# service itself rounds linear sizes to whole metres before use. Area
+# habitats are in hectares here; half a square metre is the service's own
+# area tolerance.
 LENGTH_TOLERANCE_M = 0.5
+AREA_TOLERANCE_HA = 0.5 / SQ_METRES_PER_HECTARE
 COUNT_TOLERANCE = 0
+
+# What a blank costs on the way out to legacy: the gap travels with the row.
+LEGACY_GAP_CONSEQUENCE = (
+    "The rows are written with the gaps, to the legacy files and the CSVs "
+    "alike, and the metric cannot score them until the values are filled in.")
 
 RETENTION_LOST = "Lost"
 TREE_CATEGORY_EXISTING = "Existing"
@@ -452,6 +467,35 @@ def map_area_pi(row, site, carry_lineage):
         site,
         "Comment",
         merged_comment(None, parent_note(row) if carry_lineage else None),
+    )
+
+
+def area_lost_row(parent, lost_hectares, site):
+    """A CSV row for area habitat baseline that nothing carries forward.
+
+    The import tool builds the metric's baseline from these rows alone, so a
+    parcel with nothing in post-intervention would otherwise vanish from the
+    baseline instead of counting as lost.
+    """
+    return with_site(
+        {
+            "Parcel Ref": parent.get("Parcel Ref"),
+            "Baseline Broad Habitat Type": parent.get("Baseline Broad Habitat Type"),
+            "Baseline Habitat Type": parent.get("Baseline Habitat Type"),
+            "Baseline Distinctiveness": parent.get("Baseline Distinctiveness"),
+            "Baseline Condition": parent.get("Baseline Condition"),
+            "Baseline Strategic Significance": parent.get(
+                "Baseline Strategic Significance"
+            ),
+            "Retention Category": RETENTION_LOST,
+            "Area": rounded_size(hectares_to_sq_metres(lost_hectares)),
+            IRREPLACEABLE_KEY: normalise_irreplaceable(
+                parent.get("Irreplaceable Habitat")
+            ),
+        },
+        site,
+        "Comment",
+        "Not carried forward to post-intervention — written by the conversion",
     )
 
 
@@ -1062,6 +1106,13 @@ def convert(input_path, out_dir, carry_lineage, dry_run, formats=("gpkg",),
 
     _report_losses(staged, report)
     _report_splits(staged, report)
+    check_needed_values(staged, report, LEGACY_GAP_CONSEQUENCE)
+    # Area habitats account for every square metre of the red line, so on a
+    # finished site nothing falls short and this is empty. On a site part-way
+    # through it names the parcels not yet carried forward.
+    area_losses = synthesise_lost_rows(
+        staged["areas"]["baseline"], staged["areas"]["pi"], "Area",
+        REMOVAL_RULE_SHORTFALL, AREA_TOLERANCE_HA)
 
     if dry_run:
         _plan_counts(staged, redline, report)
@@ -1122,9 +1173,42 @@ def convert(input_path, out_dir, carry_lineage, dry_run, formats=("gpkg",),
             f"'{LEGACY_LAYERS_STEM}.gpkg'. The project looks for that exact "
             "name, so baseline and post-intervention need a folder each."
         )
+    if area_losses:
+        _report_area_losses(area_losses, want_gpkg, want_csv, report)
     if want_csv:
-        _write_csvs(out_dir, pi_rows, report, consolidate, split_irreplaceable)
+        # The CSVs, not the GeoPackages, get the lost rows. Converting back
+        # from legacy reads an area habitat marked Lost as built over, so a
+        # lost row in the post-intervention file would come back as a
+        # created parcel with nothing proposed on it.
+        csv_rows = dict(pi_rows)
+        csv_rows["Habitats"] = pi_rows["Habitats"] + [
+            (None, area_lost_row(parent, size, site))
+            for parent, size in area_losses
+        ]
+        _write_csvs(out_dir, csv_rows, report, consolidate, split_irreplaceable)
     return report
+
+
+def _report_area_losses(losses, want_gpkg, want_csv, report):
+    """Area habitat baseline that post-intervention does not yet cover."""
+    detail = summarise_list(
+        f"{parent.get('Parcel Ref')} "
+        f"({int(round(hectares_to_sq_metres(size)))} m²)"
+        for parent, size in losses
+    )
+    if want_csv:
+        report.note(
+            f"Habitats.csv: synthesised {len(losses)} 'Lost' row(s) for area "
+            f"habitat not carried forward to post-intervention — {detail}"
+        )
+    if want_gpkg:
+        report.warn(
+            f"{len(losses)} baseline area habitat parcel(s) are not, or not "
+            "wholly, carried forward to post-intervention, so the legacy "
+            "post-intervention file does not cover the red line and the "
+            "older service will refuse it until post-intervention is "
+            f"finished. The baseline file is complete. Parcels: {detail}"
+        )
 
 
 def _write_csvs(out_dir, pi_rows, report, consolidate=False,

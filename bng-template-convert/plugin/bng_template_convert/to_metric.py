@@ -466,7 +466,15 @@ def needed_columns(kind, row, parents, size_field):
     return needs
 
 
-def report_gaps(table, gaps, report):
+# What a gap costs, said once per layer. The legacy converters reuse the
+# check with their own wording, because their output is not the workbook.
+METRIC_GAP_CONSEQUENCE = (
+    "The metric cannot score a row until these are filled in. Depending on "
+    "the column it flags the row or leaves its units blank, and a total that "
+    "includes the row can show 'Check Data' in place of a number.")
+
+
+def report_gaps(table, gaps, report, consequence=METRIC_GAP_CONSEQUENCE):
     """One warning for a layer, naming each column left blank and where."""
     if not gaps:
         return
@@ -476,10 +484,7 @@ def report_gaps(table, gaps, report):
         for column, labels in gaps.items())
     message = (
         f"{table}: {len(rows)} row(s) are missing values the metric needs. "
-        f"{columns}. The metric cannot score a row until these are filled "
-        "in. Depending on the column it flags the row or leaves its units "
-        "blank, and a total that includes the row can show 'Check Data' in "
-        "place of a number.")
+        f"{columns}. {consequence}")
     if RETENTION_FIELD in gaps:
         message += (
             f" A part with no {RETENTION_FIELD} keeps nothing of the "
@@ -488,7 +493,8 @@ def report_gaps(table, gaps, report):
     report.warn(message)
 
 
-def check_needed_values(staged, report):
+def check_needed_values(staged, report, consequence=METRIC_GAP_CONSEQUENCE,
+                        skip=()):
     """Warn, one summary per layer, about blanks the metric cannot score.
 
     Nothing is refused for a gap. A site part-way through is normal, and the
@@ -496,6 +502,10 @@ def check_needed_values(staged, report):
     metric needs is written as a blank, and the metric then shows that row
     as needing data and leaves it out of the totals, with nothing on the
     headline results to say so. The report is where that gets said.
+
+    `staged` maps each module to its "baseline" and "pi" rows under the
+    BNG Service template's column names. `skip` leaves out columns a caller
+    has already warned about in its own terms.
     """
     for kind, base_table, pi_table, size_field, _type, _scale in MODULES:
         tables = staged[kind]
@@ -505,17 +515,17 @@ def check_needed_values(staged, report):
         gaps = OrderedDict()
         for row in tables["baseline"]:
             for column in BASELINE_NEEDS[kind]:
-                if is_blank(row.get(column)):
+                if column not in skip and is_blank(row.get(column)):
                     gaps.setdefault(column, []).append(
                         row_label(row, "Parcel Ref"))
-        report_gaps(base_table, gaps, report)
+        report_gaps(base_table, gaps, report, consequence)
 
         gaps = OrderedDict()
         for row in tables["pi"]:
             for column in needed_columns(kind, row, parents, size_field):
-                if is_blank(row.get(column)):
+                if column not in skip and is_blank(row.get(column)):
                     gaps.setdefault(column, []).append(row_label(row, "PI Ref"))
-        report_gaps(pi_table, gaps, report)
+        report_gaps(pi_table, gaps, report, consequence)
 
 
 def check_post_intervention(staged, report):
