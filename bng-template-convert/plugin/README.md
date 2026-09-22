@@ -19,7 +19,7 @@ worth getting right before anything else.
 
 | Tool | What it needs a clean copy of | Why |
 | --- | --- | --- |
-| **Export to the Statutory Metric** | a blank `The_Statutory_Metric_Macro_Enabled` workbook, straight from the download, with no habitats typed into it | The tool writes habitat rows into the on-site tabs. It refuses to run against a workbook that already holds habitats, rather than overwriting somebody's work |
+| **Export to the Statutory Metric** | a blank Statutory Metric workbook, `Macro_Enabled` or `Macro_Disabled`, straight from the download, with no habitats typed into it | The tool writes habitat rows into the on-site tabs. It refuses to run against a workbook that already holds habitats, rather than overwriting somebody's work |
 | **Convert from legacy template** | a fresh, unopened copy of the whole BNG Service template folder | The tool fills the GeoPackage inside it. Filling one that already holds a site mixes two sites together |
 
 **Keep one pristine copy of each, and copy it for every run.** Never point a
@@ -70,14 +70,35 @@ your habitats.** No CSV files, no GIS import tool in between.
 | Field | What to put in it |
 | --- | --- |
 | BNG Service GeoPackage | your site, usually `Layers/BNG Service Layers.gpkg` |
-| Blank Statutory Metric workbook | **a clean copy** of `The_Statutory_Metric_Macro_Enabled_1.0.4.xlsm` |
-| Filled metric workbook to write | anywhere, ending `.xlsm` |
+| Blank Statutory Metric workbook | **a clean copy** of `The_Statutory_Metric_Macro_Enabled_1.0.4.xlsm` or `The_Statutory_Metric_Macro_Disabled_1.0.4.xlsx` |
+| Filled metric workbook to write | anywhere. It is given the extension of the blank workbook, whatever you type |
 | Merge rows with matching values | see below |
 
+**Either version of the metric works.** Natural England publishes it with
+macros and without, and the sheets and the calculation are the same in both.
+The filled copy keeps the version it was given, so a `Macro_Disabled` blank
+gives an `.xlsx` that opens with no macro prompt. Nothing in the calculation
+depends on the macros.
+
 **What it fills:** the on-site tabs for area habitats, hedgerows and
-watercourses (A, B and C). Each parcel lands on the baseline tab with its size
-split into retained or enhanced, and the creation and enhancement tabs are
-filled to match.
+watercourses (A, B and C). Every baseline feature lands on the baseline tab.
+Each Retained or Enhanced part of it becomes a row of its own, and whatever
+post-intervention does not carry forward is one more row, which the metric
+counts as lost: the ground under a created parcel, a shortened hedge's missing
+length, a feature deleted outright. A watercourse that continues at all
+continues at its surveyed length, because re-meandering lengthens a channel
+without adding to the baseline. The creation and enhancement tabs are filled
+to match, and the watercourse tabs get their encroachment values, without which
+the metric gives a watercourse no units.
+
+**A site part-way through works.** The baseline tabs always hold the whole
+baseline layer, so the baseline figures are right as soon as the baseline is
+drawn. Anything not yet carried forward to post-intervention counts as lost, so
+the post-intervention figures are only as finished as that layer, and the log
+says when a post-intervention layer is empty. A value the metric needs and a
+layer leaves blank is written as a blank. The log lists every one, layer by
+layer and column by column, because the metric then leaves that row out of its
+totals or shows *Check Data* in place of a total.
 
 **What it does not fill:** individual trees, whose size the metric works out
 from a band lookup rather than from the map; the off-site tabs, which have a
@@ -106,9 +127,10 @@ on its on-site watercourse baseline sheet, but the template has no such column
 on watercourses, so there is nothing to write. Hedgerows have no column on
 either side.
 
-**Open the result in Excel and let it recalculate.** Macros and sheet
-protection are carried over untouched. Excel may show a message about trusted
-document settings after you enable content, which is expected.
+**Open the result in Excel and let it recalculate.** Macros, where the
+workbook has them, and sheet protection are carried over untouched. With the
+macro version, Excel may show a message about trusted document settings after
+you enable content, which is expected.
 
 **A site too large for one workbook is written as several.** Every sheet in
 the metric holds 248 rows, and 246 on the enhancement tabs. A site needing more
@@ -208,10 +230,10 @@ format cannot carry. The ones worth acting on say so plainly.
 | --- | --- |
 | *These layers have unsaved edits* | Something is still in edit mode. Press the pencil to save and turn editing off, then run again |
 | *already holds habitat data* | The metric workbook is not a clean copy. Start from a fresh download |
-| *is not a readable .xlsm workbook* | The `.xlsb` GIS import tool was given instead of the metric. They are different files |
+| *is not a readable Statutory Metric workbook* | The `.xlsb` GIS import tool was given instead of the metric. They are different files |
 | *Cannot find the GeoPackage* | The path has moved, or the site folder has been split up |
 | Only two tools in the menu | An older version of the plugin is installed. Uninstall it, install this one, restart QGIS |
-| A metric row reads `Check Data` | Report it. Every value the tools write is checked against the workbook's own lookups before release |
+| A metric row or total reads `Check Data` | A value it needs was blank in your layers. The log's *CHECK THIS* lines name each one. If none do, report it: every value the tools write is checked against the workbook's own lookups before release |
 
 ---
 
@@ -224,7 +246,7 @@ QGIS, which is how they are tested:
 ```
 python3 new_to_old.py  INPUT.gpkg -o OUT_DIR [--format gpkg|csv|both] [--consolidate]
 python3 old_to_new.py  --baseline BASE.gpkg [--post-intervention PI.gpkg] -o OUT_DIR
-python3 to_metric.py   INPUT.gpkg --metric METRIC.xlsm -o OUT.xlsm [--consolidate]
+python3 to_metric.py   INPUT.gpkg --metric METRIC.xlsm|.xlsx -o OUT [--consolidate]
 ```
 
 Add `--dry-run` to the first two to see the report without writing anything.

@@ -2,7 +2,7 @@
 name=BNG Template Convert
 qgisMinimumVersion=3.22
 description=Convert habitat mapping between the legacy Natural England template and the BNG Service template.
-version=1.2.0
+version=1.3.0
 author=Defra BNG Metric Service
 email=
 
@@ -12,7 +12,12 @@ about=Moves a habitat map out of the BNG Service QGIS template without anyone ne
     Export to the Statutory Metric fills a copy of the metric workbook directly, with no CSVs and no import tool in between.
     All three appear in the Processing Toolbox and under Plugins > BNG Template Convert. No dependencies beyond QGIS itself.
 
-changelog=1.2.0
+changelog=1.3.0
+    Export to the Statutory Metric takes either version of the metric, with macros (.xlsm) or without (.xlsx), and the filled copy keeps the version it was given.
+    The baseline tabs now hold the whole baseline layer. The ground under a created parcel, a shortened hedge's missing length and a feature not carried forward are written as lost, where before they dropped out of the baseline. A watercourse that continues is written at its surveyed length.
+    Watercourse encroachment values are written, without which the metric gave watercourses no units.
+    A site part-way through is supported: the log lists every blank value the metric needs, layer by layer, says when a post-intervention layer is empty, and names irreplaceable habitat written as lost.
+  1.2.0
     Conditions and retention categories now reach the Statutory Metric and the import tool CSVs without the list number in front of them, so habitat and watercourse rows score instead of reporting Check Data. Watercourse rows also reach the retained, enhanced and enhancement columns for the first time.
     Filling the metric is about ten times faster, shows how far along it is, and no longer holds up the rest of QGIS while it runs.
     Converting back from legacy separates features whose recorded parent is missing from features that are simply new, rather than warning about both.

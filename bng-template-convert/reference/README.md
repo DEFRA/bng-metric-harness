@@ -6,6 +6,7 @@ a test can be run without hunting for them.
 | File | What it is |
 | --- | --- |
 | `The_Statutory_Metric_Macro_Enabled_1.0.4.xlsm` | The Statutory Biodiversity Metric. `to_metric.py` fills a copy of this |
+| `The_Statutory_Metric_Macro_Disabled_1.0.4.xlsx` | The same metric without its macros. Every sheet, formula and cell is the same, so `to_metric.py` fills this one identically and writes an `.xlsx` |
 | `GIS Import Tool.xlsb` | The Excel tool that reads the three CSVs `new_to_old.py --format csv` writes |
 | `Biodiversity Metric and SSM - GIS tools User Guide.pdf` | Natural England's guidance for both, and the source of the rules quoted around this repository |
 

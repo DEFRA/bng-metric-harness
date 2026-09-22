@@ -25,7 +25,9 @@ from qgis.core import (
 from . import new_to_old, old_to_new, to_metric
 
 GEOPACKAGE_FILTER = "GeoPackage (*.gpkg *.GPKG)"
-METRIC_FILTER = "Macro-enabled workbook (*.xlsm *.XLSM)"
+# Natural England publishes the metric with macros and without. Both are
+# accepted, and the filled copy keeps the form of the blank it came from.
+METRIC_FILTER = "Statutory Metric workbook (*.xlsm *.xlsx *.XLSM *.XLSX)"
 SOURCE_SEPARATOR = "|"
 
 
@@ -478,12 +480,26 @@ class ExportToMetricAlgorithm(QgsProcessingAlgorithm):
             "workbook straight from your habitats, with no GIS import tool in "
             "between.</p>"
             "<p><b>Point it at a blank metric.</b> Give it your own copy of "
-            "<i>The_Statutory_Metric_Macro_Enabled</i>. The file is not "
-            "changed: a filled copy is written to wherever you choose. If the "
-            "workbook already holds habitats the tool stops rather than "
-            "overwrite them.</p>"
-            "<p><b>Open the result in Excel and let it recalculate.</b> Macros "
-            "and sheet protection are carried over untouched.</p>"
+            "either version Natural England publishes: "
+            "<i>The_Statutory_Metric_Macro_Enabled</i> (.xlsm) or "
+            "<i>The_Statutory_Metric_Macro_Disabled</i> (.xlsx). The sheets "
+            "and the calculation are the same in both. The filled copy keeps "
+            "the version you give it, so the .xlsx opens with no macro "
+            "prompt. The blank file is not changed: a filled copy is written "
+            "to wherever you choose. If the workbook already holds habitats "
+            "the tool stops rather than overwrite them.</p>"
+            "<p><b>Open the result in Excel and let it recalculate.</b> Macros, "
+            "where the workbook has them, and sheet protection are carried "
+            "over untouched.</p>"
+            "<p><b>A site part-way through works.</b> Every baseline feature "
+            "is written, so the baseline figures are right as soon as the "
+            "baseline is drawn. Whatever has not been carried forward to "
+            "post-intervention counts as lost, exactly as the template means "
+            "it, so post-intervention figures are only as finished as that "
+            "layer. Any value the metric needs and your layers leave blank is "
+            "listed in the log, layer by layer: until it is filled in, the "
+            "metric cannot score that row, and a total including it can read "
+            "Check Data.</p>"
             "<p><b>What it fills:</b> the on-site tabs for area habitats, "
             "hedgerows and watercourses (A, B and C). Each parcel lands on the "
             "baseline tab with its size split into retained or enhanced, and "
@@ -531,7 +547,7 @@ class ExportToMetricAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(
             QgsProcessingParameterFile(
                 self.METRIC,
-                "Blank Statutory Metric workbook (.xlsm)",
+                "Blank Statutory Metric workbook (.xlsm or .xlsx)",
                 behavior=QgsProcessingParameterFile.File,
                 fileFilter=METRIC_FILTER,
             )

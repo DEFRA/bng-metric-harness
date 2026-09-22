@@ -66,7 +66,7 @@ python3 new_to_old.py  INPUT.gpkg -o OUT_DIR
 python3 old_to_new.py  --baseline BASE.gpkg [--post-intervention PI.gpkg]
         -o OUT_DIR [--into TEMPLATE.gpkg] [--dry-run]
 
-python3 to_metric.py   INPUT.gpkg --metric METRIC.xlsm -o OUT.xlsm
+python3 to_metric.py   INPUT.gpkg --metric METRIC.xlsm|.xlsx -o OUT
         [--consolidate]
 ```
 
