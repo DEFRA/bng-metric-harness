@@ -244,6 +244,10 @@ harness carries as a dependency — run `npm install` if it is missing. The back
 sibling is no longer needed: the engine moved into `bng-library`, so fixtures now
 generate from an installed package rather than from a neighbouring checkout.
 
+To get each scenario's matching metric workbook as well, with the metric's own
+results to compare the service against, see
+[Synthetic metric workbooks](generate-metric-workbooks.md).
+
 ## Reproducible output (`--seed`)
 
 By default every run randomises geometry (and any unpinned attribute), so files

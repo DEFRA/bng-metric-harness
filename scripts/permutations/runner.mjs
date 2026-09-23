@@ -162,6 +162,7 @@ function runScenario(engine, scenario, outRoot, centre, seed) {
 
   const plan = {
     numParcels: size,
+    emptyLayers: new Set(scenario.emptyLayers ?? []),
     attributeOverrides: scenario.overrides ?? {},
   };
   if (seed !== null && seed !== undefined) {
