@@ -85,8 +85,9 @@ file:
   Every scenario's verdict was validated against this release; it gives the
   same results as the filled-in example workbook the work began with.
 
-  To use a different workbook, pass `--template <path>` or set
-  `METRIC_TEMPLATE`. Any Statutory Biodiversity Metric v4 workbook will do,
+  To use a different workbook, put it in the gitignored `./workbooks/` and pass
+  `--template workbooks/<name>.xlsx` or set `METRIC_TEMPLATE` (the path must be
+  inside the harness). Any Statutory Biodiversity Metric v4 workbook will do,
   including a filled-in example, whose rows are cleared before the scenario's
   are written. The generator checks a fingerprint of header cells before
   writing, so a template with a different layout fails loudly rather than
@@ -243,7 +244,7 @@ against it.
 | `--centre E,N` | Red Line Boundary centre, BNG/EPSG:27700 (default `530000,180000`) |
 | `--no-workbooks` | GeoPackages only: no template, no LibreOffice |
 | `--no-recalc` | Write the workbooks without recalculating them |
-| `--template PATH` | The metric v4 workbook to write into (default `$METRIC_TEMPLATE`, else the published tool) |
+| `--template PATH` | The metric v4 workbook to write into (default `$METRIC_TEMPLATE`, else the published tool); must be inside the harness |
 | `--download-template` | Download the published template into the cache and exit |
 | `--list` | Print the catalogue and exit |
 

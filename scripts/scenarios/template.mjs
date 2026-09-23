@@ -14,7 +14,7 @@ import {
   downloadPublishedTemplate,
   isPublishedTemplate,
 } from "#workbook-writer";
-import { HARNESS_ROOT, info } from "../_lib.mjs";
+import { HARNESS_ROOT, info, resolveInsideHarness } from "../_lib.mjs";
 
 export const TEMPLATE_CACHE_DIR = path.join(
   HARNESS_ROOT,
@@ -46,12 +46,16 @@ export async function ensurePublishedTemplate() {
 }
 
 /**
- * @param {string} [explicit] a path from --template or METRIC_TEMPLATE
+ * @param {string} [explicit] a path from --template or METRIC_TEMPLATE; must
+ *   be inside the harness (./workbooks/ is gitignored for this)
  * @returns {Promise<{ path: string, source: string }>}
  */
 export async function resolveTemplate(explicit) {
   if (explicit) {
-    return { path: path.resolve(explicit), source: "given" };
+    return {
+      path: resolveInsideHarness(explicit, "--template"),
+      source: "given",
+    };
   }
   return {
     path: await ensurePublishedTemplate(),

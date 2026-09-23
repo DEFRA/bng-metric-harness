@@ -25,7 +25,7 @@ import {
   error,
   header,
   info,
-  resolveOutputDir,
+  resolveInsideHarness,
 } from "./_lib.mjs";
 import { DEFAULT_CENTRE, parseCentre } from "./centre.mjs";
 import { buildScenarioCorpus } from "./scenarios/runner.mjs";
@@ -134,7 +134,13 @@ async function templateOrExit() {
   if (args["no-workbooks"]) {
     return null;
   }
-  const template = await resolveTemplate(args.template);
+  let template = null;
+  try {
+    template = await resolveTemplate(args.template);
+  } catch (err) {
+    error(err.message);
+    process.exit(1);
+  }
   if (!existsSync(template.path)) {
     error(`Metric template not found: ${template.path}`);
     process.exit(1);
@@ -158,12 +164,14 @@ function outDirOrExit() {
   if (!args.outdir) {
     return path.resolve(HARNESS_ROOT, "test-data", "scenarios");
   }
+  let outDir = null;
   try {
-    return resolveOutputDir(args.outdir);
+    outDir = resolveInsideHarness(args.outdir, "--outdir");
   } catch (err) {
     error(err.message);
     process.exit(1);
   }
+  return outDir;
 }
 
 async function main() {

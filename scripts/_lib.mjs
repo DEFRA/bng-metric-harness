@@ -123,23 +123,24 @@ export function requireSibling(name) {
 }
 
 /**
- * Resolve a user-supplied output folder, throwing unless it lies inside the
- * harness: the generators write into it and clear parts of it. Symlinks in
- * the part that already exists are resolved first, so none can lead out.
+ * Resolve a user-supplied path, throwing unless it lies inside the harness:
+ * the generators read templates from it, write into it and clear parts of
+ * it. Symlinks in the part that already exists are resolved first, so none
+ * can lead out.
  */
-export function resolveOutputDir(dir, flag = "--outdir") {
+export function resolveInsideHarness(target, flag) {
   const baseDir = realpathSync(HARNESS_ROOT);
-  let existing = path.resolve(baseDir, dir);
+  let existing = path.resolve(baseDir, target);
   while (!existsSync(existing)) {
     existing = path.dirname(existing);
   }
   const resolved = path.join(
     realpathSync(existing),
-    path.relative(existing, path.resolve(baseDir, dir)),
+    path.relative(existing, path.resolve(baseDir, target)),
   );
   if (!resolved.startsWith(baseDir + path.sep)) {
     throw new Error(
-      `${flag} must be inside the harness (${baseDir}), got: ${dir}`,
+      `${flag} must be inside the harness (${baseDir}), got: ${target}`,
     );
   }
   return resolved;
