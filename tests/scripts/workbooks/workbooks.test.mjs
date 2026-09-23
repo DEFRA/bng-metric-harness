@@ -10,7 +10,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { PERMUTATION_SCENARIOS as SCENARIOS } from "#bng-lib";
+import { HARNESS_ROOT } from "../../../scripts/_lib.mjs";
 import { writeWorkbookManifest } from "../../../scripts/workbooks/manifest.mjs";
+import {
+  cachedTemplatePath,
+  resolveTemplate,
+} from "../../../scripts/workbooks/template.mjs";
 import {
   buildWorkbookCorpus,
   scenarioFiles,
@@ -131,5 +136,21 @@ describe.skipIf(!hasTemplate)("buildWorkbookCorpus", () => {
     expect(files).not.toContain("net-gain-unmet.xlsx");
     expect(files).toContain("invalid-area-trading-down.xlsx");
     expect(files).toContain("notes.txt");
+  });
+});
+
+describe("resolveTemplate", () => {
+  it("uses a template it is given, as an absolute path", async () => {
+    const template = await resolveTemplate("some/metric.xlsx");
+    expect(template).toEqual({
+      path: path.resolve("some/metric.xlsx"),
+      source: "given",
+    });
+  });
+
+  it("caches the published template inside the gitignored .cache", () => {
+    expect(path.relative(HARNESS_ROOT, cachedTemplatePath())).toMatch(
+      /^\.cache[\\/]metric-template[\\/].+\.xlsx$/,
+    );
   });
 });

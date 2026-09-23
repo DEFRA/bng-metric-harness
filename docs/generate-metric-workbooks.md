@@ -15,7 +15,7 @@ The workbook's answers are recalculated headlessly and recorded in
 them is written to `index.md`.
 
 ```sh
-npm run generate:workbooks -- --template "/path/to/metric v4.xlsx"
+npm run generate:workbooks
 # → test-data/workbooks/<scenario>-baseline.gpkg
 # → test-data/workbooks/<scenario>-post-intervention.gpkg
 # → test-data/workbooks/<scenario>.xlsx
@@ -50,9 +50,16 @@ file:
 
 ### What you need
 
-- **The metric template.** Pass it with `--template <path>` or set
+- **Nothing, for the metric template.** By default the generator uses the
+  calculation tool Defra publishes on GOV.UK (*The Statutory Metric*, macro-free
+  `.xlsx`, release 1.0.4). It downloads it on first use, checks it against a
+  pinned checksum, and keeps it in the gitignored `.cache/metric-template/`.
+  Every scenario's verdict was validated against this release; it gives the
+  same results as the filled-in example workbook the work began with.
+
+  To use a different workbook, pass `--template <path>` or set
   `METRIC_TEMPLATE`. Any Statutory Biodiversity Metric v4 workbook will do,
-  including a filled-in example; its rows are cleared before the scenario's
+  including a filled-in example, whose rows are cleared before the scenario's
   are written. The generator checks a fingerprint of header cells before
   writing, so a template with a different layout fails loudly rather than
   taking inputs in the wrong cells.
@@ -70,22 +77,26 @@ file:
 ### Running in Docker
 
 To avoid installing LibreOffice on your host, run the same command in a
-container (needs Docker Desktop or Engine):
+container (needs Docker Desktop or Engine). There is nothing to copy or
+download first:
 
 ```sh
-cp ~/Downloads/"Example - Area Habitats MVS.xlsx" workbooks/metric-template.xlsx
 npm run generate:workbooks:docker                        # the whole catalogue
 npm run generate:workbooks:docker -- --only trading-rules
 ```
 
 The image (`Dockerfile.workbooks`, about 1 GB) is built on the first run and
-cached after that. Two host folders are mounted into the container:
+cached after that. The build downloads the published metric template into the
+image, checksum-checked, so a run needs no network. Output lands in
+`./test-data/`, as it does outside Docker.
 
-- `./workbooks/` (read-only) holds the template. The container reads
-  `workbooks/metric-template.xlsx` by default; to use another file there, pass
-  `--template /app/workbooks/<file>`. The folder is gitignored, so the Defra
-  workbook cannot be committed by accident.
-- `./test-data/` (read/write) receives the output, as it would outside Docker.
+To use a different template, put it in `./workbooks/` (mounted read-only; the
+folder is gitignored, so it cannot be committed by accident) and pass its
+container path:
+
+```sh
+npm run generate:workbooks:docker -- --template /app/workbooks/MyMetric.xlsx
+```
 
 The image uses the same LibreOffice release (25.x) the results were validated
 against. A run in the container gives byte-identical files and identical
@@ -98,6 +109,8 @@ results to the same run on the host.
 - **It uses the bng-library version pinned in `package.json`,** not a
   `npm run lib:link`ed checkout, because the container installs its own
   dependencies.
+- **Don't push the image to a public registry.** It contains the downloaded
+  metric template, whose licence for redistribution is unconfirmed.
 - **On Linux, the container writes as uid 1000** (the image's `node` user). If
   your user has a different uid, make `test-data/` writable for it.
 - **Speed follows Docker's CPU allowance.** One LibreOffice process runs per
@@ -197,13 +210,14 @@ against it.
 
 | Option | Meaning |
 | --- | --- |
-| `--template PATH` | The metric v4 workbook to write into (default `$METRIC_TEMPLATE`) |
+| `--template PATH` | The metric v4 workbook to write into (default `$METRIC_TEMPLATE`, else the published tool) |
 | `--outdir DIR` | Output folder (default `test-data/workbooks`) |
 | `--only PURPOSE` | One purpose only |
 | `--scenario ID` | One scenario only (repeatable) |
 | `--seed N` | Run seed. Defaults to a random seed, which is recorded in the manifest so a run can be repeated |
 | `--no-recalc` | Write the workbooks without recalculating them |
 | `--list` | Print the catalogue and exit |
+| `--download-template` | Download the published template into the cache and exit |
 
 A rerun into the same folder first removes the files that the previous run's
 manifest lists. Nothing else in the folder is touched. LibreOffice's scratch

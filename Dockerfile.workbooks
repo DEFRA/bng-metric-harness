@@ -15,7 +15,10 @@ COPY package.json package-lock.json .npmrc ./
 # --ignore-scripts: see the gen-gpkg Dockerfile.
 RUN npm ci --ignore-scripts
 COPY scripts ./scripts
+# Fetch the metric calculation tool Defra publishes on GOV.UK (checksum-pinned)
+# into the image's cache now, so a run needs neither a download nor a
+# template supplied by hand. Don't push this image to a public registry: the
+# tool's licence for redistribution is unconfirmed.
+RUN node scripts/gen-workbooks.mjs --download-template
 USER node
-# The template is read from the mounted ./workbooks folder; --template overrides it.
-ENV METRIC_TEMPLATE=/app/workbooks/metric-template.xlsx
 ENTRYPOINT ["node", "scripts/gen-workbooks.mjs"]

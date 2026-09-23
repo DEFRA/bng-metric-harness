@@ -10,9 +10,9 @@
  * metric's own — are recorded in manifest.json, ready to compare a service
  * run against. index.md summarises them.
  *
- * Needs the Defra metric v4 workbook as a template (--template or
- * METRIC_TEMPLATE) and, unless --no-recalc, LibreOffice (soffice on PATH or
- * SOFFICE_PATH).
+ * The template defaults to the calculation tool Defra publishes, downloaded
+ * once and cached; --template or METRIC_TEMPLATE names another. Needs
+ * LibreOffice (soffice on PATH or SOFFICE_PATH) unless --no-recalc.
  */
 
 import { existsSync } from "node:fs";
@@ -24,6 +24,10 @@ import { isLibreOfficeAvailable } from "#workbook-writer";
 import { HARNESS_ROOT, error, header, info } from "./_lib.mjs";
 import { buildWorkbookCorpus } from "./workbooks/runner.mjs";
 import { writeWorkbookManifest } from "./workbooks/manifest.mjs";
+import {
+  ensurePublishedTemplate,
+  resolveTemplate,
+} from "./workbooks/template.mjs";
 
 // Seeds are 32-bit, as bng-library's generator takes them.
 const MAX_SEED = 2 ** 31;
@@ -31,9 +35,10 @@ const MAX_SEED = 2 ** 31;
 const USAGE = `
 Usage: npm run generate:workbooks -- [options]
 
-  --template PATH   Defra Statutory Biodiversity Metric v4 workbook to write
-                    into (default: $METRIC_TEMPLATE). Any rows it already
-                    holds are cleared; its formulas are never changed.
+  --template PATH   Statutory Biodiversity Metric workbook to write into
+                    (default: $METRIC_TEMPLATE, else the published tool,
+                    downloaded once from GOV.UK and cached). Any rows it
+                    already holds are cleared; its formulas are never changed.
   --outdir DIR      Output folder (default: <harness>/test-data/workbooks).
   --only PURPOSE    Build one purpose only (${PERMUTATION_PURPOSES.join(", ")}).
   --scenario ID     Build one scenario only (repeatable).
@@ -42,6 +47,8 @@ Usage: npm run generate:workbooks -- [options]
   --no-recalc       Write the workbooks without recalculating them. Excel
                     recalculates on open; manifest.json then has no results.
   --list            Print the catalogue and exit.
+  --download-template
+                    Download the published template into the cache and exit.
   -h, --help        Show this help.
 `;
 
@@ -54,6 +61,7 @@ const { values: args } = parseArgs({
     seed: { type: "string", default: "" },
     "no-recalc": { type: "boolean", default: false },
     list: { type: "boolean", default: false },
+    "download-template": { type: "boolean", default: false },
     help: { type: "boolean", short: "h", default: false },
   },
   allowPositionals: false,
@@ -90,24 +98,22 @@ function resolveSeed() {
   return seed;
 }
 
-function resolveTemplate() {
-  if (!args.template) {
-    error(
-      "No metric template: pass --template <path to a metric v4 .xlsx> or set METRIC_TEMPLATE.",
-    );
+async function templateOrExit() {
+  const template = await resolveTemplate(args.template);
+  if (!existsSync(template.path)) {
+    error(`Metric template not found: ${template.path}`);
     process.exit(1);
   }
-  const templatePath = path.resolve(args.template);
-  if (!existsSync(templatePath)) {
-    error(`Metric template not found: ${templatePath}`);
-    process.exit(1);
-  }
-  return templatePath;
+  return template;
 }
 
 async function main() {
   if (args.help) {
     console.log(USAGE);
+    return;
+  }
+  if (args["download-template"]) {
+    info(`  template → ${await ensurePublishedTemplate()}`);
     return;
   }
   const scenarios = selectScenarios();
@@ -120,7 +126,9 @@ async function main() {
     return;
   }
 
-  const templatePath = resolveTemplate();
+  const template = await templateOrExit();
+  const templatePath = template.path;
+  info(`  template: ${path.basename(templatePath)} (${template.source})`);
   const recalculate = !args["no-recalc"];
   if (recalculate && !isLibreOfficeAvailable()) {
     error(
