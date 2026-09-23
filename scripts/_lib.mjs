@@ -122,6 +122,24 @@ export function requireSibling(name) {
   }
 }
 
+/**
+ * Resolve a user-supplied output folder, exiting unless it lies inside the
+ * harness: the generators write into it and clear parts of it.
+ */
+export function resolveOutputDir(dir, flag = "--outdir") {
+  const resolved = path.resolve(HARNESS_ROOT, dir);
+  const relative = path.relative(HARNESS_ROOT, resolved);
+  if (
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  ) {
+    error(`${flag} must be inside the harness (${HARNESS_ROOT}), got: ${dir}`);
+    process.exit(1);
+  }
+  return resolved;
+}
+
 export function parseTarget(argv, { allowAll = true, fallback = "all" } = {}) {
   const raw = argv[0];
   const valid = allowAll ? ["fe", "be", "all"] : ["fe", "be"];

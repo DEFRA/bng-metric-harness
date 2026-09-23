@@ -160,7 +160,9 @@ function writeWorkbook(entry, piFile, outDir, workbook) {
   });
   writeFileSync(path.join(outDir, entry.files.workbook), buffer);
   entry.inputRows = countRows(rows);
-  entry.rejectedInputs = issues.map(({ allowed, ...issue }) => issue);
+  entry.rejectedInputs = issues.map(
+    ({ allowed: _allowed, ...issue }) => issue,
+  );
   entry.notes = notes;
 }
 

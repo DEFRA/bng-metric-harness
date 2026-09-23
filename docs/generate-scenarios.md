@@ -238,7 +238,7 @@ against it.
 | --- | --- |
 | `--only PURPOSE` | One purpose only |
 | `--scenario ID` | One scenario only (repeatable) |
-| `--outdir DIR` | Output folder (default `test-data/scenarios`) |
+| `--outdir DIR` | Output folder (default `test-data/scenarios`); must be inside the harness |
 | `--seed N` | Run seed, for byte-identical GeoPackages. Defaults to a random seed, which is recorded in the manifest so a run can be repeated. Each scenario derives its own seed from it, so a fixture reproduces however many scenarios you run |
 | `--centre E,N` | Red Line Boundary centre, BNG/EPSG:27700 (default `530000,180000`) |
 | `--no-workbooks` | GeoPackages only: no template, no LibreOffice |

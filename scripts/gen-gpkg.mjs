@@ -60,7 +60,7 @@ import { existsSync, mkdirSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
-import { error, header, info, timestampSuffix } from "./_lib.mjs";
+import { error, info, timestampSuffix } from "./_lib.mjs";
 import {
   DEFAULT_CENTRE_E,
   DEFAULT_CENTRE_N,

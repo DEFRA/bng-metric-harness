@@ -20,7 +20,13 @@ import { parseArgs } from "node:util";
 import { randomInt } from "node:crypto";
 import { PERMUTATION_PURPOSES, PERMUTATION_SCENARIOS } from "#bng-lib";
 import { isLibreOfficeAvailable } from "#workbook-writer";
-import { HARNESS_ROOT, error, header, info } from "./_lib.mjs";
+import {
+  HARNESS_ROOT,
+  error,
+  header,
+  info,
+  resolveOutputDir,
+} from "./_lib.mjs";
 import { DEFAULT_CENTRE, parseCentre } from "./centre.mjs";
 import { buildScenarioCorpus } from "./scenarios/runner.mjs";
 import { writeScenarioManifest } from "./scenarios/manifest.mjs";
@@ -30,7 +36,8 @@ import {
 } from "./scenarios/template.mjs";
 
 // Seeds are 32-bit, as bng-library's generator takes them.
-const MAX_SEED = 2 ** 31;
+const SEED_BITS = 31;
+const MAX_SEED = 2 ** SEED_BITS;
 // Wide enough for the longest scenario id in the catalogue, so titles align.
 const CATALOGUE_ID_COLUMN_WIDTH = 46;
 
@@ -171,7 +178,7 @@ async function main() {
   assertLibreOffice(recalculate);
 
   const outDir = args.outdir
-    ? path.resolve(args.outdir)
+    ? resolveOutputDir(args.outdir)
     : path.resolve(HARNESS_ROOT, "test-data", "scenarios");
   const seed = resolveSeed();
   const entries = await buildScenarioCorpus({
