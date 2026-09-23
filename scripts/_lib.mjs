@@ -123,7 +123,7 @@ export function requireSibling(name) {
 }
 
 /**
- * Resolve a user-supplied output folder and exit unless it lies inside the
+ * Resolve a user-supplied output folder, throwing unless it lies inside the
  * harness: the generators write into it and clear parts of it. Symlinks in
  * the part that already exists are resolved first, so none can lead out.
  */
@@ -138,8 +138,9 @@ export function resolveOutputDir(dir, flag = "--outdir") {
     path.relative(existing, path.resolve(baseDir, dir)),
   );
   if (!resolved.startsWith(baseDir + path.sep)) {
-    error(`${flag} must be inside the harness (${baseDir}), got: ${dir}`);
-    process.exit(1);
+    throw new Error(
+      `${flag} must be inside the harness (${baseDir}), got: ${dir}`,
+    );
   }
   return resolved;
 }

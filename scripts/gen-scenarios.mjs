@@ -154,6 +154,18 @@ function assertLibreOffice(recalculate) {
   }
 }
 
+function outDirOrExit() {
+  if (!args.outdir) {
+    return path.resolve(HARNESS_ROOT, "test-data", "scenarios");
+  }
+  try {
+    return resolveOutputDir(args.outdir);
+  } catch (err) {
+    error(err.message);
+    process.exit(1);
+  }
+}
+
 async function main() {
   if (args.help) {
     console.log(USAGE);
@@ -177,9 +189,7 @@ async function main() {
   const recalculate = Boolean(templatePath) && !args["no-recalc"];
   assertLibreOffice(recalculate);
 
-  const outDir = args.outdir
-    ? resolveOutputDir(args.outdir)
-    : path.resolve(HARNESS_ROOT, "test-data", "scenarios");
+  const outDir = outDirOrExit();
   const seed = resolveSeed();
   const entries = await buildScenarioCorpus({
     scenarios,
