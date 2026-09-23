@@ -105,7 +105,7 @@ function resolveTemplate() {
   return templatePath;
 }
 
-function main() {
+async function main() {
   if (args.help) {
     console.log(USAGE);
     return;
@@ -133,7 +133,7 @@ function main() {
     ? path.resolve(args.outdir)
     : path.resolve(HARNESS_ROOT, "test-data", "workbooks");
   const seed = resolveSeed();
-  const entries = buildWorkbookCorpus({
+  const entries = await buildWorkbookCorpus({
     scenarios,
     outDir,
     templatePath,
@@ -156,4 +156,4 @@ function main() {
   }
 }
 
-main();
+await main();

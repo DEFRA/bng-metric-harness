@@ -18,7 +18,6 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   PERMUTATION_DEFAULT_SIZE,
@@ -29,8 +28,6 @@ import {
 } from "#bng-lib";
 import {
   checkScenarioExpectations,
-  createRecalcProfile,
-  readMetricResults,
   readTemplateVocabulary,
   recalculateWorkbooks,
   workbookFromGeoPackage,
@@ -42,10 +39,9 @@ const MAIDENHEAD_EASTING = 530000;
 const MAIDENHEAD_NORTHING = 180000;
 const DEFAULT_CENTRE = [MAIDENHEAD_EASTING, MAIDENHEAD_NORTHING];
 
-// LibreOffice takes ~10s a workbook; batching keeps progress visible without
-// paying its start-up cost for every file.
-const RECALC_BATCH_SIZE = 5;
-const TMP_PREFIX = "bng-workbooks-";
+// Report recalculation progress every this many workbooks.
+const PROGRESS_EVERY = 5;
+const WORK_PREFIX = ".recalc-";
 
 export const MANIFEST_FILE = "manifest.json";
 
@@ -164,25 +160,27 @@ function attachResults(entry, scenario, results) {
   }
 }
 
-function recalculateAll(entries, scenarios, { outDir, soffice }) {
-  const workDir = mkdtempSync(path.join(tmpdir(), TMP_PREFIX));
+async function recalculateAll(entries, scenarios, { outDir, soffice }) {
+  // Beside the corpus rather than in the OS temp dir: the workbooks can then
+  // be staged as hard links, and a small tmpfs is never filled.
+  const workDir = mkdtempSync(path.join(outDir, WORK_PREFIX));
   try {
-    const profile = createRecalcProfile(path.join(workDir, "profile"));
-    const recalcDir = path.join(workDir, "recalculated");
-    for (let i = 0; i < entries.length; i += RECALC_BATCH_SIZE) {
-      const batch = entries.slice(i, i + RECALC_BATCH_SIZE);
-      info(
-        `  recalculating ${i + 1}–${i + batch.length} of ${entries.length}…`,
-      );
-      const outputs = recalculateWorkbooks(
-        batch.map((e) => path.join(outDir, e.files.workbook)),
-        { outDir: recalcDir, profile, soffice },
-      );
-      batch.forEach((entry, j) => {
-        const scenario = scenarios.find((s) => s.id === entry.id);
-        attachResults(entry, scenario, readMetricResults(readFileSync(outputs[j])));
-      });
-    }
+    const results = await recalculateWorkbooks(
+      entries.map((e) => path.join(outDir, e.files.workbook)),
+      {
+        workDir,
+        soffice,
+        onProgress: (done, total) => {
+          if (done % PROGRESS_EVERY === 0 || done === total) {
+            info(`  recalculated ${done} of ${total}`);
+          }
+        },
+      },
+    );
+    entries.forEach((entry, i) => {
+      const scenario = scenarios.find((s) => s.id === entry.id);
+      attachResults(entry, scenario, results[i]);
+    });
   } finally {
     rmSync(workDir, { recursive: true, force: true });
   }
@@ -196,9 +194,9 @@ function recalculateAll(entries, scenarios, { outDir, soffice }) {
  * @param {number} options.seed run seed; each scenario derives its own
  * @param {boolean} options.recalculate run LibreOffice and read results
  * @param {string} [options.soffice] LibreOffice binary
- * @returns {object[]} manifest entries, in catalogue order
+ * @returns {Promise<object[]>} manifest entries, in catalogue order
  */
-export function buildWorkbookCorpus({
+export async function buildWorkbookCorpus({
   scenarios,
   outDir,
   templatePath,
@@ -222,7 +220,7 @@ export function buildWorkbookCorpus({
 
   if (recalculate) {
     header("Recalculating with LibreOffice", "cyan");
-    recalculateAll(entries, scenarios, { outDir, soffice });
+    await recalculateAll(entries, scenarios, { outDir, soffice });
   }
   return entries;
 }

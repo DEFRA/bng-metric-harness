@@ -91,9 +91,9 @@ describe.skipIf(!hasTemplate)("buildWorkbookCorpus", () => {
 
   const pick = (...ids) => SCENARIOS.filter((s) => ids.includes(s.id));
 
-  it("writes each scenario's three files into one flat folder", () => {
+  it("writes each scenario's three files into one flat folder", async () => {
     const scenarios = pick("net-gain-unmet", "invalid-area-trading-down");
-    const entries = buildWorkbookCorpus({
+    const entries = await buildWorkbookCorpus({
       scenarios,
       outDir: dir,
       templatePath: TEMPLATE,
@@ -108,9 +108,9 @@ describe.skipIf(!hasTemplate)("buildWorkbookCorpus", () => {
     expect(entries[1].inputRows.habitatEnhancement).toBe(1);
   });
 
-  it("removes the files of scenarios a previous run wrote", () => {
+  it("removes the files of scenarios a previous run wrote", async () => {
     const stale = pick("net-gain-unmet");
-    const entries = buildWorkbookCorpus({
+    const entries = await buildWorkbookCorpus({
       scenarios: stale,
       outDir: dir,
       templatePath: TEMPLATE,
@@ -120,7 +120,7 @@ describe.skipIf(!hasTemplate)("buildWorkbookCorpus", () => {
     writeWorkbookManifest(dir, { entries, seed: 1, templatePath: TEMPLATE });
     writeFileSync(path.join(dir, "notes.txt"), "not ours");
 
-    buildWorkbookCorpus({
+    await buildWorkbookCorpus({
       scenarios: pick("invalid-area-trading-down"),
       outDir: dir,
       templatePath: TEMPLATE,

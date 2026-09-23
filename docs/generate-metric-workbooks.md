@@ -58,8 +58,10 @@ file:
   taking inputs in the wrong cells.
 - **LibreOffice** (`apt-get install libreoffice-calc`, or `brew install
   --cask libreoffice`) to recalculate. Point `SOFFICE_PATH` at the binary if
-  it is not on `PATH` as `soffice`. Each workbook takes about ten seconds, so
-  the full catalogue takes around five minutes.
+  it is not on `PATH` as `soffice`. One LibreOffice process runs per CPU, and
+  each recalculated workbook is exported as CSV and read straight away. On a
+  two-core machine a workbook takes about 3.5 seconds, the trading-rule matrix
+  under a minute, and the whole catalogue about three minutes.
 
   With `--no-recalc` the workbooks are written but not recalculated, and
   `manifest.json` has no results. Excel recalculates a generated workbook when
@@ -100,6 +102,43 @@ metric does not. Examples: a culvert in anything but Poor condition, an
 enhanced culvert, and a non-native hedgerow in Moderate condition. Each one is
 a place where the service and the metric may part company.
 
+### The trading-rule matrix
+
+`--only trading-rules` builds the scenarios that test the trading rules: 12
+scenarios, 24 files to upload. Area habitats, hedgerows and watercourses trade
+independently, so most scenarios carry a case for each, and each scenario
+states the verdict of every band in play:
+
+| Scenario | Area habitats | Hedgerows | Watercourses |
+| --- | --- | --- | --- |
+| `trading-all-met` | nothing lost: all met | nothing lost: all met | nothing lost: all met |
+| `trading-like-for-like` | Medium replaced by the same broad habitat, enough units: met | Medium replaced by Medium: met | ditch replaced by a ditch: met |
+| `trading-too-few-units` | Medium replaced one-for-one by the same broad habitat: **Medium breached** | Medium replaced by a late, poor Medium: **Medium breached** | ditch replaced by a late, poor ditch: **Medium breached** |
+| `trading-wrong-habitat` | Medium grassland replaced by more Medium heathland: **Medium breached** | Medium replaced by Low: **Medium breached** | ditch replaced by a canal: **Medium breached** |
+| `trading-trade-down` | Medium replaced by Low: **Medium breached** | Low replaced by Very Low: **Low breached** | ditch replaced by a culvert: **Medium breached** |
+| `trading-trade-up` | Low replaced by Medium: met | Low replaced by Medium: met | culvert replaced by a ditch: met |
+| `trading-low-for-low` | Low replaced by Low in another broad habitat: met | Very Low replaced by Low: met | — |
+| `trading-lost-to-development` | Low built over: **Low breached** | Very Low removed: **Very Low breached** | — |
+| `trading-lower-deficit-covered-from-above` | Low deficit, Medium surplus: met | Low deficit, Medium surplus: met | — |
+| `trading-higher-deficit-not-covered-from-below` | Medium deficit, Low surplus: **Medium breached**, Low met | Medium deficit, Low surplus: **Medium breached**, Low met | — |
+| `trading-surplus-in-another-broad-habitat` | grassland surplus, heathland deficit: **Medium breached** | — | — |
+| `trading-low-to-medium` | Low enhanced to Medium, with random other layers | | |
+
+Every rule is a test of units as well as of habitat: `trading-too-few-units`
+and `trading-wrong-habitat` separate the two. `trading-higher-deficit-not-covered-from-below`
+is also the case the published metric's cumulative surplus gets wrong
+(BMD-993), which `manifest.json` reports as `uncorrected.areaCumulativeSurplus`.
+
+High and Very High distinctiveness habitats are not covered: the service
+rejects them at upload. The verdicts hold across run seeds — each was checked
+over six — so `--seed` changes geometry, not outcomes.
+
+One thing the matrix deliberately leaves out: a culvert replaced by another
+culvert. The watercourse Low rule reads "better distinctiveness habitat
+required", but the recalculated metric meets it whenever the new culvert brings
+enough units, which depends on the random line lengths. A service that
+enforces the wording would disagree with the metric on such a file.
+
 ### Scenario expectations
 
 The `invalid-interventions` and `trading-rules` scenarios isolate their subject
@@ -110,7 +149,7 @@ metric should make of it:
 | --- | --- |
 | `expectGain` | `met` or `unmet`: the area net gain against the workbook's target |
 | `expectMetricWarnings` | Text of warnings the metric must raise on the subject feature |
-| `expectTradingBreaches` | Distinctiveness bands whose trading rule must fail, per habitat type |
+| `expectTrading` | Each distinctiveness band's trading-rule verdict, `met` or `breached`, per habitat type |
 | `expectRejectedInputs` | Subject inputs the workbook must not accept, as `sheet.field` |
 
 If a check fails, the command exits non-zero. A scenario that no longer
@@ -130,7 +169,9 @@ against it.
 | `--list` | Print the catalogue and exit |
 
 A rerun into the same folder first removes the files that the previous run's
-manifest lists. Nothing else in the folder is touched.
+manifest lists. Nothing else in the folder is touched. LibreOffice's scratch
+space is a `.recalc-*` folder inside the output folder, removed when the run
+ends.
 
 ### From the prototype
 
