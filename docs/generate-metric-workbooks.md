@@ -90,8 +90,8 @@ cached after that. The build downloads the published metric template into the
 image, checksum-checked, so a run needs no network. Output lands in
 `./test-data/`, as it does outside Docker.
 
-To use a different template, put it in `./workbooks/` (mounted read-only; the
-folder is gitignored, so it cannot be committed by accident) and pass its
+To use a different template, put it in `./workbooks/` (mounted read-only and
+gitignored) and pass its
 container path:
 
 ```sh
@@ -109,8 +109,6 @@ results to the same run on the host.
 - **It uses the bng-library version pinned in `package.json`,** not a
   `npm run lib:link`ed checkout, because the container installs its own
   dependencies.
-- **Don't push the image to a public registry.** It contains the downloaded
-  metric template, whose licence for redistribution is unconfirmed.
 - **On Linux, the container writes as uid 1000** (the image's `node` user). If
   your user has a different uid, make `test-data/` writable for it.
 - **Speed follows Docker's CPU allowance.** One LibreOffice process runs per

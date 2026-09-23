@@ -2,8 +2,7 @@ node_modules/
 .DS_Store
 .claude/settings.local.json
 test-data/
-# Metric workbooks dropped in for --from / generate:workbooks. The Defra
-# template's licence for redistribution is unconfirmed, so never commit it.
+# Metric workbooks dropped in locally for --from / generate:workbooks --template.
 /workbooks/
 .cache/
 
