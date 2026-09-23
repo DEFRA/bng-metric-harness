@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
@@ -123,18 +123,22 @@ export function requireSibling(name) {
 }
 
 /**
- * Resolve a user-supplied output folder, exiting unless it lies inside the
- * harness: the generators write into it and clear parts of it.
+ * Resolve a user-supplied output folder and exit unless it lies inside the
+ * harness: the generators write into it and clear parts of it. Symlinks in
+ * the part that already exists are resolved first, so none can lead out.
  */
 export function resolveOutputDir(dir, flag = "--outdir") {
-  const resolved = path.resolve(HARNESS_ROOT, dir);
-  const relative = path.relative(HARNESS_ROOT, resolved);
-  if (
-    relative === ".." ||
-    relative.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relative)
-  ) {
-    error(`${flag} must be inside the harness (${HARNESS_ROOT}), got: ${dir}`);
+  const baseDir = realpathSync(HARNESS_ROOT);
+  let existing = path.resolve(baseDir, dir);
+  while (!existsSync(existing)) {
+    existing = path.dirname(existing);
+  }
+  const resolved = path.join(
+    realpathSync(existing),
+    path.relative(existing, path.resolve(baseDir, dir)),
+  );
+  if (!resolved.startsWith(baseDir + path.sep)) {
+    error(`${flag} must be inside the harness (${baseDir}), got: ${dir}`);
     process.exit(1);
   }
   return resolved;
