@@ -5,7 +5,7 @@
  * catalogue as a baseline / post-intervention GeoPackage pair and, by
  * default, the Statutory Biodiversity Metric workbook written from it,
  * recalculated with LibreOffice so manifest.json records the metric's own
- * results to compare a service run against (BMD-934, BMD-1011).
+ * results to compare a service run against.
  *
  *   --no-workbooks   GeoPackages only: no template, no LibreOffice.
  *   --no-recalc      write the workbooks but don't recalculate them.

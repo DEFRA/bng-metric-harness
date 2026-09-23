@@ -7,7 +7,7 @@
  *      and check the pair and the scenario's subject feature;
  *   2. price its habitats through our engine when it expects a net gain;
  *   3. unless workbooks are off, write the Defra metric workbook describing
- *      the same site (BMD-1011);
+ *      the same site;
  * then, unless recalculation is off, recalculate every workbook with
  * LibreOffice and check each scenario's expectations against the metric's own
  * verdict.

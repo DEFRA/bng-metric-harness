@@ -59,7 +59,7 @@ into a real copy of the Defra workbook, and never changes a formula. Once the
 workbook is recalculated, its figures are the metric's own.
 
 That rule applies to the metric's known defects too. The cumulative-surplus
-error (BMD-993) is **not** corrected. `manifest.json` reports that figure as
+error is **not** corrected. `manifest.json` reports that figure as
 `uncorrected.areaCumulativeSurplus`, so nobody mistakes it for the corrected
 figure.
 
@@ -202,8 +202,8 @@ states the verdict of every band in play:
 
 Every rule is a test of units as well as of habitat: `trading-too-few-units`
 and `trading-wrong-habitat` separate the two. `trading-higher-deficit-not-covered-from-below`
-is also the case the published metric's cumulative surplus gets wrong
-(BMD-993), which `manifest.json` reports as `uncorrected.areaCumulativeSurplus`.
+is also the case the published metric's cumulative surplus gets wrong,
+which `manifest.json` reports as `uncorrected.areaCumulativeSurplus`.
 
 High and Very High distinctiveness habitats are not covered: the service
 rejects them at upload. The verdicts hold across run seeds — each was checked

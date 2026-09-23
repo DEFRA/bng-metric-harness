@@ -139,7 +139,7 @@ function describeRun({ entries, seed, templatePath, recalculated }) {
   } else if (recalculated) {
     lines.push(
       "",
-      `Each scenario also has a metric workbook, written into \`${path.basename(templatePath)}\` and recalculated. Its figures are the metric's own, from its unmodified formulas — including its known cumulative-surplus error (BMD-993), which is deliberately not corrected. *Warnings* counts distinct warnings the metric shows on feature rows; *Rejected inputs* counts values the workbook's own drop-down lists do not offer.`,
+      `Each scenario also has a metric workbook, written into \`${path.basename(templatePath)}\` and recalculated. Its figures are the metric's own, from its unmodified formulas — including its known cumulative-surplus error, which is deliberately not corrected. *Warnings* counts distinct warnings the metric shows on feature rows; *Rejected inputs* counts values the workbook's own drop-down lists do not offer.`,
     );
   } else {
     lines.push(
