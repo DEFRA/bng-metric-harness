@@ -2,6 +2,9 @@ node_modules/
 .DS_Store
 .claude/settings.local.json
 test-data/
+# Metric workbooks dropped in for --from / generate:workbooks. The Defra
+# template's licence for redistribution is unconfirmed, so never commit it.
+/workbooks/
 .cache/
 
 # Internal roadmap assessment working dir — keep the Mural export and the derived

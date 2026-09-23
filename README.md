@@ -208,7 +208,7 @@ This repo contains scripts to generate example GeoPackage files for testing:
 
 - `npm run generate:gpkg` — one synthetic or workbook-driven fixture (or a `--pair`).
 - `npm run generate:gpkg:all` — a pre-built library of paired fixtures covering many BNG scenarios (intervention types, conditions, strategic significance, met/unmet 10% net gain, trading rules, advance/delay, data completeness), organised by purpose with a `manifest.json` and `index.md`.
-- `npm run generate:workbooks -- --template <metric.xlsx>` — the same scenarios as a QA corpus: each GeoPackage pair plus the Defra metric workbook describing it, recalculated with LibreOffice so `manifest.json` holds the metric's own results to compare the service against.
+- `npm run generate:workbooks -- --template <metric.xlsx>` — the same scenarios as a QA corpus: each GeoPackage pair plus the Defra metric workbook describing it, recalculated with LibreOffice so `manifest.json` holds the metric's own results to compare the service against. `npm run generate:workbooks:docker` runs it in a container, so LibreOffice needn't be installed.
 
 See [docs/generate-test-data.md](docs/generate-test-data.md) and [docs/generate-metric-workbooks.md](docs/generate-metric-workbooks.md) for details.
 

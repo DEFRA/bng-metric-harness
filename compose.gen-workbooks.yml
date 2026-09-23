@@ -1,0 +1,9 @@
+services:
+  gen-workbooks:
+    build:
+      context: .
+      dockerfile: Dockerfile.workbooks
+    image: bng-workbooks
+    volumes:
+      - ./test-data:/app/test-data
+      - ./workbooks:/app/workbooks:ro

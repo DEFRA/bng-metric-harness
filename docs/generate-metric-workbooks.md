@@ -67,6 +67,43 @@ file:
   `manifest.json` has no results. Excel recalculates a generated workbook when
   it is opened, so a human tester needs nothing else.
 
+### Running in Docker
+
+To avoid installing LibreOffice on your host, run the same command in a
+container (needs Docker Desktop or Engine):
+
+```sh
+cp ~/Downloads/"Example - Area Habitats MVS.xlsx" workbooks/metric-template.xlsx
+npm run generate:workbooks:docker                        # the whole catalogue
+npm run generate:workbooks:docker -- --only trading-rules
+```
+
+The image (`Dockerfile.workbooks`, about 1 GB) is built on the first run and
+cached after that. Two host folders are mounted into the container:
+
+- `./workbooks/` (read-only) holds the template. The container reads
+  `workbooks/metric-template.xlsx` by default; to use another file there, pass
+  `--template /app/workbooks/<file>`. The folder is gitignored, so the Defra
+  workbook cannot be committed by accident.
+- `./test-data/` (read/write) receives the output, as it would outside Docker.
+
+The image uses the same LibreOffice release (25.x) the results were validated
+against. A run in the container gives byte-identical files and identical
+results to the same run on the host.
+
+**Known limits of the Docker approach.**
+
+- **`--outdir` must stay under `/app/test-data`**, the only writable mount.
+  Anywhere else, the files are lost when the container exits.
+- **It uses the bng-library version pinned in `package.json`,** not a
+  `npm run lib:link`ed checkout, because the container installs its own
+  dependencies.
+- **On Linux, the container writes as uid 1000** (the image's `node` user). If
+  your user has a different uid, make `test-data/` writable for it.
+- **Speed follows Docker's CPU allowance.** One LibreOffice process runs per
+  CPU the container can see; on Docker Desktop that is the number set in its
+  resource settings.
+
 LibreOffice does not recalculate an `.xlsx` on load by default. It hands back
 the values the file was saved with, which looks exactly like success. The
 generator seeds a private LibreOffice profile that forces recalculation. As a
