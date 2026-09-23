@@ -1,9 +1,9 @@
 services:
-  gen-workbooks:
+  gen-scenarios:
     build:
       context: .
-      dockerfile: Dockerfile.workbooks
-    image: bng-workbooks
+      dockerfile: Dockerfile.scenarios
+    image: bng-scenarios
     volumes:
       - ./test-data:/app/test-data
       - ./workbooks:/app/workbooks:ro

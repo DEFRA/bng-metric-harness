@@ -1,8 +1,8 @@
-## Synthetic metric workbooks (BMD-1011)
+## Scenario corpus: GeoPackages and metric workbooks
 
-`npm run generate:workbooks` builds a QA corpus for checking the service's
-results against the Statutory Biodiversity Metric itself. Every scenario in the
-permutations catalogue becomes three files:
+`npm run generate:scenarios` builds the whole scenario library in one command.
+Every scenario in the bng-library catalogue becomes, in a folder named after
+its purpose:
 
 | File | What it is |
 | --- | --- |
@@ -10,17 +10,45 @@ permutations catalogue becomes three files:
 | `<scenario>-post-intervention.gpkg` | The post-intervention GeoPackage to upload |
 | `<scenario>.xlsx` | The Defra metric workbook describing the same site |
 
-The workbook's answers are recalculated headlessly and recorded in
-`manifest.json`, which is what a service run is compared against. A table of
-them is written to `index.md`.
+The workbooks are recalculated headlessly and their answers — the metric's
+own — recorded in `manifest.json`, which is what a service run is compared
+against. `index.md` tabulates them, one table per purpose.
 
 ```sh
-npm run generate:workbooks
-# → test-data/workbooks/<scenario>-baseline.gpkg
-# → test-data/workbooks/<scenario>-post-intervention.gpkg
-# → test-data/workbooks/<scenario>.xlsx
-# → test-data/workbooks/manifest.json   (the metric's results, per scenario)
-# → test-data/workbooks/index.md        (human-readable table)
+npm run generate:scenarios
+# → test-data/scenarios/<purpose>/<scenario>-baseline.gpkg
+# → test-data/scenarios/<purpose>/<scenario>-post-intervention.gpkg
+# → test-data/scenarios/<purpose>/<scenario>.xlsx
+# → test-data/scenarios/manifest.json   (the metric's results, per scenario)
+# → test-data/scenarios/index.md        (human-readable tables)
+
+npm run generate:scenarios -- --only trading-rules   # one purpose
+npm run generate:scenarios -- --no-workbooks         # GeoPackages only
+npm run generate:scenarios -- --list                 # print the catalogue
+```
+
+The catalogue covers intervention types, conditions, strategic significance,
+met / unmet 10% net gain, trading rules (see the matrix below), advance and
+delay years, data completeness, and invalid interventions. Each row of
+`index.md` names the feature a tester should open to exercise the scenario.
+
+Every scenario is checked as it is built: the two GeoPackages must share a
+redline, the scenario's subject feature must be present, and a net-gain
+scenario must land on its expected side of 10% when priced through our own
+engine (`bng-library/metric`). With workbooks, the metric's own verdicts are
+checked too (see *Scenario expectations*). A failed check is reported and the
+command exits non-zero.
+
+### GeoPackages only
+
+`--no-workbooks` skips the workbooks: no template and no LibreOffice are
+needed, and it takes a few seconds. The engine and file checks still run.
+
+The fixtures committed to `example-files/permutations/` are this output. To
+refresh them:
+
+```sh
+npm run generate:scenarios -- --no-workbooks --outdir example-files/permutations --seed 1
 ```
 
 ### Why the answers can be trusted
@@ -64,7 +92,7 @@ file:
   writing, so a template with a different layout fails loudly rather than
   taking inputs in the wrong cells.
 - **LibreOffice** (`apt-get install libreoffice-calc`, or `brew install
-  --cask libreoffice`) to recalculate. Point `SOFFICE_PATH` at the binary if
+  --cask libreoffice`) to recalculate — or run it all in Docker (below). Point `SOFFICE_PATH` at the binary if
   it is not on `PATH` as `soffice`. One LibreOffice process runs per CPU, and
   each recalculated workbook is exported as CSV and read straight away. On a
   two-core machine a workbook takes about 3.5 seconds, the trading-rule matrix
@@ -81,11 +109,11 @@ container (needs Docker Desktop or Engine). There is nothing to copy or
 download first:
 
 ```sh
-npm run generate:workbooks:docker                        # the whole catalogue
-npm run generate:workbooks:docker -- --only trading-rules
+npm run generate:scenarios:docker                        # the whole catalogue
+npm run generate:scenarios:docker -- --only trading-rules
 ```
 
-The image (`Dockerfile.workbooks`, about 1 GB) is built on the first run and
+The image (`Dockerfile.scenarios`, about 1 GB) is built on the first run and
 cached after that. The build downloads the published metric template into the
 image, checksum-checked, so a run needs no network. Output lands in
 `./test-data/`, as it does outside Docker.
@@ -95,7 +123,7 @@ gitignored) and pass its
 container path:
 
 ```sh
-npm run generate:workbooks:docker -- --template /app/workbooks/MyMetric.xlsx
+npm run generate:scenarios:docker -- --template /app/workbooks/MyMetric.xlsx
 ```
 
 The image uses the same LibreOffice release (25.x) the results were validated
@@ -208,17 +236,19 @@ against it.
 
 | Option | Meaning |
 | --- | --- |
-| `--template PATH` | The metric v4 workbook to write into (default `$METRIC_TEMPLATE`, else the published tool) |
-| `--outdir DIR` | Output folder (default `test-data/workbooks`) |
 | `--only PURPOSE` | One purpose only |
 | `--scenario ID` | One scenario only (repeatable) |
-| `--seed N` | Run seed. Defaults to a random seed, which is recorded in the manifest so a run can be repeated |
+| `--outdir DIR` | Output folder (default `test-data/scenarios`) |
+| `--seed N` | Run seed, for byte-identical GeoPackages. Defaults to a random seed, which is recorded in the manifest so a run can be repeated. Each scenario derives its own seed from it, so a fixture reproduces however many scenarios you run |
+| `--centre E,N` | Red Line Boundary centre, BNG/EPSG:27700 (default `530000,180000`) |
+| `--no-workbooks` | GeoPackages only: no template, no LibreOffice |
 | `--no-recalc` | Write the workbooks without recalculating them |
-| `--list` | Print the catalogue and exit |
+| `--template PATH` | The metric v4 workbook to write into (default `$METRIC_TEMPLATE`, else the published tool) |
 | `--download-template` | Download the published template into the cache and exit |
+| `--list` | Print the catalogue and exit |
 
-A rerun into the same folder first removes the files that the previous run's
-manifest lists. Nothing else in the folder is touched. LibreOffice's scratch
+A rerun into the same folder first replaces the purpose folders it
+regenerates. Nothing else in the folder is touched. LibreOffice's scratch
 space is a `.recalc-*` folder inside the output folder, removed when the run
 ends.
 

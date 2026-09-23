@@ -1,5 +1,5 @@
-# `npm run generate:workbooks:docker` — the synthetic metric workbook corpus
-# (BMD-1011) without installing LibreOffice on the host.
+# `npm run generate:scenarios:docker` — the scenario corpus, GeoPackages and
+# metric workbooks, without installing LibreOffice on the host.
 #
 # Trixie rather than the bookworm the gen-gpkg image uses: the expected
 # results are LibreOffice's recalculation of the metric, and they were
@@ -18,6 +18,6 @@ COPY scripts ./scripts
 # Fetch the metric calculation tool Defra publishes on GOV.UK (checksum-pinned)
 # into the image's cache now, so a run needs neither a download nor a
 # template supplied by hand.
-RUN node scripts/gen-workbooks.mjs --download-template
+RUN node scripts/gen-scenarios.mjs --download-template
 USER node
-ENTRYPOINT ["node", "scripts/gen-workbooks.mjs"]
+ENTRYPOINT ["node", "scripts/gen-scenarios.mjs"]
