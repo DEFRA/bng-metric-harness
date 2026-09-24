@@ -14,6 +14,8 @@
  * once and cached; --template or METRIC_TEMPLATE names another.
  */
 
+// First, so a broken scenario catalogue is reported plainly (see the module).
+import "./scenarios/catalogue-errors.mjs";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";

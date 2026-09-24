@@ -1,8 +1,9 @@
 ## Scenario corpus: GeoPackages and metric workbooks
 
 `npm run generate:scenarios` builds the whole scenario library in one command.
-Every scenario in the bng-library catalogue becomes, in a folder named after
-its purpose:
+Every scenario in the bng-library catalogue
+(`src/permutations/scenarios.json`) becomes, in a folder named after its
+purpose:
 
 | File | What it is |
 | --- | --- |
@@ -239,6 +240,28 @@ culvert. The watercourse Low rule reads "better distinctiveness habitat
 required", but the recalculated metric meets it whenever the new culvert brings
 enough units, which depends on the random line lengths. A service that
 enforces the wording would disagree with the metric on such a file.
+
+### Adding or changing a scenario
+
+The scenarios are configuration, not code. They live in one JSON file in
+bng-library, `src/permutations/scenarios.json`, and the harness builds
+whatever it holds. To add, change or remove a scenario, edit that file; its
+fields are documented in bng-library's README under *Scenario catalogue*.
+
+The file is checked when it is loaded. A misspelt field or an override the
+generator does not recognise stops the run with the exact place in the file,
+rather than being silently ignored. To try a change here before it is
+released:
+
+```sh
+npm run lib:link                                       # use ../bng-library
+npm run generate:scenarios -- --scenario <id>          # build just that one
+```
+
+When the change is merged in bng-library, bump the `bng-library` pin in
+`package.json`. If the committed fixtures in `example-files/permutations/`
+should follow, refresh them as shown under *GeoPackages only*, and update the
+trading-rule table above if the matrix changed.
 
 ### Scenario expectations
 
