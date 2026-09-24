@@ -9,11 +9,14 @@ feature can be moved off its original line without any risk of leaving the
 site.
 """
 
+import collections
+import csv
 import math
+import os
 
 from corridor_mesh import _hash01, line_length
-from corridor_scenario import (CORE, EARTHWORKS, SS_DESIRABLE, SS_FORMAL,
-                               SS_NONE, _pick, zone_of)
+from corridor_scenario import (CORE, CSV_ROOT, EARTHWORKS, SS_DESIRABLE,
+                               SS_FORMAL, SS_NONE, _pick, zone_of)
 
 # ------------------------------------------------------- reference values
 
@@ -35,7 +38,6 @@ HEDGE_ENHANCEMENT = {
     'Line of trees': 'Native hedgerow with trees',
     'Line of trees - associated with bank or ditch':
         'Ecologically valuable line of trees - associated with bank or ditch',
-    'Non-native and ornamental hedgerow': 'Native hedgerow',
     'Ecologically valuable line of trees':
         'Ecologically valuable line of trees - associated with bank or ditch',
 }
@@ -59,12 +61,62 @@ TREE_TYPES = [('Native', 0.79), ('Non-native', 0.21)]
 TREE_CONDITIONS = [('1. Good', 0.16), ('2. Fairly Good', 0.27),
                    ('3. Moderate', 0.34), ('4. Fairly Poor', 0.16),
                    ('5. Poor', 0.07)]
-TREE_SIGNIFICANCE = [(SS_NONE, 0.76), (SS_DESIRABLE, 0.19), (SS_FORMAL, 0.05)]
+# The tree lists word formal identification differently from every other
+# habitat type, so a tree cannot share the hedgerow and parcel wording.
+SS_FORMAL_TREE = 'Within area formally identified in local strategy'
+TREE_SIGNIFICANCE = [(SS_NONE, 0.76), (SS_DESIRABLE, 0.18),
+                     (SS_FORMAL_TREE, 0.06)]
 
 
 def significance(seed):
     return _pick([(SS_NONE, 0.76), (SS_DESIRABLE, 0.18), (SS_FORMAL, 0.06)],
                  _hash01(seed, 3301))
+
+
+def tree_significance(seed):
+    return _pick(TREE_SIGNIFICANCE, _hash01(seed, 3301))
+
+
+# ------------------------------------------------------ hedgerow lookups
+#
+# Read from the template's own lists, so a hedge is only ever given a
+# condition or a change the template's drop-downs would offer. A non-native
+# hedge, for one, can only be in poor condition and cannot be enhanced.
+
+def _load_hedge_lists():
+    folder = os.path.join(CSV_ROOT, 'Hedgerows')
+    conditions = collections.defaultdict(set)
+    with open(os.path.join(folder, 'Hedgerow Condition.csv'),
+              encoding='utf-8-sig') as fh:
+        for row in csv.DictReader(fh):
+            conditions[row['Habitat']].add(row['Condition'])
+    becomes = collections.defaultdict(set)
+    with open(os.path.join(folder, 'Hedgerow Habitat Options - post.csv'),
+              encoding='utf-8-sig') as fh:
+        for row in csv.DictReader(fh):
+            becomes[row['Value']].add(row['Description'])
+    return conditions, becomes
+
+
+HEDGE_CONDITION_LIST, HEDGE_BECOMES = _load_hedge_lists()
+
+
+def hedge_condition(hedge_type, roll):
+    """A weighted condition, drawn only from those the hedge type allows."""
+    allowed = [(c, w) for c, w in HEDGE_CONDITIONS
+               if c in HEDGE_CONDITION_LIST[hedge_type]]
+    if not allowed:
+        return sorted(HEDGE_CONDITION_LIST[hedge_type])[0]
+    total = sum(w for _, w in allowed)
+    return _pick([(c, w / total) for c, w in allowed], roll)
+
+
+def hedge_condition_allowed(hedge_type, condition):
+    return condition in HEDGE_CONDITION_LIST[hedge_type]
+
+
+def hedge_can_become(hedge_type, retention, proposed):
+    return proposed in HEDGE_BECOMES[hedge_type + retention]
 
 
 # ------------------------------------------------------- corridor geometry

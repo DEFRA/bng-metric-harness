@@ -124,6 +124,16 @@ Every run refreshes the project file, the reference lists and the surveyor's
 guide from `templates/bng-service/`, so **the example and the empty template
 cannot drift apart**: the template is always the source.
 
+**Every value in it is one the template's drop-downs would offer.** The
+generator writes straight into the GeoPackage, never through a drop-down, so
+each run ends by checking every value against the list QGIS would have shown
+for that row, filters included, and fails if any is not on it.
+`dropdown_check.py` runs the same check against any site folder:
+
+```
+python3 development/scale-test-generator/dropdown_check.py <site folder>
+```
+
 `scale-test-nsip/VERIFICATION.md` is the runbook for exercising the template,
 every plugin tool and the service against it, and records what each step
 actually measured.

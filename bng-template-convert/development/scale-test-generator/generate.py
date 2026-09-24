@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.join(HERE, '..', '..', 'plugin',
 from gpkg_common import (register_spatial_functions,                   # noqa: E402
                          update_layer_extent)
 from corridor_mesh import CorridorMesh                                 # noqa: E402
+from dropdown_check import check_site, report                       # noqa: E402
 from corridor_writers import (write_area_habitats, write_hedgerows,    # noqa: E402
                               write_redline, write_trees,
                               write_watercourses)
@@ -144,6 +145,16 @@ def main(argv=None):
         print(f'{name:14s} {counts}')
     size = os.path.getsize(TARGET) / (1024 * 1024)
     print(f'\nwritten {TARGET}  ({size:.1f} MB)')
+
+    # Every value is written straight into the GeoPackage, never through a
+    # drop-down, so check each one against the list QGIS would have offered.
+    # A value the template cannot hold makes the site a bad example of it.
+    invalid = check_site(WORKING_DIR)
+    if invalid:
+        print('\nvalues the template\'s drop-downs would not offer:')
+        report(invalid)
+        sys.exit(1)
+    print('every drop-down value is one the template offers')
 
 
 if __name__ == '__main__':

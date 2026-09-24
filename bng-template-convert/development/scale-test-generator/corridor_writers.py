@@ -224,7 +224,7 @@ def write_hedgerows(conn, mesh):
         length = line_length(points)
         base_length += length
         hedge_type = lin._pick(lin.HEDGE_TYPES, _hash01(seed, 1301))
-        condition = lin._pick(lin.HEDGE_CONDITIONS, _hash01(seed, 1303))
+        condition = lin.hedge_condition(hedge_type, _hash01(seed, 1303))
         significance = lin.significance(seed)
         feature_uuid = uid(f'hedge/{ref}')
         blob = gw.line_blob(points)
@@ -246,12 +246,16 @@ def write_hedgerows(conn, mesh):
             child_seed = seed * 37 + number
             enhance = _hash01(child_seed, 1307) < 0.32
             target = lin.HEDGE_ENHANCEMENT.get(hedge_type) if enhance else None
-            if target:
+            improved = 'Good' if condition == 'Moderate' else 'Moderate'
+            if (target and lin.hedge_can_become(hedge_type, 'Enhanced', target)
+                    and lin.hedge_condition_allowed(target, 'Good')):
                 retention, proposed = 'Enhanced', target
                 proposed_condition = 'Good'
-            elif enhance and condition != 'Good':
+            elif (enhance and condition != 'Good'
+                  and lin.hedge_can_become(hedge_type, 'Enhanced', hedge_type)
+                  and lin.hedge_condition_allowed(hedge_type, improved)):
                 retention, proposed = 'Enhanced', hedge_type
-                proposed_condition = 'Good' if condition == 'Moderate' else 'Moderate'
+                proposed_condition = improved
             else:
                 retention, proposed, proposed_condition = ('Retained', hedge_type,
                                                            condition)
@@ -438,7 +442,7 @@ def write_trees(conn, mesh):
         band = sc.band_for(mesh, int(station), int(lane))
         setting = 'Urban tree' if band == 3 else 'Rural tree'
         condition = lin._pick(lin.TREE_CONDITIONS, _hash01(seed, 1907))
-        significance = lin.significance(seed)
+        significance = lin.tree_significance(seed)
         count = 1 if _hash01(seed, 1913) < 0.88 else 2
         feature_uuid = uid(f'tree/{ref}')
         blob = gw.point_blob(point)
@@ -486,7 +490,7 @@ def write_trees(conn, mesh):
             'N/A', 'N/A', 'N/A', 'Created', size, 'Native',
             'Urban tree' if zone == sc.MITIGATION and
             _hash01(seed, 2027) < 0.12 else 'Rural tree', proposed_condition,
-            lin.significance(seed), 'Newly Planted', advance, delay, ON_SITE,
+            lin.tree_significance(seed), 'Newly Planted', advance, delay, ON_SITE,
             1, None, None, None))
 
     insert_many(conn, 'Trees Baseline', TREE_BASE_COLS, base_rows)
