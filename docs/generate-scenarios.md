@@ -33,6 +33,14 @@ met / unmet 10% net gain, trading rules (see the matrix below), advance and
 delay years, data completeness, and invalid interventions. Each row of
 `index.md` names the feature a tester should open to exercise the scenario.
 
+**Only a file named `invalid-…` holds invalid data.** A scenario that
+deliberately contains data the metric rejects (an enhancement that lowers
+condition, a culvert enhanced, proposed data left blank) has an id starting
+`invalid-`, so its files do too, and it states which errors it expects.
+Every other scenario is valid throughout, including the features the
+generator fills in at random around the one being tested. See *Valid and
+invalid data*.
+
 Every scenario is checked as it is built: the two GeoPackages must share a
 redline, the scenario's subject feature must be present, and a net-gain
 scenario must land on its expected side of 10% when priced through our own
@@ -198,11 +206,9 @@ encroachment, `Minor/No Encroachment` versus `Minor/ No Encroachment`), the
 translation is listed explicitly in bng-library's `WORKBOOK_SPELLINGS`.
 Anything else is reported, not converted.
 
-Random filler features in the older scenarios regularly produce inputs that
-the metric's lists do not offer. The synthetic generator allows them; the
-metric does not. Examples: a culvert in anything but Poor condition, an
-enhanced culvert, and a non-native hedgerow in Moderate condition. Each one is
-a place where the service and the metric may part company.
+In a scenario not named `invalid-`, any rejected input fails the run (see
+*Valid and invalid data*). In an `invalid-` one, the scenario says which
+inputs must be rejected.
 
 ### The trading-rule matrix
 
@@ -263,6 +269,37 @@ When the change is merged in bng-library, bump the `bng-library` pin in
 should follow, refresh them as shown under *GeoPackages only*, and update the
 trading-rule table above if the matrix changed.
 
+### Valid and invalid data
+
+A scenario tests one feature, its subject. The generator fills the rest of
+the site with random features, and those are drawn from what the metric
+itself accepts, using its reference tables: a condition the habitat can
+have, a creation in a condition it can be created in, an enhancement that
+improves on the baseline and that the metric can make, encroachment that
+does not worsen. Culverts and non-native hedgerows, which the metric does not
+let you enhance, are never enhanced.
+
+So invalid data only appears where a scenario pins it, and such a scenario
+is named for it:
+
+| Scenario | Holds invalid data | Checked |
+| --- | --- | --- |
+| id starts `invalid-` | Yes, deliberately | The errors it declares are raised on its subject |
+| any other | No | *valid data*: no metric error on any row and no rejected input |
+
+A metric error is a row warning marked ▲ (`Error - Can not reduce condition
+▲`, `Not Possible ▲`), a `Check Data` warning, or an Excel error value. A ⚠
+`Check details …` note, such as asking for evidence that habitat created in
+advance is in place, is advice about valid data and does not count. Two
+hidden columns are ignored because their messages are not about the input:
+A-1's broken "Succession" check and A-2's "Time to Poor condition" helper,
+which shows `Not Possible` for any habitat with no Poor condition.
+
+The catalogue enforces the naming: an `invalid-` scenario that declares no
+expected errors, or any other scenario that declares some, stops the load.
+The valid-data check needs the recalculated workbook, so `--no-workbooks`
+and `--no-recalc` skip it.
+
 ### Scenario expectations
 
 The `invalid-interventions` and `trading-rules` scenarios isolate their subject
@@ -272,9 +309,9 @@ metric should make of it:
 | Field | Meaning |
 | --- | --- |
 | `expectGain` | `met` or `unmet`: the area net gain against the workbook's target |
-| `expectMetricWarnings` | Text of warnings the metric must raise on the subject feature |
+| `expectMetricWarnings` | Text of warnings the metric must raise on the subject feature; `invalid-` scenarios only |
 | `expectTrading` | Each distinctiveness band's trading-rule verdict, `met` or `breached`, per habitat type |
-| `expectRejectedInputs` | Subject inputs the workbook must not accept, as `sheet.field` |
+| `expectRejectedInputs` | Subject inputs the workbook must not accept, as `sheet.field`; `invalid-` scenarios only |
 
 If a check fails, the command exits non-zero. A scenario that no longer
 demonstrates what it claims to is caught before anyone compares a service run

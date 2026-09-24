@@ -1,4 +1,7 @@
 {
+  "seed": 1,
+  "template": null,
+  "recalculated": false,
   "scenarios": [
     {
       "id": "intervention-area-retained",
@@ -15,7 +18,8 @@
         "baseline": "intervention/area-retained-baseline.gpkg",
         "postIntervention": "intervention/area-retained-post-intervention.gpkg"
       },
-      "gain": null
+      "gain": null,
+      "checks": []
     },
     {
       "id": "intervention-area-enhanced",
@@ -32,7 +36,8 @@
         "baseline": "intervention/area-enhanced-baseline.gpkg",
         "postIntervention": "intervention/area-enhanced-post-intervention.gpkg"
       },
-      "gain": null
+      "gain": null,
+      "checks": []
     },
     {
       "id": "intervention-area-created",
@@ -49,7 +54,8 @@
         "baseline": "intervention/area-created-baseline.gpkg",
         "postIntervention": "intervention/area-created-post-intervention.gpkg"
       },
-      "gain": null
+      "gain": null,
+      "checks": []
     },
     {
       "id": "intervention-hedgerow-retained",
@@ -66,7 +72,8 @@
         "baseline": "intervention/hedgerow-retained-baseline.gpkg",
         "postIntervention": "intervention/hedgerow-retained-post-intervention.gpkg"
       },
-      "gain": null
+      "gain": null,
+      "checks": []
     },
     {
       "id": "intervention-hedgerow-enhanced",
@@ -83,7 +90,8 @@
         "baseline": "intervention/hedgerow-enhanced-baseline.gpkg",
         "postIntervention": "intervention/hedgerow-enhanced-post-intervention.gpkg"
       },
-      "gain": null
+      "gain": null,
+      "checks": []
     },
     {
       "id": "intervention-hedgerow-created",
@@ -100,7 +108,8 @@
         "baseline": "intervention/hedgerow-created-baseline.gpkg",
         "postIntervention": "intervention/hedgerow-created-post-intervention.gpkg"
       },
-      "gain": null
+      "gain": null,
+      "checks": []
     },
     {
       "id": "intervention-watercourse-retained",
@@ -117,7 +126,8 @@
         "baseline": "intervention/watercourse-retained-baseline.gpkg",
         "postIntervention": "intervention/watercourse-retained-post-intervention.gpkg"
       },
-      "gain": null
+      "gain": null,
+      "checks": []
     },
     {
       "id": "intervention-watercourse-enhanced",
@@ -134,7 +144,8 @@
         "baseline": "intervention/watercourse-enhanced-baseline.gpkg",
         "postIntervention": "intervention/watercourse-enhanced-post-intervention.gpkg"
       },
-      "gain": null
+      "gain": null,
+      "checks": []
     },
     {
       "id": "intervention-watercourse-created",
@@ -151,7 +162,134 @@
         "baseline": "intervention/watercourse-created-baseline.gpkg",
         "postIntervention": "intervention/watercourse-created-post-intervention.gpkg"
       },
-      "gain": null
+      "gain": null,
+      "checks": []
+    },
+    {
+      "id": "invalid-area-condition-reduced",
+      "purpose": "invalid-interventions",
+      "title": "Area habitat — enhancement that lowers condition",
+      "description": "H001 is \"enhanced\" from Moderate to Poor condition, same habitat. The metric does not allow an enhancement to reduce condition.",
+      "size": 2,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "enhanced parcel whose condition drops"
+      },
+      "files": {
+        "baseline": "invalid-interventions/invalid-area-condition-reduced-baseline.gpkg",
+        "postIntervention": "invalid-interventions/invalid-area-condition-reduced-post-intervention.gpkg"
+      },
+      "gain": null,
+      "checks": []
+    },
+    {
+      "id": "invalid-area-no-enhancement",
+      "purpose": "invalid-interventions",
+      "title": "Area habitat — enhancement that changes nothing",
+      "description": "H001 is \"enhanced\" with the same habitat and the same Moderate condition — an enhancement that enhances nothing.",
+      "size": 2,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "enhanced parcel with no change"
+      },
+      "files": {
+        "baseline": "invalid-interventions/invalid-area-no-enhancement-baseline.gpkg",
+        "postIntervention": "invalid-interventions/invalid-area-no-enhancement-post-intervention.gpkg"
+      },
+      "gain": null,
+      "checks": []
+    },
+    {
+      "id": "invalid-area-trading-down",
+      "purpose": "invalid-interventions",
+      "title": "Area habitat — enhancement to a lower distinctiveness",
+      "description": "H001 is \"enhanced\" from a Medium-distinctiveness habitat to a Low one. An enhancement may not trade down.",
+      "size": 2,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "Medium → Low distinctiveness enhancement"
+      },
+      "files": {
+        "baseline": "invalid-interventions/invalid-area-trading-down-baseline.gpkg",
+        "postIntervention": "invalid-interventions/invalid-area-trading-down-post-intervention.gpkg"
+      },
+      "gain": null,
+      "checks": []
+    },
+    {
+      "id": "invalid-area-advance-and-delay",
+      "purpose": "invalid-interventions",
+      "title": "Created habitat — both advance and delay years",
+      "description": "H001 is created 2 years in advance and also delayed by 3 years. The metric allows one or the other, never both.",
+      "size": 2,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "created parcel with advance and delay both set"
+      },
+      "files": {
+        "baseline": "invalid-interventions/invalid-area-advance-and-delay-baseline.gpkg",
+        "postIntervention": "invalid-interventions/invalid-area-advance-and-delay-post-intervention.gpkg"
+      },
+      "gain": null,
+      "checks": []
+    },
+    {
+      "id": "invalid-hedgerow-condition-reduced",
+      "purpose": "invalid-interventions",
+      "title": "Hedgerow — enhancement that lowers condition",
+      "description": "Every hedgerow is \"enhanced\" from Good to Poor condition. The metric does not allow an enhancement to reduce condition.",
+      "size": 1,
+      "subject": {
+        "layer": "Hedgerows",
+        "ref": "HG001",
+        "note": "enhanced hedgerow whose condition drops"
+      },
+      "files": {
+        "baseline": "invalid-interventions/invalid-hedgerow-condition-reduced-baseline.gpkg",
+        "postIntervention": "invalid-interventions/invalid-hedgerow-condition-reduced-post-intervention.gpkg"
+      },
+      "gain": null,
+      "checks": []
+    },
+    {
+      "id": "invalid-watercourse-culvert-enhanced",
+      "purpose": "invalid-interventions",
+      "title": "Watercourse — an enhanced culvert",
+      "description": "R001 is a culvert, \"enhanced\" in place. The metric has no enhancement for a culvert: its enhancement sheet does not offer the type at all.",
+      "size": 1,
+      "subject": {
+        "layer": "Rivers",
+        "ref": "R001",
+        "note": "an enhanced culvert"
+      },
+      "files": {
+        "baseline": "invalid-interventions/invalid-watercourse-culvert-enhanced-baseline.gpkg",
+        "postIntervention": "invalid-interventions/invalid-watercourse-culvert-enhanced-post-intervention.gpkg"
+      },
+      "gain": null,
+      "checks": []
+    },
+    {
+      "id": "invalid-watercourse-encroachment-worsened",
+      "purpose": "invalid-interventions",
+      "title": "Watercourse — enhancement that worsens encroachment",
+      "description": "Both ditches are \"enhanced\" to Good condition while their encroachment goes from none to Major on the channel and both banks, so the enhancement delivers fewer units than the baseline.",
+      "size": 1,
+      "subject": {
+        "layer": "Rivers",
+        "ref": "R001",
+        "note": "enhanced ditch with worsened encroachment"
+      },
+      "files": {
+        "baseline": "invalid-interventions/invalid-watercourse-encroachment-worsened-baseline.gpkg",
+        "postIntervention": "invalid-interventions/invalid-watercourse-encroachment-worsened-post-intervention.gpkg"
+      },
+      "gain": null,
+      "checks": []
     },
     {
       "id": "conditions-area-spread",
@@ -168,7 +306,8 @@
         "baseline": "conditions/area-spread-baseline.gpkg",
         "postIntervention": "conditions/area-spread-post-intervention.gpkg"
       },
-      "gain": null
+      "gain": null,
+      "checks": []
     },
     {
       "id": "strategic-significance-spread",
@@ -185,7 +324,8 @@
         "baseline": "strategic-significance/spread-baseline.gpkg",
         "postIntervention": "strategic-significance/spread-post-intervention.gpkg"
       },
-      "gain": null
+      "gain": null,
+      "checks": []
     },
     {
       "id": "net-gain-met",
@@ -204,14 +344,22 @@
       },
       "gain": {
         "expected": "met",
-        "percentage": 293.00815274999957,
-        "netUnitChange": 385.1697650833735,
-        "baselineUnits": 131.45360000000002,
-        "postInterventionUnits": 516.6233650833735,
+        "percentage": 293.00815275,
+        "netUnitChange": 343.16235825621754,
+        "baselineUnits": 117.11699999999999,
+        "postInterventionUnits": 460.27935825621756,
         "met": true,
         "priced": 6,
         "skipped": 0
-      }
+      },
+      "checks": [
+        {
+          "check": "net gain (our engine)",
+          "expected": "met",
+          "actual": "met",
+          "passed": true
+        }
+      ]
     },
     {
       "id": "net-gain-unmet",
@@ -232,12 +380,20 @@
         "expected": "unmet",
         "percentage": 0,
         "netUnitChange": 0,
-        "baselineUnits": 444.97200000000004,
-        "postInterventionUnits": 444.97200000000004,
+        "baselineUnits": 364.3864,
+        "postInterventionUnits": 364.3864,
         "met": false,
         "priced": 6,
         "skipped": 0
-      }
+      },
+      "checks": [
+        {
+          "check": "net gain (our engine)",
+          "expected": "unmet",
+          "actual": "unmet",
+          "passed": true
+        }
+      ]
     },
     {
       "id": "trading-low-to-medium",
@@ -254,7 +410,206 @@
         "baseline": "trading-rules/trading-low-to-medium-baseline.gpkg",
         "postIntervention": "trading-rules/trading-low-to-medium-post-intervention.gpkg"
       },
-      "gain": null
+      "gain": null,
+      "checks": []
+    },
+    {
+      "id": "trading-all-met",
+      "purpose": "trading-rules",
+      "title": "Trading rules — nothing lost, every rule met",
+      "description": "Control. Area: parcels retained and one enhanced. Hedgerows: retained and one enhanced. Watercourses: a canal retained, a ditch enhanced. Every trading rule is met.",
+      "size": 3,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "the first area parcel; see the description for every layer"
+      },
+      "files": {
+        "baseline": "trading-rules/trading-all-met-baseline.gpkg",
+        "postIntervention": "trading-rules/trading-all-met-post-intervention.gpkg"
+      },
+      "gain": null,
+      "checks": []
+    },
+    {
+      "id": "trading-like-for-like",
+      "purpose": "trading-rules",
+      "title": "Trading rules — like-for-like replacement, enough units",
+      "description": "Area: a Medium grassland is lost and two Medium grasslands created (same broad habitat). Hedgerows: a Medium hedgerow in Poor condition is lost and two Medium hedgerows created. Watercourses: a poor, encroached ditch is lost and a ditch in Good condition created. Every rule is met.",
+      "size": 3,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "the first area parcel; see the description for every layer"
+      },
+      "files": {
+        "baseline": "trading-rules/trading-like-for-like-baseline.gpkg",
+        "postIntervention": "trading-rules/trading-like-for-like-post-intervention.gpkg"
+      },
+      "gain": null,
+      "checks": []
+    },
+    {
+      "id": "trading-too-few-units",
+      "purpose": "trading-rules",
+      "title": "Trading rules — right habitat, too few units",
+      "description": "Area: a Medium grassland is replaced one-for-one by another Medium grassland, which, discounted for the years it takes to reach condition, delivers fewer units than were lost. Hedgerows: a Medium hedgerow in Good condition is replaced by another planted ten years late and left in Poor condition. Watercourses: a ditch is replaced by one dug ten years late and left in Poor condition. Each replacement is the right habitat but too small a one, so each Medium rule is breached.",
+      "size": 2,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "the first area parcel; see the description for every layer"
+      },
+      "files": {
+        "baseline": "trading-rules/trading-too-few-units-baseline.gpkg",
+        "postIntervention": "trading-rules/trading-too-few-units-post-intervention.gpkg"
+      },
+      "gain": null,
+      "checks": []
+    },
+    {
+      "id": "trading-wrong-habitat",
+      "purpose": "trading-rules",
+      "title": "Trading rules — enough units, wrong habitat",
+      "description": "Area: a Medium grassland is lost and two Medium heathlands created — more units than were lost, but a different broad habitat. Hedgerows: a Medium hedgerow is lost and two Low hedgerows created. Watercourses: a poor, encroached ditch is lost and a canal created. Each Medium rule is breached however many units the replacement brings.",
+      "size": 3,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "the first area parcel; see the description for every layer"
+      },
+      "files": {
+        "baseline": "trading-rules/trading-wrong-habitat-baseline.gpkg",
+        "postIntervention": "trading-rules/trading-wrong-habitat-post-intervention.gpkg"
+      },
+      "gain": null,
+      "checks": []
+    },
+    {
+      "id": "trading-trade-down",
+      "purpose": "trading-rules",
+      "title": "Trading rules — replaced by a lower distinctiveness",
+      "description": "Area: a Medium grassland is replaced by a Low one. Hedgerows: a Low hedgerow is replaced by two non-native (Very Low) hedgerows. Watercourses: a ditch (Medium) is replaced by a culvert (Low). The rule for the band that was lost is breached — a surplus lower down never makes good a loss higher up.",
+      "size": 2,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "the first area parcel; see the description for every layer"
+      },
+      "files": {
+        "baseline": "trading-rules/trading-trade-down-baseline.gpkg",
+        "postIntervention": "trading-rules/trading-trade-down-post-intervention.gpkg"
+      },
+      "gain": null,
+      "checks": []
+    },
+    {
+      "id": "trading-trade-up",
+      "purpose": "trading-rules",
+      "title": "Trading rules — replaced by a higher distinctiveness",
+      "description": "Area: a Low grassland is replaced by a Medium one. Hedgerows: a Low hedgerow is replaced by two Medium hedgerows. Watercourses: a culvert (Low) is replaced by a ditch (Medium). Trading up is always allowed, so every rule is met.",
+      "size": 2,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "the first area parcel; see the description for every layer"
+      },
+      "files": {
+        "baseline": "trading-rules/trading-trade-up-baseline.gpkg",
+        "postIntervention": "trading-rules/trading-trade-up-post-intervention.gpkg"
+      },
+      "gain": null,
+      "checks": []
+    },
+    {
+      "id": "trading-low-for-low",
+      "purpose": "trading-rules",
+      "title": "Trading rules — Low replaced by Low in another habitat",
+      "description": "Area: a Low grassland is replaced by Low urban allotments — a different broad habitat, which the Low rule allows. Hedgerows: a non-native (Very Low) hedgerow is replaced by a native one (Low). Both rules are met.",
+      "size": 2,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "the first area parcel; see the description for every layer"
+      },
+      "files": {
+        "baseline": "trading-rules/trading-low-for-low-baseline.gpkg",
+        "postIntervention": "trading-rules/trading-low-for-low-post-intervention.gpkg"
+      },
+      "gain": null,
+      "checks": []
+    },
+    {
+      "id": "trading-lost-to-development",
+      "purpose": "trading-rules",
+      "title": "Trading rules — lost to development, nothing in its place",
+      "description": "Area: a Low grassland is built over (Very Low sealed surface, which the metric gives no units). Hedgerows: a non-native (Very Low) hedgerow is removed. Nothing replaces either, so the Low area rule and the Very Low hedgerow rule are breached.",
+      "size": 2,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "the first area parcel; see the description for every layer"
+      },
+      "files": {
+        "baseline": "trading-rules/trading-lost-to-development-baseline.gpkg",
+        "postIntervention": "trading-rules/trading-lost-to-development-post-intervention.gpkg"
+      },
+      "gain": null,
+      "checks": []
+    },
+    {
+      "id": "trading-lower-deficit-covered-from-above",
+      "purpose": "trading-rules",
+      "title": "Trading rules — a Low deficit made good by a Medium surplus",
+      "description": "Area: a Low grassland is built over, while two Medium grasslands are improved from Poor to Good. Hedgerows: a Low hedgerow is lost while two Medium hedgerows are improved. A surplus may be carried down to a lower band, so every rule is met.",
+      "size": 3,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "the first area parcel; see the description for every layer"
+      },
+      "files": {
+        "baseline": "trading-rules/trading-lower-deficit-covered-from-above-baseline.gpkg",
+        "postIntervention": "trading-rules/trading-lower-deficit-covered-from-above-post-intervention.gpkg"
+      },
+      "gain": null,
+      "checks": []
+    },
+    {
+      "id": "trading-higher-deficit-not-covered-from-below",
+      "purpose": "trading-rules",
+      "title": "Trading rules — a Medium deficit beside a Low surplus",
+      "description": "Area: a Medium grassland is replaced by a Low one, while two Low grasslands are improved from Poor to Good. Hedgerows: a Medium hedgerow is lost while two Low hedgerows are improved. A surplus cannot be carried up, so the Medium rules are breached and the Low ones met. This is also the case the published metric totals wrongly: its cumulative surplus is reported uncorrected.",
+      "size": 3,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "the first area parcel; see the description for every layer"
+      },
+      "files": {
+        "baseline": "trading-rules/trading-higher-deficit-not-covered-from-below-baseline.gpkg",
+        "postIntervention": "trading-rules/trading-higher-deficit-not-covered-from-below-post-intervention.gpkg"
+      },
+      "gain": null,
+      "checks": []
+    },
+    {
+      "id": "trading-surplus-in-another-broad-habitat",
+      "purpose": "trading-rules",
+      "title": "Trading rules — a Medium surplus in one broad habitat, a deficit in another",
+      "description": "Area: three Medium grasslands are improved from Poor to Good, a large Medium surplus, while a Medium heathland is replaced by a Low grassland. The Medium rule is met habitat by habitat, so the grassland surplus cannot make good the heathland loss and the rule is breached despite the net gain.",
+      "size": 4,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "the first area parcel; see the description for every layer"
+      },
+      "files": {
+        "baseline": "trading-rules/trading-surplus-in-another-broad-habitat-baseline.gpkg",
+        "postIntervention": "trading-rules/trading-surplus-in-another-broad-habitat-post-intervention.gpkg"
+      },
+      "gain": null,
+      "checks": []
     },
     {
       "id": "advance-delay-created-advance",
@@ -271,7 +626,8 @@
         "baseline": "advance-delay/created-advance-baseline.gpkg",
         "postIntervention": "advance-delay/created-advance-post-intervention.gpkg"
       },
-      "gain": null
+      "gain": null,
+      "checks": []
     },
     {
       "id": "advance-delay-created-delay",
@@ -288,7 +644,8 @@
         "baseline": "advance-delay/created-delay-baseline.gpkg",
         "postIntervention": "advance-delay/created-delay-post-intervention.gpkg"
       },
-      "gain": null
+      "gain": null,
+      "checks": []
     },
     {
       "id": "data-complete",
@@ -305,13 +662,14 @@
         "baseline": "data-completeness/data-complete-baseline.gpkg",
         "postIntervention": "data-completeness/data-complete-post-intervention.gpkg"
       },
-      "gain": null
+      "gain": null,
+      "checks": []
     },
     {
-      "id": "data-incomplete-mix",
+      "id": "invalid-data-incomplete",
       "purpose": "data-completeness",
-      "title": "Mixed complete and incomplete data",
-      "description": "The first three parcels are complete; the last three are incomplete (blank proposed condition and strategic significance).",
+      "title": "Invalid: mixed complete and incomplete data",
+      "description": "Deliberately invalid. The first three parcels are complete; the last three are enhancements with a blank proposed condition and strategic significance, which the metric does not accept, so those rows generate no units.",
       "size": 6,
       "subject": {
         "layer": "Habitats",
@@ -319,10 +677,11 @@
         "note": "H004–H006 have blank proposed data"
       },
       "files": {
-        "baseline": "data-completeness/data-incomplete-mix-baseline.gpkg",
-        "postIntervention": "data-completeness/data-incomplete-mix-post-intervention.gpkg"
+        "baseline": "data-completeness/invalid-data-incomplete-baseline.gpkg",
+        "postIntervention": "data-completeness/invalid-data-incomplete-post-intervention.gpkg"
       },
-      "gain": null
+      "gain": null,
+      "checks": []
     }
   ]
 }

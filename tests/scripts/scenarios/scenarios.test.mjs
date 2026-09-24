@@ -341,7 +341,9 @@ describe.skipIf(!hasTemplate)("buildScenarioCorpus — with workbooks", () => {
       expect(folder).toContain(path.basename(entry.files.workbook));
       expect(folder).toContain(path.basename(entry.files.baseline));
     }
-    expect(entries[1].inputRows.habitatEnhancement).toBe(1);
+    // H001's pinned enhancement; its other parcel is pinned Retained.
+    const tradingDown = entries.find((e) => e.id === "invalid-area-trading-down");
+    expect(tradingDown.inputRows.habitatEnhancement).toBe(1);
   });
 
   it("lints each workbook, and records the lint as a passing check", async () => {
