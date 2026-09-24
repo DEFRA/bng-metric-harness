@@ -54,12 +54,21 @@ Excel*). A failed check is reported and the command exits non-zero.
 `--no-workbooks` skips the workbooks: no template and no LibreOffice are
 needed, and it takes a few seconds. The engine and file checks still run.
 
-The fixtures committed to `example-files/permutations/` are this output. To
-refresh them:
+### The committed fixtures
+
+`example-files/permutations/` holds a full run at seed 1: each scenario's
+GeoPackage pair and its metric workbook, with `manifest.json` and `index.md`
+carrying the metric's recalculated results. A tester can open the workbook
+beside the files they upload without generating anything. To refresh them:
 
 ```sh
-npm run generate:scenarios -- --no-workbooks --outdir example-files/permutations --seed 1
+npm run generate:scenarios -- --outdir example-files/permutations --seed 1
 ```
+
+The output is byte-reproducible, so a refresh only changes the files whose
+scenario, template or library changed. The workbooks are about 3.4 MB each on
+disk, but they differ from one another only in a few sheets, so git's delta
+compression stores all of them in under 10 MB.
 
 ### Why the answers can be trusted
 
@@ -291,7 +300,7 @@ npm run generate:scenarios -- --scenario <id>          # build just that one
 
 When the change is merged in bng-library, bump the `bng-library` pin in
 `package.json`. If the committed fixtures in `example-files/permutations/`
-should follow, refresh them as shown under *GeoPackages only*, and update the
+should follow, refresh them as shown under *The committed fixtures*, and update the
 trading-rule table above if the matrix changed.
 
 ### Valid and invalid data

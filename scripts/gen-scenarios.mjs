@@ -67,7 +67,7 @@ Usage: npm run generate:scenarios -- [options]
   -h, --help        Show this help.
 
 Refresh the committed fixtures in example-files/permutations with:
-  npm run generate:scenarios -- --no-workbooks --outdir example-files/permutations
+  npm run generate:scenarios -- --outdir example-files/permutations --seed 1
 `;
 
 const { values: args } = parseArgs({
