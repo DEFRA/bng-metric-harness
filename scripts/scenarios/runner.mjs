@@ -274,7 +274,7 @@ function attachResults(entry, scenario, results) {
   entry.metric = {
     headline: results.headline,
     trading: results.trading,
-    uncorrected: results.uncorrected,
+    corrected: results.corrected,
     sheetWarnings: uniqueSheetWarnings(results.sheetWarnings),
     rowWarnings: groupWarnings(results.rowWarnings),
   };

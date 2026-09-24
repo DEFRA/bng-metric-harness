@@ -285,6 +285,8 @@ describe("writeScenarioManifest", () => {
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
     expect(manifest.recalculated).toBe(true);
     expect(manifest.template).toBe("metric.xlsx");
+    expect(manifest.corrections.map((c) => c.ref)).toContain("K91");
+    expect(index).toContain("known bugs are corrected");
   });
 
   it("drops the metric columns for GeoPackages only", () => {
@@ -298,6 +300,7 @@ describe("writeScenarioManifest", () => {
     expect(index).not.toContain("Trading rules not met");
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
     expect(manifest.template).toBeNull();
+    expect(manifest.corrections).toEqual([]);
     expect(manifest.recalculated).toBe(false);
   });
 });

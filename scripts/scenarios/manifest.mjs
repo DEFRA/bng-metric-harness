@@ -6,6 +6,7 @@
 
 import { writeFileSync } from "node:fs";
 import path from "node:path";
+import { METRIC_CORRECTIONS } from "#workbook-writer";
 
 export const MANIFEST_FILE = "manifest.json";
 const INDEX_FILE = "index.md";
@@ -139,7 +140,7 @@ function describeRun({ entries, seed, templatePath, recalculated }) {
   } else if (recalculated) {
     lines.push(
       "",
-      `Each scenario also has a metric workbook, written into \`${path.basename(templatePath)}\` and recalculated. Its figures are the metric's own, from its unmodified formulas — including its known cumulative-surplus error, which is deliberately not corrected. *Warnings* counts distinct warnings the metric shows on feature rows; *Rejected inputs* counts values the workbook's own drop-down lists do not offer.`,
+      `Each scenario also has a metric workbook, written into \`${path.basename(templatePath)}\` and recalculated. Its figures are the metric's own, from Defra's formulas, except that the metric's known bugs are corrected: \`corrections\` in \`manifest.json\` lists each one. *Warnings* counts distinct warnings the metric shows on feature rows; *Rejected inputs* counts values the workbook's own drop-down lists do not offer.`,
     );
   } else {
     lines.push(
@@ -183,6 +184,7 @@ export function writeScenarioManifest(outDir, run) {
   const manifest = {
     seed: run.seed,
     template: run.templatePath ? path.basename(run.templatePath) : null,
+    corrections: run.templatePath ? METRIC_CORRECTIONS : [],
     recalculated: run.entries.every((e) => e.metric),
     scenarios: run.entries,
   };

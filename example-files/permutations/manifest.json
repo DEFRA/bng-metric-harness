@@ -1,6 +1,7 @@
 {
   "seed": 1,
   "template": null,
+  "corrections": [],
   "recalculated": false,
   "scenarios": [
     {
@@ -579,7 +580,7 @@
       "id": "trading-higher-deficit-not-covered-from-below",
       "purpose": "trading-rules",
       "title": "Trading rules — a Medium deficit beside a Low surplus",
-      "description": "Area: a Medium grassland is replaced by a Low one, while two Low grasslands are improved from Poor to Good. Hedgerows: a Medium hedgerow is lost while two Low hedgerows are improved. A surplus cannot be carried up, so the Medium rules are breached and the Low ones met. This is also the case the published metric totals wrongly: its cumulative surplus is reported uncorrected.",
+      "description": "Area: a Medium grassland is replaced by a Low one, while two Low grasslands are improved from Poor to Good. Hedgerows: a Medium hedgerow is lost while two Low hedgerows are improved. A surplus cannot be carried up, so the Medium rules are breached and the Low ones met.",
       "size": 3,
       "subject": {
         "layer": "Habitats",
@@ -607,6 +608,24 @@
       "files": {
         "baseline": "trading-rules/trading-surplus-in-another-broad-habitat-baseline.gpkg",
         "postIntervention": "trading-rules/trading-surplus-in-another-broad-habitat-post-intervention.gpkg"
+      },
+      "gain": null,
+      "checks": []
+    },
+    {
+      "id": "trading-low-deficit-covered-beside-medium-deficit",
+      "purpose": "trading-rules",
+      "title": "Trading rules — a Low deficit made good by a Medium surplus, beside a Medium deficit",
+      "description": "Area: a Low grassland is enhanced into a Medium one, so the Low band loses units and the Medium grassland gains more, while two Medium heathlands are built over. The heathland deficit breaches the Medium rule, as no other Medium broad habitat may make it good, but the grassland surplus still covers the Low loss, so the Low rule is met. This is the case the published metric gets wrong: it nets the heathland deficit off the grassland surplus before offering it to the Low band, and so reports the Low rule breached. The workbooks correct that bug (METRIC_CORRECTIONS in the workbook writer).",
+      "size": 3,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "the Low grassland enhanced into a Medium one; see the description"
+      },
+      "files": {
+        "baseline": "trading-rules/trading-low-deficit-covered-beside-medium-deficit-baseline.gpkg",
+        "postIntervention": "trading-rules/trading-low-deficit-covered-beside-medium-deficit-post-intervention.gpkg"
       },
       "gain": null,
       "checks": []

@@ -65,13 +65,39 @@ npm run generate:scenarios -- --no-workbooks --outdir example-files/permutations
 
 A corpus built by writing *our* numbers into spreadsheets would only prove
 that the service agrees with itself. So the generator writes **inputs only**
-into a real copy of the Defra workbook, and never changes a formula. Once the
-workbook is recalculated, its figures are the metric's own.
+into a real copy of the Defra workbook. Once the workbook is recalculated, its
+figures are the metric's own.
 
-That rule applies to the metric's known defects too. The cumulative-surplus
-error is **not** corrected. `manifest.json` reports that figure as
-`uncorrected.areaCumulativeSurplus`, so nobody mistakes it for the corrected
-figure.
+### Known bugs in the metric are corrected
+
+The one exception to leaving the formulas alone: the published metric has
+known bugs, which the service corrects. A workbook that kept them would
+disagree with the service on every site they touch, and those expected
+discrepancies would hide the real ones. So each known bug is corrected in
+the one formula that makes it, and every other formula stays Defra's own.
+
+The corrections are listed in `METRIC_CORRECTIONS` (bng-library's
+`workbook-writer`). Each names the cell, the formula Defra published and the
+formula written in its place. `manifest.json` repeats them under
+`corrections`. If the template's formula in that cell isn't the published one
+the correction expects, for example because a newer Defra release changed it,
+the run stops. It doesn't patch a formula nobody has checked.
+
+| Bug | Cell | Published | Corrected |
+| --- | --- | --- | --- |
+| The Medium deficit is netted off the Medium surplus before it is offered to the Low band. The trading rules don't let one Medium broad habitat make good another, so the deficit must be offset by trading up and shouldn't also shrink what the Low band may use. The metric then reports the Low rule breached on sites where the service reports it met. | Trading Summary Area Habitats `K91`, the "Cumulative surplus of units" feeding `K123`, `K125` and the Low verdict `G8` | `K90+K88` | `IF(K90>0,K90,0)+K88` |
+
+The corrected sum is the Medium surplus carried down whole, plus any higher
+distinctiveness surplus left once the Medium deficit has been offset. It is
+the same sum the metric's own hedgerow summary makes (`I31`), and it matches
+the service's figure (bng-library `calculateAreaHabitatTradingRules`,
+`low.cumulativeAvailability`). `manifest.json` reports the corrected figure as
+`corrected.areaCumulativeSurplus`.
+
+`trading-low-deficit-covered-beside-medium-deficit` is the scenario the bug
+decides. With the correction the metric reports its area Low rule met, as the
+service does. The published formula reports it breached. That was checked
+over six seeds.
 
 One scenario, both artefacts: the workbook is written from the
 post-intervention GeoPackage, not from a separate description, so the two
@@ -230,12 +256,11 @@ states the verdict of every band in play:
 | `trading-lower-deficit-covered-from-above` | Low deficit, Medium surplus: met | Low deficit, Medium surplus: met | — |
 | `trading-higher-deficit-not-covered-from-below` | Medium deficit, Low surplus: **Medium breached**, Low met | Medium deficit, Low surplus: **Medium breached**, Low met | — |
 | `trading-surplus-in-another-broad-habitat` | grassland surplus, heathland deficit: **Medium breached** | — | — |
+| `trading-low-deficit-covered-beside-medium-deficit` | Low grassland enhanced into Medium grassland, Medium heathland built over: **Medium breached**, Low met (the published metric wrongly reports **Low breached**; see *Known bugs in the metric are corrected*) | — | — |
 | `trading-low-to-medium` | Low enhanced to Medium, with random other layers | | |
 
 Every rule is a test of units as well as of habitat: `trading-too-few-units`
-and `trading-wrong-habitat` separate the two. `trading-higher-deficit-not-covered-from-below`
-is also the case the published metric's cumulative surplus gets wrong,
-which `manifest.json` reports as `uncorrected.areaCumulativeSurplus`.
+and `trading-wrong-habitat` separate the two.
 
 High and Very High distinctiveness habitats are not covered: the service
 rejects them at upload. The verdicts hold across run seeds — each was checked
