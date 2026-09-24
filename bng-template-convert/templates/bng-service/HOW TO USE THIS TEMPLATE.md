@@ -283,6 +283,11 @@ no gaps and no overlaps**.
    | Area | **Leave it.** Filled in automatically and locked. |
    | Comment | Optional — notes about this parcel. The site-wide details (survey date, mapped by, …) live on the red line boundary (Part 2), not here. |
 
+   **Each list only offers what your earlier choices allow.** Change the
+   habitat type after picking a condition, and a condition the new habitat
+   does not allow is cleared: the field goes blank, so pick again. A value
+   that still fits is kept.
+
 6. Click **OK**. The parcel immediately takes on Natural England's standard
    UKHab colour and pattern for its habitat type. That is expected — and
    useful: a parcel whose colour looks wrong at a glance probably has the

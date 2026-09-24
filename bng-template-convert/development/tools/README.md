@@ -28,6 +28,7 @@ beside it first.
 | `qgz_actions.py` | Read and rewrite action bodies in a `.qgz`, byte-safely. The others build on this |
 | `rename_actions.py` | Strip the list numbers from the button names and store them in the order a user needs. Idempotent |
 | `run_actions_headless.py` | Run a button outside QGIS, standing in for the parts of the interface it uses, so its logic can be tested against a real site |
+| `reset_stale_dropdowns.py` | Give every filtered drop-down a rule that blanks its value when an earlier choice makes it invalid, instead of QGIS keeping it in brackets. Generated from each drop-down's own list and filter. Idempotent |
 | `check_metric_lookups.py` | Read a filled metric workbook and check every condition it holds against that workbook's own lookup rows |
 | `check_legacy_template.py` | Re-run the recorded findings about Natural England's template against a fresh download of it |
 
@@ -35,6 +36,8 @@ beside it first.
 
 ```sh
 python3 development/tools/rename_actions.py "templates/bng-service/BNG Service Habitat Mapping.qgz"
+
+python3 development/tools/reset_stale_dropdowns.py "templates/bng-service/BNG Service Habitat Mapping.qgz"
 
 python3 development/tools/check_metric_lookups.py "Filled metric.xlsm"
 ```
