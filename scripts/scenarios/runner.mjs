@@ -162,7 +162,7 @@ function countRows(rows) {
 function lintCheck(issues) {
   const quoted = issues
     .slice(0, LINT_ISSUES_QUOTED)
-    .map((i) => `${i.rule} ${i.part}${i.ref ? ` ${i.ref}` : ""}`);
+    .map((i) => [i.rule, i.part, i.ref].filter(Boolean).join(" "));
   const more =
     issues.length > LINT_ISSUES_QUOTED
       ? `, and ${issues.length - LINT_ISSUES_QUOTED} more`
@@ -185,9 +185,7 @@ function writeWorkbook(entry, piFile, outDir, workbook) {
   });
   writeFileSync(path.join(outDir, entry.files.workbook), buffer);
   entry.inputRows = countRows(rows);
-  entry.rejectedInputs = issues.map(
-    ({ allowed: _allowed, ...issue }) => issue,
-  );
+  entry.rejectedInputs = issues.map(({ allowed: _allowed, ...issue }) => issue);
   entry.notes = notes;
   const lint = lintWorkbook(buffer);
   entry.checks.push(lintCheck(lint));
