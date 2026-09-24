@@ -36,8 +36,9 @@ Every scenario is checked as it is built: the two GeoPackages must share a
 redline, the scenario's subject feature must be present, and a net-gain
 scenario must land on its expected side of 10% when priced through our own
 engine (`bng-library/metric`). With workbooks, the metric's own verdicts are
-checked too (see *Scenario expectations*). A failed check is reported and the
-command exits non-zero.
+checked too (see *Scenario expectations*), and every workbook is linted for
+the faults Excel would "repair" on opening (see *Opening the workbooks in
+Excel*). A failed check is reported and the command exits non-zero.
 
 ### GeoPackages only
 
@@ -150,6 +151,28 @@ generator seeds a private LibreOffice profile that forces recalculation. As a
 second guard, it strips every cached value from the workbook it writes, so a
 workbook that was never recalculated reads as empty rather than stale.
 
+### Opening the workbooks in Excel
+
+Excel checks a workbook's structure more strictly than LibreOffice or any
+spreadsheet library. A fault they read straight past makes Excel offer to
+"repair" the file, and a workbook that needs repairing is not one a tester
+should trust. So every workbook is linted as it is written, with
+`lintWorkbook` from `bng-library/workbook-writer`. It checks for:
+
+- a cached value that does not fit its cell's type, such as a space in a
+  numeric cell;
+- an entry in `xl/calcChain.xml`, Excel's list of formula cells, for a cell
+  that no longer holds a formula;
+- a broken shared formula, rows or cells out of order, and missing parts or
+  content types.
+
+The lint is recorded as a check (`workbook opens in Excel without repair
+(lint)`). A workbook with any fault fails the run, and `manifest.json` lists
+every fault under the scenario's `lintIssues`. Excel does not publish its
+repair rules, so the lint covers the faults this generator can introduce,
+not every file Excel might refuse. After a change to the workbook writer,
+open a few workbooks in Excel as well.
+
 ### Reading the results
 
 For each scenario, `manifest.json` records:
@@ -161,7 +184,8 @@ For each scenario, `manifest.json` records:
 | `metric.rowWarnings` | Every warning the metric shows on a feature's row (`Check Data ⚠`, `Error - Can not reduce condition ▲`, …), keyed to the feature's reference |
 | `metric.sheetWarnings` | Warnings in a sheet's summary block, which apply to the sheet as a whole |
 | `rejectedInputs` | Inputs the workbook's own drop-down lists do not offer; see below |
-| `checks` | The scenario's declared expectations, checked against the metric's verdict |
+| `checks` | The scenario's declared expectations, checked against the metric's verdict, and the workbook lint |
+| `lintIssues` | Only when the lint fails: every fault, as `{ rule, part, ref, message }` |
 
 **Rejected inputs are worth reading.** The metric's formulas wrap their
 lookups in `IFERROR`. So a value the workbook does not know, even one that

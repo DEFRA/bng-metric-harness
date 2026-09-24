@@ -36,6 +36,7 @@ import {
 import { openGeoPackageReadonly } from "#gpkg-io";
 import {
   checkScenarioExpectations,
+  lintWorkbook,
   readTemplateVocabulary,
   recalculateWorkbooks,
   workbookFromGeoPackage,
@@ -46,6 +47,8 @@ import { meetsNetGain, priceHabitats } from "./engine-units.mjs";
 
 // Report recalculation progress every this many workbooks.
 const PROGRESS_EVERY = 5;
+// Lint issues quoted in a failed check; the manifest keeps them all.
+const LINT_ISSUES_QUOTED = 3;
 const WORK_PREFIX = ".recalc-";
 
 /**
@@ -152,6 +155,28 @@ function countRows(rows) {
   );
 }
 
+/**
+ * The workbook lint as a check: the structural faults Excel "repairs" on
+ * opening, which LibreOffice and the recalculation read straight past.
+ */
+function lintCheck(issues) {
+  const quoted = issues
+    .slice(0, LINT_ISSUES_QUOTED)
+    .map((i) => `${i.rule} ${i.part}${i.ref ? ` ${i.ref}` : ""}`);
+  const more =
+    issues.length > LINT_ISSUES_QUOTED
+      ? `, and ${issues.length - LINT_ISSUES_QUOTED} more`
+      : "";
+  return {
+    check: "workbook opens in Excel without repair (lint)",
+    expected: "no issues",
+    actual: issues.length
+      ? `${issues.length} issue(s): ${quoted.join("; ")}${more}`
+      : "no issues",
+    passed: issues.length === 0,
+  };
+}
+
 function writeWorkbook(entry, piFile, outDir, workbook) {
   const { buffer, rows, issues, notes } = workbookFromGeoPackage({
     postInterventionPath: piFile,
@@ -164,6 +189,11 @@ function writeWorkbook(entry, piFile, outDir, workbook) {
     ({ allowed: _allowed, ...issue }) => issue,
   );
   entry.notes = notes;
+  const lint = lintWorkbook(buffer);
+  entry.checks.push(lintCheck(lint));
+  if (lint.length > 0) {
+    entry.lintIssues = lint;
+  }
 }
 
 function generateScenario(scenario, context) {

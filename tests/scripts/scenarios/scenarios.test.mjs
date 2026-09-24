@@ -343,4 +343,17 @@ describe.skipIf(!hasTemplate)("buildScenarioCorpus — with workbooks", () => {
     }
     expect(entries[1].inputRows.habitatEnhancement).toBe(1);
   });
+
+  it("lints each workbook, and records the lint as a passing check", async () => {
+    const entries = await buildScenarioCorpus({
+      scenarios: pick("invalid-area-trading-down"),
+      outDir,
+      centre: DEFAULT_CENTRE,
+      seed: 1,
+      templatePath: TEMPLATE,
+    });
+    const [lint] = entries[0].checks.filter((c) => c.check.includes("lint"));
+    expect(lint).toMatchObject({ actual: "no issues", passed: true });
+    expect(entries[0].lintIssues).toBeUndefined();
+  });
 });
