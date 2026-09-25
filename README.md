@@ -207,9 +207,9 @@ npm run be -- db:migrate
 This repo contains scripts to generate example GeoPackage files for testing:
 
 - `npm run generate:gpkg` — one synthetic or workbook-driven fixture (or a `--pair`).
-- `npm run generate:gpkg:all` — a pre-built library of paired fixtures covering many BNG scenarios (intervention types, conditions, strategic significance, met/unmet 10% net gain, trading rules, advance/delay, data completeness), organised by purpose with a `manifest.json` and `index.md`.
+- `npm run generate:scenarios` — a library of paired fixtures covering many BNG scenarios (intervention types, conditions, strategic significance, met/unmet 10% net gain, trading rules, advance/delay, data completeness, invalid interventions), organised by purpose. Each comes with the Defra metric workbook describing it, recalculated with LibreOffice so `manifest.json` holds the metric's own results to compare the service against. `--no-workbooks` gives the GeoPackages alone; `npm run generate:scenarios:docker` runs it all in a container, so LibreOffice needn't be installed.
 
-See [docs/generate-test-data.md](docs/generate-test-data.md) for details.
+See [docs/generate-test-data.md](docs/generate-test-data.md) and [docs/generate-scenarios.md](docs/generate-scenarios.md) for details.
 
 ## Tilt
 

@@ -1,0 +1,23 @@
+# `npm run generate:scenarios:docker` — the scenario corpus, GeoPackages and
+# metric workbooks, without installing LibreOffice on the host.
+#
+# Trixie rather than the bookworm the gen-gpkg image uses: the expected
+# results are LibreOffice's recalculation of the metric, and they were
+# validated against the LibreOffice 25.x that trixie ships (bookworm has 7.4).
+FROM node:24.14.1-trixie-slim
+WORKDIR /app
+# git + CA certs for the `github:` bng-library dependency that `npm ci` fetches;
+# the no-GUI build of LibreOffice Calc is all the recalculation needs.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends git ca-certificates libreoffice-calc-nogui \
+  && rm -rf /var/lib/apt/lists/*
+COPY package.json package-lock.json .npmrc ./
+# --ignore-scripts: see the gen-gpkg Dockerfile.
+RUN npm ci --ignore-scripts
+COPY scripts ./scripts
+# Fetch the metric calculation tool Defra publishes on GOV.UK (checksum-pinned)
+# into the image's cache now, so a run needs neither a download nor a
+# template supplied by hand.
+RUN node scripts/gen-scenarios.mjs --download-template
+USER node
+ENTRYPOINT ["node", "scripts/gen-scenarios.mjs"]

@@ -7,7 +7,8 @@
   "imports": {
     "#gpkg-io": "bng-library/gpkg-io",
     "#bng-lib": "bng-library",
-    "#metric": "bng-library/metric"
+    "#metric": "bng-library/metric",
+    "#workbook-writer": "bng-library/workbook-writer"
   },
   "engines": {
     "node": ">=24.14.1"
@@ -30,10 +31,11 @@
     "fe": "node scripts/proxy.mjs fe",
     "be": "node scripts/proxy.mjs be",
     "lint": "node scripts/lint.mjs",
-    "test:scripts": "vitest run tests/scripts/gpkg",
-    "test:scripts:watch": "vitest tests/scripts/gpkg",
+    "test:scripts": "vitest run tests/scripts",
+    "test:scripts:watch": "vitest tests/scripts",
     "generate:gpkg": "node scripts/gen-gpkg.mjs",
-    "generate:gpkg:all": "node scripts/gen-gpkg.mjs --permutations",
+    "generate:scenarios": "node scripts/gen-scenarios.mjs",
+    "generate:scenarios:docker": "docker compose -f compose.gen-scenarios.yml run --rm --build gen-scenarios",
     "generate:gpkg:docker": "docker compose -f compose.gen-gpkg.yml run --rm --build gen-gpkg",
     "lib:link": "npm link ../bng-library",
     "lib:unlink": "npm uninstall --no-save bng-library && npm install",
@@ -56,7 +58,7 @@
   },
   "devDependencies": {
     "better-sqlite3": "^13.0.3",
-    "bng-library": "github:DEFRA/bng-library#5e5d4dc49f6d04222b142709289202a762388380",
+    "bng-library": "github:DEFRA/bng-library#b4f751cbb4962c5d9fa304516983af1fa45dd707",
     "husky": "9.1.7",
     "likec4": "^1.59.4",
     "remark-parse": "^11.0.0",
