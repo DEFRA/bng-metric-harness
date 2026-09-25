@@ -26,6 +26,17 @@ local_resource(
     labels=['infra'],
 )
 
+# Stub Defra ID test users (see bng-metric-frontend docs/stub-test-users.md).
+# The stub keeps users in redis, which has no volume, so every fresh stack
+# starts with none. The seed script replaces rather than duplicates, so this is
+# safe to re-run from the Tilt UI (e.g. after redis restarts mid-session).
+local_resource(
+    'seed-stub-users',
+    cmd='node ./scripts/run-with-nodejs.mjs bng-metric-frontend run seed:stub-users',
+    resource_deps=['cdp-defra-id-stub'],
+    labels=['infra'],
+)
+
 # Backend Node app (port 3001)
 local_resource(
     'backend',
