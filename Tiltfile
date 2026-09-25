@@ -1,5 +1,8 @@
 # Backend docker compose stack (localstack, redis, postgres, caddy, cdp-uploader)
-docker_compose('../bng-metric-backend/compose.yml')
+# wait=True runs `docker compose up --wait`, so a service only counts as ready
+# once its healthcheck passes. Without it Tilt marks postgres ready as soon as
+# the container starts, and db-migrate races Postgres ("Connection refused").
+docker_compose('../bng-metric-backend/compose.yml', wait=True)
 
 # All resources route through scripts/run-with-nodejs.mjs so each sibling's
 # .nvmrc Node version is selected via nvm — same code path on macOS/Linux
