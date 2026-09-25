@@ -203,8 +203,9 @@ function previousCorpusOrExit(outDir) {
   if (!isFiltered()) {
     return null;
   }
+  let previous = null;
   try {
-    return readScenarioManifest(outDir);
+    previous = readScenarioManifest(outDir);
   } catch (err) {
     error(`Cannot read the existing manifest in ${outDir}: ${err.message}`);
     error(
@@ -212,6 +213,7 @@ function previousCorpusOrExit(outDir) {
     );
     process.exit(1);
   }
+  return previous;
 }
 
 /** Refuse a filtered run that would leave a manifest no single run made. */

@@ -209,31 +209,49 @@ export function readScenarioManifest(outDir) {
  * @returns {string[]} empty when the run fits the corpus
  */
 export function corpusConflicts(previous, { seed, templatePath, recalculate }) {
-  const conflicts = [];
-  if (previous.seed !== seed) {
-    conflicts.push(`seed ${seed}, but the corpus has seed ${previous.seed}`);
-  }
   const template = templateName(templatePath);
-  if (previous.template !== template) {
-    conflicts.push(
-      `template ${template ?? "none (--no-workbooks)"}, but the corpus has ${previous.template ?? "none (--no-workbooks)"}`,
+  const checks = [
+    seedConflict(previous, seed),
+    templateConflict(previous, template),
+  ];
+  // Recalculation and corrections only mean something with workbooks.
+  if (template) {
+    checks.push(
+      recalcConflict(previous, recalculate),
+      correctionsConflict(previous),
     );
   }
-  if (template && previous.recalculated !== recalculate) {
-    conflicts.push(
-      recalculate
-        ? "recalculated workbooks, but the corpus was written with --no-recalc"
-        : "--no-recalc, but the corpus's workbooks are recalculated",
-    );
+  return checks.filter(Boolean);
+}
+
+function seedConflict(previous, seed) {
+  return previous.seed === seed
+    ? null
+    : `seed ${seed}, but the corpus has seed ${previous.seed}`;
+}
+
+function templateConflict(previous, template) {
+  const describe = (name) => name ?? "none (--no-workbooks)";
+  return previous.template === template
+    ? null
+    : `template ${describe(template)}, but the corpus has ${describe(previous.template)}`;
+}
+
+function recalcConflict(previous, recalculate) {
+  if (previous.recalculated === recalculate) {
+    return null;
   }
-  const corrections = correctionIds(templatePath ? METRIC_CORRECTIONS : []);
+  return recalculate
+    ? "recalculated workbooks, but the corpus was written with --no-recalc"
+    : "--no-recalc, but the corpus's workbooks are recalculated";
+}
+
+function correctionsConflict(previous) {
+  const corrections = correctionIds(METRIC_CORRECTIONS);
   const previousCorrections = correctionIds(previous.corrections);
-  if (template && corrections !== previousCorrections) {
-    conflicts.push(
-      `metric corrections ${corrections}, but the corpus has ${previousCorrections}`,
-    );
-  }
-  return conflicts;
+  return corrections === previousCorrections
+    ? null
+    : `metric corrections ${corrections}, but the corpus has ${previousCorrections}`;
 }
 
 /**
