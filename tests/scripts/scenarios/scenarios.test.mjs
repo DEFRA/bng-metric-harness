@@ -1,6 +1,8 @@
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
@@ -24,9 +26,15 @@ import {
   priceHabitats,
 } from "../../../scripts/scenarios/engine-units.mjs";
 import { loadEngine } from "../../../scripts/scenarios/engine.mjs";
-import { writeScenarioManifest } from "../../../scripts/scenarios/manifest.mjs";
+import {
+  corpusConflicts,
+  mergeScenarioEntries,
+  readScenarioManifest,
+  writeScenarioManifest,
+} from "../../../scripts/scenarios/manifest.mjs";
 import {
   buildScenarioCorpus,
+  removeCorpusFiles,
   scenarioFiles,
 } from "../../../scripts/scenarios/runner.mjs";
 import {
@@ -199,6 +207,31 @@ describe("buildScenarioCorpus — GeoPackages only", () => {
     expect(existsSync(keep)).toBe(true);
   });
 
+  it("replaces only its own scenarios' files on a filtered run", async () => {
+    await build(pick("intervention-area-retained", "intervention-area-created"));
+    const sibling = path.join(outDir, "intervention", "area-created-baseline.gpkg");
+    const ours = path.join(outDir, "intervention", "notes.txt");
+    writeFileSync(ours, "ours");
+    await buildScenarioCorpus({
+      scenarios: pick("intervention-area-retained"),
+      outDir,
+      centre: DEFAULT_CENTRE,
+      seed: 1,
+      partial: true,
+    });
+    expect(existsSync(sibling)).toBe(true);
+    expect(existsSync(ours)).toBe(true);
+    expect(
+      existsSync(path.join(outDir, "intervention", "area-retained-baseline.gpkg")),
+    ).toBe(true);
+  });
+
+  it("refuses to remove a file outside the output folder", () => {
+    expect(() => removeCorpusFiles(outDir, ["../escape.gpkg"])).toThrow(
+      /outside/,
+    );
+  });
+
   const hashRun = async (seed) => {
     const dir = tempDir("scn-seed-");
     try {
@@ -302,6 +335,110 @@ describe("writeScenarioManifest", () => {
     expect(manifest.template).toBeNull();
     expect(manifest.corrections).toEqual([]);
     expect(manifest.recalculated).toBe(false);
+  });
+});
+
+describe("merging a filtered run into a corpus", () => {
+  const corpus = {
+    seed: 1,
+    template: "metric.xlsx",
+    corrections: [{ id: "area-medium-surplus-carried-down-whole" }],
+    recalculated: true,
+    scenarios: [],
+  };
+  const fits = { seed: 1, templatePath: "/x/metric.xlsx", recalculate: true };
+
+  it("accepts a run made the way the corpus was", () => {
+    expect(corpusConflicts(corpus, fits)).toEqual([]);
+  });
+
+  it("names each way a run differs from the corpus", () => {
+    expect(corpusConflicts(corpus, { ...fits, seed: 2 })).toEqual([
+      "seed 2, but the corpus has seed 1",
+    ]);
+    expect(corpusConflicts(corpus, { ...fits, recalculate: false })).toHaveLength(1);
+    expect(
+      corpusConflicts(corpus, { seed: 1, templatePath: null, recalculate: false }),
+    ).toEqual(["template none (--no-workbooks), but the corpus has metric.xlsx"]);
+    expect(
+      corpusConflicts({ ...corpus, corrections: [] }, fits),
+    ).toHaveLength(1);
+  });
+
+  it("replaces regenerated entries in catalogue order and drops retired ones", () => {
+    const previous = [
+      { id: "b", v: "old" },
+      { id: "retired", v: "old" },
+      { id: "a", v: "old" },
+    ];
+    const { entries, dropped } = mergeScenarioEntries(
+      previous,
+      [{ id: "b", v: "new" }],
+      ["a", "b", "c"],
+    );
+    expect(entries).toEqual([
+      { id: "a", v: "old" },
+      { id: "b", v: "new" },
+    ]);
+    expect(dropped.map((e) => e.id)).toEqual(["retired"]);
+  });
+});
+
+// The CLI, end to end, GeoPackages only. The output folder has to be inside
+// the harness; test-data/ is gitignored.
+describe("generate:scenarios — filtered runs", () => {
+  let outDir;
+  const cli = (...flags) =>
+    spawnSync(
+      process.execPath,
+      [
+        path.join(HARNESS_ROOT, "scripts", "gen-scenarios.mjs"),
+        "--no-workbooks",
+        "--outdir",
+        outDir,
+        ...flags,
+      ],
+      { cwd: HARNESS_ROOT, encoding: "utf8" },
+    );
+
+  beforeAll(() => {
+    const parent = path.join(HARNESS_ROOT, "test-data");
+    mkdirSync(parent, { recursive: true });
+    outDir = mkdtempSync(path.join(parent, "scn-cli-"));
+    const full = cli("--seed", "5");
+    expect(full.status, full.stderr).toBe(0);
+  }, CATALOGUE_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(outDir, { recursive: true, force: true });
+  });
+
+  it("keeps the rest of the corpus and its manifest", () => {
+    const run = cli("--scenario", "intervention-area-created");
+    expect(run.status, run.stderr).toBe(0);
+    const manifest = readScenarioManifest(outDir);
+    expect(manifest.seed).toBe(5);
+    expect(manifest.scenarios.map((e) => e.id)).toEqual(
+      SCENARIOS.map((s) => s.id),
+    );
+    for (const entry of manifest.scenarios) {
+      for (const file of Object.values(entry.files)) {
+        expect(existsSync(path.join(outDir, file)), file).toBe(true);
+      }
+    }
+    const index = readFileSync(path.join(outDir, "index.md"), "utf8");
+    expect(index).toContain(`${SCENARIOS.length} scenario(s)`);
+  });
+
+  it("refuses a seed the corpus was not made with, and changes nothing", () => {
+    const before = readFileSync(path.join(outDir, "manifest.json"), "utf8");
+    const run = cli("--only", "conditions", "--seed", "6");
+    expect(run.status).toBe(1);
+    expect(run.stderr + run.stdout).toContain("seed 6, but the corpus has seed 5");
+    expect(readFileSync(path.join(outDir, "manifest.json"), "utf8")).toBe(before);
+    expect(
+      existsSync(path.join(outDir, "conditions", "area-spread-baseline.gpkg")),
+    ).toBe(true);
   });
 });
 

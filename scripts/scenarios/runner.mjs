@@ -328,6 +328,33 @@ function clearPurposeFolders(outDir, scenarios) {
   }
 }
 
+/**
+ * Remove files named relative to the output folder. A name that would
+ * resolve outside it is refused, since the names can come from a manifest.
+ */
+export function removeCorpusFiles(outDir, files) {
+  const root = path.resolve(outDir);
+  for (const file of files) {
+    const target = path.resolve(root, file);
+    if (!target.startsWith(`${root}${path.sep}`)) {
+      throw new Error(`refusing to remove ${file}: it is outside ${root}`);
+    }
+    rmSync(target, { force: true });
+  }
+}
+
+/**
+ * A filtered run replaces only the files of the scenarios it builds, so the
+ * rest of the corpus survives it. All three names go, whether or not this run
+ * writes a workbook.
+ */
+function clearScenarioFiles(outDir, scenarios) {
+  removeCorpusFiles(
+    outDir,
+    scenarios.flatMap((s) => Object.values(scenarioFiles(s))),
+  );
+}
+
 function reportFailedChecks(entries) {
   for (const entry of entries) {
     for (const check of entry.checks.filter((c) => !c.passed)) {
@@ -349,6 +376,8 @@ function reportFailedChecks(entries) {
  * @param {boolean} [options.recalculate] run LibreOffice and check the
  *   metric's verdicts (needs a template)
  * @param {string} [options.soffice] LibreOffice binary
+ * @param {boolean} [options.partial] a filtered run: replace only these
+ *   scenarios' files rather than their whole purpose folders
  * @returns {Promise<object[]>} manifest entries, in catalogue order
  */
 export async function buildScenarioCorpus({
@@ -359,6 +388,7 @@ export async function buildScenarioCorpus({
   templatePath,
   recalculate = false,
   soffice,
+  partial = false,
 }) {
   const workbook = templatePath ? loadTemplate(templatePath) : null;
   // Only the net-gain scenarios price habitats through the engine.
@@ -367,7 +397,11 @@ export async function buildScenarioCorpus({
     : null;
 
   mkdirSync(outDir, { recursive: true });
-  clearPurposeFolders(outDir, scenarios);
+  if (partial) {
+    clearScenarioFiles(outDir, scenarios);
+  } else {
+    clearPurposeFolders(outDir, scenarios);
+  }
 
   // bng-library logs a banner per file; silence it and print our own progress.
   setMode("silent");

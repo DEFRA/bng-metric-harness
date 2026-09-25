@@ -355,10 +355,10 @@ against it.
 
 | Option | Meaning |
 | --- | --- |
-| `--only PURPOSE` | One purpose only |
-| `--scenario ID` | One scenario only (repeatable) |
+| `--only PURPOSE` | One purpose only, merged into the existing corpus (see below) |
+| `--scenario ID` | One scenario only (repeatable), merged into the existing corpus (see below) |
 | `--outdir DIR` | Output folder (default `test-data/scenarios`); must be inside the harness |
-| `--seed N` | Run seed, for byte-identical GeoPackages. Defaults to a random seed, which is recorded in the manifest so a run can be repeated. Each scenario derives its own seed from it, so a fixture reproduces however many scenarios you run |
+| `--seed N` | Run seed, for byte-identical GeoPackages. Defaults to a random seed, which is recorded in the manifest so a run can be repeated; a filtered run defaults to the existing corpus's seed. Each scenario derives its own seed from it, so a fixture reproduces however many scenarios you run |
 | `--centre E,N` | Red Line Boundary centre, BNG/EPSG:27700 (default `530000,180000`) |
 | `--no-workbooks` | GeoPackages only: no template, no LibreOffice |
 | `--no-recalc` | Write the workbooks without recalculating them |
@@ -366,8 +366,19 @@ against it.
 | `--download-template` | Download the published template into the cache and exit |
 | `--list` | Print the catalogue and exit |
 
-A rerun into the same folder first replaces the purpose folders it
-regenerates. Nothing else in the folder is touched. LibreOffice's scratch
+A full rerun into the same folder first replaces the purpose folders it
+regenerates, so a scenario dropped from the catalogue doesn't linger. Nothing
+else in the folder is touched.
+
+A filtered run (`--only` or `--scenario`) replaces only the files of the
+scenarios it builds, and merges their entries into the `manifest.json` and
+`index.md` already in the folder. Everything else in the corpus stays as it
+was, and the manifest still describes all of it. Without `--seed`, a filtered
+run takes the existing corpus's seed. It refuses to run, and changes nothing,
+if it would be made differently from the corpus: another seed, another
+template, `--no-workbooks` or `--no-recalc` where the corpus has them the
+other way, or different metric corrections. Run the full set instead, or give
+it a fresh `--outdir`. LibreOffice's scratch
 space is a `.recalc-*` folder inside the output folder, removed when the run
 ends.
 

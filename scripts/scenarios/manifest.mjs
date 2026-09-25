@@ -1,10 +1,11 @@
 /**
  * Write the corpus `manifest.json` (everything, for a comparison tool) and
  * `index.md` (a table per purpose a tester can scan) at the root of the
- * output folder.
+ * output folder. A filtered run merges its scenarios into the corpus already
+ * there rather than replacing it.
  */
 
-import { writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { METRIC_CORRECTIONS } from "#workbook-writer";
 
@@ -174,6 +175,90 @@ function renderIndex(run) {
   return lines.join("\n");
 }
 
+function templateName(templatePath) {
+  return templatePath ? path.basename(templatePath) : null;
+}
+
+function correctionIds(corrections) {
+  return (corrections ?? []).map((c) => c.id).join(", ") || "none";
+}
+
+/**
+ * The manifest of the corpus already in the output folder, or null when
+ * there is none. Throws if it is there but unreadable.
+ */
+export function readScenarioManifest(outDir) {
+  const manifestPath = path.join(outDir, MANIFEST_FILE);
+  if (!existsSync(manifestPath)) {
+    return null;
+  }
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  if (!Array.isArray(manifest?.scenarios)) {
+    throw new TypeError(`${manifestPath} has no scenarios list`);
+  }
+  return manifest;
+}
+
+/**
+ * Every way a filtered run differs from the corpus it would be merged into.
+ * Any difference would leave the manifest describing a corpus no single run
+ * produced, so the caller refuses the merge.
+ *
+ * @param {object} previous the existing manifest
+ * @param {object} run { seed, templatePath?, recalculate }
+ * @returns {string[]} empty when the run fits the corpus
+ */
+export function corpusConflicts(previous, { seed, templatePath, recalculate }) {
+  const conflicts = [];
+  if (previous.seed !== seed) {
+    conflicts.push(`seed ${seed}, but the corpus has seed ${previous.seed}`);
+  }
+  const template = templateName(templatePath);
+  if (previous.template !== template) {
+    conflicts.push(
+      `template ${template ?? "none (--no-workbooks)"}, but the corpus has ${previous.template ?? "none (--no-workbooks)"}`,
+    );
+  }
+  if (template && previous.recalculated !== recalculate) {
+    conflicts.push(
+      recalculate
+        ? "recalculated workbooks, but the corpus was written with --no-recalc"
+        : "--no-recalc, but the corpus's workbooks are recalculated",
+    );
+  }
+  const corrections = correctionIds(templatePath ? METRIC_CORRECTIONS : []);
+  const previousCorrections = correctionIds(previous.corrections);
+  if (template && corrections !== previousCorrections) {
+    conflicts.push(
+      `metric corrections ${corrections}, but the corpus has ${previousCorrections}`,
+    );
+  }
+  return conflicts;
+}
+
+/**
+ * The corpus's entries with a filtered run's in place of the ones they
+ * regenerate, in catalogue order. Entries for scenarios no longer in the
+ * catalogue are returned as `dropped`, for the caller to remove their files.
+ *
+ * @param {object[]} previousEntries the existing manifest's scenarios
+ * @param {object[]} entries the entries this run built
+ * @param {string[]} catalogueIds every scenario id, in catalogue order
+ */
+export function mergeScenarioEntries(previousEntries, entries, catalogueIds) {
+  const byId = new Map(previousEntries.map((e) => [e.id, e]));
+  for (const entry of entries) {
+    byId.set(entry.id, entry);
+  }
+  const inCatalogue = new Set(catalogueIds);
+  return {
+    entries: catalogueIds
+      .filter((id) => byId.has(id))
+      .map((id) => byId.get(id)),
+    dropped: [...byId.values()].filter((e) => !inCatalogue.has(e.id)),
+  };
+}
+
 /**
  * @param {string} outDir
  * @param {object} run { entries, seed, templatePath? }
@@ -183,7 +268,7 @@ export function writeScenarioManifest(outDir, run) {
   const indexPath = path.join(outDir, INDEX_FILE);
   const manifest = {
     seed: run.seed,
-    template: run.templatePath ? path.basename(run.templatePath) : null,
+    template: templateName(run.templatePath),
     corrections: run.templatePath ? METRIC_CORRECTIONS : [],
     recalculated: run.entries.every((e) => e.metric),
     scenarios: run.entries,

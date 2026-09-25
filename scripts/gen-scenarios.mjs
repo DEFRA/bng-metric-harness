@@ -10,6 +10,9 @@
  *   --no-workbooks   GeoPackages only: no template, no LibreOffice.
  *   --no-recalc      write the workbooks but don't recalculate them.
  *
+ * A filtered run (--only / --scenario) replaces only its own scenarios'
+ * files and merges them into the manifest already in the output folder.
+ *
  * The template defaults to the calculation tool Defra publishes, downloaded
  * once and cached; --template or METRIC_TEMPLATE names another.
  */
@@ -28,10 +31,19 @@ import {
   header,
   info,
   resolveInsideHarness,
+  warn,
 } from "./_lib.mjs";
 import { DEFAULT_CENTRE, parseCentre } from "./centre.mjs";
-import { buildScenarioCorpus } from "./scenarios/runner.mjs";
-import { writeScenarioManifest } from "./scenarios/manifest.mjs";
+import {
+  buildScenarioCorpus,
+  removeCorpusFiles,
+} from "./scenarios/runner.mjs";
+import {
+  corpusConflicts,
+  mergeScenarioEntries,
+  readScenarioManifest,
+  writeScenarioManifest,
+} from "./scenarios/manifest.mjs";
 import {
   ensurePublishedTemplate,
   resolveTemplate,
@@ -48,10 +60,13 @@ Usage: npm run generate:scenarios -- [options]
 
   --only PURPOSE    Build one purpose only (${PERMUTATION_PURPOSES.join(", ")}).
   --scenario ID     Build one scenario only (repeatable).
+                    A filtered run replaces only those scenarios' files and
+                    merges them into the existing manifest, reusing its seed.
   --outdir DIR      Output folder (default: <harness>/test-data/scenarios).
                     Files are organised one folder per purpose.
   --seed N          Run seed, for byte-reproducible GeoPackages (default:
-                    random, recorded in the manifest).
+                    random, recorded in the manifest; a filtered run
+                    defaults to the existing corpus's seed).
   --centre E,N      Red Line Boundary centre, BNG/EPSG:27700 (default
                     ${DEFAULT_CENTRE.join(",")}).
   --no-workbooks    GeoPackages only: no metric workbooks, no LibreOffice.
@@ -119,9 +134,13 @@ function listCatalogue(scenarios) {
   );
 }
 
-function resolveSeed() {
+function isFiltered() {
+  return Boolean(args.only) || args.scenario.length > 0;
+}
+
+function resolveSeed(previous) {
   if (!args.seed) {
-    return randomInt(MAX_SEED);
+    return previous ? previous.seed : randomInt(MAX_SEED);
   }
   const seed = Number(args.seed);
   if (!Number.isInteger(seed)) {
@@ -176,6 +195,61 @@ function outDirOrExit() {
   return outDir;
 }
 
+/**
+ * The corpus a filtered run merges into, or null when there is none to keep.
+ * Exits if the manifest is unreadable, rather than overwrite it.
+ */
+function previousCorpusOrExit(outDir) {
+  if (!isFiltered()) {
+    return null;
+  }
+  try {
+    return readScenarioManifest(outDir);
+  } catch (err) {
+    error(`Cannot read the existing manifest in ${outDir}: ${err.message}`);
+    error(
+      "Run without --only / --scenario to regenerate it, or use a fresh --outdir.",
+    );
+    process.exit(1);
+  }
+}
+
+/** Refuse a filtered run that would leave a manifest no single run made. */
+function assertFitsCorpus(previous, run, outDir) {
+  const conflicts = corpusConflicts(previous, run);
+  if (conflicts.length === 0) {
+    return;
+  }
+  error(`This filtered run cannot be merged into the corpus in ${outDir}:`);
+  for (const conflict of conflicts) {
+    error(`  - this run has ${conflict}`);
+  }
+  error(
+    "Run without --only / --scenario to regenerate the corpus, or use a fresh --outdir.",
+  );
+  process.exit(1);
+}
+
+/** The manifest entries to write: this run's, merged into the corpus's. */
+function corpusEntries(previous, entries, outDir) {
+  if (!previous) {
+    return entries;
+  }
+  const merged = mergeScenarioEntries(
+    previous.scenarios,
+    entries,
+    PERMUTATION_SCENARIOS.map((s) => s.id),
+  );
+  for (const entry of merged.dropped) {
+    warn(`  removing ${entry.id}: no longer in the catalogue`);
+    removeCorpusFiles(outDir, Object.values(entry.files));
+  }
+  info(
+    `  merged ${entries.length} scenario(s) into the corpus (${merged.entries.length} in all)`,
+  );
+  return merged.entries;
+}
+
 async function main() {
   if (args.help) {
     console.log(USAGE);
@@ -200,7 +274,11 @@ async function main() {
   assertLibreOffice(recalculate);
 
   const outDir = outDirOrExit();
-  const seed = resolveSeed();
+  const previous = previousCorpusOrExit(outDir);
+  const seed = resolveSeed(previous);
+  if (previous) {
+    assertFitsCorpus(previous, { seed, templatePath, recalculate }, outDir);
+  }
   const entries = await buildScenarioCorpus({
     scenarios,
     outDir,
@@ -208,9 +286,10 @@ async function main() {
     seed,
     templatePath,
     recalculate,
+    partial: isFiltered(),
   });
   const { indexPath } = writeScenarioManifest(outDir, {
-    entries,
+    entries: corpusEntries(previous, entries, outDir),
     seed,
     templatePath,
   });
