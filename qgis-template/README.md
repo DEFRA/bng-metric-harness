@@ -1,4 +1,4 @@
-# bng-template-convert
+# qgis-template
 
 The BNG Service QGIS habitat mapping template and a QGIS plugin that converts
 sites into and out of it. Also a generated example site at the scale of a

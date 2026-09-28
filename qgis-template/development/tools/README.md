@@ -30,7 +30,7 @@ Each tool that writes a project first saves a copy beside it, named
 
 ## Running the tools
 
-Run these from the `bng-template-convert` folder:
+Run these from the `qgis-template` folder:
 
 ```sh
 python3 development/tools/rename_actions.py "templates/bng-service/BNG Service Habitat Mapping.qgz"

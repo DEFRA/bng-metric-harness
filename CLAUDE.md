@@ -110,7 +110,7 @@ Then `npm run dev` in this harness starts the two Node apps against those servic
 - Log what the script is doing as it does it.
 - **Always attempt to respect default SonarCloud conventions where possible** — write to them in the first draft rather than waiting for the scan to flag them. Code is scanned by SonarCloud (project key in `sonar-project.properties`); after pushing, run `/check-sonar-pr` to see PR-scoped issues. Rules most likely to be flagged: brace every single-line `if`/`for` body (S121), extract magic numbers to named constants (S109), keep nesting ≤ 3 levels (S134), keep cognitive complexity per function low (S3776), prefer `replaceAll` and template literals over `replace`/concat, and remove dead/commented-out code (S125).
 
-## `bng-template-convert/`: the QGIS templates and their tooling
+## `qgis-template/`: the QGIS templates and their tooling
 
 **This folder is not application code, so it lives in the harness.** It holds
 the QGIS habitat-mapping templates, a converter between them, a QGIS plugin
@@ -130,7 +130,7 @@ pure Python with the standard library only. Only the plugin needs QGIS.
 The build zips the package as it is:
 
 ```sh
-cd bng-template-convert/plugin && python3 build_plugin.py
+cd qgis-template/plugin && python3 build_plugin.py
 # -> plugin/dist/bng_template_convert.zip
 ```
 
@@ -141,10 +141,10 @@ lists and the guide for surveyors from `templates/bng-service/`, so the site
 and the template stay the same.
 
 ```sh
-cd bng-template-convert && python3 scale-test-nsip/generator/generate.py
+cd qgis-template && python3 scale-test-nsip/generator/generate.py
 ```
 
-`bng-template-convert/README.md` is the guide for maintainers. It tells why the
+`qgis-template/README.md` is the guide for maintainers. It tells why the
 buttons in the template must be edited with `development/tools/` and not saved
 from QGIS.
 
@@ -155,5 +155,5 @@ from QGIS.
   QGIS tooling above is neither: it ships to surveyors, not to a server)
 - ❌ CI/CD for the sibling apps (each sibling owns its own pipeline; the harness's only workflow is `pages.yml`, which builds the docs site)
 - ❌ git hooks / husky that reach into siblings
-- ❌ npm workspaces, submodules and subtrees (`bng-template-convert/` is an ordinary tracked directory, needing no tooling and no client-side setup)
+- ❌ npm workspaces, submodules and subtrees (`qgis-template/` is an ordinary tracked directory, needing no tooling and no client-side setup)
 - ❌ `CLAUDE.md` files in the sibling repos — they are responsible for their own

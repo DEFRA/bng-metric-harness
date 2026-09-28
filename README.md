@@ -215,14 +215,14 @@ See [docs/generate-test-data.md](docs/generate-test-data.md) and [docs/generate-
 
 ### NSIP-scale test site
 
-**`bng-template-convert/scale-test-nsip/` generates a site at the scale of a
+**`qgis-template/scale-test-nsip/` generates a site at the scale of a
 nationally significant infrastructure project.** It is a 56 km rail corridor
 of 3,184 hectares. It holds 11,554 baseline habitat parcels, 13,682
 post-intervention parcels, hedgerows, watercourses and trees. It tests the QGIS
 template, the converter plugin and the service at that scale.
 
 ```sh
-cd bng-template-convert && python3 scale-test-nsip/generator/generate.py
+cd qgis-template && python3 scale-test-nsip/generator/generate.py
 ```
 
 The run takes about seven seconds and gives identical bytes each time. Git
@@ -231,17 +231,17 @@ checks against the site.
 
 ## QGIS templates and the converter plugin
 
-`bng-template-convert/` holds the habitat-mapping templates, the converter
+`qgis-template/` holds the habitat-mapping templates, the converter
 between the BNG Service template and the Natural England template, the QGIS
 plugin that wraps the converter, and the test site above.
 
 ```sh
-cd bng-template-convert/plugin && python3 build_plugin.py
+cd qgis-template/plugin && python3 build_plugin.py
 # -> plugin/dist/bng_template_convert.zip
 ```
 
 To install, in QGIS select **Plugins → Manage and Install Plugins… → Install
-from ZIP**. See [bng-template-convert/README.md](bng-template-convert/README.md).
+from ZIP**. See [qgis-template/README.md](qgis-template/README.md).
 
 ## Tilt
 

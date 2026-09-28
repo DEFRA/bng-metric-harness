@@ -8,7 +8,7 @@ step to its claims.
 **Values in bold are measured.** A step with no bold value has no recorded
 result.
 
-Run all commands from the `bng-template-convert` folder.
+Run all commands from the `qgis-template` folder.
 
 ## 0. Before you start
 

@@ -8,7 +8,7 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 // Default to the harness's own `backend` symlink, three levels up from
-// bng-template-convert/scale-test-nsip/verify. Override with
+// qgis-template/scale-test-nsip/verify. Override with
 // BACKEND_DIR for any other checkout.
 const BACKEND = process.env.BACKEND_DIR
   ?? path.resolve(import.meta.dirname, '..', '..', '..', 'backend')

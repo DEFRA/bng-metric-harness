@@ -94,7 +94,7 @@ parent.
 
 ## Running it
 
-Run all commands from the `bng-template-convert` folder.
+Run all commands from the `qgis-template` folder.
 
 ```sh
 python3 scale-test-nsip/generator/generate.py
