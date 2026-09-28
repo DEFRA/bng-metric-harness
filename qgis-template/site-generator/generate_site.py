@@ -3,9 +3,14 @@
     python3 site-generator/generate_site.py --habitats 20 --area-ha 6 \\
         --centre 455920.7,285323.1 --scheme housing --seed 7
 
-Writes a working copy of the template, with the site's baseline and
-post-intervention layers filled in, to site-generator/output/<name>/. The same
-inputs always give the same bytes.
+Writes to site-generator/output/<name>/:
+
+    bng-service/                   the BNG Service template, filled
+    legacy-ne-baseline/            the Natural England template, baseline
+    legacy-ne-post-intervention/   the Natural England template, post-intervention
+    The_Statutory_Metric_...xlsm   the macro-enabled metric, on-site tabs filled
+
+The same inputs always give the same GeoPackages, to the byte.
 """
 
 import argparse
@@ -13,7 +18,6 @@ import os
 import re
 import shutil
 import sqlite3
-import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -27,6 +31,7 @@ from gpkg_common import (register_spatial_functions,               # noqa: E402
 from dropdown_check import check_site, report                      # noqa: E402
 import site_mesh                                                    # noqa: E402
 import site_plan as plan                                            # noqa: E402
+import site_outputs as outputs                                      # noqa: E402
 import site_writers as writers                                      # noqa: E402
 
 TEMPLATE_DIR = os.path.join(ROOT, 'templates', 'bng-service')
@@ -35,8 +40,7 @@ TEMPLATE_ASSETS = ('BNG Service Habitat Mapping.qgz', 'CSV References',
 PRISTINE = os.path.join(TEMPLATE_DIR, 'Layers', 'BNG Service Layers.gpkg')
 GPKG_NAME = os.path.join('Layers', 'BNG Service Layers.gpkg')
 OUTPUT_DIR = os.path.join(HERE, 'output')
-CONVERTER = os.path.join(ROOT, 'plugin', 'bng_template_convert',
-                         'new_to_old.py')
+BNG_SERVICE_FOLDER = 'bng-service'
 
 # Open country, away from any city, so a default site looks plausible.
 DEFAULT_CENTRE = (455920.7, 285323.1)
@@ -100,9 +104,10 @@ def parse_args(argv):
     parser.add_argument('--name', help='site name, also the output folder name')
     parser.add_argument('--out', help='output folder (default '
                                       'site-generator/output/<name>)')
-    parser.add_argument('--legacy', action='store_true',
-                        help='also write the Natural England baseline and '
-                             'post-intervention pair, in <out>/legacy')
+    parser.add_argument('--no-legacy', action='store_true',
+                        help='leave out the filled Natural England templates')
+    parser.add_argument('--no-metric', action='store_true',
+                        help='leave out the filled Statutory Metric workbook')
     return parser.parse_args(argv)
 
 
@@ -196,16 +201,17 @@ def main(argv=None):
     args = parse_args(argv)
     name = args.name or default_name(args)
     target = os.path.abspath(args.out or os.path.join(OUTPUT_DIR, name))
-    refresh_template(target)
+    service = os.path.join(target, BNG_SERVICE_FOLDER)
+    refresh_template(service)
     site = plan_site(args, name)
-    gpkg, totals = write_site(site, target)
+    gpkg, totals = write_site(site, service)
 
     for layer, counts in totals.items():
         print(f'{layer:14s} {counts}')
     print(f'\nwritten {gpkg}')
 
     problems = check_totals(args, site, totals)
-    invalid = check_site(target)
+    invalid = check_site(service)
     if invalid:
         print("\nvalues the template's drop-downs would not offer:")
         report(invalid)
@@ -215,14 +221,19 @@ def main(argv=None):
         return 1
     print('every drop-down value is one the template offers')
 
-    if args.legacy:
-        legacy = os.path.join(target, 'legacy')
-        result = subprocess.run([sys.executable, CONVERTER, gpkg, '-o', legacy],
-                                capture_output=True, text=True)
-        if result.returncode:
-            print(result.stdout + result.stderr, file=sys.stderr)
-            return result.returncode
-        print(f'legacy pair written to {legacy}')
+    warnings = []
+    if not args.no_legacy:
+        folders, found = outputs.write_legacy_templates(gpkg, target)
+        warnings += found
+        for folder in folders:
+            print(f'written {folder}')
+    if not args.no_metric:
+        paths, found = outputs.write_metric(gpkg, target)
+        warnings += found
+        for path in paths:
+            print(f'written {path}')
+    for warning in warnings:
+        print(f'warning: {warning}')
     return 0
 
 

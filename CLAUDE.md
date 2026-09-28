@@ -124,7 +124,7 @@ pure Python with the standard library only. Only the plugin needs QGIS.
 | `plugin/` | The QGIS plugin source, `build_plugin.py`, and `README.md`, the guide to install and use it |
 | `reference/` | The Statutory Metric workbooks, the Excel GIS import tool and the published guidance. The reference lists are checked against these |
 | `scale-test-nsip/` | The NSIP-scale test site: the generator, the claim checks, `VERIFICATION.md` (the runbook) and the generated output |
-| `site-generator/` | Builds small synthetic sites (1 to 50 parcels) from user inputs; output in the gitignored `site-generator/output/`. Reuses the NSIP generator's code |
+| `site-generator/` | Builds small synthetic sites (1 to 50 parcels) from user inputs, filling copies of the BNG Service template, both NE templates and the macro-enabled Metric; output in the gitignored `site-generator/output/`. Reuses the NSIP generator's code |
 | `development/tools/` | The tools that maintain the templates |
 
 **`plugin/bng_template_convert/` is the only copy of the conversion modules.**

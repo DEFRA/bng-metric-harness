@@ -234,8 +234,9 @@ checks against the site.
 **`qgis-template/site-generator/` builds a small, realistic site from a few
 inputs.** Set the number of habitat parcels (1 to 50), the area, the location,
 the hedgerows and trees, the landscape and the scheme. It writes the baseline
-and post-intervention stages into the BNG Service template. The same inputs
-give the same file.
+and post-intervention stages into the BNG Service template, both Natural
+England templates and the macro-enabled Statutory Metric. The same inputs give
+the same GeoPackages.
 
 ```sh
 cd qgis-template && python3 site-generator/generate_site.py --habitats 10 --area-ha 3 --centre 451000,206000

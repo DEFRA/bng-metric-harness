@@ -1,8 +1,9 @@
 # Site generator
 
 **The generator builds a small, realistic BNG site from a few inputs.** It
-writes the baseline and the post-intervention stage into a copy of the BNG
-Service template. The same inputs always give the same file, to the byte.
+writes the baseline and the post-intervention stage into the BNG Service
+template, into both Natural England templates and into the Statutory Metric.
+The same inputs always give the same GeoPackages, to the byte.
 
 Use it for test data, demonstrations and training. The sites are synthetic:
 no site is a survey of real land.
@@ -15,12 +16,28 @@ Run the generator from the `qgis-template` folder:
 python3 site-generator/generate_site.py                  # 20 parcels, 5 ha, housing
 python3 site-generator/generate_site.py --habitats 1     # the simplest site
 python3 site-generator/generate_site.py --habitats 50 --area-ha 30 \
-    --centre 451000,206000 --scheme solar --landscape arable --seed 4 --legacy
+    --centre 451000,206000 --scheme solar --landscape arable --seed 4
 ```
 
-The output goes to `site-generator/output/<name>/`, which git ignores. The
-folder is a complete working copy of the template. Open
-`BNG Service Habitat Mapping.qgz` in QGIS to see the site.
+The output goes to `site-generator/output/<name>/`, which git ignores. Each
+file in it is a copy of the clean file in this repository, filled with the
+site:
+
+| In the output folder | What it is |
+| --- | --- |
+| `bng-service/` | The BNG Service template, with the baseline and post-intervention layers |
+| `legacy-ne-baseline/` | The Natural England template, with the baseline in its GeoPackage |
+| `legacy-ne-post-intervention/` | The Natural England template, with the post-intervention stage in its GeoPackage |
+| `The_Statutory_Metric_Macro_Enabled_1.0.4.xlsm` | The macro-enabled Statutory Metric, with the on-site tabs filled |
+
+Open the `.qgz` file in a template folder to see the site in QGIS. Open the
+metric in Excel and let it recalculate.
+
+**The two Natural England files are the ones the service asks a user to
+upload.** Each is the template's own GeoPackage, so it keeps the template's
+styles and layers. The metric holds the area habitats and hedgerows.
+Individual trees are not written to it, because the metric works out their
+size from a band.
 
 | Input | Default | What it sets |
 | --- | --- | --- |
@@ -34,7 +51,8 @@ folder is a complete working copy of the template. Open
 | `--seed` | 1 | A different seed gives a different layout and different choices |
 | `--name` | from the inputs | The site name, and the name of the output folder |
 | `--out` | `output/<name>` | Another output folder |
-| `--legacy` | off | Also writes the Natural England baseline and post-intervention pair |
+| `--no-legacy` | off | Leaves out the two Natural England templates |
+| `--no-metric` | off | Leaves out the Statutory Metric |
 
 **The generator stops with an error if it cannot deliver what was asked.**
 The usual cause is too many hedgerows for a small site. Ask for fewer
@@ -98,9 +116,9 @@ These checks were run by hand across the input range:
 | Check | Result |
 | --- | --- |
 | 150 sites, 1 to 50 parcels, every scheme and landscape, 0.05 to 80 ha | All built and passed the checks above |
-| The service's own GeoPackage validation, on the legacy pair of 5 sites | All valid, baseline and post-intervention |
-| The metric engine, on every area habitat row of the same 5 sites | Every row priced |
-| The same inputs, run twice | Identical bytes |
+| The service's own GeoPackage validation, on the Natural England files of 9 sites, from 1 to 50 parcels and 0.05 to 500 ha | All valid, baseline and post-intervention |
+| The metric engine, on every area habitat row of 5 of those sites | Every row priced |
+| The same inputs, run twice | Identical GeoPackages. The metric has identical contents, but the dates inside the workbook file differ |
 
 **The generator does not aim for net gain.** A site shows the on-site loss
 that a development usually shows before off-site units are bought. The 5
@@ -121,6 +139,7 @@ and the drop-down check.
 | `site_mesh.py` | The mesh, the site outline, and the scale and position of the site |
 | `site_plan.py` | Parcels, habitats, the development, and hedgerow routes |
 | `site_writers.py` | Writes the rows of each layer |
+| `site_outputs.py` | Fills the Natural England templates and the metric, with the plugin's own conversions |
 
 **The site is a group of cells on one jittered mesh.** Neighbouring cells
 share their edges point for point, so parcels never overlap or leave a gap.
