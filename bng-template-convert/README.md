@@ -1,173 +1,132 @@
 # bng-template-convert
 
-The BNG Service QGIS habitat mapping template, the QGIS plugin that converts a
-site out of it, and a generated example site at the scale of a Nationally
-Significant Infrastructure Project.
+The BNG Service QGIS habitat mapping template and a QGIS plugin that converts
+sites into and out of it. Also a generated example site at the scale of a
+Nationally Significant Infrastructure Project (NSIP).
 
-Pure Python, standard library only. No GDAL, no QGIS imports in the conversion
-code, no network. The plugin needs QGIS; nothing else here does.
-
----
+The conversion code uses only the Python standard library. Only the plugin
+needs QGIS.
 
 ## What is where
 
 | Folder | What it holds |
 | --- | --- |
 | `templates/bng-service/` | **The template.** An empty QGIS project, its reference lists, and `HOW TO USE THIS TEMPLATE.md`, the surveyor's guide |
-| `templates/legacy-ne/` | Natural England's template as it ships, for converting into and out of |
-| `templates/legacy-ne-vertical-area/` | The fork of it that carries vertical area habitats |
-| `plugin/` | **The plugin.** Source, build script, built zip, and `plugin/README.md`, which is the installation and usage guide |
-| `reference/` | The Statutory Metric workbook, the Excel GIS import tool, and the published user guide. Every reference list in the template is checked against these |
-| `scale-test-nsip/` | The generated example site, plus `VERIFICATION.md`, the record of what was measured against it |
-| `development/` | Everything needed to maintain the above and nothing needed to use it: the example-site generator and the template maintenance tools |
+| `templates/legacy-ne/` | The Natural England template as it ships |
+| `plugin/` | **The plugin.** Source, `build_plugin.py`, and `plugin/README.md`, the installation and usage guide |
+| `reference/` | The Statutory Metric workbooks, the Excel GIS import tool and the user guide. Every reference list in the template is checked against these |
+| `scale-test-nsip/` | The example site: generator, claim checks, `README.md`, `VERIFICATION.md` and the generated output |
+| `development/tools/` | Tools that maintain the template. Nothing here is needed to use it |
 
-**Three things are sent out, and each has its own document.** The template goes
-with `HOW TO USE THIS TEMPLATE.md`, the plugin goes with `plugin/README.md`,
-and the example site goes with the same template guide inside it. This file is
-for whoever maintains them.
-
----
+**This file is for maintainers.** Users get `HOW TO USE THIS TEMPLATE.md`
+with the template and the example site, and `plugin/README.md` with the
+plugin.
 
 ## The plugin
 
-### Building it
+**Edit the code only in `plugin/bng_template_convert/`.** It is the only
+copy. The build zips it with `plugin/README.md`, so the plugin carries its
+guide.
 
+```sh
+cd plugin && python3 build_plugin.py   # -> plugin/dist/bng_template_convert.zip
 ```
-cd plugin
-python3 build_plugin.py          ->  plugin/dist/bng_template_convert.zip
-```
 
-The package folder is the only source; there are no copies to keep in step.
-`plugin/README.md` is zipped in alongside the code, so a plugin passed on by
-itself still carries its own instructions.
-
-### Installing it
-
-In QGIS: **Plugins** → **Manage and Install Plugins...** → **Install from ZIP**
-→ select `bng_template_convert.zip` → **Install Plugin**. Accept the untrusted
-source warning. The tools then appear under **Plugins** → **BNG Template
+To install, in QGIS select **Plugins** > **Manage and Install Plugins...** >
+**Install from ZIP**, then select the zip and **Install Plugin**. Accept the
+untrusted source warning. The tools show under **Plugins** > **BNG Template
 Convert** and in the **Processing Toolbox**.
 
-**`plugin/README.md` is the full guide**, including the thing users get wrong
-most often: exporting to the Statutory Metric and converting into the template
-both need clean, empty copies of the file being written into.
+**An export to the Metric and a conversion into the template each need an
+empty copy of the target file.** Users most often get this wrong.
 
 ### Running the conversions without QGIS
 
-The four modules in `plugin/bng_template_convert/` run standalone, which is how
-they are tested:
+The modules also run from the command line:
 
-```
+```sh
 cd plugin/bng_template_convert
 
-python3 new_to_old.py  INPUT.gpkg -o OUT_DIR
-        [--format gpkg|csv|both] [--consolidate] [--carry-lineage] [--dry-run]
+python3 new_to_old.py INPUT.gpkg -o OUT_DIR
+        [--format gpkg|csv|both] [--consolidate] [--merge-irreplaceable]
+        [--carry-lineage] [--dry-run]
 
-python3 old_to_new.py  --baseline BASE.gpkg [--post-intervention PI.gpkg]
-        -o OUT_DIR [--into TEMPLATE.gpkg] [--dry-run]
+python3 old_to_new.py --baseline BASE.gpkg [--post-intervention PI.gpkg]
+        -o OUT_DIR [--into TEMPLATE.gpkg [--force]] [--dry-run]
 
-python3 to_metric.py   INPUT.gpkg --metric METRIC.xlsm|.xlsx -o OUT
-        [--consolidate]
+python3 to_metric.py INPUT.gpkg --metric METRIC.xlsm|.xlsx -o OUT
+        [--consolidate] [--allow-occupied]
 ```
 
----
+## What conversion to legacy loses
 
-## What conversion does not carry
+The converter gives a warning for each of these:
 
-Going out to the legacy template loses things the legacy format has no room
-for. The converter warns about every one of them:
+- **Vertical area habitats are not carried.** Legacy has no layer for them,
+  so a legacy calculation leaves out their units.
+- **Irreplaceable habitat flags are dropped.** Legacy has no column for them,
+  so the converter lists them in `Irreplaceable habitats.csv`.
+- **Lineage keys are dropped**, unless lineage is recorded in comments. The
+  plugin records it by default. The command line needs `--carry-lineage`.
+- **Split features are flagged.** When a baseline hedgerow, watercourse or
+  tree becomes several features, each converted row repeats the parent
+  reference. Legacy expects one row for each reference, so its result can
+  differ.
+- **Loss rows copy the parent shape.** Legacy cannot record a removal by
+  absence, so the conversion writes a loss row with the baseline shape. The
+  length or count removed is exact. The stretch removed is not known.
 
-- **Vertical area habitats cannot be carried at all.** The legacy template has
-  no layer for them, so their units are missing from a legacy calculation.
-- **Irreplaceable habitat flags are dropped.** No legacy column exists. They
-  are listed separately in `Irreplaceable habitats.csv` instead.
-- **Lineage keys are dropped** unless lineage is recorded in comments, which is
-  the default.
-- **Split features are flagged.** Where one baseline hedgerow, watercourse or
-  tree became several post-intervention features, the converted rows repeat the
-  parent's reference, because legacy assumes one row per reference. The legacy
-  calculation may differ.
-- **Loss rows reuse the parent's shape.** The legacy format cannot record a
-  removal by absence, so the conversion writes an explicit loss row copied from
-  the baseline feature it describes. The length or count removed is exact;
-  which stretch was removed is not recorded in the new template at all.
+Conversion back from legacy drops the loss rows, because the template records a
+removal by leaving the feature out.
 
-Coming back the other way, the loss rows are dropped again, because the new
-template records a removal by leaving the feature out.
+**Some drop-down values start with the Metric list number**, as
+`4. Fairly Poor`. Both templates store that form. The Metric workbook and the
+import tool hold only the words, so the conversion removes the number for
+them. Hedgerow lists have no numbers.
 
-**Numbered list values are a convention, not a fault.** The template stores
-several drop-down values with the Metric's own list number in front, as
-`4. Fairly Poor` or `2. Retained`. The legacy GeoPackages keep that numbering,
-because the legacy template stores it too. The Statutory Metric workbook and
-the Excel import tool hold only the plain words, so the conversion strips the
-number on the way into those. Hedgerows are the exception that shows the
-pattern: their lists carry no numbers.
-
----
+**Template areas are in hectares**, as in the Metric. Legacy areas are whole
+square metres. The conversion changes the unit in both directions.
 
 ## The example site
 
-`scale-test-nsip/hs2-phase2a-subsection/` is a generated road corridor at NSIP
-scale: 34,847 features across 11 layers, 11,554 of them baseline area habitats.
-It is a complete, openable copy of the template with data in it.
+`scale-test-nsip/hs2-phase2a-subsection/` is a generated rail corridor at NSIP
+scale: 34,847 features across 11 layers, of which 11,554 are baseline area
+habitats. It is a full copy of the template with data in it.
 
-**It is generated, not committed.** It comes to roughly 100 MB, and the
-generator rebuilds it deterministically to the byte in about seven seconds:
+**The site is generated, not committed.** It is approximately 100 MB. The
+generator rebuilds it to the same bytes in approximately seven seconds. Run
+these from this folder:
 
-```
-cd development/scale-test-generator
-python3 generate.py                  # the whole corridor
-python3 generate.py --fraction 0.12  # one section, small enough for one metric
-```
-
-Every run refreshes the project file, the reference lists and the surveyor's
-guide from `templates/bng-service/`, so **the example and the empty template
-cannot drift apart**: the template is always the source.
-
-**Every value in it is one the template's drop-downs would offer.** The
-generator writes straight into the GeoPackage, never through a drop-down, so
-each run ends by checking every value against the list QGIS would have shown
-for that row, filters included, and fails if any is not on it.
-`dropdown_check.py` runs the same check against any site folder:
-
-```
-python3 development/scale-test-generator/dropdown_check.py <site folder>
+```sh
+python3 scale-test-nsip/generator/generate.py                  # whole corridor
+python3 scale-test-nsip/generator/generate.py --fraction 0.12  # one section
 ```
 
-`scale-test-nsip/VERIFICATION.md` is the runbook for exercising the template,
-every plugin tool and the service against it, and records what each step
-actually measured.
+The 12% section fits in one Metric workbook and goes to
+`scale-test-nsip/hs2-phase2a-subsection-12pc/`.
 
----
+**The template is always the source.** Each run copies the project file, the
+reference lists and the surveyor's guide from `templates/bng-service/`.
+
+**Every value in the site is one that a drop-down offers.** The generator does
+not use the drop-downs, so each run ends with a check of every value against
+the filtered list that QGIS shows for that row. The run fails on a value that
+is not in the list. To check any site folder:
+
+```sh
+python3 scale-test-nsip/generator/dropdown_check.py <site folder>
+```
+
+`scale-test-nsip/VERIFICATION.md` is the runbook for the template, each
+plugin tool and the service, with the measured results. The checks it uses are
+in `scale-test-nsip/verify/`.
+
+**Never edit the site by hand.** Change the template or the generator, and
+generate again.
 
 ## Maintenance tools
 
-In `development/tools/`:
-
-| Tool | What it does |
-| --- | --- |
-| `qgz_actions.py` | Reads and rewrites the buttons stored in a `.qgz`, by surgical XML edit rather than a full project rewrite |
-| `rename_actions.py` | Renames the template's buttons and puts them in the order a user needs |
-| `run_actions_headless.py` | Runs a button outside QGIS, standing in for the interface, so its logic can be tested |
-| `check_metric_lookups.py` | Checks a filled metric workbook's conditions against that workbook's own lookups, which catches a value the Metric cannot score |
-| `check_legacy_template.py` | Re-runs the findings about the legacy template against a fresh download of it |
-
-In `development/scale-test-generator/verify/`: the claim checks run against the
-example site, including that nothing is altered by conversion and that the
-answer does not move across a round trip.
-
----
-
-## Notes for maintainers
-
-- **Edit the modules in `plugin/bng_template_convert/`.** They are the only
-  copy. `build_plugin.py` zips them as they are.
-- **The template's buttons live inside the `.qgz`**, as Python stored in the
-  project XML. Change them through `development/tools/`, which keeps every
-  other byte of the project untouched; writing the project out through QGIS
-  instead drops button titles and rewrites megabytes for the sake of a few
-  attributes.
-- **Never edit the example site by hand.** Change the template and regenerate.
-- **Areas are hectares** in the template, which is the unit the Statutory
-  Metric works in. The legacy template uses whole square metres, and the
-  conversion handles that.
+**The template buttons are Python stored in the `.qgz` project XML.** Edit
+them only with the tools in `development/tools/`, which change no other byte.
+A project saved from QGIS loses the button short titles.
+`development/tools/README.md` describes each tool.

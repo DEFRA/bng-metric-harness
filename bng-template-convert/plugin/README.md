@@ -1,268 +1,196 @@
 # BNG Template Convert: a QGIS plugin
 
-Three tools that take a site out of the **BNG Service habitat mapping
-template** and into the places a Biodiversity Net Gain assessment has to end
-up: the Statutory Biodiversity Metric workbook, the older Natural England
-template, and the CSV files the Excel GIS import tool reads. One of them also
-brings a site back the other way.
-
-Everything runs inside QGIS. There is nothing to install beyond the plugin
-itself, no internet connection is used, and no file leaves the machine.
+The plugin has three tools for a site drawn in the **BNG Service habitat
+mapping template**. They fill the Statutory Biodiversity Metric workbook, and
+convert the site to and from the older Natural England template. The tools run
+inside QGIS, with no internet connection.
 
 ---
 
-## Read this first: start from clean, empty copies
+## Before you start
 
-**Two of the three tools write into a file you supply, and both need that file
-to be empty.** This is the single most common way a run goes wrong, and it is
-worth getting right before anything else.
+**Two tools write into a file that you supply, and that file must be empty.**
+Keep one clean copy of each, and give the tool a new copy for each run.
 
-| Tool | What it needs a clean copy of | Why |
-| --- | --- | --- |
-| **Export to the Statutory Metric** | a blank Statutory Metric workbook, `Macro_Enabled` or `Macro_Disabled`, straight from the download, with no habitats typed into it | The tool writes habitat rows into the on-site tabs. It refuses to run against a workbook that already holds habitats, rather than overwriting somebody's work |
-| **Convert from legacy template** | a fresh, unopened copy of the whole BNG Service template folder | The tool fills the GeoPackage inside it. Filling one that already holds a site mixes two sites together |
+| Tool | Clean copy it needs |
+| --- | --- |
+| **Export to the Statutory Metric** | A blank Statutory Metric workbook, as downloaded. The tool refuses a workbook that holds habitats, and a filled workbook cannot be emptied |
+| **Convert from legacy template** | An unopened copy of the whole BNG Service template folder. Filling a used GeoPackage mixes two sites |
 
-**Keep one pristine copy of each, and copy it for every run.** Never point a
-tool at the only clean file you have: point it at a copy. The metric workbook
-in particular cannot be emptied again once habitats are in it, short of
-downloading it afresh.
-
-**Convert to legacy template** is the exception. It writes new files into a
-folder you name, so it needs nothing prepared.
-
-**Save your edits before running anything.** All three tools read the
-GeoPackage from disk. Edits still sitting in a QGIS edit buffer, with the
-pencil still pressed, are not on disk yet and will be missing from the result.
-The tools check for this and stop with a message naming the layers to save.
+**Save your edits first.** The tools read the GeoPackage from disk, and stop
+with the names of any layers that have unsaved edits.
 
 ---
 
-## Installing it
+## Install the plugin
 
-1. Open QGIS. Any version from **3.22** onwards works; the long term version
-   from qgis.org is the safe choice.
-2. **Plugins** → **Manage and Install Plugins...**
-3. Choose **Install from ZIP** down the left-hand side.
-4. Click the **...** button and select **`bng_template_convert.zip`**.
-5. Click **Install Plugin**. A warning about installing from an untrusted
-   source is expected. Accept it.
-6. Close the dialog.
+1. Open QGIS 3.22 or later.
+2. Select **Plugins** → **Manage and Install Plugins...** → **Install from
+   ZIP**.
+3. Select **`bng_template_convert.zip`**, then **Install Plugin**. Accept the
+   warning about an untrusted source.
 
-**To check it installed:** the **Plugins** menu now carries a **BNG Template
-Convert** entry holding three tools. The same three also appear in the
-**Processing Toolbox** (**Processing** → **Toolbox**, or `Ctrl+Alt+T`) under
-**BNG Template Convert**.
-
-**To upgrade:** install the new zip the same way. If the menu still shows an
-older set of tools afterwards, uninstall the old version first, install again,
-and restart QGIS. The version is shown beside the plugin name in the same
-dialog.
+The **Plugins** menu and the **Processing Toolbox** (`Ctrl+Alt+T`) then show
+**BNG Template Convert** with three tools. To upgrade, install the new zip. If
+the menu does not change, uninstall the plugin, install it again and restart
+QGIS.
 
 ---
 
-## The three tools
+## Export to the Statutory Metric (Excel)
 
-### Export to the Statutory Metric (Excel)
+**This tool fills a copy of the Statutory Biodiversity Metric workbook
+directly from the habitat layers.**
 
-**Fills a copy of the Statutory Biodiversity Metric workbook straight from
-your habitats.** No CSV files, no GIS import tool in between.
-
-| Field | What to put in it |
+| Field | Value |
 | --- | --- |
-| BNG Service GeoPackage | your site, usually `Layers/BNG Service Layers.gpkg` |
-| Blank Statutory Metric workbook | **a clean copy** of `The_Statutory_Metric_Macro_Enabled_1.0.4.xlsm` or `The_Statutory_Metric_Macro_Disabled_1.0.4.xlsx` |
-| Filled metric workbook to write | anywhere. It is given the extension of the blank workbook, whatever you type |
-| Merge rows with matching values | see below |
+| BNG Service GeoPackage | Your site, usually `Layers/BNG Service Layers.gpkg` |
+| Blank Statutory Metric workbook | **A clean copy** of `The_Statutory_Metric_Macro_Enabled_1.0.4.xlsm` or `The_Statutory_Metric_Macro_Disabled_1.0.4.xlsx` |
+| Filled metric workbook to write | Any location. The file keeps the extension of the blank |
+| Merge rows with matching values | See below |
 
-**Either version of the metric works.** Natural England publishes it with
-macros and without, and the sheets and the calculation are the same in both.
-The filled copy keeps the version it was given, so a `Macro_Disabled` blank
-gives an `.xlsx` that opens with no macro prompt. Nothing in the calculation
-depends on the macros.
+**Both versions of the metric give the same result.** The calculation does not
+use the macros. A `Macro_Disabled` blank gives an `.xlsx` with no macro prompt.
 
-**What it fills:** the on-site tabs for area habitats, hedgerows and
-watercourses (A, B and C). Every baseline feature lands on the baseline tab.
-Each Retained or Enhanced part of it becomes a row of its own, and whatever
-post-intervention does not carry forward is one more row, which the metric
-counts as lost: the ground under a created parcel, a shortened hedge's missing
-length, a feature deleted outright. A watercourse that continues at all
-continues at its surveyed length, because re-meandering lengthens a channel
-without adding to the baseline. The creation and enhancement tabs are filled
-to match, and the watercourse tabs get their encroachment values, without which
-the metric gives a watercourse no units.
+**The tool fills on-site tabs A, B and C** for area habitats, hedgerows and
+watercourses. Each baseline feature gets a baseline row. Each Retained or
+Enhanced part gets its own row. What does not continue into post-intervention
+gets one more row, which the metric counts as lost. The creation, enhancement
+and watercourse encroachment values are filled to match.
 
-**A site part-way through works.** The baseline tabs always hold the whole
-baseline layer, so the baseline figures are right as soon as the baseline is
-drawn. Anything not yet carried forward to post-intervention counts as lost, so
-the post-intervention figures are only as finished as that layer, and the log
-says when a post-intervention layer is empty. A value the metric needs and a
-layer leaves blank is written as a blank. The log lists every one, layer by
-layer and column by column, because the metric then leaves that row out of its
-totals or shows *Check Data* in place of a total.
+**A watercourse that continues keeps its surveyed length.** Re-meandering
+makes a channel longer but does not add to the baseline.
 
-**What it does not fill:** individual trees, whose size the metric works out
-from a band lookup rather than from the map; the off-site tabs, which have a
-different layout; and the separate **Irreplaceable Habitats** sheet. Those go
-in by hand, and the tool says so every time it runs.
+**A part-finished site can be exported.** The baseline tabs always hold the
+whole baseline. A feature not yet in post-intervention counts as lost.
 
-**Irreplaceable habitat is half filled, and the half that is filled is the one
-that changes the numbers.** The Yes or No flag against every on-site baseline
-habitat row is written from the template's own `Irreplaceable Habitat` column.
-The metric needs it: a blank there produces *Confirm irreplaceable habitat
-status*, and a flag that disagrees with the habitat type produces
-*Irreplaceable habitat* or *Cannot be Irreplaceable*. Filling it is what stops
-those appearing.
+**A blank value in a layer stays blank in the metric.** The log lists each one
+by layer and column. The metric then leaves that row out of its totals, or
+shows *Check Data*.
 
-What is left for you is the **Irreplaceable Habitats** sheet, and two of the
-things it asks for are not on the map at all:
+**The tool writes the irreplaceable Yes or No flag on each on-site baseline
+habitat row,** from the `Irreplaceable Habitat` column. Without the flag the
+metric shows *Confirm irreplaceable habitat status*. A flag that disagrees
+with the habitat type gives *Irreplaceable habitat* or *Cannot be
+Irreplaceable*. Watercourses and hedgerows have no flag in the template.
 
-| The sheet asks for | Why it is not filled |
+**You must fill these parts of the metric by hand:**
+
+- individual trees, which the metric sizes from a band lookup
+- the off-site tabs
+- the **Irreplaceable Habitats** sheet. The template does not record the
+  habitat name or the bespoke compensation agreement.
+
+**Open the result in Excel and let it recalculate.** Macros and sheet
+protection are kept. A message about trusted document settings is expected.
+
+**A large site is written as several numbered workbooks.** Each sheet holds
+248 rows, and each enhancement tab 246. Each workbook is a complete metric for
+its part of the site. An enhancement stays in the workbook of the parcel that
+it improves. **Add the unit totals across all the workbooks**, because the net
+gain percentage of one workbook covers only its part.
+
+**Merge rows with matching values** works like the import tool's *Consolidate
+Data* button. Rows that differ only in size become one row, and no total
+changes. It fits a large site into fewer workbooks, but it removes the audit
+trail for each parcel, so it is off by default. Irreplaceable habitat is never
+merged with other habitat.
+
+---
+
+## Convert to legacy template (for the older service)
+
+**This tool splits the BNG Service GeoPackage into the baseline and
+post-intervention GeoPackages of the older service.** It can also write the
+three CSV files that the Excel GIS import tool reads.
+
+| Field | Value |
 | --- | --- |
-| Irreplaceable habitat name | The template records a Yes or No flag, not which irreplaceable habitat a parcel is. The two are different vocabularies |
-| Bespoke compensation agreed? | A planning outcome, settled with the consenting body rather than drawn |
-| Area at baseline, retained, enhanced, lost | These could be worked out from the map, and are simply not written yet |
-
-**Watercourses carry no flag at all.** The metric has an irreplaceable column
-on its on-site watercourse baseline sheet, but the template has no such column
-on watercourses, so there is nothing to write. Hedgerows have no column on
-either side.
-
-**Open the result in Excel and let it recalculate.** Macros, where the
-workbook has them, and sheet protection are carried over untouched. With the
-macro version, Excel may show a message about trusted document settings after
-you enable content, which is expected.
-
-**A site too large for one workbook is written as several.** Every sheet in
-the metric holds 248 rows, and 246 on the enhancement tabs. A site needing more
-is dealt evenly into numbered workbooks, each a complete and valid metric for
-its own share of the site, and an enhancement always stays in the same workbook
-as the baseline parcel it improves. **Add the unit totals across the set.** A
-net gain percentage read off one workbook describes only the part of the site
-that workbook holds.
-
-**Merge rows with matching values** does what the import tool's *Consolidate
-Data* button does: rows agreeing on everything but size become one row with the
-sizes added together. No total moves, because units scale with size. Use it to
-fit a large site into fewer workbooks. It costs the parcel-by-parcel audit
-trail, so it is off by default. Irreplaceable habitat is never merged with
-habitat that is not irreplaceable.
-
-### Convert to legacy template (for the older service)
-
-**Splits the single BNG Service GeoPackage into the two GeoPackages the older
-Biodiversity Metric service expects**, a baseline file and a post-intervention
-file, which you upload one after the other. It can also write the three CSV
-files the Excel GIS import tool reads.
-
-| Field | What to put in it |
-| --- | --- |
-| BNG Service GeoPackage | your site |
-| Folder to write into | any folder; the files are created in it |
+| BNG Service GeoPackage | Your site |
+| Folder to write into | Any folder |
 | What to produce | **Legacy GeoPackages**, **GIS import tool CSVs**, or both |
-| Record lineage in comments | leave ticked |
+| Record lineage in comments | Leave ticked |
 
-**Things the legacy format cannot hold are listed as warnings when it
-finishes. Read them.** Vertical area habitats have no legacy layer at all, so
-their biodiversity units are missing from a legacy calculation. Irreplaceable
-habitat has no legacy column, so the flag is dropped.
+**Read the warnings.** Vertical area habitats have no legacy layer, so their
+units are missing from a legacy calculation. The irreplaceable flag has no
+legacy column, so it is lost.
 
-**Record lineage in comments** writes each feature's parent reference into the
-legacy Comment column. The older service ignores it, but it lets the companion
-tool restore the links exactly if the site is ever converted back. Leave it
-ticked unless the comment column has to stay untouched.
+**Record lineage in comments** writes the parent reference of each feature to
+the legacy Comment column. The reverse tool uses it to restore the links.
 
-**Individual trees are not in the CSVs.** The import tool cannot read tree
-points at all, so trees have to be typed into the metric by hand. They are
-still in the GeoPackages.
+**The CSVs hold no individual trees**, because the import tool cannot read
+them. Type trees into the metric by hand.
 
-**A site part-way through converts.** The baseline file always holds the whole
-baseline. The post-intervention file holds what has been drawn, so until
-post-intervention is finished it does not cover the red line, and the older
-service refuses it; the log says which parcels are missing. The CSVs are
-different, because the import tool builds the metric's baseline from them
-alone: every baseline parcel not yet carried forward gets a *Lost* row there,
-as removed hedgerows and watercourses always have, so the baseline stays
-complete. Values the metric needs and your layers leave blank are listed in
-the log, layer by layer, and travel into the legacy files and the CSVs as
-blanks.
+**A part-finished site can be converted.** The older service refuses a
+post-intervention file that does not cover the red line boundary, and the log
+names the missing parcels. The CSVs always give a complete baseline: each
+parcel not yet in post-intervention gets a *Lost* row.
 
-**To open a converted file in the legacy QGIS template**, take a copy of the
-whole legacy template folder for that stage, put the file in its `Layers`
-folder and rename it to `Net Gain Habitat Mapping Layers.gpkg`, replacing the
-empty one. The project looks for that exact name, so the baseline and the
-post-intervention file need a folder each.
+**To open a converted file in the legacy QGIS template,** copy the whole
+legacy template folder, one copy for each stage. Put the file in the `Layers`
+folder of the copy, and rename it `Net Gain Habitat Mapping Layers.gpkg` to
+replace the empty file.
 
-### Convert from legacy template (into the BNG Service template)
+---
 
-**Joins a legacy baseline and post-intervention pair back into one BNG Service
-GeoPackage.**
+## Convert from legacy template (into the BNG Service template)
 
-| Field | What to put in it |
+**This tool joins a legacy baseline file and post-intervention file into one
+BNG Service GeoPackage.**
+
+| Field | Value |
 | --- | --- |
-| Legacy baseline GeoPackage | the baseline file |
-| Legacy post-intervention GeoPackage | the post-intervention file, or leave blank for baseline only |
-| Existing template GeoPackage to fill | **a clean copy** of the template's `Layers/BNG Service Layers.gpkg` |
-| ...or write a new GeoPackage here | leave blank if filling a template |
+| Legacy baseline GeoPackage | The baseline file |
+| Legacy post-intervention GeoPackage | The post-intervention file, or blank |
+| Existing template GeoPackage to fill | **A clean copy** of `Layers/BNG Service Layers.gpkg` in the template |
+| ...or write a new GeoPackage here | Blank when you fill a template |
 
-**Filling a clean copy of the whole template folder is the useful way to run
-it.** Open that copy's project afterwards and the habitats are there, with all
-the template's styling and drop-downs. Leaving both destination fields set the
-other way gives a plain GeoPackage with no project around it.
+**Fill a clean copy of the whole template folder,** then open its project to
+see the habitats with the template styles and drop-down lists.
 
-**Lineage.** The legacy files never recorded which baseline feature each
-post-intervention feature came from. This tool links what it can prove, from
-matching references or from breadcrumbs left by the companion tool, and
-deliberately leaves the rest blank so the service works them out from the
-shapes and says which ones it inferred. The log reports how many were linked.
+**The tool links only the parents it can prove,** from matching references and
+lineage comments. It leaves the other links blank for the service to work out
+from the shapes. The log gives the number of links.
 
-**A partial site comes back exactly as it went out.** A baseline with nothing
-in post-intervention, or a post-intervention layer only partly drawn, returns
-with the same rows and the same parent links, and blanks stay blank. The log
-lists any value the metric needs that the legacy files left blank.
-
-**Afterwards you must** fill in Irreplaceable Habitat, which has no legacy
-column, and add any vertical area habitats such as green walls.
+**After the conversion, you must** fill in Irreplaceable Habitat and add any
+vertical area habitats, such as green walls.
 
 ---
 
-## Reading the log
+## Read the log
 
-Every tool writes to the **Log** tab of its dialog, in three parts:
+Each tool writes to the **Log** tab of its dialog:
 
-- **Rows** — how many features went into each layer or sheet. Check these
-  against what you expected.
-- **Notes** — transformations that are meant to happen, such as loss rows
-  written on the way out to legacy and dropped again on the way back.
-- **Warnings** — things to look at before relying on the result.
-
-**A warning is not a failure.** Most of them describe something the older
-format cannot carry. The ones worth acting on say so plainly.
+- **Rows**: the number of features in each layer or sheet.
+- **Notes**: intended changes, such as loss rows added for legacy.
+- **Warnings**: items to examine before you use the result. A warning is not
+  a failure, and a warning that needs action says so.
 
 ---
 
-## If something goes wrong
+## Problems
 
-| What you see | What it means |
+| What you see | What to do |
 | --- | --- |
-| *These layers have unsaved edits* | Something is still in edit mode. Press the pencil to save and turn editing off, then run again |
-| *already holds habitat data* | The metric workbook is not a clean copy. Start from a fresh download |
-| *is not a readable Statutory Metric workbook* | The `.xlsb` GIS import tool was given instead of the metric. They are different files |
-| *Cannot find the GeoPackage* | The path has moved, or the site folder has been split up |
-| Only two tools in the menu | An older version of the plugin is installed. Uninstall it, install this one, restart QGIS |
-| A metric row or total reads `Check Data` | A value it needs was blank in your layers. The log's *CHECK THIS* lines name each one. If none do, report it: every value the tools write is checked against the workbook's own lookups before release |
+| *These layers have unsaved edits* | Save and stop editing, then run again |
+| *already holds habitat data* | Use a new copy of the workbook |
+| *is not a readable Statutory Metric workbook* | Select the metric, not the `.xlsb` GIS import tool |
+| *Cannot find the ...* | The file has moved |
+| Fewer than three tools in the menu | Uninstall the old plugin, install this one and restart QGIS |
+| `Check Data` in the metric | The *CHECK THIS* lines in the log name each blank value. If none do, report it |
 
 ---
 
-## What is inside
+## Command line
 
-Pure Python, standard library only. No GDAL, no network, no third-party
-packages. The four conversion modules also run from a command line without
-QGIS, which is how they are tested:
+The plugin uses only the Python standard library. The conversion scripts also
+run without QGIS:
 
 ```
-python3 new_to_old.py  INPUT.gpkg -o OUT_DIR [--format gpkg|csv|both] [--consolidate]
-python3 old_to_new.py  --baseline BASE.gpkg [--post-intervention PI.gpkg] -o OUT_DIR
-python3 to_metric.py   INPUT.gpkg --metric METRIC.xlsm|.xlsx -o OUT [--consolidate]
+python3 new_to_old.py INPUT.gpkg -o OUT_DIR [--format gpkg|csv|both] [--consolidate] [--carry-lineage]
+python3 old_to_new.py --baseline BASE.gpkg [--post-intervention PI.gpkg] -o OUT_DIR [--into TEMPLATE.gpkg]
+python3 to_metric.py  INPUT.gpkg --metric METRIC.xlsm|.xlsx -o OUT [--consolidate]
 ```
 
-Add `--dry-run` to the first two to see the report without writing anything.
+Add `--dry-run` to `new_to_old.py` or `old_to_new.py` to see the report and
+write nothing.

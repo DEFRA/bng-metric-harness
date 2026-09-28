@@ -1,17 +1,15 @@
-# Building a BNG prototype in QGIS — step by step
+# Building a BNG habitat map in QGIS
 
-Written for someone who has not used QGIS before. Follow it top to bottom and
-you will end up with one GeoPackage containing a baseline, a post-intervention
-layer derived from it, and a created habitat that straddles two baseline
-parcels.
+This guide is for a surveyor who has not used QGIS before. Do the parts in
+order. The result is one GeoPackage that holds a baseline, a post-intervention
+map copied from it, and a created habitat that crosses two baseline parcels.
 
-Written for **QGIS on Windows**. Any version from 3.22 onwards works, and the
-long term version from qgis.org is the safe choice. Menu wording is taken from
-QGIS 3.44.
+The guide is written for **QGIS on Windows**, version 3.22 or later. The long
+term release from qgis.org is the safe choice. Menu names are from QGIS 3.44.
 
 ---
 
-## What you are building
+## What you build
 
 ```
 Red Line Boundary          the site boundary
@@ -21,738 +19,648 @@ Red Line Boundary          the site boundary
 <type> Post-Intervention   what it becomes        PR-1, PR-2, PI-POND
 ```
 
-The important idea: **you draw the baseline once, then copy it**. Everything in
-the post-intervention layer starts as an exact copy, so nothing drifts, and each
-copied parcel remembers which baseline parcel it came from.
+**You draw the baseline once, then copy it.** Each post-intervention feature
+starts as an exact copy, and it keeps a link to the baseline parcel it came
+from.
 
-There are **five habitat types**, each with the same baseline / post-intervention
-pair, and all in the same GeoPackage:
+**There are five habitat types.** Each type has a Baseline layer and a
+Post-Intervention layer, and all of them are in one GeoPackage:
 
-| Layer pair | Drawn as | Size field | Unit | Filled in by |
+| Layer group | Drawn as | Size column | Unit | Filled in by |
 | --- | --- | --- | --- | --- |
-| **Habitats** | area (polygon) | `Area (ha)` | hectares | QGIS, automatically |
-| **Vertical Area Habitats** | line | `Area (ha)` | hectares | **you** — see below |
-| **Hedgerows** | line | `Length (m)` | metres | QGIS, automatically |
-| **Watercourses** | line | `Length (m)` | metres | QGIS, automatically |
-| **Individual Trees** | point | `Count` | trees | **you** |
+| **Area Habitats** | polygon | `Area (ha)` | hectares | QGIS |
+| **Vertical Area Habitats** | line | `Area (ha)` | hectares | you |
+| **Hedgerows** | line | `Length (m)` | metres | QGIS |
+| **Watercourses** | line | `Length (m)` | metres | QGIS |
+| **Individual Trees** | point | `Count` | trees | you |
 
-Areas are in **hectares**, the unit the Statutory Metric works in; lengths are in
-metres. The unit is in each column heading so there is nothing to remember. The
-measure tool reports hectares too. One hectare is 10,000 square metres, so a
-100 m by 100 m parcel reads `1`.
+Areas are in hectares, the unit of the Statutory Metric. The measure tool also
+gives hectares. One hectare is 10,000 m², so a parcel of 100 m by 100 m shows
+`1`.
 
-Two need explaining:
+Two types need an explanation:
 
-- **Vertical Area Habitats** are green walls and intertidal hard structures. They
-  are vertical surfaces, so you draw the line they follow on the ground, but the
-  area that counts is the *face* of the wall. QGIS cannot work that out from a
-  line on a flat map, so you type it in.
-- **Individual Trees** are single points, so there is no shape to measure. `Count` is how
-  many trees that point represents.
+- **Vertical Area Habitats** are green walls and intertidal hard structures.
+  You draw the line along the base of the structure. The area that counts is
+  the vertical face, which QGIS cannot calculate from a line, so you type it.
+- **Individual Trees** are points and have no size to measure. `Count` is the
+  number of trees that one point represents.
 
-Everything below uses **Habitats** as the worked example. The other four work
-identically — same buttons, same copy action — except where flagged in Part 9.
+This guide uses **Area Habitats** as the example. The other four types use the
+same buttons and the same copy action. Part 9 gives the differences.
 
 ---
 
-## Part 1 — Open the project and set up
+## Part 1: Open the project and set it up
 
-### 1.1 Open it
+### 1.1 Open the project
 
-**First, on Windows: put the folder somewhere local, not in OneDrive.** Your
-map lives in a database file that QGIS writes to as you work. A folder that
-syncs to the cloud can take a copy halfway through a save, or hold the file
-while it uploads, and either can damage a day's mapping. Somewhere like
-`C:\BNG\` is right. A short path helps for a second reason: Windows refuses
-file names longer than 260 characters altogether, and this folder uses up 87
-of them on its own.
+**Keep the folder on a local disk, not in OneDrive.** QGIS writes to the map
+file while you work. A folder that synchronises to the cloud can copy or lock
+the file during a save, and this can damage a day of mapping.
 
-Double-click **`BNG Service Habitat Mapping.qgz`**.
+**Use a short path, such as `C:\BNG\`.** Windows refuses a file path longer
+than 260 characters. The longest path inside this folder is already 85
+characters.
 
-**Two things happen on every open, and neither is a fault.** QGIS asks you to
-**Select Transformation** for the background map, and shows a yellow bar
-reading *Cannot use preferred transform*. Press **OK** and carry on. The map
-then opens showing the whole of the United Kingdom rather than your site:
-right-click any layer that has data in it and choose **Zoom to Layer**.
+1. Double-click **`BNG Service Habitat Mapping.qgz`**.
+2. In the **Select Transformation** window, click **OK**.
+3. Ignore the yellow bar *Cannot use preferred transform*. It is not a fault.
+4. Right-click a layer that has data, then click **Zoom to Layer**.
 
-QGIS opens with a **Layers** panel down the left, organised into groups:
+The map opens on the whole United Kingdom until you do step 4.
 
-- **Red Line Boundary** at the top
-- one group per habitat type, each holding its **Post-Intervention** layer
-  above its **Baseline** — toggle the top one off to reveal the baseline
-  underneath. The line and point types sit above the Habitats (area) group so
-  hedges, watercourses, walls and trees are never buried under the polygons.
-- a collapsed **Reference data** group at the bottom — the lookup tables that
-  drive the dropdowns. Leave it collapsed; never edit anything inside it.
-  Every list in it is checked against version 1.0.4 of the Statutory
-  Biodiversity Metric workbook: habitat names and their distinctiveness bands, which
-  conditions each habitat allows, hedgerow and watercourse types, encroachment
-  values, tree sizes, and the spatial risk and strategic significance wordings.
-  Natural England's own template still carries the Metric 4.0 bands for five
-  habitats; this one does not.
+The **Layers** panel on the left holds these groups:
 
-### 1.2 Turn on the toolbars you need
+- **Red Line Boundary**, at the top.
+- One group for each habitat type. The **Post-Intervention** layer is above
+  the **Baseline** layer. Turn off the top layer to see the baseline. The line
+  and point groups are above **Area Habitats**, so polygons do not hide them.
+- **Reference data**, at the bottom. These tables supply the dropdown lists.
+  Keep the group collapsed and do not edit it.
 
-**View → Toolbars**, and make sure these are ticked:
+**Every list in Reference data agrees with version 1.0.4 of the Statutory
+Biodiversity Metric workbook.** This includes habitat names, distinctiveness
+bands, the conditions each habitat allows, hedgerow and watercourse types,
+encroachment values, tree sizes, spatial risk and strategic significance.
+Natural England's own template keeps the Metric 4.0 bands for five habitats.
 
-- **Digitizing** — drawing and editing
-- **Advanced Digitizing** — splitting and carving
-- **Snapping** — making shapes meet exactly
+### 1.2 Turn on the toolbars
 
-Three new rows of buttons appear. You will use maybe eight of them.
+1. Click **View → Toolbars**.
+2. Tick **Digitizing**, for drawing and editing.
+3. Tick **Advanced Digitizing**, for splitting and carving.
+4. Tick **Snapping**, for making shapes meet exactly.
 
-### 1.3 Where the template buttons live
+### 1.3 Find the template buttons
 
-This template adds four of its own buttons. Each **Post-Intervention** layer
-carries `Copy baseline to post-intervention`, `Tidy PI refs after splitting`
-(Parts 4 and 6) and `Refresh from baseline`, in that order, which is the order
-you need them in. Each **Baseline**
-layer carries `Rename a ref (updates post-intervention)` — the safe way to
-rename a parcel after copying, because it renames the baseline ref *and* every
-post-intervention row that points at it (including split suffixes like
-`PR-1a`) in one go.
+The template adds four buttons. They are in the **attribute table**, not in
+the right-click menu of the Layers panel.
 
-**`Refresh from baseline`** is for when you change the baseline *after* you
-have already copied it across. Run it on the Post-Intervention layer and it
-will, for every row that came from a baseline feature:
+1. In the Layers panel, right-click the layer, then click **Open Attribute
+   Table**. Or select the layer and press `F6`.
+2. On the toolbar of the attribute table window, find the right-hand end.
+3. Click **Actions**, the second button from the end. The last button docks
+   the window, so do not click it by mistake.
 
-- refresh the read-only `Baseline …` values, which are a copy taken when the
-  row was created and would otherwise be out of date. This happens whether or
-  not the shape moved, so an edit that only changed a condition or a habitat
-  type still reaches your row;
-- follow the baseline's new shape where it can do so without guessing. An
-  untouched copy simply takes the new shape. If the baseline feature was moved
-  bodily, the same move is applied to your row, keeping any adjustment you made
-  yourself. If an area parcel was reshaped, rows cut from it are trimmed back
-  inside it;
-- where the shape cannot be resolved without guessing, refresh the values only,
-  leave your shape alone, and name the row so you can look at it;
-- where the baseline feature has been **deleted**, clear the `Baseline …`
-  values and the link, leaving your shape and your proposed values untouched.
-  The shape is **still drawn**, so decide whether that row is now genuinely
-  `Created` or should be deleted;
-- where a baseline feature has **no row here at all**, create one, copied
-  across exactly as `Copy baseline to post-intervention` would have done it.
-  This is what carries a parcel you deleted and re-drew as two;
-- check that each area parent is still fully covered by the rows cut from it,
-  and report any parent whose rows no longer add up, in either direction;
-- give a **split baseline feature** its own hidden id. QGIS copies every
-  attribute when it splits a feature, so both halves come out sharing one id
-  and neither can be told from the other. The half that continues the original
-  parcel keeps the id, the rest become new parcels, and it says which. This is
-  the one case where the button edits the **Baseline** layer as well.
+| Layer | Buttons, in the order you use them |
+| --- | --- |
+| Each **Post-Intervention** layer | `Copy baseline to post-intervention`, `Tidy PI refs after splitting`, `Refresh from baseline` |
+| Each **Baseline** layer | `Rename a ref (updates post-intervention)` |
 
-Only the locked `Baseline …` columns and `Parent Ref` are ever overwritten.
-Everything you own — your shapes, your `Proposed …` values, `Retention
-Category`, `Irreplaceable Habitat` — is left alone.
+A layer with no buttons, such as a reference table, shows no **Actions**
+button.
 
-It reports what it did and, like the other three buttons, **saves as it goes**.
-There is no undo, so work on a copy of the GeoPackage the first time you use it
-on real data. Anything it could not resolve keeps its drift warning on upload,
-which is deliberate: the warning is what tells you a shape still needs
-attention.
+**After a button runs, the attribute table goes behind the main QGIS window.**
+Click the table on the task bar to show it again. A click that hits the main
+window by mistake can open QGIS Help.
 
-They are **not** in the right-click menu of the Layers panel. QGIS has no such
-menu. They live in the **attribute table**:
+**Every button saves as it goes, and there is no undo.** Use a copy of the
+GeoPackage the first time you use a button on real data.
 
-1. In the Layers panel, right-click the layer → **Open Attribute Table**
-   (or select the layer and press `F6`).
-2. On the attribute table's own toolbar — the row of buttons across the top of
-   that window, not the main QGIS toolbar — look at the **right-hand end**.
-3. **Actions is the second button from the end** (hover to see the tooltip).
-   The last one docks and undocks the window, which is easy to hit by mistake.
-   Click Actions and the template buttons for that layer drop down, in the
-   order you need them.
+**`Rename a ref (updates post-intervention)`** is the safe way to rename a
+parcel after the copy. It changes the baseline ref and every post-intervention
+row that points at it, including split suffixes such as `PR-1a`.
 
-**After a button runs, the attribute table drops behind the main QGIS
-window.** Click the table on the task bar to bring it back. A click meant for
-the table that lands on the main window behind it can open QGIS Help.
+**`Refresh from baseline`** applies later baseline edits to the
+Post-Intervention layer. For each row copied from a baseline feature:
 
-If you do not see an **Actions** button, you have the attribute table of a
-layer that has none open (for example a reference table) — QGIS hides the
-button entirely there. A Post-Intervention layer shows the three buttons that
-act on it; a Baseline layer shows only `Rename a ref`.
+- It refreshes the locked `Baseline …` values, even when the shape did not
+  move.
+- It moves your shape with the baseline when no guess is needed. A baseline
+  feature moved as a whole moves your row by the same amount. Rows cut from a
+  reshaped area parcel are trimmed to fit inside it.
+- When the shape needs a guess, it refreshes only the values and names the row
+  for you to check.
+- When the baseline feature is **deleted**, it clears the `Baseline …` values
+  and the link. Decide if the remaining shape is `Created` or must be deleted.
+- When a baseline feature has **no row**, it makes one, as the copy button
+  does.
+- It reports each area parcel that its rows no longer cover exactly.
+- It gives each half of a **split baseline feature** its own hidden id, and
+  names the new parcels. This is the only time a button edits a Baseline
+  layer.
 
-> These buttons are little Python scripts stored inside the project. QGIS shows
-> them under **Layer Properties → Actions** if you ever want to read one, but
-> that dialog is for *editing* them — you cannot run them from there.
+It changes only the `Baseline …` columns and `Parent Ref`. Your shapes,
+`Proposed …` values, `Retention Category` and `Irreplaceable Habitat` do not
+change. A row that it cannot resolve keeps its warning on upload.
 
-### 1.4 Turn on tracing — how to follow an existing edge
+### 1.4 Turn on tracing
 
-Snapping locks a *point* onto an existing corner or edge. **Tracing** is the one
-that makes a whole run of your new line follow an existing edge exactly.
+**Tracing makes a line follow an existing edge exactly.** Use it when a new
+habitat runs along the boundary of a parcel.
 
-Press **`T`**, or click **Enable Tracing** on the **Snapping** toolbar.
+1. Press `T`, or click **Enable Tracing** on the **Snapping** toolbar.
+2. While you draw, click where your line joins the existing edge.
+3. Click again further along that edge. QGIS adds every corner between the two
+   clicks.
 
-Then, while drawing, click once where you want to join the existing edge and
-click again further along it — QGIS fills in every intermediate corner of that
-edge for you, so your line lies exactly on top of it.
+Without tracing, QGIS draws a straight line between your two clicks. That line
+cuts corners, and where the edge bends outwards the line goes outside the
+parcel. This causes the error `could not add ring: the inserted Ring is not
+contained in a feature`.
 
-This is what you want whenever a new habitat runs along the boundary of an
-existing parcel. Without it you get a straight chord between your two clicks,
-which cuts the corner and drifts off the real edge — and if the edge bends
-outward, your chord ends up *outside* the parcel, which is what causes
-`could not add ring: the inserted Ring is not contained in a feature`.
+> Tracing needs snapping on for the traced layer (section 1.5). Tracing turns
+> itself off when too many features are on screen. Zoom in to use it.
 
-> Tracing needs snapping switched on for the layer being traced (next section).
-> It switches itself off if too many features are on screen — zoom in.
+### 1.5 Turn on snapping
 
-### 1.5 Turn on snapping — do not skip this
+**Do not skip this section.** Snapping moves a new corner onto a near corner
+or edge. Without it, parcels have thin gaps and overlaps, and the areas do not
+add up.
 
-Snapping makes a new corner jump to an existing corner or edge when you get
-close. Without it your parcels will have hairline gaps and slivers between them,
-and the areas will not add up.
-
-1. **Project → Snapping Options…**
-2. Click the **magnet** icon at the left of the bar that appears, so it is
-   highlighted. Snapping is now on.
-3. Set the mode dropdown to **All Layers**.
-4. Set the type dropdown to **Vertex and Segment** (some builds call this
-   "Vertex and Edge").
+1. Click **Project → Snapping Options…**.
+2. Click the **magnet** icon at the left of the bar, so that it is highlighted.
+3. Set the mode to **All Layers**.
+4. Set the type to **Vertex and Segment**. Some versions call it **Vertex and
+   Edge**.
 5. Set the tolerance to about **10 pixels**.
-6. Tick **Topological Editing** (the icon of two joined polygons). Now if you
-   move a corner shared by two parcels, both move together.
-7. Tick **Avoid Overlap** for the two habitat layers if the option is shown.
-   New shapes will then be trimmed so they cannot sit on top of an existing one.
+6. Tick **Topological Editing**, the icon of two joined polygons. A moved
+   corner that two parcels share then moves in both.
+7. If the option shows, tick **Avoid Overlap** for the two area habitat
+   layers. QGIS then trims a new shape so it cannot overlap an existing one.
 
-Leave this bar visible; you will glance at it often.
-
----
-
-## Part 2 — Draw the red line boundary
-
-The red line is the site boundary. Everything else must sit inside it.
-
-1. In the **Layers** panel, click once on **Red Line Boundary** to select it.
-2. Click the **yellow pencil** (Toggle Editing) in the Digitizing toolbar. The
-   layer is now editable.
-3. Click **Add Polygon Feature** (the icon of a polygon with a small yellow
-   star).
-4. On the map, **left-click** each corner of your site. For a first prototype
-   just draw a rough rectangle — the numbers do not matter.
-5. **Right-click** to finish the shape.
-6. A form pops up. This is where **all the site-wide details** live — they are
-   filled in once, here, and nowhere else:
-
-   | Field | What to do |
-   | --- | --- |
-   | Site Name | Type one. |
-   | Location | Where the site is. |
-   | Survey Date | When the site was surveyed. |
-   | Survey Details | Anything worth recording about the survey itself. |
-   | Mapped by | Your name. |
-   | Company | Your organisation. |
-   | Base Map | What you drew over, e.g. aerial photography. |
-
-   For a first prototype the Site Name alone is enough. Click **OK**.
-7. Click the **pencil** again to stop editing, and **Save** when asked.
-
-The boundary draws as an **unfilled red outline** — no fill. That is deliberate:
-you are about to draw habitats inside it, and you need to see them through it.
-
-None of the site-wide fields appear again on the habitat forms. Those carry only
-a per-parcel **Comment** — if you spot a field like Survey Date missing from a
-habitat form, it is not missing, it lives here on the red line boundary.
-
-> **If nothing draws:** you almost certainly have the wrong layer selected in the
-> Layers panel. QGIS always draws into the highlighted layer.
+Keep this bar visible while you work.
 
 ---
 
-## Part 3 — Draw the baseline habitats
+## Part 2: Draw the red line boundary
 
-This is the "what is there now" survey. The aim is to **cover the whole site with
-no gaps and no overlaps**.
+The red line is the site boundary. All habitats must be inside it.
+
+1. In the Layers panel, click **Red Line Boundary**.
+2. Click the **yellow pencil** (**Toggle Editing**) on the Digitizing toolbar.
+3. Click **Add Polygon Feature**, the polygon icon with a yellow star.
+4. Left-click each corner of the site. For a first test, a rough rectangle is
+   enough.
+5. Right-click to finish the shape.
+6. Fill in the form, then click **OK**. For a first test, **Site Name** is
+   enough.
+7. Click the **pencil** to stop editing, then click **Save**.
+
+| Field | What to enter |
+| --- | --- |
+| Site Name | The name of the site |
+| Location | Where the site is |
+| Survey Date | The date of the survey |
+| Survey Details | Other facts about the survey |
+| Mapped by | Your name |
+| Company | Your organisation |
+| Base Map | The map you drew over, for example aerial photography |
+
+**These site details are on the red line boundary only.** The habitat forms
+have only a **Comment** field for each parcel.
+
+The boundary shows as a red outline with no fill, so the habitats inside it
+stay visible.
+
+> **If nothing draws:** the wrong layer is selected in the Layers panel. QGIS
+> always draws into the highlighted layer.
+
+---
+
+## Part 3: Draw the baseline habitats
+
+The baseline records what is on the site now. **Cover the whole site with no
+gaps and no overlaps.**
 
 1. Click **Area Habitats Baseline** in the Layers panel.
 2. Click the **pencil** to start editing.
 3. Click **Add Polygon Feature**.
-4. Draw your first parcel. **Start your corners on the red line** — snapping will
-   pull them exactly onto it. Right-click to finish.
-5. Fill in the form:
+4. Start the corners on the red line. Snapping puts them exactly on it.
+5. Right-click to finish, then fill in the form.
+6. Click **OK**.
+7. Draw the next parcel against the first. Snapping locks onto the shared
+   edge, so there is no gap.
+8. Continue until the parcels cover the whole red line area.
+9. Click the **pencil** to stop editing, then click **Save**.
 
-   | Field | What to do |
-   | --- | --- |
-   | Parcel Ref | Type a label, e.g. `PR-1`. Make each one different. |
-   | Baseline Broad Habitat Type | Pick from the list, e.g. `Grassland` |
-   | Baseline Habitat Type | Now only shows habitats in that broad type, e.g. `Modified grassland` |
-   | Baseline Distinctiveness | Pick the matching value |
-   | Baseline Condition | Only shows bands valid for that habitat |
-   | Baseline Strategic Significance | Pick one |
-   | Irreplaceable Habitat | Usually `No`. Some habitats only allow one answer. |
-   | Area | **Leave it.** Filled in automatically and locked. |
-   | Comment | Optional — notes about this parcel. The site-wide details (survey date, mapped by, …) live on the red line boundary (Part 2), not here. |
+| Field | What to enter |
+| --- | --- |
+| Parcel Ref | A label, for example `PR-1`. Each label must be different. |
+| Baseline Broad Habitat Type | Select from the list, for example `Grassland` |
+| Baseline Habitat Type | Select from the habitats in that broad type, for example `Modified grassland` |
+| Baseline Distinctiveness | Select the matching value |
+| Baseline Condition | Select from the conditions that the habitat allows |
+| Baseline Strategic Significance | Select one |
+| Irreplaceable Habitat | Usually `No`. Some habitats allow one answer only. |
+| Area (ha) | Do not enter. QGIS fills it in and locks it. |
+| Comment | Optional notes about this parcel |
 
-   **Each list only offers what your earlier choices allow.** Change the
-   habitat type after picking a condition, and a condition the new habitat
-   does not allow is cleared: the field goes blank, so pick again. A value
-   that still fits is kept.
+**Each list shows only the values that your earlier choices allow.** If you
+change the habitat type, a condition that the new type does not allow is
+cleared. Select it again. A condition that still fits stays.
 
-6. Click **OK**. The parcel immediately takes on Natural England's standard
-   UKHab colour and pattern for its habitat type. That is expected — and
-   useful: a parcel whose colour looks wrong at a glance probably has the
-   wrong habitat type set.
-7. Draw a second parcel **next to the first**. When you click near the shared
-   edge, snapping locks onto it, so there is no gap between them. Give it
-   `PR-2` and a different habitat.
-8. Keep going until the whole red line area is covered.
-9. Click the **pencil** to stop editing, and **Save**.
+**Each parcel takes the Natural England UKHab colour for its habitat type.** A
+parcel with an unexpected colour probably has the wrong habitat type.
 
-### Checking you have no gaps
+### Check for gaps
 
-Right-click **Area Habitats Baseline → Open Attribute Table**. Add up the `Area`
-column and compare it to your red line area. If it is short, you have a gap.
+1. Right-click **Area Habitats Baseline**, then click **Open Attribute Table**.
+2. Add up the `Area (ha)` column.
+3. Compare the total with the red line area. A smaller total means a gap.
 
 ---
 
-## Part 4 — Copy the baseline across
+## Part 4: Copy the baseline
 
-Now the useful bit.
+1. Right-click **Area Habitats Post-Intervention**, then click **Open
+   Attribute Table**. The table is empty.
+2. Click **Actions** (section 1.3).
+3. Click **`Copy baseline to post-intervention`**.
 
-1. In the Layers panel, right-click **Area Habitats Post-Intervention → Open
-   Attribute Table**. It will be empty — that is expected.
-2. On that window's toolbar, **second from the right-hand end**, click
-   **Actions** (see Part 1.3).
-3. Choose **`Copy baseline to post-intervention`**.
+A green bar at the top of the **main QGIS window** gives the number of parcels
+copied. The attribute table now has one row for each baseline parcel.
 
-A green bar appears across the top of the **main QGIS window** (not the
-attribute table) saying how many parcels were copied.
+**Each copied row gets these values:**
 
-It is safe to run again later. Only baseline parcels that have no row here yet
-are copied; anything already across is left exactly as you left it, and the
-message says how many were skipped.
+- **PI Ref**: the same as the baseline ref.
+- **Parent Ref**: the baseline parcel it came from. The field is locked.
+- **Retention Category**: `Retained`. It is next to the Proposed columns,
+  because it describes what happens to the parcel.
+- All the baseline values, which include **Irreplaceable Habitat**. The
+  Proposed values start the same as the baseline values.
+- Two hidden keys that link the row to its baseline parcel. The service uses
+  them to find later baseline changes. They make a rename safe.
 
-**Running it again on a layer that already holds copied rows asks first.**
-A post-intervention feature that is simply absent is how this template records
-a removal, so once anything has been copied, a baseline parcel with no row here
-is ambiguous: either you took it out on purpose, or you drew it after the copy.
-The button names the parcels and asks whether to copy them. Answer **No** if
-you have recorded any removals, and **Yes** to pick up parcels genuinely added
-to the baseline since.
+**The Baseline columns on a Post-Intervention layer are locked.** Only the copy
+button writes them, so you cannot change the baseline values here by accident.
 
-Every baseline parcel is copied over, and each copy is stamped with:
+**You can run the copy button again.** It copies only baseline parcels that
+have no row yet, and it keeps all existing rows. The message gives the number
+it skipped.
 
-- **PI Ref** — same as the baseline ref to start with
-- **Parent Ref** — which baseline parcel it came from. **Never edit this by
-  hand** — and the form will not let you: the field is locked.
-- **Retention Category** — `Retained`, meaning "nothing changes here yet". In
-  the form and table it sits next to the Proposed columns, because it describes
-  what happens to the parcel, not what was there.
-- all the baseline values, **Irreplaceable Habitat** included, plus proposed
-  values pre-set to match
-- two **hidden machine keys** the service uses to link each row to its
-  baseline parcel and to notice if the baseline changes afterwards. You never
-  see or touch these — they are why renaming a ref is always safe.
+**On a layer that already has rows, the button asks first.** A missing
+post-intervention row records a removal. So a baseline parcel with no row is
+either a removal or a parcel drawn after the copy. The button names these
+parcels:
 
-The Baseline columns on every Post-Intervention layer are **greyed out**. They
-are stamped by this copy button and are read-only — the "before" picture is
-never typed in by hand, so you cannot change it here even by accident.
+- Click **No** if you have recorded removals.
+- Click **Yes** to copy parcels that you added to the baseline after the copy.
 
-The attribute table you already have open now shows one row per baseline parcel.
-
-> If it warns that rows already exist, delete them first: open the attribute
-> table, click the pencil, select all rows, click the **delete** button, save.
+> To start again, delete the copied rows. In the attribute table, click the
+> pencil, select all rows, click the **delete** button, then save.
 
 ---
 
-## Part 5 — Make changes
+## Part 5: Make changes
 
-Now you edit the **post-intervention layer only**. The baseline stays frozen —
-that is the whole point of the split.
+**Edit only the Post-Intervention layer.** The baseline does not change after
+Part 3.
 
-Select **Area Habitats Post-Intervention** and click the **pencil** to start editing.
+Select **Area Habitats Post-Intervention**, then click the **pencil**.
 
-### 5a. Change a whole parcel — enhancement
+### 5a. Enhance a whole parcel
 
-The simplest change: a parcel stays where it is but is improved.
+1. Click the **Identify** tool, then click the parcel. Or find its row in the
+   attribute table.
+2. Set **Retention Category** to `Enhanced`. It is next to the Proposed
+   fields.
+3. Set **Proposed Habitat Type** and **Proposed Condition**.
+4. Do not change the shape.
 
-1. Click the **Identify** tool (blue circle with an `i`), then click the parcel.
-   Or open the attribute table and find its row.
-2. Set **Retention Category** to `Enhanced`. Look for it **next to the Proposed
-   fields**, not among the greyed-out Baseline ones.
-3. Set **Proposed Habitat Type** and **Proposed Condition** to what it becomes.
-4. Leave the geometry alone.
+### 5b. Split a parcel
 
-### 5b. Split a parcel in two — part changes, part does not
-
-Use this when only half a parcel is being worked on.
-
-1. Click **Split Features** on the Advanced Digitizing toolbar (an icon showing
-   a shape with a line through it).
-2. Draw a line **starting outside the parcel**, across it, and **ending outside**
-   it. Left-click for each point, **right-click to finish**.
-3. The parcel becomes two rows. Both keep the same `Parent Ref` — correct, since
-   both halves came from the same baseline parcel.
-4. Edit each half separately: one can stay `Retained`, the other become
-   `Enhanced`.
-
-> The split line must cross right over the parcel and out the other side. A line
-> stopping inside does nothing.
-
-### 5c. Carve a new habitat out of the middle — creation
-
-This is the pond case: a new habitat taking ground from what was there before.
-
-**If the new habitat sits wholly inside one parcel, touching no edge:**
-
-1. Click **Fill Ring** on the Advanced Digitizing toolbar.
-2. Draw the pond shape inside the parcel. Right-click to finish.
-3. QGIS punches a hole in the parcel **and** creates a new feature filling it —
-   exactly, with no gap.
-4. Fill the form for the new feature:
-   - **PI Ref**: something new, e.g. `PI-POND`
-   - **Parent Ref**: locked and blank — leave it
-   - **Retention Category**: `Created`
-   - **Proposed Broad Habitat Type** / **Habitat Type** / **Condition**: the new pond
-   - the Baseline fields are greyed out and blank — correct, since a habitat
-     drawn fresh has no "before"
-
-**If the new habitat touches an edge of the parcel — use Split, not Fill Ring:**
-
-Fill Ring is only for holes in the middle. A ring that runs along the parcel
-edge produces a polygon whose hole touches its own outline, which is an
-**invalid** geometry ("self-intersection") — so do not force it, even if QGIS
-lets you. Use **Split Features** instead:
+Use this when a change applies to part of a parcel.
 
 1. Click **Split Features** on the Advanced Digitizing toolbar.
-2. Start the cut line **outside** the parcel, bring it in across the edge, trace
-   the inland outline of the pond, and take it back out across the edge.
-3. Right-click to finish. The parcel becomes two features, each with a copy of
-   the parent's attributes.
-4. Click the pond piece, set **Retention Category** to `Created` and the
-   Proposed fields to the new pond. Its `Parent Ref` keeps the parent's ref —
-   correct, since that parcel is where the ground came from (and the field is
-   locked anyway).
-5. Leave the other piece as it was — it is still the surviving baseline habitat.
+2. Start the line outside the parcel. Left-click each point.
+3. End the line outside the parcel, then right-click to finish.
+4. Edit each part. For example, one part stays `Retained` and the other
+   becomes `Enhanced`.
 
-> If nothing happens, your cut line began or ended **inside** the parcel. Both
-> ends have to be outside it, or exactly on the edge.
+The two parts keep the same `Parent Ref`, because both came from one baseline
+parcel.
 
-**If the new habitat straddles two parcels:**
+> The split line must cross the full parcel. A line that stops inside the
+> parcel does nothing.
 
-Do **not** try Fill Ring here. Each half of the pond is bounded by the boundary
-*between* the two parcels, so every ring you draw runs along a parcel edge —
-which is the one thing Fill Ring cannot do. You do not need to draw the halves
-separately either. Cut the whole pond in one pass:
+### 5c. Create a new habitat inside the site
 
-1. Click **Deselect Features from All Layers** first (or `Ctrl+Shift+A`).
-   **This matters** — if anything is selected, Split only cuts the selected
-   features, and you will get "nothing happened" with no explanation.
-2. Click **Split Features** on the Advanced Digitizing toolbar.
-3. Draw the pond outline **all the way round**, across both parcels, finishing
-   back where you started. Right-click to finish.
-4. Both parcels are cut in the same operation. You now have four features: two
-   pond halves and the two remainders.
-5. Click the **Select** tool, hold **Shift**, click **both pond halves**.
+A created habitat, such as a pond, takes ground from the parcels that were
+there. Select the method from where the new habitat is.
+
+**Wholly inside one parcel, with no shared edge: use Fill Ring.**
+
+1. Click **Fill Ring** on the Advanced Digitizing toolbar.
+2. Draw the pond inside the parcel, then right-click to finish.
+3. QGIS cuts a hole in the parcel and fills it with a new feature.
+4. Set **PI Ref** to a new label, for example `PI-POND`.
+5. Set **Retention Category** to `Created`.
+6. Set the Proposed habitat fields for the pond.
+
+`Parent Ref` and the Baseline fields are locked and blank. This is correct: a
+new shape has no baseline.
+
+**Touching an edge of one parcel: use Split Features, not Fill Ring.** A ring
+along a parcel edge makes an invalid, self-intersecting polygon. Do not use
+Fill Ring here, even when QGIS accepts it.
+
+1. Click **Split Features**.
+2. Start the line outside the parcel and cross the edge.
+3. Draw the inner outline of the pond, then cross the edge again.
+4. Right-click to finish. The parcel becomes two features.
+5. On the pond part, set **Retention Category** to `Created` and the Proposed
+   fields to the pond.
+6. Do not change the other part. It is the remaining baseline habitat.
+
+The pond keeps the `Parent Ref` of the parcel. This is correct, because the
+ground came from that parcel.
+
+> If nothing happens, one end of the line was inside the parcel. Both ends must
+> be outside the parcel, or exactly on its edge.
+
+**Across two parcels: split both in one pass, then merge.** Each half of the
+pond touches the shared edge, so Fill Ring cannot work.
+
+1. Press `Ctrl+Shift+A` (**Deselect Features from All Layers**). A split cuts
+   only the selected features, and it reports nothing when it cuts none.
+2. Click **Split Features**.
+3. Draw the full pond outline across both parcels, and finish where you
+   started. Right-click to finish.
+4. Check that there are four features: two pond halves and two remainders.
+5. Click the **Select** tool. Hold `Shift` and click both pond halves.
 6. Click **Merge Selected Features** on the Advanced Digitizing toolbar.
-7. In the dialog, click **Take attributes from selected feature** on whichever
-   row you prefer, then **OK**. You now have one pond feature.
-8. Fill in its form as above — **Retention Category** `Created`, Proposed
-   fields set to the pond. The stamped `Parent Ref` stays; leave it be.
+7. Click **Take attributes from selected feature** on one row, then **OK**.
+8. Set **Retention Category** to `Created` and the Proposed fields to the pond.
 
-> Why not draw the pond straight over the top as a new feature? Because it would
-> overlap the two parcels rather than take ground from them, and the areas would
-> come to more than the site. Splitting removes and replaces in one move, so the
-> totals stay exactly right — the two halves add back up to the parcels they
-> came from, to the last decimal place.
+Do not change the `Parent Ref` of the merged pond.
+
+> **Do not draw the pond as a new feature on top of the parcels.** It then
+> overlaps them, and the total area is more than the site. A split removes and
+> replaces ground in one step. The parts add up exactly to the original
+> parcels.
 
 ### 5d. Ground that is built on
 
-If a parcel is developed over, set its **Retention Category** to `Created` and
-its Proposed habitat to the developed surface it becomes — e.g. `Developed
-land; sealed surface`. There is no "Lost" category — the options are only
-`Created`, `Retained` and `Enhanced`. This matches the Statutory Metric, which
-records built-over ground as *creating* the new surface, not as losing the old
-one.
+1. Keep the row. Do not delete it.
+2. Set **Retention Category** to `Created`.
+3. Set the Proposed habitat to the new surface, for example `Developed land;
+   sealed surface`.
 
-Keep the row — do not delete it. Ground inside the red line cannot vanish, and
-the row is how the calculation knows it was accounted for.
+**There is no `Lost` category.** The options are `Created`, `Retained` and
+`Enhanced`. The Statutory Metric records built-on ground as creation of the
+new surface. Ground inside the red line cannot disappear, so the row must stay.
 
-**This keep-the-row rule is for area habitats only.** A hedgerow, watercourse,
-tree or green wall that is removed has no replacement surface — for those you
-**delete the copied row**, and its absence is the record of the removal (each
-type's section in Part 9 says exactly how). The service will list everything it
-is treating as removed when the file is checked, so a slip of the delete key
-gets caught.
+**This rule is for area habitats only.** A removed hedgerow, watercourse, tree
+or vertical area habitat has no replacement surface. For these, delete the
+copied row. The missing row records the removal (Part 9). The service lists
+all removals when it checks the file, so a row deleted by mistake shows there.
 
-When you are done, click the **pencil** and **Save**.
+When you finish, click the **pencil**, then click **Save**.
 
 ---
 
-## Part 6 — Tidy the references
+## Part 6: Tidy the references
 
-Splitting leaves two rows sharing one `PI Ref`. Fix it in one click:
+A split leaves two rows with one `PI Ref`.
 
-1. Open the attribute table for **Area Habitats Post-Intervention**.
-2. **Actions** at the far right-hand end of its toolbar (see Part 1.3) →
-   **`Tidy PI refs after splitting`**.
+1. Open the attribute table of **Area Habitats Post-Intervention**.
+2. Click **Actions**, then **`Tidy PI refs after splitting`**.
 
-Duplicates become `PR-1a`, `PR-1b`, and so on, ordered left to right across the
-map so the labels are the same every time you run it.
+The duplicates become `PR-1a`, `PR-1b` and so on. The order is left to right
+on the map, so each run gives the same labels.
 
 ---
 
-## Part 7 — Check the numbers
+## Part 7: Check the numbers
 
-Open the attribute table for both layers and compare the `Area` totals.
+Open the attribute table of each layer and compare the totals.
 
-| Check | Expected |
+| Check | Expected result |
 | --- | --- |
-| **Habitats** baseline total vs post-intervention total | the same — ground cannot vanish |
-| Hedgerow / watercourse / wall / tree totals | post-intervention may be **smaller**; the difference is what you removed, and the service lists it back to you as "treated as removed" |
-| Every post-intervention row | has a Retention Category |
-| Created rows | have proposed values. For **area habitats**, `Parent Ref` is blank only where the shape was drawn fresh (Fill Ring); a Created row that came out of a split or the copy button — a carved pond, built-on ground — keeps the `Parent Ref` of the parcel the ground came from. For the other types a Created row is always genuinely new, with a blank `Parent Ref` |
-| Enhanced rows | have both baseline and proposed values |
-| Retained rows | proposed matches baseline (a shortened hedge stays Retained at its new length) |
+| **Area Habitats** baseline total and post-intervention total | The same. Ground cannot disappear. |
+| Hedgerow, watercourse, vertical area habitat and tree totals | The post-intervention total can be smaller. The difference is what you removed, and the service lists it as removed. |
+| Each post-intervention row | Has a Retention Category |
+| `Created` rows | Have Proposed values. For area habitats, only a Fill Ring shape has a blank `Parent Ref`. A split or copied row keeps the parcel's `Parent Ref`. For the other types, a `Created` row always has a blank `Parent Ref`. |
+| `Enhanced` rows | Have Baseline and Proposed values |
+| `Retained` rows | Proposed values agree with Baseline values. A shortened hedge stays `Retained` at its new length. |
 
-If the totals differ you have a gap or an overlap. The usual cause is snapping
-having been off for part of the session.
-
----
-
-## Part 8 — Export
-
-Everything is already in one GeoPackage —
-`Layers/BNG Service Layers.gpkg`. Editing saves straight into it, so there is no
-export step. That file is what goes to the backend.
-
-To send it on, copy that single `.gpkg` file. It contains all three tables.
+**Different area totals mean a gap or an overlap.** The usual cause is that
+snapping was off for part of the work.
 
 ---
 
-## Part 9 — The other four habitat types
+## Part 8: Send the file
 
-Same workflow throughout: draw the baseline, run the copy action on the
-post-intervention layer, edit only the post-intervention layer, tidy the refs.
-The differences are these.
+**All layers are in one GeoPackage, `Layers/BNG Service Layers.gpkg`.** QGIS
+saves your edits into it, so there is no export step. Send this one `.gpkg`
+file to the service.
 
-### Brand-new habitats — drawn straight onto Post-Intervention
+---
 
-The biggest difference first. For these four types, a habitat can be genuinely
-**new** — a planted hedge, a channel dug where there was none, newly planted
-trees, a newly built wall. A brand-new habitat has no "before", so nothing is
-copied and nothing is carved: you draw it **directly on the Post-Intervention
-layer** and the baseline never hears about it.
+## Part 9: The other four habitat types
 
-1. Select the type's **Post-Intervention** layer and click the **pencil**.
-2. **Add Line Feature** (**Add Point Feature** for trees) and draw it.
-3. Give it a **PI Ref** of its own.
+The procedure is the same:
+
+1. Draw the baseline.
+2. Run the copy button on the Post-Intervention layer.
+3. Edit only the Post-Intervention layer.
+4. Tidy the refs.
+
+The differences follow.
+
+### New habitats: draw them on the Post-Intervention layer
+
+**For these four types, a habitat can be fully new.** Examples are a planted
+hedge, a new channel, a planted tree and a new green wall. A new habitat has
+no baseline, so you draw it directly on the Post-Intervention layer.
+
+1. Select the **Post-Intervention** layer of the type, then click the
+   **pencil**.
+2. Click **Add Line Feature**, or **Add Point Feature** for trees, and draw it.
+3. Give it a new **PI Ref**.
 4. Set **Retention Category** to `Created`.
-5. Fill in the **Proposed** fields. The greyed-out Baseline fields stay
-   blank — correct: a habitat drawn fresh has no "before".
-6. Leave **Parent Ref** blank — it is locked anyway. The hidden machine keys
-   (Part 4) stay empty of their own accord: a brand-new feature has no parent
-   and nothing links it to the baseline.
+5. Fill in the Proposed fields. The Baseline fields stay blank and locked.
+6. Leave **Parent Ref** blank. It is locked.
 
-For a new wall, type the `Area` in yourself as usual; for a new tree point,
-the `Count`.
+For a vertical area habitat, type the `Area (ha)`. For a tree, type the
+`Count`.
 
-The service takes these rows at face value. They pass its checks even when the
-matching Baseline layer is completely empty — a site with no hedges today can
-still gain new ones — they raise no warnings, they never appear in the
-"treated as removed" list, and they are never matched to a baseline feature by
-overlap, so a new hedge snapped along an old one stays independent of it. (The
-reverse still fails: `Retained` or `Enhanced` rows over an empty baseline
-layer are rejected, because a copy must have something to be a copy of.) For
-the calculation to treat a Created row as complete, fill every Proposed field
-the type asks for — a hedge needs Proposed Hedge Type and Proposed Condition;
-a tree needs Proposed Tree Size, Proposed Rural or Urban Tree and Proposed
-Condition; a watercourse also needs both proposed encroachment fields.
+**The service accepts a `Created` row as it is.** It accepts one when the
+Baseline layer is empty, because a site with no hedges can gain new ones. A
+`Created` row gives no warning and is not on the list of removals. The service
+does not match it to a baseline feature by overlap, so a new hedge along an
+old one stays separate.
 
-**Area habitats are the exception — never draw them from scratch.** Every
-square metre inside the red line has to reconcile against the baseline: ground
-cannot appear from nowhere. New area habitat is always carved out of the
-copied parcels with Split or Fill Ring (Part 5c), so its ground demonstrably
-comes from a parcel that was there before.
+**A `Retained` or `Enhanced` row over an empty Baseline layer is refused.** A
+copy must have a baseline feature to copy.
 
-> Earlier copies of this template made from-scratch drawing impossible in
-> practice: on a brand-new row, Retention Category and the Proposed dropdowns
-> filtered against the blank Baseline columns and came up empty. They now
-> populate on a fresh feature, and a new tree's `Category` fills itself in as
-> `Newly Planted` (copies stamped from the baseline get `Existing`). If your
-> dropdowns are empty on a new feature, you are working from an old copy of
-> the template.
+**Fill in every Proposed field that the type needs:**
 
-### Vertical Area Habitats — green walls and intertidal hard structures
+| Type | Proposed fields |
+| --- | --- |
+| Hedgerows | Proposed Hedge Type, Proposed Condition |
+| Individual Trees | Proposed Tree Size, Proposed Rural or Urban Tree, Proposed Condition |
+| Watercourses | Proposed River Type, Proposed Condition, Proposed Encroachment into Watercourse, Proposed Encroachment into riparian zone |
 
-Drawn as a **line** along the base of the wall or structure.
+**Never draw an area habitat from nothing.** All ground inside the red line
+must agree with the baseline. Cut new area habitat from the copied parcels with
+Split Features or Fill Ring (Part 5c).
 
-- **Add Line Feature** instead of Add Polygon Feature. Left-click along the
-  route, right-click to finish.
-- **You must type the `Area (ha)`** — the face area of the wall in **hectares**,
-  i.e. roughly its length times its height, divided by 10,000. It is not
-  calculated and not locked, because a line on a map cannot tell QGIS how tall a
-  wall is. A 200 m wall 2 m high is 400 square metres, so `0.04`.
-- Everything else — habitat type, condition, distinctiveness, irreplaceable —
-  behaves as for area habitats, **except removal**: a demolished wall has no
-  replacement surface, so **delete its copied row**. The absence is the record.
-- A genuinely **new** wall is drawn straight onto the post-intervention layer —
-  see *Brand-new habitats* above. The `Area (ha)` rule applies there too: type
-  the face area in yourself, in hectares.
+> If the Retention Category and Proposed lists are empty on a new feature, get
+> a new copy of this template.
+
+### Vertical Area Habitats
+
+A vertical area habitat is a green wall or an intertidal hard structure. Draw
+it as a **line** along the base of the structure.
+
+1. Click **Add Line Feature**.
+2. Left-click along the route, then right-click to finish.
+3. Type the face area in **`Area (ha)`**.
+
+**The face area is length × height ÷ 10,000.** A wall 200 m long and 2 m high
+is 400 m², so type `0.04`. QGIS cannot get the height from a line, so this
+field is not locked.
+
+The other fields work as for area habitats, except removal. **For a demolished
+structure, delete its copied row.** A new structure is drawn on the
+Post-Intervention layer (see *New habitats*).
 
 ### Hedgerows
 
-Drawn as a **line**. `Length` fills in automatically and is locked.
+Draw a hedgerow as a **line**. QGIS fills in `Length (m)` and locks it.
 
-- Use **Split Features** where only part of a hedge is affected. Both halves keep
-  the same `Parent Ref`, which is correct.
-- If a length of hedge is **removed**, split it off and **delete that piece's
-  row**. Lost length is worked out as the difference between the baseline hedge
-  and whatever post-intervention pieces remain — exactly how the Statutory
-  Metric's own sheets do it. The service reports the missing length back to you
-  as "treated as removed", so check that list matches what you meant.
-- A hedge that is merely **shortened** with no change in condition stays
-  `Retained` — just redraw or split it to the shorter length.
-- A genuinely **new** hedge is a fresh line drawn straight onto the
-  post-intervention layer, with **Retention Category** `Created` and a blank
-  `Parent Ref` — see *Brand-new habitats* above.
+- **Part of a hedge changes:** split it with **Split Features**. Both parts
+  keep the same `Parent Ref`.
+- **Part of a hedge is removed:** split off that part and delete its row.
+- **A hedge is shorter but its condition is the same:** keep it `Retained`.
+  Draw it again or split it to the shorter length.
+- **A new hedge:** draw a new line on the Post-Intervention layer (see *New
+  habitats*).
+
+**The service calculates lost length as the baseline length minus the
+remaining post-intervention length.** The Statutory Metric sheets use the same
+method. The service lists the missing length as removed. Check that the list
+agrees with your plan.
 
 ### Watercourses
 
-Drawn as a **line**. `Length` fills in automatically and is locked.
+Draw a watercourse as a **line**. QGIS fills in `Length (m)` and locks it.
 
-This is the one type where the post-intervention shape may **leave the baseline
-completely** — re-meandering a straightened channel moves it and makes it longer.
-That is expected and correct.
+**A post-intervention watercourse can leave the baseline line completely.** A
+re-meandered channel moves and gets longer. This is correct.
 
-- Draw the new channel wherever it goes. Do not try to keep it on the old line.
-- The `Baseline Length` field holds the *original* length, stamped when you ran
-  the copy action. **Do not edit it.** It is how the calculation knows how much
-  channel you started with, and it must not change when you move the geometry.
-- Set **Retention Category** to `Enhanced` and fill in **Enhancement Type**.
-- A stretch that is **lost entirely** (culverted, infilled): **delete its
-  copied row**. Because a re-meandered channel legitimately leaves the old
-  line, the service cannot measure partial watercourse loss from the map — a
-  baseline stretch either continues (it has a post-intervention row) or is
-  removed (it has none). If only *part* of a stretch is lost, draw that
-  baseline watercourse as **two separate baseline features** at survey time,
-  so each part can be kept or deleted on its own.
-- A genuinely **new** stretch — a channel dug where there was none — is drawn
-  straight onto the post-intervention layer: see *Brand-new habitats* above.
+- **A re-meandered channel:** draw the new channel where it goes. Set
+  **Retention Category** to `Enhanced` and fill in **Enhancement Type**.
+- **Do not edit `Baseline Length (m)`.** The copy button writes the original
+  length there. The calculation needs it after the channel moves.
+- **A stretch is fully lost**, for example culverted or filled: delete its
+  copied row.
+- **A new channel:** draw it on the Post-Intervention layer (see *New
+  habitats*).
+
+**The service cannot measure part loss of a watercourse from the map.** A
+channel can move legally, so a baseline stretch either continues or is
+removed. If only part of a stretch will be lost, draw it as two baseline
+features at the survey. Then you can keep or delete each part.
 
 ### Individual Trees
 
-Drawn as **points**. There is no shape, so there is nothing to split.
+Draw each tree as a **point**. A point cannot be split.
 
-- **Add Point Feature**, then click once where the tree is.
-- **`Count`** is how many trees that point stands for. Type it in — usually `1`.
-- A surviving tree is `Retained`; a newly planted one is `Created`.
-- For a newly planted tree: add a point (its **Parent Ref** stays blank), set
-  **Retention Category** to `Created`, and fill only the Proposed fields — see
-  *Brand-new habitats* above. The `Category` field fills itself in as
-  `Newly Planted`; leave it.
-- For a **felled** tree: **delete its copied row**. The service reports it as
-  removed when the file is checked. If a point stands for several trees and
-  only some are felled, keep the row as `Retained` and lower its `Count`.
-- If something is planted where a felled tree stood, that is a separate new
-  point — `Created`, blank `Parent Ref`. The two events are independent, as
-  they are in the Statutory Metric.
+1. Click **Add Point Feature**.
+2. Click once at the tree.
+3. Type the number of trees in **`Count`**, usually `1`.
 
-### A note on which layers you actually need
+- **A tree that stays:** `Retained`.
+- **A planted tree:** add a point, set **Retention Category** to `Created`, and
+  fill in only the Proposed fields. **Parent Ref** stays blank. The
+  **Category** field fills in as `Newly Planted` by itself.
+- **A felled tree:** delete its copied row. The service lists it as removed.
+- **Some trees of a point are felled:** keep the row as `Retained` and reduce
+  its `Count`.
+- **A tree planted where a tree was felled:** add a separate `Created` point
+  with a blank `Parent Ref`. The Statutory Metric also treats the two as
+  separate.
 
-You only need to fill in the types present on your site. If there are no
-watercourses, leave both watercourse layers empty — empty tables are fine.
+### Layers that you do not need
+
+Fill in only the types that are on the site. Empty layers are correct. For
+example, a site with no watercourses has two empty watercourse layers.
 
 ---
 
 ## Quick reference
 
-| I want to… | Tool | Where |
+| Task | Tool | Toolbar |
 | --- | --- | --- |
-| Start/stop editing | Toggle Editing (pencil) | Digitizing |
-| Draw a new shape | Add Polygon / Line / Point Feature | Digitizing |
+| Start or stop editing | Toggle Editing (pencil) | Digitizing |
+| Draw a new shape | Add Polygon, Line or Point Feature | Digitizing |
 | Move a corner | Vertex Tool | Digitizing |
 | Cut a parcel in two | Split Features | Advanced Digitizing |
-| Carve a shape out and fill it | Fill Ring | Advanced Digitizing |
-| Join two shapes into one | Merge Selected Features | Advanced Digitizing |
+| Cut a hole and fill it | Fill Ring | Advanced Digitizing |
+| Join two shapes | Merge Selected Features | Advanced Digitizing |
 | Make shapes meet exactly | Enable Snapping (magnet) | Snapping |
 | Follow an existing edge | Enable Tracing (`T`) | Snapping |
-| See a feature's values | Identify | Attributes |
-| Run a template button | Actions | far right of the **attribute table** toolbar |
-| Undo | `Ctrl+Z` | works while editing |
+| See the values of a feature | Identify | Attributes |
+| Run a template button | Actions | Right-hand end of the **attribute table** toolbar |
+| Undo | `Ctrl+Z` | Works while you edit |
 
-## If something goes wrong
+---
 
-**There are no dropdowns at all, just plain text.** The layer is not in edit
-mode. Press the yellow pencil, or `Ctrl+E`. The lists only appear while a layer
-is editable.
+## Problems and solutions
 
-**The dropdowns appear but are empty.** The lookup tables in the **Reference
-data** group did not load. Check the `CSV References` folder is still beside
-the `.qgz` file, and that the whole folder was unzipped rather than opened
-inside the zip.
+**The fields are plain text, with no dropdowns.** The layer is not in edit
+mode. Click the yellow pencil or press `Ctrl+E`.
 
-**A condition reads `1. Good` rather than `Good`.** That is correct and
-deliberate. The numbers come from the Metric's own printed lists, and
-everything downstream takes them off again. Do not type a bare `Good` into the
-cell: it is accepted and shown in brackets, but it is not a value on the list.
+**The dropdowns are empty.** The **Reference data** tables did not load. Make
+sure that the `CSV References` folder is next to the `.qgz` file. Unzip the
+full folder. Do not open the project from inside the zip file.
 
-**Something went wrong saving.** Check where the folder lives. In OneDrive,
-SharePoint, or anywhere else that syncs, the sync can take the file while QGIS
-is writing to it. Move the whole folder somewhere local, such as `C:\BNG\`,
-and open it again.
+**A condition shows `1. Good`, not `Good`.** This is correct. The numbers come
+from the lists in the Metric, and the service removes them. Do not type `Good`
+yourself: QGIS shows it in brackets because it is not on the list.
 
-**A file name is too long, or a file cannot be written.** The folder is
-somewhere too deep. Windows refuses a path over 260 characters and this folder
-uses 87 of them on its own. Move it to `C:\BNG\`.
+**QGIS cannot save.** The folder is probably in OneDrive, SharePoint or
+another synchronised folder. Move the full folder to a local disk, such as
+`C:\BNG\`, and open the project again.
 
-**QGIS says the project was saved by a different version.** Harmless. Open it
-and carry on.
+**A file name is too long, or a file cannot be written.** The folder path is
+too long. Move the folder to `C:\BNG\`.
 
-**I cannot draw.** Either the layer is not selected in the Layers panel, or you
-have not clicked the pencil.
+**QGIS says that a different version saved the project.** This is not a
+problem. Open the project.
 
-**I cannot find `Copy baseline to post-intervention`.** It is not in the Layers
-panel right-click menu — QGIS never puts them there. Open the layer's
-**attribute table** and use the **Actions** button, second from the right-hand
-end of that window's toolbar (Part 1.3). The copy and tidy buttons are on the
-*Post-Intervention* layers; the rename button is on the *Baseline* layers.
+**You cannot draw.** Select the layer in the Layers panel, then click the
+pencil.
 
-**I renamed a baseline ref by typing and post-intervention did not follow.**
-It never will — typing edits one cell in one table. Undo it, then use
-**`Rename a ref`** on the Baseline layer's Actions button (Part 1.3),
-which renames the baseline row and every post-intervention `Parent Ref` and
-`PI Ref` that points at it, keeping split suffixes like `PR-1a` intact.
+**You cannot find `Copy baseline to post-intervention`.** Open the attribute
+table of a **Post-Intervention** layer and click **Actions** (section 1.3).
+`Rename a ref` is on the **Baseline** layers.
 
-**My shapes have slivers between them.** Snapping was off. Undo, turn it on
-(Part 1.5), and redraw.
+**You typed a new baseline ref, and the post-intervention rows did not
+change.** Typing changes one cell only. Press `Ctrl+Z`, then use **`Rename a
+ref (updates post-intervention)`** on the Baseline layer (section 1.3).
 
-**Split did nothing.** Two possible causes. Either your line did not cross the
-whole parcel — it has to start and finish outside it, or exactly on its edge —
-**or you had features selected**. If anything is selected, QGIS splits *only*
-the selected features and silently reports nothing happened. Press
-`Ctrl+Shift+A` to deselect everything and try again.
+**There are thin gaps between shapes.** Snapping was off. Undo, turn on
+snapping (section 1.5) and draw again.
 
-**Fill Ring works one minute and not the next, and I changed nothing.** You are
-almost certainly drawing against a parcel edge. QGIS requires the ring to be
-strictly inside the parcel, and it is exact about it — a vertex one-trillionth
-of a metre outside fails. Whether a snapped point lands exactly on the edge or a
-hair outside is luck, so it is intermittent by nature. Worse, on the times it
-*succeeds* you get an invalid self-intersecting polygon. If the new habitat
-reaches a parcel edge at all, use Split (Part 5c), not Fill Ring.
+**Split Features did nothing.** There are two possible causes:
 
-**"Fill ring: could not add ring: the inserted Ring is not contained in a
-feature".** Despite the wording, this is not about *touching* the edge — it
-means part of your ring went **outside** the parcel. Usually you clicked two
-points on the boundary and the straight line between them cut a corner off.
-Turn on tracing (Part 1.4) so your line follows the real edge. If the new
-habitat is meant to reach the parcel edge at all, stop using Fill Ring and split
-instead (Part 5c).
+- The line did not cross the full parcel. Both ends must be outside the parcel
+  or exactly on its edge.
+- Features were selected. QGIS then splits only the selected features. Press
+  `Ctrl+Shift+A` and try again.
 
-**I edited the baseline by mistake.** Undo with `Ctrl+Z` before saving. The whole
-point of two layers is that the baseline should not change after Part 3.
+**Fill Ring works sometimes and fails at other times.** Your ring touches a
+parcel edge. QGIS needs the ring fully inside the parcel, to a very small
+tolerance. A snapped point can land on the edge or just outside it, so the
+result changes. A ring that succeeds there makes an invalid polygon. Use Split
+Features (Part 5c).
 
-**The service warns that the baseline changed after the copies were made — but
-I never touched the baseline.** This warning compares each baseline shape
-against the hidden stamp its copy took in Part 4, and it used to have a false
-trigger. With **Topological Editing** on (Part 1.5), splitting a parcel
-quietly adds corners to every shape sharing the edge — points sitting on a
-straight run that change nothing you can see — and the stamp counted those as
-a change. It no longer does: vertices that add no shape are ignored, so the
-warning now fires only when a baseline geometry was **really** reshaped. One
-leftover: copies stamped **before** that fix, from shapes that already carried
-such invisible corners, can still warn once. A fresh copy clears it — delete
-the copied rows and re-run **`Copy baseline to post-intervention`**
-(Part 4), which stamps the baseline as it is now. That throws away your
-Part 5 edits, so weigh redoing them against living with a warning you know is
-stale.
+**`could not add ring: the inserted Ring is not contained in a feature`.** Part
+of the ring is outside the parcel. Usually a straight line between two
+boundary points cut a corner. Turn on tracing (section 1.4). If the habitat
+touches the parcel edge, use Split Features (Part 5c).
+
+**You edited the baseline by mistake.** Press `Ctrl+Z` before you save.
+
+**The service says that the baseline changed after the copy, but you did not
+change it.** The service compares each baseline shape with the hidden record
+made during the copy. It ignores corners that do not change the shape, such as
+those that **Topological Editing** adds during a split. If the warning stays,
+delete the copied rows and run **`Copy baseline to post-intervention`** again.
+This removes your Part 5 edits, so compare that work with a known false
+warning.

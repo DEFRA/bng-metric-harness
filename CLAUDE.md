@@ -110,44 +110,43 @@ Then `npm run dev` in this harness starts the two Node apps against those servic
 - Log what the script is doing as it does it.
 - **Always attempt to respect default SonarCloud conventions where possible** — write to them in the first draft rather than waiting for the scan to flag them. Code is scanned by SonarCloud (project key in `sonar-project.properties`); after pushing, run `/check-sonar-pr` to see PR-scoped issues. Rules most likely to be flagged: brace every single-line `if`/`for` body (S121), extract magic numbers to named constants (S109), keep nesting ≤ 3 levels (S134), keep cognitive complexity per function low (S3776), prefer `replaceAll` and template literals over `replace`/concat, and remove dead/commented-out code (S125).
 
-## `bng-template-convert/` — the QGIS templates and their tooling
+## `bng-template-convert/`: the QGIS templates and their tooling
 
-Lives here rather than in a sibling because it is not application code and has
-no runtime: it is the QGIS habitat-mapping templates, a converter between them,
-a QGIS plugin wrapping that converter, and the synthetic test site they are all
-exercised against.
+**This folder is not application code, so it lives in the harness.** It holds
+the QGIS habitat-mapping templates, a converter between them, a QGIS plugin
+that wraps the converter, and a generated test site. The conversion code is
+pure Python with the standard library only. Only the plugin needs QGIS.
 
-| Path | What |
+| Path | Contents |
 | --- | --- |
-| `templates/bng-service/` | The template: an empty QGIS project, its reference lists, and `HOW TO USE THIS TEMPLATE.md`, the surveyor's guide |
-| `templates/legacy-ne*/` | Natural England's template as it ships, and the fork of it carrying vertical area habitats |
-| `plugin/` | The QGIS plugin: source, `build_plugin.py`, and `plugin/README.md`, the installation and usage guide |
-| `reference/` | The Statutory Metric workbook, the Excel GIS import tool and the published guidance. Every reference list in the template is checked against these |
-| `scale-test-nsip/` | A generated NSIP-scale site (11 554 baseline parcels) plus `VERIFICATION.md`, the runbook |
-| `development/` | Everything needed to maintain the above and nothing needed to use it: the site generator and the template maintenance tools |
+| `templates/bng-service/` | The BNG Service template, its reference lists, and `HOW TO USE THIS TEMPLATE.md`, the guide for surveyors |
+| `templates/legacy-ne/` | The Natural England template, as Natural England publishes it |
+| `plugin/` | The QGIS plugin source, `build_plugin.py`, and `README.md`, the guide to install and use it |
+| `reference/` | The Statutory Metric workbooks, the Excel GIS import tool and the published guidance. The reference lists are checked against these |
+| `scale-test-nsip/` | The NSIP-scale test site: the generator, the claim checks, `VERIFICATION.md` (the runbook) and the generated output |
+| `development/tools/` | The tools that maintain the templates |
 
-Pure Python, standard library only — no GDAL, no QGIS imports in the conversion
-code, no network — so the converters run anywhere. The plugin needs QGIS.
-
-**`plugin/bng_template_convert/` is the only copy of the four conversion
-modules.** `build_plugin.py` zips the package as it stands, so there is nothing
-to keep in step:
+**`plugin/bng_template_convert/` is the only copy of the conversion modules.**
+The build zips the package as it is:
 
 ```sh
 cd bng-template-convert/plugin && python3 build_plugin.py
 # -> plugin/dist/bng_template_convert.zip
 ```
 
-**The scale-test output is generated, not committed.** The generator lives in
-`development/scale-test-generator/` and rebuilds the site deterministically to
-the byte in about seven seconds; the outputs come to roughly 100 MB and are
-gitignored. Every run refreshes the project file, the reference lists and the
-surveyor's guide from `templates/bng-service/`, so the example site and the
-empty template cannot drift apart.
+**The test site is generated, not committed.** The generator rebuilds it in
+about seven seconds, with identical bytes on each run. The output is about
+100 MB and git ignores it. Each run copies the project file, the reference
+lists and the guide for surveyors from `templates/bng-service/`, so the site
+and the template stay the same.
 
-`bng-template-convert/README.md` is the maintainer's guide, including why the
-template's buttons have to be edited through `development/tools/` rather than
-by writing the project out through QGIS.
+```sh
+cd bng-template-convert && python3 scale-test-nsip/generator/generate.py
+```
+
+`bng-template-convert/README.md` is the guide for maintainers. It tells why the
+buttons in the template must be edited with `development/tools/` and not saved
+from QGIS.
 
 ## Not in scope for this repo
 

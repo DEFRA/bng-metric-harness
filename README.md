@@ -215,35 +215,33 @@ See [docs/generate-test-data.md](docs/generate-test-data.md) and [docs/generate-
 
 ### NSIP-scale test site
 
-`bng-template-convert/scale-test-nsip/` generates a much larger one: a 56 km
-rail corridor with 11 554 baseline habitat parcels, 13 682 post-intervention
-parcels, hedgerows, watercourses and trees, across 3 184 hectares. It exists to
-test the QGIS template, the converter plugin and the service at the scale of a
-nationally significant infrastructure project.
+**`bng-template-convert/scale-test-nsip/` generates a site at the scale of a
+nationally significant infrastructure project.** It is a 56 km rail corridor
+of 3,184 hectares. It holds 11,554 baseline habitat parcels, 13,682
+post-intervention parcels, hedgerows, watercourses and trees. It tests the QGIS
+template, the converter plugin and the service at that scale.
 
 ```sh
-cd bng-template-convert/development/scale-test-generator && python3 generate.py
+cd bng-template-convert && python3 scale-test-nsip/generator/generate.py
 ```
 
-About seven seconds, deterministic to the byte, and the output is gitignored
-rather than committed. Every run also refreshes the project file, the reference
-lists and the surveyor's guide from the empty template, so the two cannot drift
-apart. `scale-test-nsip/VERIFICATION.md` is the step-by-step runbook for
-exercising everything against the site.
+The run takes about seven seconds and gives identical bytes each time. Git
+ignores the output. `scale-test-nsip/VERIFICATION.md` is the runbook for the
+checks against the site.
 
 ## QGIS templates and the converter plugin
 
 `bng-template-convert/` holds the habitat-mapping templates, the converter
-between the BNG Service template and the Natural England one, the QGIS plugin
-that wraps it, and the scale test above. Pure Python, standard library only.
+between the BNG Service template and the Natural England template, the QGIS
+plugin that wraps the converter, and the test site above.
 
 ```sh
 cd bng-template-convert/plugin && python3 build_plugin.py
 # -> plugin/dist/bng_template_convert.zip
 ```
 
-Then in QGIS: **Plugins → Manage and Install Plugins… → Install from ZIP**.
-See [bng-template-convert/README.md](bng-template-convert/README.md).
+To install, in QGIS select **Plugins → Manage and Install Plugins… → Install
+from ZIP**. See [bng-template-convert/README.md](bng-template-convert/README.md).
 
 ## Tilt
 
