@@ -23,6 +23,8 @@ This proxies to the backend's `npm run compare:metric`. The report is written to
 | `summary.md` | The report without each scenario's detail (the CI job summary) |
 | `report.json` | Every result, for tooling |
 
+**Every value names its unit.** Each discrepancy carries its unit: habitat, hedgerow or watercourse units, % of baseline units for a net change, or Met / Not met for a verdict. A difference is in the same unit, except that two percentages differ by percentage points. Each per-feature row also gives the size the feature was priced on by each side, in ha or km, and the metric's strategic significance multiplier. Both reports open with a guide to every unit and column; in the spreadsheet it is the *Guide* sheet.
+
 **It reports; it does not judge.** Differences never make the command or a
 build fail. The report is there for people to decide what, if anything, needs
 doing.
