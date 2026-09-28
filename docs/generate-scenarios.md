@@ -13,7 +13,12 @@ purpose:
 
 The workbooks are recalculated headlessly and their answers — the metric's
 own — recorded in `manifest.json`, which is what a service run is compared
-against. `index.md` tabulates them, one table per purpose.
+against. `index.md` tabulates them, one table per purpose. Besides the headline
+figures and trading verdicts, each scenario's `metric` holds every feature's
+units (`features`, with the size and strategic significance multiplier they were
+priced on) and the trading summaries' figures (`tradingFigures`). `npm run
+compare:metric` compares them with the service; see
+[compare-metric.md](compare-metric.md).
 
 ```sh
 npm run generate:scenarios

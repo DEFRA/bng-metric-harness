@@ -275,6 +275,8 @@ function attachResults(entry, scenario, results) {
     headline: results.headline,
     trading: results.trading,
     corrected: results.corrected,
+    features: results.features,
+    tradingFigures: results.tradingFigures,
     sheetWarnings: uniqueSheetWarnings(results.sheetWarnings),
     rowWarnings: groupWarnings(results.rowWarnings),
   };

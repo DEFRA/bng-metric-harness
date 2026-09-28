@@ -36,6 +36,7 @@
     "generate:gpkg": "node scripts/gen-gpkg.mjs",
     "generate:scenarios": "node scripts/gen-scenarios.mjs",
     "generate:scenarios:docker": "docker compose -f compose.gen-scenarios.yml run --rm --build gen-scenarios",
+    "compare:metric": "node scripts/proxy.mjs be compare:metric --",
     "generate:gpkg:docker": "docker compose -f compose.gen-gpkg.yml run --rm --build gen-gpkg",
     "lib:link": "npm link ../bng-library",
     "lib:unlink": "npm uninstall --no-save bng-library && npm install",
