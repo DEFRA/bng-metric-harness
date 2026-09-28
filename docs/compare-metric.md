@@ -17,8 +17,8 @@ This proxies to the backend's `npm run compare:metric`. The report is written to
 
 | File | What it is |
 | --- | --- |
-| `report.html` | The full report as one self-contained page. Every discrepancy, filterable by what was compared, by module, and to the ones no known cause explains |
-| `report.xlsx` | The same as a spreadsheet: a summary sheet, then one row per scenario, per discrepancy and per figure not implemented, each with a frozen, filterable header and real numbers to sort by |
+| `report.html` | A short summary, in this order: the Met / Not met answers that differ from the metric, the values that differ for no known reason, the known causes of the rest, and what the service doesn't implement yet. Then each scenario, which opens to its full list of differences. Values are shown to 4 decimal places with their unit, and each difference is the service's value less the metric's, in the same unit |
+| `report.xlsx` | Every difference at full precision: a summary sheet, a guide to the units and columns, then one row per scenario, per difference and per figure not implemented, each with a frozen, filterable header and real numbers to sort by |
 | `report.md` | The same, as Markdown |
 | `summary.md` | The report without each scenario's detail (the CI job summary) |
 | `report.json` | Every result, for tooling |
