@@ -1,7 +1,7 @@
 """Build a small synthetic BNG site in the BNG Service template.
 
     python3 site-generator/generate_site.py --habitats 20 --area-ha 6 \\
-        --centre 530000,180000 --scheme housing --seed 7
+        --centre 455920.7,285323.1 --scheme housing --seed 7
 
 Writes a working copy of the template, with the site's baseline and
 post-intervention layers filled in, to site-generator/output/<name>/. The same
@@ -38,7 +38,8 @@ OUTPUT_DIR = os.path.join(HERE, 'output')
 CONVERTER = os.path.join(ROOT, 'plugin', 'bng_template_convert',
                          'new_to_old.py')
 
-DEFAULT_CENTRE = (530000, 180000)       # Maidenhead, as the harness uses
+# Open country, away from any city, so a default site looks plausible.
+DEFAULT_CENTRE = (455920.7, 285323.1)
 BNG_MAX_EASTING = 700000
 BNG_MAX_NORTHING = 1300000
 MIN_HABITATS, MAX_HABITATS = 1, 50
@@ -84,7 +85,7 @@ def parse_args(argv):
                         default=5.0, help='site area in hectares (default 5)')
     parser.add_argument('--centre', type=parse_centre, default=DEFAULT_CENTRE,
                         help='EASTING,NORTHING of the site centre in the British '
-                             'National Grid (default 530000,180000)')
+                             'National Grid (default 455920.7,285323.1)')
     parser.add_argument('--trees', type=bounded(int, 0, MAX_TREES), default=3,
                         help='baseline trees (default 3)')
     parser.add_argument('--hedgerows', type=bounded(int, 0, MAX_HEDGEROWS),

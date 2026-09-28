@@ -26,7 +26,7 @@ folder is a complete working copy of the template. Open
 | --- | --- | --- |
 | `--habitats` | 20 | Baseline habitat parcels, from 1 to 50 |
 | `--area-ha` | 5 | Site area in hectares, from 0.05 to 500 |
-| `--centre` | 530000,180000 | Site centre, as a British National Grid easting and northing |
+| `--centre` | 455920.7,285323.1 | Site centre, as a British National Grid easting and northing |
 | `--hedgerows` | 1 | Baseline hedgerows, from 0 to 10 |
 | `--trees` | 3 | Baseline individual trees, from 0 to 50 |
 | `--landscape` | pastoral | The land now: `pastoral`, `arable`, `wooded` or `urban-fringe` |
