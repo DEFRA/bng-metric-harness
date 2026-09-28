@@ -1,0 +1,9 @@
+services:
+  gen-scenarios:
+    build:
+      context: .
+      dockerfile: Dockerfile.scenarios
+    image: bng-scenarios
+    volumes:
+      - ./test-data:/app/test-data
+      - ./workbooks:/app/workbooks:ro

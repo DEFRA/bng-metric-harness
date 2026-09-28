@@ -2,6 +2,8 @@ node_modules/
 .DS_Store
 .claude/settings.local.json
 test-data/
+# Metric workbooks dropped in locally for --from / generate:workbooks --template.
+/workbooks/
 .cache/
 
 # Internal roadmap assessment working dir — keep the Mural export and the derived

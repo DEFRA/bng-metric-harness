@@ -166,11 +166,13 @@ putting it back. This harness is unaffected — it does not set the cooldown.
 
 ## Dependabot merge-queue sweep
 
-GitHub ignores merge-queue auto-merge that was armed by a workflow's
-`GITHUB_TOKEN` (recursive-trigger protection), so the per-repo Dependabot
-auto-merge workflows approve and arm PRs that then never reach the queue.
-Until a PAT / GitHub App identity is provisioned, a developer runs the sweep
-once a day — it enqueues as *you*, which is what makes it work:
+The per-repo Dependabot auto-approve workflows approve patch/minor PRs but
+deliberately do not arm auto-merge: GitHub ignores merge-queue auto-merge
+armed by a workflow's `GITHUB_TOKEN` (recursive-trigger protection), and the
+stale arming only cost an extra click to disarm before merging by hand. An
+approved, green PR can be enqueued from the GitHub UI with one "Merge when
+ready" click, or a developer runs the sweep once a day — it enqueues as
+*you*, which is what makes it work:
 
 ```sh
 npm run queue-deps                  # sweep all six BNG repos (incl. this one)
@@ -179,7 +181,7 @@ npm run queue-deps -- --dry-run     # preview without enqueueing
 ```
 
 It only enqueues Dependabot PRs the repo's own workflow already vetted —
-auto-merge armed (patch/minor policy passed), approved, and all checks green.
+approved by `github-actions` (patch/minor policy passed) and all checks green.
 Majors and anything red are skipped with the reason printed. Safe to re-run:
 already-queued PRs are skipped.
 
@@ -207,9 +209,9 @@ npm run be -- db:migrate
 This repo contains scripts to generate example GeoPackage files for testing:
 
 - `npm run generate:gpkg` — one synthetic or workbook-driven fixture (or a `--pair`).
-- `npm run generate:gpkg:all` — a pre-built library of paired fixtures covering many BNG scenarios (intervention types, conditions, strategic significance, met/unmet 10% net gain, trading rules, advance/delay, data completeness), organised by purpose with a `manifest.json` and `index.md`.
+- `npm run generate:scenarios` — a library of paired fixtures covering many BNG scenarios (intervention types, conditions, strategic significance, met/unmet 10% net gain, trading rules, advance/delay, data completeness, invalid interventions), organised by purpose. Each comes with the Defra metric workbook describing it, recalculated with LibreOffice so `manifest.json` holds the metric's own results to compare the service against. `--no-workbooks` gives the GeoPackages alone; `npm run generate:scenarios:docker` runs it all in a container, so LibreOffice needn't be installed.
 
-See [docs/generate-test-data.md](docs/generate-test-data.md) for details.
+See [docs/generate-test-data.md](docs/generate-test-data.md) and [docs/generate-scenarios.md](docs/generate-scenarios.md) for details.
 
 ### NSIP-scale test site
 
