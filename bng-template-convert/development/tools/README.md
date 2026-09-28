@@ -1,49 +1,47 @@
 # tools
 
-Maintaining the template and checking what comes out of it. Nothing here is
+Tools that maintain the template and check what it produces. Nothing here is
 needed to use the template or the plugin.
 
-## Editing the buttons stored inside a QGIS project
-
-The template's four attribute-table buttons are Python scripts stored as XML
-attributes in the `.qgz`. Rewriting one through `QgsProject.write()` is the
-obvious route and the wrong one: it drops action shortTitles set in XML, and
-it rewrites three megabytes of project for the sake of one attribute.
-
-`qgz_actions.py` edits the attribute in place instead. Its escaping is
-verified by round-tripping: unescaping and re-escaping every one of the
-project's twenty action bodies reproduces the original bytes exactly. Two
-things had to be right for that, and both are easy to get wrong. QGIS leaves
-`>` unescaped in an attribute, and an action body ends at the first raw double
-quote after `action="`, not at whatever attribute happens to come next: some
-actions carry an `<actionScope>` child and some do not.
-
-Anything that writes a project leaves a timestamped `.backup-YYYYMMDD-HHMMSS`
-beside it first.
-
-## What is here
-
-| File | What |
+| File | What it does |
 | --- | --- |
-| `qgz_actions.py` | Read and rewrite action bodies in a `.qgz`, byte-safely. The others build on this |
-| `rename_actions.py` | Strip the list numbers from the button names and store them in the order a user needs. Idempotent |
-| `run_actions_headless.py` | Run a button outside QGIS, standing in for the parts of the interface it uses, so its logic can be tested against a real site |
-| `reset_stale_dropdowns.py` | Give every filtered drop-down a rule that blanks its value when an earlier choice makes it invalid, instead of QGIS keeping it in brackets. Generated from each drop-down's own list and filter. Idempotent |
-| `check_metric_lookups.py` | Read a filled metric workbook and check every condition it holds against that workbook's own lookup rows |
-| `check_legacy_template.py` | Re-run the recorded findings about Natural England's template against a fresh download of it |
+| `qgz_actions.py` | Reads and writes the button code in a `.qgz` without a change to any other byte. The other tools use it |
+| `rename_actions.py` | Removes the list numbers from the button names and puts the buttons in the order a user needs. Safe to run again |
+| `run_actions_headless.py` | Runs a button outside QGIS against a real site, so that its logic can be tested |
+| `reset_stale_dropdowns.py` | Gives each filtered drop-down a rule that clears its value when an earlier choice makes the value invalid. Without the rule, QGIS keeps the old value in brackets. Safe to run again |
+| `check_metric_lookups.py` | Checks each condition in a filled Metric workbook against the lookup rows of the same workbook |
+| `check_legacy_template.py` | Checks the recorded findings about the Natural England template against `templates/legacy-ne/`. Put a fresh download there to check them again |
 
-## Running them
+## Editing the buttons
+
+**The four attribute-table buttons are Python stored as XML attributes in the
+`.qgz`.** Do not save the project through QGIS to change them. QGIS drops the
+button short titles and rewrites 3 MB of project.
+
+`qgz_actions.py` changes the attribute in place. A round trip of all 20
+action bodies gives the original bytes. Two rules are necessary for this:
+
+- QGIS does not escape `>` in an attribute.
+- An action body ends at the first raw double quote after `action="`. Only
+  some actions have an `<actionScope>` child.
+
+Each tool that writes a project first saves a copy beside it, named
+`.backup-YYYYMMDD-HHMMSS`. Git ignores these copies.
+
+## Running the tools
+
+Run these from the `bng-template-convert` folder:
 
 ```sh
 python3 development/tools/rename_actions.py "templates/bng-service/BNG Service Habitat Mapping.qgz"
-
 python3 development/tools/reset_stale_dropdowns.py "templates/bng-service/BNG Service Habitat Mapping.qgz"
-
 python3 development/tools/check_metric_lookups.py "Filled metric.xlsm"
+python3 development/tools/check_legacy_template.py
 ```
 
-`run_actions_headless.py` needs QGIS's own Python, because it loads the
-project through pyqgis:
+`run_actions_headless.py` needs the Python that comes with QGIS, because it
+loads the project through PyQGIS. Its arguments are the project, the start of
+the button name, and the layer:
 
 ```sh
 /Applications/QGIS.app/Contents/MacOS/bin/python3 \
@@ -52,15 +50,10 @@ project through pyqgis:
     "Hedgerows Post-Intervention" --answer no
 ```
 
-**A button saves as it goes and there is no undo, so run these against a copy
-of a site**, never against one that matters.
+`--answer` sets the reply to any question that the button asks. The runner
+replaces the message bar, the progress dialog and the question box. A change
+to a button can then be tested against a site of 11,000 parcels in seconds,
+not by hand.
 
-## Why a headless runner exists
-
-The buttons are the part of the template most likely to be wrong and the
-hardest to test: they talk to the QGIS interface, they write to the file as
-they work, and exercising them by hand means clicking through a site of eleven
-thousand parcels. `run_actions_headless.py` stands in for the message bar, the
-progress dialog and the question box, so a change to a button can be checked
-against real data in seconds, and the answer given to any question it asks is
-set from the command line.
+**A button saves as it runs and has no undo. Run it only against a copy of a
+site.**

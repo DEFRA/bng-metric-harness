@@ -23,13 +23,13 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-sys.path.insert(0, os.path.join(HERE, "..", "..", "..", "plugin",
+sys.path.insert(0, os.path.join(HERE, "..", "..", "plugin",
                                 "bng_template_convert"))
 
 from gpkg_common import blob_geometry                              # noqa: E402
 import claim2_manifest as manifest                                 # noqa: E402
 
-SITE = os.path.join(HERE, "..", "..", "..", "scale-test-nsip")
+SITE = os.path.join(HERE, "..")
 STAGED = os.path.join(SITE, "hs2-phase2a-subsection", "Layers",
                       "BNG Service Layers.gpkg")
 LEGACY_DIR = os.path.join(SITE, "legacy")

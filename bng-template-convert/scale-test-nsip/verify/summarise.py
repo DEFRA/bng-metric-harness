@@ -7,7 +7,7 @@ import sqlite3
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, '..', '..', '..', 'plugin',
+sys.path.insert(0, os.path.join(HERE, '..', '..', 'plugin',
                                 'bng_template_convert'))
 from gpkg_common import blob_geometry            # noqa: E402
 

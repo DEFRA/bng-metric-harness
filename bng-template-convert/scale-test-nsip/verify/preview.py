@@ -1,6 +1,6 @@
 import os, sqlite3, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                '..', '..', '..', 'plugin', 'bng_template_convert'))
+                                '..', '..', 'plugin', 'bng_template_convert'))
 import matplotlib; matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon as MplPolygon

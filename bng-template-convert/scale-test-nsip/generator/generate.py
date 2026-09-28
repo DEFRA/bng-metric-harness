@@ -36,8 +36,7 @@ from corridor_writers import (write_area_habitats, write_hedgerows,    # noqa: E
 # site lives in. The working copy is generated, not committed: it is 32 MB of
 # data this script rebuilds in seven seconds.
 TEMPLATE_DIR = os.path.join(HERE, '..', '..', 'templates', 'bng-service')
-WORKING_DIR = os.path.join(HERE, '..', '..', 'scale-test-nsip',
-                           'hs2-phase2a-subsection')
+WORKING_DIR = os.path.join(HERE, '..', 'hs2-phase2a-subsection')
 TARGET = os.path.join(WORKING_DIR, 'Layers', 'BNG Service Layers.gpkg')
 # Copying the pristine file over the target each run means it starts with no
 # page history, so two runs produce identical bytes.
