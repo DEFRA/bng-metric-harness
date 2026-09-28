@@ -13,8 +13,18 @@ npm run compare:metric -- --corpus ../bng-metric-harness/test-data/scenarios
 ```
 
 This proxies to the backend's `npm run compare:metric`. The report is written to
-`bng-metric-backend/metric-comparison/report.md`, with the same results in
-`report.json`.
+`bng-metric-backend/metric-comparison/`:
+
+| File | What it is |
+| --- | --- |
+| `report.html` | The full report as one self-contained page. Every discrepancy, filterable by what was compared, by module, and to the ones no known cause explains |
+| `report.md` | The same, as Markdown |
+| `summary.md` | The report without each scenario's detail (the CI job summary) |
+| `report.json` | Every result, for tooling |
+
+**It reports; it does not judge.** Differences never make the command or a
+build fail. The report is there for people to decide what, if anything, needs
+doing.
 
 ### What is compared
 
@@ -58,13 +68,12 @@ flowchart LR
   end
   subgraph backend[bng-metric-backend]
     import["importGeoPackagePair<br>the upload pipeline, in process"]
-    gate["metric-comparison.test.js<br>regression gate in npm test"]
-    cli["npm run compare:metric<br>report.md / report.json"]
+    ci["CI: pull requests and publish<br>job summary + artifact"]
+    cli["npm run compare:metric<br>report.html / .md / .json"]
   end
   gen --> reader --> corpus
   corpus --> import --> compare
-  compare --> gate
-  compare --> cli
+  compare --> cli --> ci
 ```
 
 - **The metric's answers.** `generate:scenarios` (this repo) writes each
@@ -92,35 +101,27 @@ The figures under test come from two places: the engine in bng-library, and the
 backend's extraction and enrichment around it. The backend is the only repo that
 has both. A library change reaches the service only when the backend's
 `bng-library` pin is bumped, and that bump is a backend pull request. So the
-comparison runs there, before the change can land.
+comparison runs there, where a change's report can be read before it lands.
 
-- `npm test` includes `metric-comparison.test.js`. It is the regression gate on
-  every pull request, in the merge queue, and in `publish.yml` on every push to
-  main.
-- The pull-request check also runs `npm run compare:metric`. It publishes the
-  report on the job summary and as the `metric-comparison` artifact.
-- bng-library's own CI tests the comparator, the workbook reader and the
-  committed corpus.
+- **Every pull request** (`check-pull-request.yml`) runs `npm run compare:metric`.
+  The summary goes on the job summary. The full report (`report.html`) goes in
+  the `metric-comparison` artifact.
+- **Every publish** (`publish.yml`, on each push to main) does the same, so the
+  sample spreadsheets are re-evaluated for each commit that reaches main. It
+  never holds up a publish.
+- `npm test` checks that the comparison itself runs (`metric-comparison.test.js`),
+  not what it finds.
+- bng-library's own CI tests the comparator, the workbook reader, the reports
+  and the committed corpus.
 
-### Regressions, not perfection
+### Failing a build later
 
-The service does not agree with the metric everywhere yet. An exact comparison
-would therefore fail every run until everything was fixed. Instead, the
-discrepancies already known are recorded in the backend
-(`src/services/metric-comparison/known-discrepancies.json`), each with both
-values. The gate fails when a run differs from that record in any of these
-ways:
-
-- a new discrepancy
-- a figure that moved
-- a discrepancy that has gone (fixed, so the record needs updating)
-- a scenario whose outcome changed
-
-When the change is intended, record it and review the diff:
-
-```sh
-npm run be -- compare:metric -- --update-known
-```
+For now nothing fails. When some differences should fail a build (a new
+discrepancy, say, or any in trading statuses), bng-library already has what a
+gate needs. `knownDiscrepanciesFrom(results)` records a run's discrepancies,
+with both values. `findRegressions(results, known)` lists every way a later run
+differs from that record: a new or changed discrepancy, one that has gone, or a
+change of outcome.
 
 ### Refreshing the corpus
 
@@ -131,7 +132,7 @@ template:
 npm run lib:link                     # use the local bng-library
 npm run generate:scenarios -- --outdir example-files/permutations --seed 1
 (cd ../bng-library && npm run corpus:import -- ../bng-metric-harness/example-files/permutations)
-npm run be -- compare:metric -- --update-known
+npm run compare:metric
 ```
 
 ### What the first run found
