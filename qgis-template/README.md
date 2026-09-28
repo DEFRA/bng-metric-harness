@@ -2,7 +2,8 @@
 
 The BNG Service QGIS habitat mapping template and a QGIS plugin that converts
 sites into and out of it. Also a generated example site at the scale of a
-Nationally Significant Infrastructure Project (NSIP).
+Nationally Significant Infrastructure Project (NSIP), and a generator for
+small sites.
 
 The conversion code uses only the Python standard library. Only the plugin
 needs QGIS.
@@ -16,6 +17,7 @@ needs QGIS.
 | `plugin/` | **The plugin.** Source, `build_plugin.py`, and `plugin/README.md`, the installation and usage guide |
 | `reference/` | The Statutory Metric workbooks, the Excel GIS import tool and the user guide. Every reference list in the template is checked against these |
 | `scale-test-nsip/` | The example site: generator, claim checks, `README.md`, `VERIFICATION.md` and the generated output |
+| `site-generator/` | **The site generator.** Builds a small synthetic site from inputs such as the number of parcels, the area and the location. See its `README.md` |
 | `development/tools/` | Tools that maintain the template. Nothing here is needed to use it |
 
 **This file is for maintainers.** Users get `HOW TO USE THIS TEMPLATE.md`

@@ -229,6 +229,20 @@ The run takes about seven seconds and gives identical bytes each time. Git
 ignores the output. `scale-test-nsip/VERIFICATION.md` is the runbook for the
 checks against the site.
 
+### Small synthetic sites
+
+**`qgis-template/site-generator/` builds a small, realistic site from a few
+inputs.** Set the number of habitat parcels (1 to 50), the area, the location,
+the hedgerows and trees, the landscape and the scheme. It writes the baseline
+and post-intervention stages into the BNG Service template. The same inputs
+give the same file.
+
+```sh
+cd qgis-template && python3 site-generator/generate_site.py --habitats 10 --area-ha 3 --centre 451000,206000
+```
+
+See [qgis-template/site-generator/README.md](qgis-template/site-generator/README.md).
+
 ## QGIS templates and the converter plugin
 
 `qgis-template/` holds the habitat-mapping templates, the converter
