@@ -18,6 +18,7 @@ This proxies to the backend's `npm run compare:metric`. The report is written to
 | File | What it is |
 | --- | --- |
 | `report.html` | The full report as one self-contained page. Every discrepancy, filterable by what was compared, by module, and to the ones no known cause explains |
+| `report.xlsx` | The same as a spreadsheet: a summary sheet, then one row per scenario, per discrepancy and per figure not implemented, each with a frozen, filterable header and real numbers to sort by |
 | `report.md` | The same, as Markdown |
 | `summary.md` | The report without each scenario's detail (the CI job summary) |
 | `report.json` | Every result, for tooling |
@@ -104,8 +105,8 @@ has both. A library change reaches the service only when the backend's
 comparison runs there, where a change's report can be read before it lands.
 
 - **Every pull request** (`check-pull-request.yml`) runs `npm run compare:metric`.
-  The summary goes on the job summary. The full report (`report.html`) goes in
-  the `metric-comparison` artifact.
+  The summary goes on the job summary. The full report (`report.html` and `report.xlsx`)
+  goes in the `metric-comparison` artifact.
 - **Every publish** (`publish.yml`, on each push to main) does the same, so the
   sample spreadsheets are re-evaluated for each commit that reaches main. It
   never holds up a publish.
