@@ -17,6 +17,7 @@
  * longer demonstrates what it claims to.
  */
 
+import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -37,11 +38,13 @@ import { openGeoPackageReadonly } from "#gpkg-io";
 import {
   checkScenarioExpectations,
   lintWorkbook,
+  readMetricResults,
   readTemplateVocabulary,
-  recalculateWorkbooks,
+  saveRecalculatedWorkbooks,
   workbookFromGeoPackage,
 } from "#workbook-writer";
 import { header, info, warn } from "../_lib.mjs";
+import { readScenarioManifest } from "./manifest.mjs";
 import { loadEngine } from "./engine.mjs";
 import { meetsNetGain, priceHabitats } from "./engine-units.mjs";
 
@@ -177,13 +180,30 @@ function lintCheck(issues) {
   };
 }
 
-function writeWorkbook(entry, piFile, outDir, workbook) {
+/**
+ * Write a scenario's workbook. The workbook as written — formulas and inputs,
+ * no values — is fingerprinted: when the last run saved a recalculated
+ * workbook from exactly the same source, that saved workbook is kept as it
+ * was instead, and is not recalculated again. LibreOffice does not save the
+ * same workbook to the same bytes twice (it orders styles and validations
+ * differently from run to run), so this is what keeps a regenerated corpus
+ * from rewriting every workbook, and it is faster.
+ *
+ * @returns {boolean} true when the saved workbook was kept
+ */
+function writeWorkbook(entry, piFile, outDir, workbook, saved) {
   const { buffer, rows, issues, notes } = workbookFromGeoPackage({
     postInterventionPath: piFile,
     templateBuffer: workbook.template,
     vocabulary: workbook.vocabulary,
   });
-  writeFileSync(path.join(outDir, entry.files.workbook), buffer);
+  entry.workbookSource = createHash("sha256").update(buffer).digest("hex");
+  const prior = saved.get(entry.id);
+  const keep = prior?.source === entry.workbookSource;
+  writeFileSync(
+    path.join(outDir, entry.files.workbook),
+    keep ? prior.buffer : buffer,
+  );
   entry.inputRows = countRows(rows);
   entry.rejectedInputs = issues.map(({ allowed: _allowed, ...issue }) => issue);
   entry.notes = notes;
@@ -192,10 +212,11 @@ function writeWorkbook(entry, piFile, outDir, workbook) {
   if (lint.length > 0) {
     entry.lintIssues = lint;
   }
+  return keep;
 }
 
 function generateScenario(scenario, context) {
-  const { outDir, centre, seed, engine, workbook } = context;
+  const { outDir, centre, seed, engine, workbook, saved, kept } = context;
   const files = scenarioFiles(scenario);
   if (!workbook) {
     delete files.workbook;
@@ -230,8 +251,8 @@ function generateScenario(scenario, context) {
     entry.gain = gain;
     entry.checks.push(check);
   }
-  if (workbook) {
-    writeWorkbook(entry, piFile, outDir, workbook);
+  if (workbook && writeWorkbook(entry, piFile, outDir, workbook, saved)) {
+    kept.add(entry.id);
   }
 
   const rejected = entry.rejectedInputs?.length
@@ -275,8 +296,6 @@ function attachResults(entry, scenario, results) {
     headline: results.headline,
     trading: results.trading,
     corrected: results.corrected,
-    features: results.features,
-    tradingFigures: results.tradingFigures,
     sheetWarnings: uniqueSheetWarnings(results.sheetWarnings),
     rowWarnings: groupWarnings(results.rowWarnings),
   };
@@ -285,13 +304,35 @@ function attachResults(entry, scenario, results) {
   );
 }
 
-async function recalculateAll(entries, scenarios, { outDir, soffice }) {
+async function recalculateAll(entries, scenarios, { outDir, soffice, kept }) {
+  const attach = (entry, results) =>
+    attachResults(
+      entry,
+      scenarios.find((s) => s.id === entry.id),
+      results,
+    );
+  for (const entry of entries.filter((e) => kept.has(e.id))) {
+    attach(
+      entry,
+      readMetricResults(readFileSync(path.join(outDir, entry.files.workbook))),
+    );
+  }
+  if (kept.size > 0) {
+    info(`  ${kept.size} workbook(s) unchanged since the last run: kept`);
+  }
+  const changed = entries.filter((e) => !kept.has(e.id));
+  if (changed.length === 0) {
+    return;
+  }
   // Beside the corpus rather than in the OS temp dir: the workbooks can then
   // be staged as hard links, and a small tmpfs is never filled.
   const workDir = mkdtempSync(path.join(outDir, WORK_PREFIX));
   try {
-    const results = await recalculateWorkbooks(
-      entries.map((e) => path.join(outDir, e.files.workbook)),
+    // Each workbook is saved over itself with its calculated values in, so
+    // the metric's answers can be read straight from it — by a tester opening
+    // it, or by the backend's metric comparison — without recalculating.
+    const results = await saveRecalculatedWorkbooks(
+      changed.map((e) => path.join(outDir, e.files.workbook)),
       {
         workDir,
         soffice,
@@ -302,13 +343,34 @@ async function recalculateAll(entries, scenarios, { outDir, soffice }) {
         },
       },
     );
-    entries.forEach((entry, i) => {
-      const scenario = scenarios.find((s) => s.id === entry.id);
-      attachResults(entry, scenario, results[i]);
-    });
+    changed.forEach((entry, i) => attach(entry, results[i]));
   } finally {
     rmSync(workDir, { recursive: true, force: true });
   }
+}
+
+/**
+ * The recalculated workbooks the last run saved, by scenario id, with the
+ * fingerprint of the source each was saved from. Read before the output
+ * folder is cleared, so an unchanged one can be put back as it was.
+ */
+function savedWorkbooks(outDir, scenarios) {
+  const saved = new Map();
+  const previous = readScenarioManifest(outDir);
+  if (!previous?.recalculated) {
+    return saved;
+  }
+  const sources = new Map(
+    previous.scenarios.map((e) => [e.id, e.workbookSource]),
+  );
+  for (const scenario of scenarios) {
+    const file = path.join(outDir, scenarioFiles(scenario).workbook);
+    const source = sources.get(scenario.id);
+    if (source && existsSync(file)) {
+      saved.set(scenario.id, { source, buffer: readFileSync(file) });
+    }
+  }
+  return saved;
 }
 
 function loadTemplate(templatePath) {
@@ -399,6 +461,9 @@ export async function buildScenarioCorpus({
     : null;
 
   mkdirSync(outDir, { recursive: true });
+  const saved =
+    workbook && recalculate ? savedWorkbooks(outDir, scenarios) : new Map();
+  const kept = new Set();
   if (partial) {
     clearScenarioFiles(outDir, scenarios);
   } else {
@@ -410,13 +475,21 @@ export async function buildScenarioCorpus({
   header("Generating scenarios", "cyan");
   info(`  ${scenarios.length} scenario(s), seed ${seed} → ${outDir}`);
   const entries = scenarios.map((scenario) =>
-    generateScenario(scenario, { outDir, centre, seed, engine, workbook }),
+    generateScenario(scenario, {
+      outDir,
+      centre,
+      seed,
+      engine,
+      workbook,
+      saved,
+      kept,
+    }),
   );
   setMode("cli");
 
   if (workbook && recalculate) {
     header("Recalculating the workbooks with LibreOffice", "cyan");
-    await recalculateAll(entries, scenarios, { outDir, soffice });
+    await recalculateAll(entries, scenarios, { outDir, soffice, kept });
   }
   reportFailedChecks(entries);
   return entries;

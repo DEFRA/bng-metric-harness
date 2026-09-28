@@ -9,7 +9,7 @@ the recalculated metric workbook computes for the same GeoPackage pair.
 ```sh
 npm run compare:metric                           # the whole corpus
 npm run compare:metric -- --only trading-rules   # a purpose, or scenario ids
-npm run compare:metric -- --corpus ../bng-metric-harness/test-data/scenarios   # another generate:scenarios run
+npm run compare:metric -- --corpus ~/my-test-spreadsheets   # any folder of scenarios
 ```
 
 This proxies to the backend's `npm run compare:metric`. The report is written to
@@ -63,7 +63,7 @@ stand out.
 flowchart LR
   subgraph harness[bng-metric-harness]
     gen["npm run generate:scenarios<br>GeoPackage pairs + workbooks,<br>recalculated with LibreOffice"]
-    corpus["example-files/permutations<br>GeoPackages + workbooks + manifest.json"]
+    corpus["example-files/permutations<br>GeoPackage pairs + workbooks<br>saved with their answers"]
   end
   subgraph library[bng-library]
     reader["workbook-writer<br>readMetricResults: headline,<br>per-feature units, trading figures"]
@@ -81,22 +81,31 @@ flowchart LR
 ```
 
 - **The metric's answers.** `generate:scenarios` (this repo) writes each
-  scenario's workbook and recalculates it. bng-library's `readMetricResults`
-  reads the headline figures, every feature's units (with the size and strategic
+  scenario's workbook, recalculates it with LibreOffice and saves it with its
+  calculated values in. The save is normalised, so the same workbook saved
+  twice gives the same bytes and Excel has nothing to repair. The comparison
+  reads the answers straight from the workbook, with bng-library's own reader:
+  the headline figures, every feature's units (with the size and strategic
   significance multiplier they were priced on), and the trading summaries'
-  figures into `manifest.json`.
-- **The corpus.** It lives in one place: this repo's
-  `example-files/permutations/`, each scenario's GeoPackage pair beside its
-  metric workbook, with `manifest.json` holding the workbooks' answers. Neither
-  the library nor the backend carries a copy, so no library consumer pulls in
-  test data. A comparison needs only the GeoPackages and the manifest, not
-  LibreOffice or the Defra template.
+  figures. It needs no manifest, and neither LibreOffice nor the Defra template.
+- **The scenarios.** They're any folder of files named
+  `<name>-baseline.gpkg`, `<name>-post-intervention.gpkg` and `<name>.xlsx`, side
+  by side, including hand-built test spreadsheets, not just generated ones.
+  - **Values.** A workbook saved from Excel carries its values and is read as
+    it is. One saved with formulas only is recalculated first when LibreOffice
+    is installed; otherwise it's reported as unreadable.
+  - **Feature references.** A hand-built workbook compares feature by feature
+    only where its rows' references match the GeoPackages' feature references.
+    Totals, net gain and trading are compared regardless.
+- **Where the committed scenarios live.** They're only in this repo's
+  `example-files/permutations/`, each GeoPackage pair beside its workbook.
+  Neither the library nor the backend carries a copy, so no library consumer
+  pulls in test data.
   - **Locally**, the backend finds this repo checked out beside it, by its
     `package.json`. `METRIC_CORPUS_DIR` or `--corpus` names another folder.
-  - **In CI**, the backend's jobs fetch this repo's `main` with a sparse,
-    blobless clone. That downloads the 74 GeoPackages and the manifest (about
-    6 MB) and never the workbooks. So a corpus change reaches backend CI once it
-    is merged here.
+  - **In CI**, the backend's jobs fetch that folder, and nothing else, from
+    this repo's `main` with a sparse, blobless clone. So a corpus change
+    reaches backend CI once it is merged here.
   - **A backend checkout on its own** skips the comparison's tests rather than
     failing.
 - **The comparison.** bng-library's `metric-compare` turns each side into

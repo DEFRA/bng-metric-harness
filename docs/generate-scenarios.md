@@ -11,14 +11,12 @@ purpose:
 | `<scenario>-post-intervention.gpkg` | The post-intervention GeoPackage to upload |
 | `<scenario>.xlsx` | The Defra metric workbook describing the same site |
 
-The workbooks are recalculated headlessly and their answers — the metric's
-own — recorded in `manifest.json`, which is what a service run is compared
-against. `index.md` tabulates them, one table per purpose. Besides the headline
-figures and trading verdicts, each scenario's `metric` holds every feature's
-units (`features`, with the size and strategic significance multiplier they were
-priced on) and the trading summaries' figures (`tradingFigures`). `npm run
-compare:metric` compares them with the service; see
-[compare-metric.md](compare-metric.md).
+The workbooks are recalculated headlessly and saved with their calculated
+values in, so the metric's own answers can be read straight from each workbook:
+by a tester opening it, and by the backend's `npm run compare:metric`, which
+compares them with the service (see [compare-metric.md](compare-metric.md)).
+`manifest.json` records each scenario's headline results and checks for
+`index.md`, which tabulates them, one table per purpose.
 
 ```sh
 npm run generate:scenarios
@@ -62,18 +60,26 @@ needed, and it takes a few seconds. The engine and file checks still run.
 ### The committed fixtures
 
 `example-files/permutations/` holds a full run at seed 1: each scenario's
-GeoPackage pair and its metric workbook, with `manifest.json` and `index.md`
-carrying the metric's recalculated results. A tester can open the workbook
-beside the files they upload without generating anything. To refresh them:
+GeoPackage pair and its metric workbook, saved with the metric's answers in it,
+with `manifest.json` and `index.md` summarising them. A tester can open the
+workbook beside the files they upload without generating anything, and the
+backend's metric comparison reads its answers from the same workbooks. To
+refresh them:
 
 ```sh
 npm run generate:scenarios -- --outdir example-files/permutations --seed 1
 ```
 
 The output is byte-reproducible, so a refresh only changes the files whose
-scenario, template or library changed. The workbooks are about 3.4 MB each on
-disk, but they differ from one another only in a few sheets, so git's delta
-compression stores all of them in under 10 MB.
+scenario, template or library changed. LibreOffice itself does not save the
+same workbook to the same bytes twice, so each workbook's source (the workbook
+as written, before recalculation) is fingerprinted in `manifest.json`
+(`workbookSource`): a workbook whose source is unchanged since the last run is
+kept exactly as it was, not recalculated again. Delete a workbook to force it
+to be recalculated. Each save is also normalised — LibreOffice's made-up
+identifiers renumbered, and the references it leaves to parts it dropped
+removed — so Excel has nothing to repair on opening. The workbooks are about
+3.7 MB each on disk.
 
 ### Why the answers can be trusted
 
@@ -145,13 +151,16 @@ file:
 - **LibreOffice** (`apt-get install libreoffice-calc`, or `brew install
   --cask libreoffice`) to recalculate — or run it all in Docker (below). Point `SOFFICE_PATH` at the binary if
   it is not on `PATH` as `soffice`. One LibreOffice process runs per CPU, and
-  each recalculated workbook is exported as CSV and read straight away. On a
+  each recalculated workbook is saved over itself with its values in, then
+  read straight away. On a
   two-core machine a workbook takes about 3.5 seconds, the trading-rule matrix
   under a minute, and the whole catalogue about three minutes.
 
-  With `--no-recalc` the workbooks are written but not recalculated, and
-  `manifest.json` has no results. Excel recalculates a generated workbook when
-  it is opened, so a human tester needs nothing else.
+  With `--no-recalc` the workbooks are written but not recalculated: they
+  hold formulas only, and `manifest.json` has no results. Excel recalculates a
+  generated workbook when it is opened, so a human tester needs nothing else.
+  The metric comparison recalculates them itself when LibreOffice is
+  installed.
 
 ### Running in Docker
 
