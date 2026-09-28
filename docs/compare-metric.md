@@ -9,7 +9,7 @@ the recalculated metric workbook computes for the same GeoPackage pair.
 ```sh
 npm run compare:metric                           # the whole corpus
 npm run compare:metric -- --only trading-rules   # a purpose, or scenario ids
-npm run compare:metric -- --corpus ../bng-metric-harness/test-data/scenarios
+npm run compare:metric -- --corpus ../bng-metric-harness/test-data/scenarios   # another generate:scenarios run
 ```
 
 This proxies to the backend's `npm run compare:metric`. The report is written to
@@ -63,10 +63,10 @@ stand out.
 flowchart LR
   subgraph harness[bng-metric-harness]
     gen["npm run generate:scenarios<br>GeoPackage pairs + workbooks,<br>recalculated with LibreOffice"]
+    corpus["example-files/permutations<br>GeoPackages + workbooks + manifest.json"]
   end
   subgraph library[bng-library]
     reader["workbook-writer<br>readMetricResults: headline,<br>per-feature units, trading figures"]
-    corpus["metric-compare/corpus<br>GeoPackages + manifest.json"]
     compare["metric-compare<br>figures, comparison,<br>service gaps, causes, report"]
   end
   subgraph backend[bng-metric-backend]
@@ -74,7 +74,8 @@ flowchart LR
     ci["CI: pull requests and publish<br>job summary + artifact"]
     cli["npm run compare:metric<br>report.html / .md / .json"]
   end
-  gen --> reader --> corpus
+  gen --> reader
+  reader --> corpus
   corpus --> import --> compare
   compare --> cli --> ci
 ```
@@ -84,11 +85,20 @@ flowchart LR
   reads the headline figures, every feature's units (with the size and strategic
   significance multiplier they were priced on), and the trading summaries'
   figures into `manifest.json`.
-- **The corpus.** bng-library holds a copy of the corpus, trimmed to the
-  GeoPackages and the manifest (`src/metric-compare/corpus`, about 6 MB). The
-  workbooks are not needed downstream, because their answers are in the
-  manifest. So neither LibreOffice nor the Defra template is needed to run the
-  comparison.
+- **The corpus.** It lives in one place: this repo's
+  `example-files/permutations/`, each scenario's GeoPackage pair beside its
+  metric workbook, with `manifest.json` holding the workbooks' answers. Neither
+  the library nor the backend carries a copy, so no library consumer pulls in
+  test data. A comparison needs only the GeoPackages and the manifest, not
+  LibreOffice or the Defra template.
+  - **Locally**, the backend finds this repo checked out beside it, by its
+    `package.json`. `METRIC_CORPUS_DIR` or `--corpus` names another folder.
+  - **In CI**, the backend's jobs fetch this repo's `main` with a sparse,
+    blobless clone. That downloads the 74 GeoPackages and the manifest (about
+    6 MB) and never the workbooks. So a corpus change reaches backend CI once it
+    is merged here.
+  - **A backend checkout on its own** skips the comparison's tests rather than
+    failing.
 - **The comparison.** bng-library's `metric-compare` turns each side into
   comparable figures and compares them.
 - **The service's answers.** The backend's `importGeoPackagePair` runs the same
@@ -114,8 +124,8 @@ comparison runs there, where a change's report can be read before it lands.
   never holds up a publish.
 - `npm test` checks that the comparison itself runs (`metric-comparison.test.js`),
   not what it finds.
-- bng-library's own CI tests the comparator, the workbook reader, the reports
-  and the committed corpus.
+- bng-library's own CI tests the comparator, the workbook reader and the
+  reports.
 
 ### Failing a build later
 
@@ -129,13 +139,12 @@ change of outcome.
 ### Refreshing the corpus
 
 After changing the scenario catalogue, the workbook reader, or the metric
-template:
+template, regenerate it and commit the result here:
 
 ```sh
 npm run lib:link                     # use the local bng-library
 npm run generate:scenarios -- --outdir example-files/permutations --seed 1
-(cd ../bng-library && npm run corpus:import -- ../bng-metric-harness/example-files/permutations)
-npm run compare:metric
+npm run compare:metric               # the backend picks up the new corpus at once
 ```
 
 ### What the first run found
