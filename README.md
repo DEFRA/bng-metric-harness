@@ -166,11 +166,13 @@ putting it back. This harness is unaffected — it does not set the cooldown.
 
 ## Dependabot merge-queue sweep
 
-GitHub ignores merge-queue auto-merge that was armed by a workflow's
-`GITHUB_TOKEN` (recursive-trigger protection), so the per-repo Dependabot
-auto-merge workflows approve and arm PRs that then never reach the queue.
-Until a PAT / GitHub App identity is provisioned, a developer runs the sweep
-once a day — it enqueues as *you*, which is what makes it work:
+The per-repo Dependabot auto-approve workflows approve patch/minor PRs but
+deliberately do not arm auto-merge: GitHub ignores merge-queue auto-merge
+armed by a workflow's `GITHUB_TOKEN` (recursive-trigger protection), and the
+stale arming only cost an extra click to disarm before merging by hand. An
+approved, green PR can be enqueued from the GitHub UI with one "Merge when
+ready" click, or a developer runs the sweep once a day — it enqueues as
+*you*, which is what makes it work:
 
 ```sh
 npm run queue-deps                  # sweep all six BNG repos (incl. this one)
@@ -179,7 +181,7 @@ npm run queue-deps -- --dry-run     # preview without enqueueing
 ```
 
 It only enqueues Dependabot PRs the repo's own workflow already vetted —
-auto-merge armed (patch/minor policy passed), approved, and all checks green.
+approved by `github-actions` (patch/minor policy passed) and all checks green.
 Majors and anything red are skipped with the reason printed. Safe to re-run:
 already-queued PRs are skipped.
 

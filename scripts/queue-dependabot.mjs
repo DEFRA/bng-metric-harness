@@ -1,9 +1,9 @@
-// Sweep the BNG repos for Dependabot PRs the per-repo auto-merge workflow
-// has already vetted (approved + armed + green) and add them to the merge
-// queue as *you*. GitHub ignores bot-armed auto-merge when a merge queue is
-// required (recursive-trigger protection, see
-// https://github.com/orgs/community/discussions/70310), so a developer runs
-// this once a day with their own gh identity:
+// Sweep the BNG repos for Dependabot PRs the per-repo auto-approve workflow
+// has already vetted (approved by github-actions + green) and add them to the
+// merge queue as *you*. A workflow's GITHUB_TOKEN cannot usefully enqueue or
+// arm auto-merge when a merge queue is required (recursive-trigger protection,
+// see https://github.com/orgs/community/discussions/70310), so a developer
+// runs this once a day with their own gh identity:
 //
 //   npm run queue-deps                     # enqueue everything eligible
 //   npm run queue-deps -- --dry-run
@@ -23,13 +23,16 @@ const GITHUB_REPOS = [
 ];
 
 const PR_LIST_FIELDS =
-  "id,number,title,isDraft,reviewDecision,autoMergeRequest,statusCheckRollup";
+  "id,number,title,isDraft,reviewDecision,latestReviews,statusCheckRollup";
 
 // The only direct "add to the queue now" API. `gh pr merge` cannot do this:
-// on a queue-protected branch it merely arms auto-merge, a silent no-op when
-// the PR is already bot-armed.
+// on a queue-protected branch it merely arms auto-merge.
 const ENQUEUE_MUTATION =
   "mutation ($prId: ID!) { enqueuePullRequest(input: { pullRequestId: $prId }) { mergeQueueEntry { position } } }";
+
+// The auto-approve workflow reviews as github-actions[bot], whose GraphQL
+// login drops the [bot] suffix.
+const VETTING_REVIEWER = "github-actions";
 
 // Check runs report `conclusion`, commit statuses report `state`.
 const PASSING_CHECK_RESULTS = new Set(["SUCCESS", "NEUTRAL", "SKIPPED"]);
@@ -45,18 +48,23 @@ async function gh(args) {
 
 const ghJson = async (args) => JSON.parse(await gh(args));
 
+const approvedByWorkflow = (reviews) =>
+  reviews?.some(
+    (r) => r.author?.login === VETTING_REVIEWER && r.state === "APPROVED",
+  );
+
 const checksAreGreen = (rollup) =>
   rollup?.length > 0 &&
   rollup.every((c) => PASSING_CHECK_RESULTS.has(c.conclusion || c.state));
 
 // A PR qualifies when the repo's own workflow already applied its policy
-// (patch/minor → approved + armed) and CI is green; the first matching rule
+// (patch/minor → approved by github-actions) and CI is green; the first matching rule
 // explains why a PR is skipped, and nothing is ever merged by force.
 const VETTING_RULES = [
   (pr) => pr.isDraft && "draft",
   (pr) =>
-    !pr.autoMergeRequest &&
-    "not armed by the auto-merge workflow (major bump?)",
+    !approvedByWorkflow(pr.latestReviews) &&
+    "not approved by the auto-approve workflow (major bump?)",
   (pr) =>
     pr.reviewDecision !== "APPROVED" &&
     `review decision is ${pr.reviewDecision || "pending"}`,

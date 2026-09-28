@@ -30,7 +30,7 @@ updates:
 
     versioning-strategy: increase
 
-    # Hold new PRs for a few days after a release so auto-merge does not pull in
+    # Hold new PRs for a few days after a release so auto-approval does not pull in
     # a version that gets yanked shortly after publishing. Longer hold for the
     # riskier bumps.
     cooldown:
