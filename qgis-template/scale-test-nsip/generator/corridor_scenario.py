@@ -81,19 +81,22 @@ def assert_in_scope(habitats):
         raise ValueError('habitats outside the accepted bands: '
                          + ', '.join(out_of_scope))
 
+# The condition scale, best first, worded as the template's reference lists
+# word it. The lists carry no number in front of a label.
+CONDITION_SCALE = ('Good', 'Fairly Good', 'Moderate', 'Fairly Poor', 'Poor')
+# The condition given to a habitat that the condition list does not name.
+CONDITION_NOT_LISTED = 'N/A - Other'
+
 # Condition preference, best first. Filtered per habitat against the template's
 # own condition list, so a crop keeps its single "assessment not applicable"
 # value and a grassland gets a spread.
-CONDITION_WEIGHTS = [
-    ('1. Good', 0.10), ('2. Fairly Good', 0.22), ('3. Moderate', 0.38),
-    ('4. Fairly Poor', 0.20), ('5. Poor', 0.10),
-]
+CONDITION_WEIGHTS = list(zip(CONDITION_SCALE, (0.10, 0.22, 0.38, 0.20, 0.10)))
 
 
 def condition_for(habitat, roll):
     allowed = CONDITIONS.get(habitat, [])
     if not allowed:
-        return '6. N/A - Other'
+        return CONDITION_NOT_LISTED
     if len(allowed) == 1:
         return allowed[0]
     weighted = [(label, weight) for label, weight in CONDITION_WEIGHTS
@@ -108,7 +111,9 @@ def best_condition(habitat):
     """The best condition the metric allows for this habitat."""
     allowed = [label for label, _ in CONDITION_WEIGHTS
                if label in CONDITIONS.get(habitat, [])]
-    return allowed[0] if allowed else (CONDITIONS.get(habitat) or ['6. N/A - Other'])[0]
+    if allowed:
+        return allowed[0]
+    return (CONDITIONS.get(habitat) or [CONDITION_NOT_LISTED])[0]
 
 
 def better_condition(habitat, current):

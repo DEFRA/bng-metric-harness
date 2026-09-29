@@ -74,8 +74,10 @@ except ImportError:  # pragma: no cover - running as a plain script
     )
 
 try:
+    from .reference_lists import to_legacy_labels
     from .to_metric import check_needed_values
 except ImportError:  # pragma: no cover - running as a plain script
+    from reference_lists import to_legacy_labels
     from to_metric import check_needed_values
 
 # Sizes below this are treated as "no shortfall" when deciding whether a
@@ -905,8 +907,8 @@ def consolidate_csv_rows(table, rows, split_irreplaceable=True):
     return merged, flagged_groups
 
 
-# Columns whose reference list carries the metric's own numbering in front of
-# the value, such as "4. Fairly Poor" or "2. Retained". The legacy
+# Columns whose legacy reference list carries the metric's own numbering in
+# front of the value, such as "4. Fairly Poor" or "2. Retained". The legacy
 # GeoPackages keep that numbering, because the legacy template stores it and
 # Natural England's own tooling reads those files. The import tool does not:
 # its lookups hold the words alone, so a numbered value matches nothing there
@@ -1098,6 +1100,7 @@ def convert(input_path, out_dir, carry_lineage, dry_run, formats=("gpkg",),
     site = site_details(redline)
     srs_rows = read_srs_rows(source)
     source.close()
+    _number_list_values(staged, report)
 
     if not redline:
         report.warn(
@@ -1448,6 +1451,22 @@ def _write_trees(baseline_conn, pi_conn, tables, site, carry_lineage, report):
     return pi_rows
 
 
+def _number_list_values(staged, report):
+    """Put the Natural England list number back on the numbered drop-downs.
+
+    Done once, on the rows as read, so every legacy row and CSV row built from
+    them, including the Lost rows made from a baseline feature, carries the
+    form the legacy template stores.
+    """
+    changed = to_legacy_labels(staged)
+    if changed:
+        report.note(
+            f"Put the Natural England list number on {changed} drop-down "
+            "value(s), such as 'Fairly Poor' to '4. Fairly Poor', because the "
+            "legacy template stores them that way"
+        )
+
+
 def _report_losses(staged, report):
     vertical = staged["verticalAreas"]
     vertical_total = len(vertical["baseline"]) + len(vertical["pi"])
@@ -1536,8 +1555,8 @@ def print_report(report, dry_run):
             print(f"  ! {line}")
 
     print(
-        "\nAlways dropped: lineage keys (feature_uuid / parent_uuid / "
-        "parent_checksum),\nirreplaceable-habitat flags, and vertical area "
+        "\nAlways dropped: the lineage columns (feature_uuid, parent_uuid and "
+        "parent_geom),\nirreplaceable-habitat flags, and vertical area "
         "habitats. Sizes are rounded to\nwhole units to match the legacy integer "
         "columns.\n"
     )

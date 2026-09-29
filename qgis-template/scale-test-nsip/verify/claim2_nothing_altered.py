@@ -15,6 +15,11 @@ Rows are paired by position and the pairing is then proved by comparing
 geometry, which conversion copies across. A pair whose shapes differ is
 reported rather than compared, because comparing the attributes of two
 features that are not the same feature proves nothing.
+
+The BNG Service lists hold a label with no number, "Moderate". Some Natural
+England lists put a number in front of it, "3. Moderate". The manifest names
+each column where that happens. The legacy value must hold the same words and
+be a label that the Natural England list offers for that row, number included.
 """
 
 import os
@@ -157,7 +162,7 @@ def check_rows(findings, layer, staged_rows, legacy_rows, rules, synthesised):
     # The rows legacy has to invent must all say what they are.
     if extra and synthesised:
         wrong = [row for row, _ in legacy_rows[len(staged_rows):]
-                 if manifest.normalise(row.get("Retention Category"))
+                 if manifest.unnumbered(row.get("Retention Category"))
                  != synthesised]
         print(f"    {extra} synthesised '{synthesised}' row(s), "
               f"{len(wrong)} not marked as such")

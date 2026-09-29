@@ -57,12 +57,14 @@ const num = (value) => {
 }
 const text = (value) => (value == null ? '' : String(value).trim())
 const key = (broad, type) => `${text(broad)} - ${text(type)}`
-const retention = (value) => text(value).replace(/^\d+\.\s*/, '')
-// The template stores a condition as its display label, "3. Moderate"; the
-// calculator is keyed on the value behind it, "Moderate". Both forms sit in
-// the template's own reference list, in a Condition column and a Label
-// column, so dropping the number recovers the value rather than guessing it.
-const condition = (value) => text(value).replace(/^\d+\.\s*/, '')
+// The legacy template stores some labels with a number in front,
+// "3. Moderate"; the staged template and the calculator hold the plain value,
+// "Moderate". Both forms sit in the legacy template's own reference list, in
+// a Condition column and a Label column, so dropping the number recovers the
+// value rather than guessing it. It does nothing to a staged value.
+const unnumbered = (value) => text(value).replace(/^\d+\.\s*/, '')
+const retention = unnumbered
+const condition = unnumbered
 
 // ---------------------------------------------------------------- readings
 

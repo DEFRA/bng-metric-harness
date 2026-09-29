@@ -14,10 +14,22 @@ so that the code and the formats it targets have the same version history.
   `Baseline *` and `Proposed *` columns. The BNG Service template has separate
   baseline and post-intervention layers. One legacy file becomes a pair, and a
   pair becomes one file.
-- **Lineage.** The BNG Service template records `parent_uuid`,
-  `parent_checksum` and `parent_geom` on each post-intervention row. Legacy has
-  no lineage. Conversion to legacy drops it, and conversion back rebuilds it
-  from the references.
+- **Lineage.** The BNG Service template records two hidden columns on each
+  post-intervention row: `parent_uuid`, the `feature_uuid` of the baseline
+  feature, and `parent_geom`, the shape of that feature as WKT at 3 decimal
+  places. Legacy has no lineage. Conversion to legacy drops it, and can keep
+  the references in comments. Conversion back rebuilds both columns from the
+  references: `parent_geom` is the shape of the baseline feature that the
+  reference names.
+- **List labels.** The BNG Service reference lists hold the words only, as
+  `Fairly Poor`. Legacy holds a numbered form, as `4. Fairly Poor`.
+  Conversion from legacy removes the number. Conversion to legacy adds it
+  back, as the legacy template's own list gives it for that row, with three
+  exceptions. `Created` on an existing watercourse becomes `4. Created`,
+  which the legacy list does not offer: its fourth option there is
+  `4. Lost`. A watercourse loss row that the conversion adds is written as
+  `Lost`, which the legacy list offers only as `4. Lost`. A tree's proposed
+  condition gets no number, because legacy stores it as words. The hedgerow lists have no numbers in either template.
 - **Area units.** `Area` is in hectares in the BNG Service template and in
   whole square metres in legacy. `gpkg_common.py` converts in both directions.
   `Length` is in metres in both.
@@ -30,4 +42,4 @@ so that the code and the formats it targets have the same version history.
 in place changes.
 
 `bng-service/HOW TO USE THIS TEMPLATE.md` is the surveyor's guide, including
-the four attribute-table buttons.
+the four attribute-table buttons and the paste of baseline features.

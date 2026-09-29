@@ -125,10 +125,13 @@ pure Python with the standard library only. Only the plugin needs QGIS.
 | `reference/` | The Statutory Metric workbooks, the Excel GIS import tool and the published guidance. The reference lists are checked against these |
 | `scale-test-nsip/` | The NSIP-scale test site: the generator, the claim checks, `VERIFICATION.md` (the runbook) and the generated output |
 | `site-generator/` | Builds small synthetic sites (1 to 50 parcels) from user inputs, filling copies of the BNG Service template, both NE templates and the macro-enabled Metric; output in the gitignored `site-generator/output/`. Reuses the NSIP generator's code |
-| `development/tools/` | The tools that maintain the templates |
+| `development/tools/` | The tools that maintain the templates: action bodies, field removal, paste-lineage defaults, drop-down resets and order. Edit the `.qgz` only with these, never by saving from QGIS |
 
 **`plugin/bng_template_convert/` is the only copy of the conversion modules.**
-The build zips the package as it is:
+The build zips the package with `plugin/README.md` and a copy of each
+drop-down list the converter reads from `templates/*/CSV References`, and
+fails if one is missing. A change to a reference list of either template
+therefore needs a rebuild and a new distributed zip:
 
 ```sh
 cd qgis-template/plugin && python3 build_plugin.py

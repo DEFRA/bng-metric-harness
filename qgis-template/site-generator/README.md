@@ -115,7 +115,7 @@ These checks were run by hand across the input range:
 
 | Check | Result |
 | --- | --- |
-| 150 sites, 1 to 50 parcels, every scheme and landscape, 0.05 to 80 ha | All built and passed the checks above |
+| 150 sites, 1 to 50 parcels, every scheme and landscape, 0.05 to 500 ha | All built and passed the checks above |
 | The service's own GeoPackage validation, on the Natural England files of 9 sites, from 1 to 50 parcels and 0.05 to 500 ha | All valid, baseline and post-intervention |
 | The metric engine, on every area habitat row of 5 of those sites | Every row priced |
 | The same inputs, run twice | Identical GeoPackages. The metric has identical contents, but the dates inside the workbook file differ |

@@ -16,21 +16,14 @@ Watercourses are the exception to both: a re-meandered channel leaves its old
 line and gets longer, so a parent simply has to have at least one child.
 """
 
-import os
-import sys
 import uuid
 from collections import defaultdict
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, '..', '..', 'plugin',
-                                'bng_template_convert'))
-
-from gpkg_common import blob_checksum                                  # noqa: E402
-import corridor_linear as lin                                          # noqa: E402
-import corridor_scenario as sc                                         # noqa: E402
-import gpkg_write as gw                                                # noqa: E402
-from corridor_mesh import _hash01, line_length, ring_area              # noqa: E402
-from corridor_parcels import build_parcels, parcel_ring, trace_ring    # noqa: E402
+import corridor_linear as lin
+import corridor_scenario as sc
+import gpkg_write as gw
+from corridor_mesh import _hash01, line_length, ring_area
+from corridor_parcels import build_parcels, parcel_ring, trace_ring
 
 SITE_NAME = 'Rail scheme, Handsacre to Crewe: subsection C4'
 LOCATION = 'Staffordshire and Cheshire East'
@@ -111,7 +104,7 @@ HABITAT_PI_COLS = [
     'Proposed Habitat Type', 'Proposed Distinctiveness', 'Proposed Condition',
     'Proposed Strategic Significance', 'Habitat created in advance/years',
     'Delay in starting habitat creation/years', 'Spatial risk category',
-    'Area', 'parent_uuid', 'parent_checksum', 'parent_geom']
+    'Area', 'parent_uuid', 'parent_geom']
 
 BATCH = 2000
 
@@ -137,7 +130,6 @@ def write_area_habitats(conn, mesh):
         irreplaceable = sc.is_irreplaceable(mesh, first[0], first[1], habitat)
         feature_uuid = uid(f'area/{ref}')
         blob = gw.polygon_blob(ring)
-        checksum = blob_checksum(blob)
         wkt = gw.polygon_wkt(ring)
 
         base_rows.append((blob, ref, broad, habitat, distinctiveness, condition,
@@ -165,7 +157,7 @@ def write_area_habitats(conn, mesh):
                 significance if retention == sc.RETAINED
                 else sc.strategic_significance(child_seed),
                 advance, delay, ON_SITE, child_area / SQ_M_PER_HECTARE,
-                feature_uuid, checksum, wkt))
+                feature_uuid, wkt))
 
         if len(base_rows) >= BATCH:
             insert_many(conn, 'Habitats Baseline', HABITAT_BASE_COLS, base_rows)
@@ -195,7 +187,7 @@ HEDGE_PI_COLS = [
     'Proposed Hedge Type', 'Proposed Distinctiveness', 'Proposed Condition',
     'Proposed Strategic Significance', 'Habitat created in advance/years',
     'Delay in starting habitat creation/years', 'Spatial risk category',
-    'Length', 'parent_uuid', 'parent_checksum', 'parent_geom']
+    'Length', 'parent_uuid', 'parent_geom']
 
 HEDGE_DISTINCTIVENESS = {
     'Species-rich native hedgerow': 'Medium',
@@ -228,7 +220,6 @@ def write_hedgerows(conn, mesh):
         significance = lin.significance(seed)
         feature_uuid = uid(f'hedge/{ref}')
         blob = gw.line_blob(points)
-        checksum = blob_checksum(blob)
         wkt = gw.line_wkt(points)
         distinctiveness = HEDGE_DISTINCTIVENESS[hedge_type]
         base_rows.append((blob, ref, hedge_type, distinctiveness, condition,
@@ -266,7 +257,7 @@ def write_hedgerows(conn, mesh):
                 distinctiveness, condition, significance, length, retention,
                 proposed, HEDGE_DISTINCTIVENESS[proposed], proposed_condition,
                 significance, advance, delay, ON_SITE, child_length,
-                feature_uuid, checksum, wkt))
+                feature_uuid, wkt))
 
     for extra in range(round(mesh.stations
                              * CREATED_HEDGE_ATTEMPTS_PER_STATION)):
@@ -286,7 +277,7 @@ def write_hedgerows(conn, mesh):
             gw.line_blob(points), f'HN-{extra + 1:05d}', None, 'To be created',
             'N/A', 'N/A', 'N/A', None, 'Created', proposed,
             HEDGE_DISTINCTIVENESS[proposed], 'Good', lin.significance(seed),
-            advance, delay, ON_SITE, line_length(points), None, None, None))
+            advance, delay, ON_SITE, line_length(points), None, None))
 
     insert_many(conn, 'Hedgerows Baseline', HEDGE_BASE_COLS, base_rows)
     insert_many(conn, 'Hedgerows Post-Intervention', HEDGE_PI_COLS, pi_rows)
@@ -316,7 +307,7 @@ WATER_PI_COLS = [
     'Proposed Encroachment into riparian zone', 'Enhancement Type',
     'Habitat created in advance/years',
     'Delay in starting habitat creation/years', 'Spatial risk category',
-    'Length', 'parent_uuid', 'parent_checksum', 'parent_geom']
+    'Length', 'parent_uuid', 'parent_geom']
 
 WATER_DISTINCTIVENESS = {'Ditches': 'Medium', 'Canals': 'Medium',
                          'Culvert': 'Low'}
@@ -337,16 +328,16 @@ def write_watercourses(conn, mesh):
         crosses_works = any(lin.edge_destroyed(mesh, edge, seed) for edge in edges)
         if crosses_works and river_type == 'Ditches' and _hash01(seed, 1601) < 0.30:
             river_type = 'Culvert'
-        condition = ('5. Poor' if river_type == 'Culvert'
+        culvert = river_type == 'Culvert'
+        condition = (lin.CULVERT_CONDITION if culvert
                      else lin._pick(lin.WATERCOURSE_CONDITIONS, _hash01(seed, 1603)))
-        encroachment = ('N/A - Culvert' if river_type == 'Culvert'
+        encroachment = (lin.CULVERT_ENCROACHMENT if culvert
                         else lin._pick(lin.ENCROACHMENT, _hash01(seed, 1607)))
-        riparian = ('1. N/A - Culvert' if river_type == 'Culvert'
+        riparian = (lin.CULVERT_ENCROACHMENT if culvert
                     else lin._pick(lin.RIPARIAN, _hash01(seed, 1609)))
         significance = lin.significance(seed)
         feature_uuid = uid(f'water/{ref}')
         blob = gw.line_blob(points)
-        checksum = blob_checksum(blob)
         wkt = gw.line_wkt(points)
         distinctiveness = WATER_DISTINCTIVENESS[river_type]
         base_rows.append((blob, ref, river_type, distinctiveness, condition,
@@ -362,38 +353,39 @@ def write_watercourses(conn, mesh):
             realigned = lin.realigned_channel(mesh, edges)
         if realigned:
             child_points = realigned
-            retention, enhancement = '3. Enhanced', 'Enhanced by Realignment'
+            retention, enhancement = sc.ENHANCED, 'Enhanced by Realignment'
             proposed_type = river_type
             proposed_condition = _better_water(condition)
             counts['realigned'] += 1
         elif outcome < 0.44:
             child_points = points
-            retention, enhancement = '3. Enhanced', 'Standard Enhancement'
-            if river_type == 'Culvert':
-                proposed_type, proposed_condition = 'Ditches', '3. Moderate'
+            retention, enhancement = sc.ENHANCED, 'Standard Enhancement'
+            if culvert:
+                proposed_type, proposed_condition = 'Ditches', 'Moderate'
                 counts['culverted'] += 1
             else:
                 proposed_type = river_type
                 proposed_condition = _better_water(condition)
         else:
             child_points = points
-            retention, enhancement = '2. Retained', 'N/A'
+            retention, enhancement = sc.RETAINED, 'N/A'
             proposed_type, proposed_condition = river_type, condition
-        proposed_encroachment = ('N/A - Culvert' if proposed_type == 'Culvert'
-                                 else 'No Encroachment'
-                                 if retention == '3. Enhanced' else encroachment)
-        proposed_riparian = ('1. N/A - Culvert' if proposed_type == 'Culvert'
-                             else '4. No Encroachment/ No Encroachment'
-                             if retention == '3. Enhanced' else riparian)
-        advance, delay = sc.timing_for(
-            'Enhanced' if retention == '3. Enhanced' else 'Retained', seed)
+        still_culvert = proposed_type == 'Culvert'
+        enhanced = retention == sc.ENHANCED
+        proposed_encroachment = (lin.CULVERT_ENCROACHMENT if still_culvert
+                                 else 'No Encroachment' if enhanced
+                                 else encroachment)
+        proposed_riparian = (lin.CULVERT_ENCROACHMENT if still_culvert
+                             else lin.NO_RIPARIAN_ENCROACHMENT if enhanced
+                             else riparian)
+        advance, delay = sc.timing_for(retention, seed)
         pi_rows.append((
             gw.line_blob(child_points), ref, ref, river_type, distinctiveness,
             condition, significance, encroachment, riparian, length, retention,
             proposed_type, WATER_DISTINCTIVENESS[proposed_type],
             proposed_condition, significance, proposed_encroachment,
             proposed_riparian, enhancement, advance, delay, ON_SITE,
-            line_length(child_points), feature_uuid, checksum, wkt))
+            line_length(child_points), feature_uuid, wkt))
 
     insert_many(conn, 'Watercourses Baseline', WATER_BASE_COLS, base_rows)
     insert_many(conn, 'Watercourses Post-Intervention', WATER_PI_COLS, pi_rows)
@@ -404,8 +396,7 @@ def write_watercourses(conn, mesh):
 
 
 def _better_water(condition):
-    scale = ['1. Good', '2. Fairly Good', '3. Moderate', '4. Fairly Poor',
-             '5. Poor']
+    scale = sc.CONDITION_SCALE
     if condition not in scale:
         return condition
     return scale[max(scale.index(condition) - 1, 0)]
@@ -425,8 +416,7 @@ TREE_PI_COLS = [
     'Proposed Condition', 'Proposed Strategic Significance', 'Category',
     'Habitat Created/Enhanced in advance/years',
     'Delay in starting habitat creation/enhancement in years',
-    'Spatial risk category', 'Count', 'parent_uuid', 'parent_checksum',
-    'parent_geom']
+    'Spatial risk category', 'Count', 'parent_uuid', 'parent_geom']
 
 
 def write_trees(conn, mesh):
@@ -446,7 +436,6 @@ def write_trees(conn, mesh):
         count = 1 if _hash01(seed, 1913) < 0.88 else 2
         feature_uuid = uid(f'tree/{ref}')
         blob = gw.point_blob(point)
-        checksum = blob_checksum(blob)
         wkt = gw.point_wkt(point)
         base_rows.append((blob, ref, size, tree_type, setting, condition,
                           significance, count, None, feature_uuid))
@@ -459,7 +448,7 @@ def write_trees(conn, mesh):
         pi_rows.append((
             blob, ref, ref, size, tree_type, setting, condition, significance,
             'Retained', size, tree_type, setting, condition, significance,
-            'Existing', '', '', ON_SITE, count, feature_uuid, checksum, wkt))
+            'Existing', '', '', ON_SITE, count, feature_uuid, wkt))
 
     for extra in range(round(mesh.stations
                              * CREATED_TREE_ATTEMPTS_PER_STATION)):
@@ -480,18 +469,15 @@ def write_trees(conn, mesh):
         size = lin._pick([('Small', 0.74), ('Medium', 0.26)], _hash01(seed, 2017))
         advance, delay = sc.timing_for('Created', seed)
         counts['created'] += 1
-        # A planted tree is priced as an area habitat, so it needs a real
-        # condition: the metric cannot value one recorded as not applicable.
-        proposed_condition = lin._pick(
-            [('1. Good', 0.34), ('2. Fairly Good', 0.42), ('3. Moderate', 0.24)],
-            _hash01(seed, 2029))
+        proposed_condition = lin._pick(lin.PLANTED_TREE_CONDITIONS,
+                                       _hash01(seed, 2029))
         pi_rows.append((
             gw.point_blob(point), f'TN-{extra + 1:05d}', None, 'N/A', 'N/A',
             'N/A', 'N/A', 'N/A', 'Created', size, 'Native',
             'Urban tree' if zone == sc.MITIGATION and
             _hash01(seed, 2027) < 0.12 else 'Rural tree', proposed_condition,
             lin.tree_significance(seed), 'Newly Planted', advance, delay, ON_SITE,
-            1, None, None, None))
+            1, None, None))
 
     insert_many(conn, 'Trees Baseline', TREE_BASE_COLS, base_rows)
     insert_many(conn, 'Trees Post-Intervention', TREE_PI_COLS, pi_rows)

@@ -6,7 +6,6 @@ library alone: geometry is read straight out of the stored blobs and, wherever
 a feature is copied between files, the blob's bytes are reused untouched.
 """
 
-import hashlib
 import math
 import os
 import pathlib
@@ -51,8 +50,6 @@ WKB_TYPE_NAMES = {
 }
 
 SINGLE_PART_COUNT = 1
-MIN_LINE_VERTICES = 2
-MIN_RING_VERTICES = 3
 
 
 def read_only_uri(path):
@@ -153,11 +150,12 @@ def summarise_refs(refs, limit=REF_SAMPLE_SIZE):
     return summarise_list(distinct, limit)
 
 
-# Some of the template's drop-downs store the metric's own list number in
-# front of the value: "4. Fairly Poor", "2. Retained", "1. Major/Major". The
-# number belongs to the printed guidance, not to the value, and every lookup
-# downstream matches on the words alone. Hedgerows are the exception that
-# shows it: their lists carry no numbers and their rows have always scored.
+# The Natural England template stores some drop-down values with the metric's
+# own list number in front: "4. Fairly Poor", "2. Retained", "1. Major/Major".
+# Earlier versions of the BNG Service template did the same. The number
+# belongs to the printed guidance, not to the value, and every lookup
+# downstream matches on the words alone. reference_lists.py puts the number
+# back where the legacy template expects it.
 NUMBERED_LABEL = re.compile(r"^\s*\d+\.\s*")
 
 
@@ -417,152 +415,83 @@ def line_blob_length_m(blob):
 
 
 # ---------------------------------------------------------------------------
-# Canonical geometry checksum
+# Geometry as text
 #
-# Must stay byte-identical to the backend's geometry-checksum.js and to the
-# Python embedded in the QGIS template's copy actions: the three are one
-# cross-language contract. Duplicate and collinear vertices are removed before
-# serialising, so QGIS topological editing (which inserts a vertex into every
-# coincident geometry when a parcel is sliced) cannot look like a real reshape.
-# Canonicalisation is the identity on geometry that has neither, so checksums
-# stamped from clean shapes keep matching.
+# A post-intervention row records its parent's shape in `parent_geom`, as WKT
+# rounded to three decimal places (one millimetre in British National Grid).
+# The template's buttons, its paste defaults, the converter and the test-site
+# generators all write it that way. The service reads the text back as numbers
+# and compares it with the baseline's current shape, rounded the same way, so
+# the spelling of the text (case, trailing zeros) does not matter.
 # ---------------------------------------------------------------------------
 
-VERTEX_TOLERANCE = 0.001  # metres; below the serialiser's 3-decimal rounding
 COORD_DECIMALS = 3
-CHECKSUM_HEX_LENGTH = 16
 
 
-def _distance(a, b):
-    return math.hypot(b[0] - a[0], b[1] - a[1])
+def _wkt_point(point, decimals):
+    return f"{point[0]:.{decimals}f} {point[1]:.{decimals}f}"
 
 
-def _perpendicular_distance(point, start, end):
-    """Distance from `point` to the line through `start`/`end`."""
-    span = _distance(start, end)
-    if span < VERTEX_TOLERANCE:
-        return 0.0
-    cross = (end[0] - start[0]) * (point[1] - start[1]) - (
-        end[1] - start[1]
-    ) * (point[0] - start[0])
-    return abs(cross) / span
+def _wkt_path(points, decimals):
+    return f"({', '.join(_wkt_point(point, decimals) for point in points)})"
 
 
-def _dedupe_runs(points):
-    """Drop consecutive points closer together than the tolerance."""
-    if not points:
-        return []
-    kept = [points[0]]
-    for point in points[1:]:
-        if _distance(point, kept[-1]) >= VERTEX_TOLERANCE:
-            kept.append(point)
-    return kept
+def _wkt_rings(rings, decimals):
+    return f"({', '.join(_wkt_path(ring, decimals) for ring in rings)})"
 
 
-def _dedupe_open_path(points):
-    """Dedupe a path, but never lose its final vertex."""
-    kept = _dedupe_runs(points)
-    last = points[-1]
-    if kept[-1] is not last and kept[-1] != last:
-        kept[-1] = last
-    return kept
+def _wkt_single_point(point, decimals):
+    return f"({_wkt_point(point, decimals)})"
 
 
-def _strip_collinear(points):
-    """Stack pass removing any vertex lying on the segment between its
-    neighbours; runs of inserted vertices collapse in one traversal."""
-    result = []
-    for point in points:
-        while (
-            len(result) >= MIN_LINE_VERTICES
-            and _perpendicular_distance(result[-1], result[-2], point)
-            < VERTEX_TOLERANCE
-        ):
-            result.pop()
-        result.append(point)
-    return result
+def _wkt_points(points, decimals):
+    return f"({', '.join(_wkt_single_point(point, decimals) for point in points)})"
 
 
-def _canonicalise_line(points):
-    deduped = _dedupe_open_path(points)
-    stripped = _strip_collinear(deduped)
-    return stripped if len(stripped) >= MIN_LINE_VERTICES else deduped
+def _wkt_polygons(polygons, decimals):
+    return f"({', '.join(_wkt_rings(polygon, decimals) for polygon in polygons)})"
 
 
-def _canonicalise_ring(ring):
-    """Canonicalise a closed ring, including across its closing vertex."""
-    if len(ring) < MIN_LINE_VERTICES:
-        return ring
-    points = _dedupe_runs(ring[:-1])
-    if len(points) > 1 and _distance(points[0], points[-1]) < VERTEX_TOLERANCE:
-        points.pop()
-
-    deduped = list(points)
-    points = _strip_collinear(points)
-
-    # The strip above leaves the ring's first and last vertices in place; they
-    # can still be collinear once the ring is closed, so re-test both ends.
-    for _ in range(len(deduped)):
-        if len(points) <= MIN_RING_VERTICES:
-            break
-        if _perpendicular_distance(points[0], points[-1], points[1]) < VERTEX_TOLERANCE:
-            points.pop(0)
-            continue
-        if _perpendicular_distance(points[-1], points[-2], points[0]) < VERTEX_TOLERANCE:
-            points.pop()
-            continue
-        break
-
-    if len(points) < MIN_RING_VERTICES:
-        points = deduped
-    return points + [list(points[0])]
+# The text inside the brackets, by geometry type. A MultiLineString is written
+# like a polygon's rings: a bracketed list of bracketed paths.
+_WKT_BODIES = {
+    "Point": _wkt_single_point,
+    "LineString": _wkt_path,
+    "Polygon": _wkt_rings,
+    "MultiPoint": _wkt_points,
+    "MultiLineString": _wkt_rings,
+    "MultiPolygon": _wkt_polygons,
+}
 
 
-def canonicalise_coordinates(type_name, coordinates):
-    """Canonical form of a geometry's coordinates, for checksumming only."""
+def _is_empty(type_name, coordinates):
+    """True for a geometry with no vertices, including WKB's NaN point."""
     if type_name == "Point":
-        return coordinates
-    if type_name == "MultiPoint":
-        return coordinates
-    if type_name == "LineString":
-        return _canonicalise_line(coordinates)
-    if type_name == "MultiLineString":
-        return [_canonicalise_line(part) for part in coordinates]
-    if type_name == "Polygon":
-        return [_canonicalise_ring(ring) for ring in coordinates]
-    if type_name == "MultiPolygon":
-        return [
-            [_canonicalise_ring(ring) for ring in polygon] for polygon in coordinates
-        ]
-    return coordinates
+        return any(math.isnan(value) for value in coordinates)
+    return not _flatten_points(coordinates)
 
 
-def _serialise(coordinates):
-    if not coordinates:
-        return "()"
-    if not isinstance(coordinates[0], (list, tuple)):
-        x = f"%.{COORD_DECIMALS}f" % coordinates[0]
-        y = f"%.{COORD_DECIMALS}f" % coordinates[1]
-        return f"{x},{y}"
-    return "(" + ";".join(_serialise(part) for part in coordinates) + ")"
+def geometry_wkt(type_name, coordinates, decimals=COORD_DECIMALS):
+    """WKT of GeoJSON-shaped coordinates, each rounded to `decimals` places.
+
+    Returns None for an empty geometry, because an empty shape records no
+    parent to compare with.
+    """
+    if type_name not in _WKT_BODIES or _is_empty(type_name, coordinates):
+        return None
+    body = _WKT_BODIES[type_name](coordinates, decimals)
+    return f"{type_name.upper()} {body}"
 
 
-def geometry_checksum(type_name, coordinates):
-    """Stable short hash of a geometry's shape."""
-    canonical = canonicalise_coordinates(type_name, coordinates)
-    payload = f"{type_name.upper()}|{_serialise(canonical)}"
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:CHECKSUM_HEX_LENGTH]
-
-
-def blob_checksum(blob):
-    """Canonical checksum of a stored geometry blob, or None when unreadable."""
+def blob_wkt(blob, decimals=COORD_DECIMALS):
+    """WKT of a stored geometry blob, or None when it is NULL or unreadable."""
     if blob is None:
         return None
     try:
         type_name, coordinates = blob_geometry(blob)
     except (ValueError, struct.error):
         return None
-    return geometry_checksum(type_name, coordinates)
+    return geometry_wkt(type_name, coordinates, decimals)
 
 
 # ---------------------------------------------------------------------------

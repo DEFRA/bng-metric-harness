@@ -38,7 +38,7 @@ from collections import defaultdict
 # plugin package, where the import has to be relative.
 try:
     from .gpkg_common import (
-        blob_checksum,
+        blob_wkt,
         create_feature_table,
         create_gpkg_system_tables,
         demote_multipolygon_blob_to_polygon,
@@ -60,7 +60,7 @@ try:
     )
 except ImportError:  # pragma: no cover - running as a plain script
     from gpkg_common import (
-        blob_checksum,
+        blob_wkt,
         create_feature_table,
         create_gpkg_system_tables,
         demote_multipolygon_blob_to_polygon,
@@ -82,8 +82,18 @@ except ImportError:  # pragma: no cover - running as a plain script
     )
 
 try:
+    from .reference_lists import (
+        template_lists_numbered,
+        to_service_labels,
+        to_template_labels,
+    )
     from .to_metric import MODULES as METRIC_MODULES, check_needed_values
 except ImportError:  # pragma: no cover - running as a plain script
+    from reference_lists import (
+        template_lists_numbered,
+        to_service_labels,
+        to_template_labels,
+    )
     from to_metric import MODULES as METRIC_MODULES, check_needed_values
 
 # What a blank costs on the way in: the converted site carries the gap.
@@ -94,12 +104,25 @@ INCOMING_GAP_CONSEQUENCE = (
     "neither can score those rows.")
 
 # ---------------------------------------------------------------------------
-# New-template schema — mirrors Layers/BNG Service Layers.gpkg exactly, so the
-# output can replace that file inside a copy of the template project.
+# New-template schema — the columns of Layers/BNG Service Layers.gpkg, so the
+# output can replace that file inside a copy of the template project. Filling
+# a template with --into writes only the columns that template has, so a copy
+# of an earlier template version still takes the rows.
 # ---------------------------------------------------------------------------
 
+# Where a template keeps its drop-down lists, beside its Layers/ folder.
+TEMPLATE_LISTS = "CSV References"
+STAGES = ("baseline", "pi")
+# The layers whose drop-down values an earlier BNG Service template numbers,
+# keyed as reference_lists.COLUMN_LISTS, as (baseline, post-intervention).
+NUMBERED_LABEL_LAYERS = {
+    "areas": ("Habitats Baseline", "Habitats Post-Intervention"),
+    "watercourses": ("Watercourses Baseline", "Watercourses Post-Intervention"),
+    "trees": ("Trees Baseline", "Trees Post-Intervention"),
+}
+
 BASELINE_TAIL = [("Comment", "TEXT"), ("feature_uuid", "TEXT")]
-PI_TAIL = [("parent_uuid", "TEXT"), ("parent_checksum", "TEXT")]
+PI_TAIL = [("parent_uuid", "TEXT"), ("parent_geom", "TEXT")]
 AREA_BASELINE_HEAD = [
     ("Parcel Ref", "TEXT"),
     ("Baseline Broad Habitat Type", "TEXT"),
@@ -365,13 +388,13 @@ class BaselineIndex:
     def __init__(self):
         self._by_ref = {}
 
-    def add(self, ref, feature_uuid, checksum, size):
+    def add(self, ref, feature_uuid, geom, size):
         if ref is None or ref == "":
             return
         # A duplicated baseline ref is ambiguous; the first wins and the
         # caller reports it, because guessing between them would be worse.
         self._by_ref.setdefault(
-            ref, {"uuid": feature_uuid, "checksum": checksum, "size": size}
+            ref, {"uuid": feature_uuid, "geom": geom, "size": size}
         )
 
     def get(self, ref):
@@ -580,7 +603,7 @@ def stamp_parent(values, parent_ref, index, report_unmatched, own_ref=None):
         return False
     values["Parent Ref"] = candidate
     values["parent_uuid"] = parent["uuid"]
-    values["parent_checksum"] = parent["checksum"]
+    values["parent_geom"] = parent["geom"]
     return True
 
 
@@ -590,7 +613,11 @@ def stamp_parent(values, parent_ref, index, report_unmatched, own_ref=None):
 
 
 def build_area_baseline(rows, report):
-    """Baseline area habitats, with a fresh uuid and geometry checksum each."""
+    """Baseline area habitats, each with a fresh uuid and its shape as text.
+
+    The shape is taken after a single-part multipolygon is demoted, so a
+    child's parent_geom is the shape the baseline row stores.
+    """
     index = BaselineIndex()
     out = []
     multipart = 0
@@ -605,7 +632,7 @@ def build_area_baseline(rows, report):
         area = sq_metres_to_hectares(row.get("Area"))
         if area is None and blob is not None:
             area = sq_metres_to_hectares(polygon_blob_area_sqm(blob))
-        index.add(row.get("Parcel Ref"), feature_uuid, blob_checksum(blob), area)
+        index.add(row.get("Parcel Ref"), feature_uuid, blob_wkt(blob), area)
         out.append(
             (
                 blob,
@@ -649,7 +676,7 @@ def build_linear_baseline(rows, spec, report, label):
         length = numeric(row.get("Length"))
         if length is None and blob is not None:
             length = line_blob_length_m(blob)
-        index.add(row.get("Parcel Ref"), feature_uuid, blob_checksum(blob), length)
+        index.add(row.get("Parcel Ref"), feature_uuid, blob_wkt(blob), length)
         values = {
             "Parcel Ref": row.get("Parcel Ref"),
             "Baseline Condition": row.get("Baseline Condition"),
@@ -677,7 +704,7 @@ def build_tree_baseline(rows, report):
         blob = row.get("_geom")
         feature_uuid = new_uuid()
         count = numeric(row.get("Count"))
-        index.add(row.get("Tree Ref"), feature_uuid, blob_checksum(blob), count)
+        index.add(row.get("Tree Ref"), feature_uuid, blob_wkt(blob), count)
         out.append(
             (
                 blob,
@@ -980,17 +1007,54 @@ def _report_unmatched(unmatched, label, report):
 # ---------------------------------------------------------------------------
 
 
+def table_columns(conn, table):
+    """The column names a table in the target actually has."""
+    return {
+        row[1] for row in conn.execute(f"PRAGMA table_info({quote_ident(table)})")
+    }
+
+
+def extra_columns(conn, table_names):
+    """Logical layer -> the columns its target table has and STAGED_LAYERS
+    does not, leaving out the primary key and the geometry column."""
+    extra = {}
+    for layer, table in table_names.items():
+        spec = STAGED_LAYERS[layer]
+        known = {name for name, _ in spec["columns"]} | {spec["geom_column"]}
+        rows = conn.execute(f"PRAGMA table_info({quote_ident(table)})")
+        # PRAGMA table_info rows: (cid, name, type, notnull, default, pk)
+        unknown = [row[1] for row in rows if not row[5] and row[1] not in known]
+        if unknown:
+            extra[layer] = unknown
+    return extra
+
+
+def missing_columns(conn, table_names):
+    """Logical layer -> the columns of STAGED_LAYERS its target table lacks."""
+    missing = {}
+    for layer, table in table_names.items():
+        present = table_columns(conn, table)
+        absent = [name for name, _ in STAGED_LAYERS[layer]["columns"]
+                  if name not in present]
+        if absent:
+            missing[layer] = absent
+    return missing
+
+
 def insert_rows(conn, table, rows, target_table=None):
     """Insert rows for the logical layer `table`.
 
     `target_table` is the name to actually write into, which differs from the
     logical name when filling a template that carries the renamed tables.
+    Only the columns the target table has are written, so a template from
+    before a column was added or removed still takes the rows.
     """
     if not rows:
         return 0
     spec = STAGED_LAYERS[table]
     table = target_table or table
-    column_names = [name for name, _ in spec["columns"]]
+    present = table_columns(conn, table)
+    column_names = [name for name, _ in spec["columns"] if name in present]
     placeholders = ", ".join(["?"] * (len(column_names) + 1))
     quoted = ", ".join(
         [quote_ident(spec["geom_column"])]
@@ -1116,6 +1180,11 @@ def convert(baseline_path, pi_path, out_dir, into_path, force, dry_run,
     report = Report()
     baseline = read_legacy(baseline_path)
     post = read_legacy(pi_path) if pi_path else None
+    # Before anything compares a value: a legacy watercourse removal reads
+    # "4. Lost", and the rows marked Lost are dropped below.
+    _strip_list_numbers(baseline, report, "Baseline file")
+    if post:
+        _strip_list_numbers(post, report, "Post-intervention file")
 
     if not baseline["redline"]:
         report.warn(
@@ -1220,6 +1289,9 @@ def convert(baseline_path, pi_path, out_dir, into_path, force, dry_run,
                 "Target template uses renamed table(s); wrote into "
                 + ", ".join(renamed)
             )
+        _report_missing_columns(missing_columns(conn, table_names), report)
+        _report_extra_columns(extra_columns(conn, table_names), report)
+        _match_target_labels(tables, into_path, report)
     else:
         if out_file:
             target = out_file
@@ -1279,6 +1351,88 @@ def _report_lineage_quality(tables, report):
             else ""
         )
     )
+
+
+def _report_missing_columns(missing, report):
+    """Name the columns the target template lacks, whose values are not written."""
+    if not missing:
+        return
+    detail = "; ".join(
+        f"{layer}: {', '.join(columns)}" for layer, columns in missing.items()
+    )
+    report.warn(
+        "The target template has no column for some converted values, so "
+        f"those values were not written ({detail}). The template is probably "
+        "from an earlier version. Fill a copy of the current BNG Service "
+        "template to keep them."
+    )
+
+
+def _report_extra_columns(extra, report):
+    """Name the columns of the target template that nothing here fills."""
+    if not extra:
+        return
+    detail = "; ".join(
+        f"{layer}: {', '.join(columns)}" for layer, columns in extra.items()
+    )
+    report.warn(
+        "The target template has columns that this converter does not fill, "
+        f"so they stay blank ({detail}). The template is probably from an "
+        "earlier version. The service does not read parent_checksum, which "
+        "earlier templates had."
+    )
+
+
+def target_list_folder(into_path):
+    """The CSV References folder of the template that holds `into_path`.
+
+    The template keeps its GeoPackage in Layers/, beside that folder.
+    """
+    template = os.path.dirname(os.path.dirname(os.path.abspath(into_path)))
+    return os.path.join(template, TEMPLATE_LISTS)
+
+
+def _match_target_labels(tables, into_path, report):
+    """Write the drop-down values in the form the target's own lists hold.
+
+    An earlier BNG Service template numbers its labels, as "4. Fairly Poor".
+    Its drop-downs do not offer the words alone, and its reset rules blank a
+    value they do not offer on the next edit of the row.
+    """
+    folder = target_list_folder(into_path)
+    numbered = template_lists_numbered(folder)
+    if numbered is None:
+        report.warn(
+            f"Found no drop-down lists at {folder}, so the drop-down values "
+            "are written as the current BNG Service template stores them. "
+            "Point --into at the Layers/ GeoPackage of a template copy to "
+            "match its lists."
+        )
+        return
+    if not numbered:
+        return
+    layers = {
+        key: {stage: [values for _, values in tables[table]]
+              for stage, table in zip(STAGES, pair)}
+        for key, pair in NUMBERED_LABEL_LAYERS.items()
+    }
+    changed = to_template_labels(layers, folder)
+    report.note(
+        "The target is an earlier BNG Service template, whose drop-down lists "
+        f"number their labels. Wrote {changed} drop-down value(s) in that "
+        "form, such as 'Fairly Poor' as '4. Fairly Poor'"
+    )
+
+
+def _strip_list_numbers(legacy, report, label):
+    """Take the legacy list number off the values of the numbered drop-downs."""
+    changed = to_service_labels(legacy)
+    if changed:
+        report.note(
+            f"{label}: took the list number off {changed} drop-down value(s), "
+            "such as '4. Fairly Poor' to 'Fairly Poor'. The BNG Service "
+            "template stores the words alone"
+        )
 
 
 def _report_manual_steps(tables, report):

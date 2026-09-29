@@ -9,16 +9,41 @@ Three kinds of entry, and the checker insists on complete coverage:
 
   CARRY    the value must arrive unchanged, possibly under another name
   CHANGE   the value must arrive transformed by the named rule
-  COMPOSE  a legacy column built from more than one staged column
+  COMPOSE  a legacy column built from more than one staged column, or a
+           label whose legacy number depends on another column of the row
   DROP     the column has no destination, and why
   INVENT   a legacy column with no source, and where it comes from instead
+
+A numbered label is checked against the Natural England template's own list
+in templates/legacy-ne, not against the converter's reading of it.
 
 A staged column absent from all of these, or a legacy column that nothing
 accounts for, fails the check on its own. That is deliberate: the failure
 mode this guards against is a column quietly appearing or disappearing.
 """
 
+import csv
+import os
+import re
+
 SQ_METRES_PER_HECTARE = 10000
+
+# The Natural England lists put a number in front of some labels,
+# "3. Moderate", to set the order of the drop-down. The BNG Service lists hold
+# the label with no number, "Moderate".
+NE_NUMBER = re.compile(r"^\d+\. ")
+NE_LISTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..",
+                        "templates", "legacy-ne", "CSV References")
+NE_LABEL = "Label"
+
+# The filter values the Natural England drop-downs fall back to.
+TO_BE_CREATED = "To be created"
+EXISTING_TREE = "Existing"
+# The documented exception: the Natural England list has no Created for an
+# existing watercourse (its fourth option there is "4. Lost"), and the
+# conversion writes the value with the number of its place.
+CREATED = "Created"
+EXISTING_WATERCOURSE_CREATED = "4. Created"
 
 # --- rules -----------------------------------------------------------------
 
@@ -34,6 +59,83 @@ def normalise(value):
     if isinstance(value, str):
         return value.strip()
     return value
+
+
+def unnumbered(value):
+    """The value, with any Natural England list number removed."""
+    value = normalise(value)
+    return NE_NUMBER.sub("", value) if isinstance(value, str) else value
+
+
+class NeList:
+    """The labels one Natural England drop-down offers, by filter value."""
+
+    def __init__(self, path, filter_column):
+        self.path = path
+        self.filter_column = filter_column
+        self._offered = None
+
+    def offers(self, context, label):
+        if self._offered is None:
+            self._offered = {}
+            path = os.path.join(NE_LISTS, self.path)
+            with open(path, newline="", encoding="utf-8-sig") as handle:
+                for row in csv.DictReader(handle):
+                    self._offered.setdefault(
+                        row[self.filter_column], set()).add(row[NE_LABEL])
+        return label in self._offered.get(context, ())
+
+
+AREA_CONDITION = NeList("Habitats/Habitat Condition.csv", "UKHAB")
+WATERCOURSE_CONDITION = NeList("Watercourses/Watercourse Condition.csv",
+                               "Habitat")
+RIPARIAN_ENCROACHMENT = NeList("Watercourses/Riparian Encroachment.csv",
+                               "Value")
+WATERCOURSE_RETENTION = NeList(
+    "Watercourses/Watercourse Retention Options.csv", "Value")
+TREE_CONDITION = NeList("Individual trees/Individual tree Condition - pre.csv",
+                        "Category")
+
+
+def created_on_existing_watercourse(words, context):
+    """The one legacy value outside the list: see EXISTING_WATERCOURSE_CREATED."""
+    if words == CREATED and context != TO_BE_CREATED:
+        return EXISTING_WATERCOURSE_CREATED
+    return None
+
+
+def numbered(column, ne_list, context_column=None, fallback=None,
+             exception=None):
+    """A COMPOSE entry for a label that a Natural England list numbers.
+
+    The legacy value must hold the same words, and must be a label that the
+    Natural England list offers for the row's filter value, number included,
+    so a wrong or missing number fails. The filter value is the row's
+    `context_column`, or `fallback` when that is blank or not in the table.
+    `exception` gives the one documented value the list does not offer.
+    """
+    def rule(row, legacy):
+        staged, legacy = normalise(row.get(column)), normalise(legacy)
+        if staged == "" or legacy == "":
+            return staged == legacy
+        if unnumbered(staged) != unnumbered(legacy):
+            return False
+        context = normalise(row.get(context_column)) or fallback
+        extra = exception(unnumbered(staged), context) if exception else None
+        return ne_list.offers(context, legacy) or legacy == extra
+
+    sources = (column, context_column) if context_column else (column,)
+    filtered_by = context_column or f"the value {fallback!r}"
+    return (sources, rule,
+            f"numbered as the Natural England list numbers it for "
+            f"{filtered_by}")
+
+
+def words_without_number(staged, legacy):
+    """The words arrive unchanged, and no list number is put in front."""
+    legacy = normalise(legacy)
+    return (normalise(staged) == legacy
+            and not (isinstance(legacy, str) and NE_NUMBER.match(legacy)))
 
 
 def hectares_to_whole_sq_metres(staged, legacy):
@@ -81,8 +183,11 @@ AREA_BASELINE = {
         "Baseline Broad Habitat Type": "Baseline Broad Habitat Type",
         "Baseline Habitat Type": "Baseline Habitat Type",
         "Baseline Distinctiveness": "Baseline Distinctiveness",
-        "Baseline Condition": "Baseline Condition",
         "Baseline Strategic Significance": "Baseline Strategic Significance",
+    },
+    "COMPOSE": {
+        "Baseline Condition": numbered(
+            "Baseline Condition", AREA_CONDITION, "Baseline Habitat Type"),
     },
     "CHANGE": {
         "Area": ("Area", hectares_to_whole_sq_metres,
@@ -120,18 +225,22 @@ AREA_PI = {
         "Baseline Broad Habitat Type": "Baseline Broad Habitat Type",
         "Baseline Habitat Type": "Baseline Habitat Type",
         "Baseline Distinctiveness": "Baseline Distinctiveness",
-        "Baseline Condition": "Baseline Condition",
         "Baseline Strategic Significance": "Baseline Strategic Significance",
         "Retention Category": "Retention Category",
         "Proposed Broad Habitat Type": "Proposed Broad Habitat Type",
         "Proposed Habitat Type": "Proposed Habitat Type",
         "Proposed Distinctiveness": "Proposed Distinctiveness",
-        "Proposed Condition": "Proposed Condition",
         "Proposed Strategic Significance": "Proposed Strategic Significance",
         "Habitat created in advance/years": "Habitat created in advance/years",
         "Delay in starting habitat creation/years":
             "Delay in starting habitat creation/years",
         "Spatial risk category": "Spatial risk category",
+    },
+    "COMPOSE": {
+        "Baseline Condition": numbered(
+            "Baseline Condition", AREA_CONDITION, "Baseline Habitat Type"),
+        "Proposed Condition": numbered(
+            "Proposed Condition", AREA_CONDITION, "Proposed Habitat Type"),
     },
     "CHANGE": {
         "Area": ("Area", hectares_to_whole_sq_metres,
@@ -141,7 +250,6 @@ AREA_PI = {
         "Parent Ref": "lineage; recorded in the comment when asked for",
         "Irreplaceable Habitat": "the legacy template has no column for it",
         "parent_uuid": "lineage key",
-        "parent_checksum": "lineage key",
         "parent_geom": "lineage: the parent shape, which legacy cannot hold",
     },
     "INVENT": {
@@ -209,7 +317,6 @@ HEDGEROW_PI = {
     "DROP": {
         "Baseline Length": "held in the baseline file instead",
         "parent_uuid": "lineage key",
-        "parent_checksum": "lineage key",
         "parent_geom": "lineage",
     },
     "INVENT": {
@@ -226,12 +333,16 @@ WATERCOURSE_BASELINE = {
         "Parcel Ref": "Parcel Ref",
         "Baseline River Type": "Baseline River Type",
         "Baseline Distinctiveness": "Baseline Distinctiveness",
-        "Baseline Condition": "Baseline Condition",
         "Baseline Strategic Significance": "Baseline Strategic Significance",
         "Baseline Encroachment into Watercourse":
             "Baseline Encroachment into Watercourse",
-        "Baseline Encroachment into riparian zone":
-            "Baseline Encroachment into riparian zone",
+    },
+    "COMPOSE": {
+        "Baseline Condition": numbered(
+            "Baseline Condition", WATERCOURSE_CONDITION, "Baseline River Type"),
+        "Baseline Encroachment into riparian zone": numbered(
+            "Baseline Encroachment into riparian zone", RIPARIAN_ENCROACHMENT,
+            "Baseline River Type"),
     },
     "CHANGE": {
         "Length": ("Length", rounded_to_whole, "rounded to whole metres"),
@@ -262,21 +373,14 @@ WATERCOURSE_PI = {
     "CARRY": {
         "Baseline River Type": "Baseline River Type",
         "Baseline Distinctiveness": "Baseline Distinctiveness",
-        "Baseline Condition": "Baseline Condition",
         "Baseline Strategic Significance": "Baseline Strategic Significance",
         "Baseline Encroachment into Watercourse":
             "Baseline Encroachment into Watercourse",
-        "Baseline Encroachment into riparian zone":
-            "Baseline Encroachment into riparian zone",
-        "Retention Category": "Retention Category",
         "Proposed River Type": "Proposed River Type",
         "Proposed Distinctiveness": "Proposed Distinctiveness",
-        "Proposed Condition": "Proposed Condition",
         "Proposed Strategic Significance": "Proposed Strategic Significance",
         "Proposed Encroachment into Watercourse":
             "Proposed Encroachment into Watercourse",
-        "Proposed Encroachment into riparian zone":
-            "Proposed Encroachment into riparian zone",
         "Enhancement Type": "Enhancement Type",
         "Habitat created in advance/years": "Habitat created in advance/years",
         "Delay in starting habitat creation/years":
@@ -286,6 +390,19 @@ WATERCOURSE_PI = {
     "COMPOSE": {
         "Parcel Ref": (("Parent Ref", "PI Ref"), linear_reference,
                         "the parent's reference, or the feature's own when it\n                         was created from nothing"),
+        "Baseline Condition": numbered(
+            "Baseline Condition", WATERCOURSE_CONDITION, "Baseline River Type"),
+        "Baseline Encroachment into riparian zone": numbered(
+            "Baseline Encroachment into riparian zone", RIPARIAN_ENCROACHMENT,
+            "Baseline River Type"),
+        "Retention Category": numbered(
+            "Retention Category", WATERCOURSE_RETENTION, "Baseline River Type",
+            fallback=TO_BE_CREATED, exception=created_on_existing_watercourse),
+        "Proposed Condition": numbered(
+            "Proposed Condition", WATERCOURSE_CONDITION, "Proposed River Type"),
+        "Proposed Encroachment into riparian zone": numbered(
+            "Proposed Encroachment into riparian zone", RIPARIAN_ENCROACHMENT,
+            "Proposed River Type"),
     },
     "CHANGE": {
         "Length": ("Length", rounded_to_whole, "rounded to whole metres"),
@@ -293,7 +410,6 @@ WATERCOURSE_PI = {
     "DROP": {
         "Baseline Length": "held in the baseline file instead",
         "parent_uuid": "lineage key",
-        "parent_checksum": "lineage key",
         "parent_geom": "lineage",
     },
     "INVENT": {
@@ -311,8 +427,11 @@ TREE_BASELINE = {
         "Baseline Tree Size": "Baseline Tree Size",
         "Baseline Tree Type": "Baseline Tree Type",
         "Baseline Rural or Urban Tree": "Baseline Rural or Urban Tree",
-        "Baseline Condition": "Baseline Condition",
         "Baseline Strategic Significance": "Baseline Strategic Significance",
+    },
+    "COMPOSE": {
+        "Baseline Condition": numbered(
+            "Baseline Condition", TREE_CONDITION, fallback=EXISTING_TREE),
     },
     "CHANGE": {
         "Count": ("Count", rounded_to_whole, "whole trees either way"),
@@ -343,14 +462,12 @@ TREE_PI = {
         "Baseline Tree Size": "Baseline Tree Size",
         "Baseline Tree Type": "Baseline Tree Type",
         "Baseline Rural or Urban Tree": "Baseline Rural or Urban Tree",
-        "Baseline Condition": "Baseline Condition",
         "Baseline Strategic Significance": "Baseline Strategic Significance",
         "Retention Category": "Retention Category",
         "Category": "Category",
         "Proposed Tree Size": "Proposed Tree Size",
         "Proposed Tree Type": "Proposed Tree Type",
         "Proposed Rural or Urban Tree": "Proposed Rural or Urban Tree",
-        "Proposed Condition": "Proposed Condition",
         "Proposed Strategic Significance": "Proposed Strategic Significance",
         "Habitat Created/Enhanced in advance/years":
             "Habitat Created/Enhanced in advance/years",
@@ -361,13 +478,19 @@ TREE_PI = {
     "COMPOSE": {
         "Tree Ref": (("Parent Ref", "PI Ref"), linear_reference,
                         "the parent's reference, or the feature's own when it\n                         was created from nothing"),
+        "Baseline Condition": numbered(
+            "Baseline Condition", TREE_CONDITION, "Category",
+            fallback=EXISTING_TREE),
     },
     "CHANGE": {
+        "Proposed Condition": (
+            "Proposed Condition", words_without_number,
+            "the same words with no number: the Natural England template "
+            "stores a tree's proposed condition as words"),
         "Count": ("Count", rounded_to_whole, "whole trees either way"),
     },
     "DROP": {
         "parent_uuid": "lineage key",
-        "parent_checksum": "lineage key",
         "parent_geom": "lineage",
     },
     "INVENT": {

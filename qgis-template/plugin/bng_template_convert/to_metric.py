@@ -305,8 +305,8 @@ def is_irreplaceable(row):
 
 
 def retention_of(row):
-    # Watercourses store this with the list number in front of it
-    # ("2. Retained") where every other layer stores the word alone. A
+    # A file from an earlier version of the template stores a watercourse's
+    # retention with the list number in front of it ("2. Retained"). A
     # comparison against the word has to see through that, or a whole
     # module silently contributes nothing.
     return plain_label(row.get(RETENTION_FIELD)) or ""

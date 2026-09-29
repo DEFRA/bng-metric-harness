@@ -28,7 +28,11 @@ plugin.
 
 **Edit the code only in `plugin/bng_template_convert/`.** It is the only
 copy. The build zips it with `plugin/README.md`, so the plugin carries its
-guide.
+guide. The build also copies into the zip each drop-down list that the
+converter reads from `templates/bng-service/CSV References` and
+`templates/legacy-ne/CSV References`, and fails if one is missing. A change to
+one of those lists therefore needs a new build, and the new zip must be sent
+to the users of the plugin.
 
 ```sh
 cd plugin && python3 build_plugin.py   # -> plugin/dist/bng_template_convert.zip
@@ -81,10 +85,28 @@ The converter gives a warning for each of these:
 Conversion back from legacy drops the loss rows, because the template records a
 removal by leaving the feature out.
 
-**Some drop-down values start with the Metric list number**, as
-`4. Fairly Poor`. Both templates store that form. The Metric workbook and the
-import tool hold only the words, so the conversion removes the number for
-them. Hedgerow lists have no numbers.
+**The BNG Service template stores list labels without a list number**, as
+`Fairly Poor`. The Natural England template stores the numbered form, as
+`4. Fairly Poor`. Conversion from legacy removes the number. Conversion to
+legacy adds it back from the legacy list, for the same habitat or watercourse
+type, with three exceptions:
+
+- `Created` on an existing watercourse becomes `4. Created`. The Natural
+  England list does not offer this value: its fourth option for an existing
+  watercourse is `4. Lost`. Earlier versions of the BNG Service template
+  stored it in this form.
+- A watercourse loss row that the conversion adds is written as `Lost`. The
+  Natural England list offers it only as `4. Lost`.
+- A tree's proposed condition gets no number, because the Natural England
+  template stores the words alone.
+
+The Metric workbook holds only the words. In the import tool CSVs, conditions
+and retention categories have no number, but riparian encroachment keeps it.
+Hedgerow lists have no numbers.
+
+Conversion from legacy into an earlier BNG Service template, whose lists
+still number their labels, writes the numbered form from that template's own
+lists.
 
 **Template areas are in hectares**, as in the Metric. Legacy areas are whole
 square metres. The conversion changes the unit in both directions.
@@ -132,3 +154,38 @@ generate again.
 them only with the tools in `development/tools/`, which change no other byte.
 A project saved from QGIS loses the button short titles.
 `development/tools/README.md` describes each tool.
+
+**The same tools keep the field settings of the template in step.** Each
+tool that writes the project first saves a timestamped copy beside it. Move
+the copies out of `templates/bng-service/` before a new example site is
+generated: the first run of the generator copies the whole folder.
+
+| Change | Tool |
+| --- | --- |
+| Edit the code of a button | `patch_actions.py` |
+| Rename the buttons or change their order | `rename_actions.py` |
+| Remove a column from the layers | `drop_field.py`, after the column is dropped from `Layers/BNG Service Layers.gpkg` and no button reads it |
+| Change a filtered drop-down, or a field of a post-intervention layer | `reset_stale_dropdowns.py`, then `set_paste_defaults.py` |
+| Add an `Order` column to a reference list | `order_dropdowns.py` |
+| Change a reference list of either template | `plugin/build_plugin.py`, then send the new zip to the users of the plugin |
+| Test a button against a site | `run_actions_headless.py`, with the Python that comes with QGIS |
+
+**A paste gives a post-intervention row the same lineage as the Copy
+button.** The lineage comes from default value expressions on the
+post-intervention layers. `set_paste_defaults.py` and
+`reset_stale_dropdowns.py` write them from the rules in `paste_lineage.py`.
+The parent is the one baseline feature whose shape is exactly the shape of the
+pasted feature.
+
+After any change to the template, check that the three generated settings are
+in step. Each command gives "no change needed" on a template that is in step,
+and exits with 1 otherwise:
+
+```sh
+P="templates/bng-service/BNG Service Habitat Mapping.qgz"
+python3 development/tools/reset_stale_dropdowns.py --check "$P"
+python3 development/tools/set_paste_defaults.py --check "$P"
+python3 development/tools/order_dropdowns.py --check "$P"
+```
+
+Then generate the example site again. Its run ends with `dropdown_check.py`.

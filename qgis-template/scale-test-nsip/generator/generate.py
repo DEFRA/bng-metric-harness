@@ -19,8 +19,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-# gpkg_common ships inside the plugin package; it owns the canonical geometry
-# checksum the template stamps onto every post-intervention row.
+# gpkg_common ships inside the plugin package. It registers the spatial
+# functions the template's triggers call, and updates each layer's extent.
 sys.path.insert(0, os.path.join(HERE, '..', '..', 'plugin',
                                 'bng_template_convert'))
 

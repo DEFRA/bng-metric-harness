@@ -6,6 +6,7 @@ for the sake of five attributes. This edits the five attributes and leaves
 every other byte alone.
 """
 import html
+import os
 import re
 import shutil
 import time
@@ -58,7 +59,13 @@ def write_project(path, qgs, payload, xml):
     original. It also matches how the template's own backups are named.
     """
     payload[qgs] = xml.encode("utf-8")
-    backup = f"{path}.backup-{time.strftime('%Y%m%d-%H%M%S')}"
+    stamp = f"{path}.backup-{time.strftime('%Y%m%d-%H%M%S')}"
+    # Tools run one after another can write twice in the same second. A
+    # second backup under the same name would replace the first.
+    backup, count = stamp, 1
+    while os.path.exists(backup):
+        count += 1
+        backup = f"{stamp}-{count}"
     shutil.copyfile(path, backup)
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as out:
         for name, data in payload.items():

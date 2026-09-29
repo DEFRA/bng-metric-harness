@@ -92,6 +92,14 @@ parent.
 - **Watercourses need only be present.** A re-meandered channel leaves its old
   line and gets longer, so child lengths do not show what was lost.
 
+**Each row cut from a baseline feature records its parent, as the Copy
+baseline button does.** `parent_uuid` holds the `feature_uuid` of the baseline
+feature, and `parent_geom` holds the shape of that feature as WKT at three
+decimal places. A created hedgerow or tree row leaves both blank. A created
+area habitat row keeps the parent of the parcel it was cut from. Every label
+is written as the reference lists hold it, with no number in front, for
+example `Moderate`.
+
 ## Running it
 
 Run all commands from the `qgis-template` folder.

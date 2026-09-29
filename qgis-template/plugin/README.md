@@ -118,6 +118,26 @@ legacy column, so it is lost.
 **Record lineage in comments** writes the parent reference of each feature to
 the legacy Comment column. The reverse tool uses it to restore the links.
 
+**Some drop-down values get the Natural England list number.** The BNG Service
+template stores a condition as `Fairly Poor`. The legacy template stores it as
+`4. Fairly Poor`. The tool adds the number to conditions, watercourse retention
+categories and riparian encroachment. It takes the number from the legacy
+template's own drop-down lists, for the same habitat or watercourse type.
+There are three exceptions:
+
+- `Created` on an existing watercourse becomes `4. Created`. The legacy list
+  does not offer this value, so the legacy template shows it in brackets. Its
+  fourth option for an existing watercourse is `4. Lost`.
+- A watercourse loss row that the tool adds is written as `Lost`. The legacy
+  list offers it only as `4. Lost`, so the legacy template shows it in
+  brackets.
+- A tree's proposed condition gets no number, because the legacy template
+  stores the words alone.
+
+A value that already has a number is not changed. In the import tool CSVs,
+conditions and retention categories have no number, because the import tool
+reads the words alone. Riparian encroachment keeps its number in the CSVs.
+
 **The CSVs hold no individual trees**, because the import tool cannot read
 them. Type trees into the metric by hand.
 
@@ -151,6 +171,22 @@ see the habitats with the template styles and drop-down lists.
 **The tool links only the parents it can prove,** from matching references and
 lineage comments. It leaves the other links blank for the service to work out
 from the shapes. The log gives the number of links.
+
+**Each linked feature records the shape of its parent** in `parent_geom`, at
+three decimal places, as the template's buttons do. The service compares that
+shape with the baseline, and warns when a baseline feature has changed since.
+
+**The tool takes the list number off drop-down values,** such as
+`4. Fairly Poor`, because the BNG Service template stores the words alone.
+
+**A copy of an earlier template can be filled.** The tool writes only the
+columns that the template has. The log names each column that the template
+lacks, whose values are not written, and each column of the template that the
+tool leaves blank, such as `parent_checksum`. An earlier template whose
+drop-down lists number their labels gets the numbered form, from its own
+lists, so that its drop-downs offer each value. The tool reads those lists from
+the `CSV References` folder beside `Layers/`, so fill the GeoPackage inside a
+full copy of the template folder.
 
 **After the conversion, you must** fill in Irreplaceable Habitat and add any
 vertical area habitats, such as green walls.
@@ -194,3 +230,7 @@ python3 to_metric.py  INPUT.gpkg --metric METRIC.xlsm|.xlsx -o OUT [--consolidat
 
 Add `--dry-run` to `new_to_old.py` or `old_to_new.py` to see the report and
 write nothing.
+
+The two conversion scripts read the drop-down lists of both templates. Run
+from the repository, they read them from `templates/`. The plugin zip carries a
+copy of each list, which `build_plugin.py` adds.

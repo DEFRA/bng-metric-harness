@@ -21,7 +21,8 @@ Red Line Boundary          the site boundary
 
 **You draw the baseline once, then copy it.** Each post-intervention feature
 starts as an exact copy, and it keeps a link to the baseline parcel it came
-from.
+from. The copy button copies every parcel. Copy and paste makes the same copy
+of the parcels that you select (Part 4).
 
 **There are five habitat types.** Each type has a Baseline layer and a
 Post-Intervention layer, and all of them are in one GeoPackage:
@@ -123,7 +124,8 @@ parcel after the copy. It changes the baseline ref and every post-intervention
 row that points at it, including split suffixes such as `PR-1a`.
 
 **`Refresh from baseline`** applies later baseline edits to the
-Post-Intervention layer. For each row copied from a baseline feature:
+Post-Intervention layer. For each row copied or pasted from a baseline
+feature:
 
 - It refreshes the locked `Baseline …` values, even when the shape did not
   move.
@@ -141,9 +143,14 @@ Post-Intervention layer. For each row copied from a baseline feature:
   names the new parcels. This is the only time a button edits a Baseline
   layer.
 
-It changes only the `Baseline …` columns and `Parent Ref`. Your shapes,
-`Proposed …` values, `Retention Category` and `Irreplaceable Habitat` do not
-change. A row that it cannot resolve keeps its warning on upload.
+On an existing row, it changes only the `Baseline …` columns, `Parent Ref`,
+the hidden record of the parent's shape and, in the cases above, the shape.
+Your `Proposed …` values, `Retention Category` and `Irreplaceable Habitat` do
+not change.
+
+**A row that it moves or trims gets a new record of the parent's shape** (Part
+4). A row that it names for you to check keeps the old record. The service then
+gives its warning for that row on upload.
 
 ### 1.4 Turn on tracing
 
@@ -181,6 +188,10 @@ add up.
    layers. QGIS then trims a new shape so it cannot overlap an existing one.
 
 Keep this bar visible while you work.
+
+**Snapping can link a new tree or hedge to the baseline.** A new feature that
+lands exactly on a baseline feature is treated as that feature. Part 9 tells
+you how to prevent this.
 
 ---
 
@@ -264,6 +275,12 @@ parcel with an unexpected colour probably has the wrong habitat type.
 
 ## Part 4: Copy the baseline
 
+**There are two ways to copy the baseline.** The copy button copies every
+parcel. Copy and paste copies the parcels that you select. Both give a row the
+same values and the same link to its baseline parcel.
+
+### 4.1 Use the copy button
+
 1. Right-click **Area Habitats Post-Intervention**, then click **Open
    Attribute Table**. The table is empty.
 2. Click **Actions** (section 1.3).
@@ -271,6 +288,9 @@ parcel with an unexpected colour probably has the wrong habitat type.
 
 A green bar at the top of the **main QGIS window** gives the number of parcels
 copied. The attribute table now has one row for each baseline parcel.
+
+**The copy button does not run while the layer is in edit mode.** Click the
+pencil to stop editing, save, then click the button again.
 
 **Each copied row gets these values:**
 
@@ -280,15 +300,20 @@ copied. The attribute table now has one row for each baseline parcel.
   because it describes what happens to the parcel.
 - All the baseline values, which include **Irreplaceable Habitat**. The
   Proposed values start the same as the baseline values.
-- Two hidden keys that link the row to its baseline parcel. The service uses
-  them to find later baseline changes. They make a rename safe.
+- On a tree, **Category** is `Existing`. On a hedgerow or a watercourse,
+  **Baseline Length (m)** is the length of the baseline line.
+- Two hidden columns that link the row to its baseline parcel.
+  `parent_uuid` holds the hidden id of the parcel. `parent_geom` holds the
+  shape of the parcel at the copy. The service uses them to find later
+  baseline changes. They make a rename safe.
 
-**The Baseline columns on a Post-Intervention layer are locked.** Only the copy
-button writes them, so you cannot change the baseline values here by accident.
+**The Baseline columns on a Post-Intervention layer are locked.** Only the
+copy button, a paste and `Refresh from baseline` write them. You cannot change
+the baseline values here by accident.
 
 **You can run the copy button again.** It copies only baseline parcels that
-have no row yet, and it keeps all existing rows. The message gives the number
-it skipped.
+have no row yet, copied or pasted, and it keeps all existing rows. The message
+gives the number it skipped.
 
 **On a layer that already has rows, the button asks first.** A missing
 post-intervention row records a removal. So a baseline parcel with no row is
@@ -300,6 +325,67 @@ parcels:
 
 > To start again, delete the copied rows. In the attribute table, click the
 > pencil, select all rows, click the **delete** button, then save.
+
+### 4.2 Paste baseline parcels
+
+Use this to copy one parcel or a few, for example a parcel that you added to
+the baseline after the copy.
+
+1. In the Layers panel, click **Area Habitats Baseline**.
+2. Click the **Select** tool, then click the parcel. Hold `Shift` to select
+   more than one.
+3. Click **Edit → Copy Features** (`Ctrl+C`).
+4. In the Layers panel, click **Area Habitats Post-Intervention**, then click
+   the **pencil**.
+5. Click **Edit → Paste Features** (`Ctrl+V`).
+6. Open the attribute table. Check that each pasted row has a `Parent Ref`.
+7. Click the **pencil** to stop editing, then click **Save**.
+
+**A pasted parcel gets its link only when its shape is exactly the shape of
+one baseline parcel.** It then gets the same values as a copied row, and
+`parent_geom` records the shape at the paste. In the cases below, the pasted
+row gets no link, and its `Parent Ref` stays blank:
+
+| Case | Why there is no link | What to do |
+| --- | --- | --- |
+| The pasted parcel overlaps a post-intervention parcel | **Avoid Overlap** trims the pasted shape, so it is no longer the baseline shape | The ground already has a row. To bring a baseline change across, use `Refresh from baseline` (section 1.3) |
+| The pasted shape is not exactly the baseline shape, for example because the other file holds a different version of the shape, or the layer is in a different coordinate reference system | The link needs the same corners, in the same order | Copy the parcel from the **Baseline** layer of this project |
+| You changed the baseline parcel after you copied it | The clipboard holds the old shape | Copy the parcel again |
+| Two baseline parcels have exactly the same shape | The paste cannot tell which parcel is the parent | Correct the baseline, or use the copy button (section 4.1). The button links by the hidden id, not by the shape |
+
+**First delete the pasted row that has a blank `Parent Ref`.** The field is
+locked, so the link cannot be added by hand. Then do what the table says.
+
+**Paste only from the Baseline layer of this project.** QGIS cannot tell
+where a pasted feature came from. Any pasted feature with exactly the shape of
+one baseline feature is treated as a paste from the baseline, and QGIS fills
+in the values of the copy button. Do not paste post-intervention rows from a
+backup, from another copy of the site, or from the same layer. If such a row
+is still exactly the shape of its baseline feature, for example an enhanced
+parcel that was not moved, QGIS changes its values:
+
+| Type | What QGIS changes on the pasted row |
+| --- | --- |
+| Hedgerows, individual trees and watercourses | **Retention Category** becomes `Retained`, and the Proposed drop-downs take the Baseline values |
+| Area habitats and vertical area habitats | A `Retained` row: the Proposed drop-downs take the Baseline values. An `Enhanced` or `Created` row keeps its values |
+
+The same change happens when **Split Features** or **Duplicate Feature** makes
+a feature with exactly the shape of one baseline feature. For example, a
+copied hedge is split at the same corner as its baseline hedge. If a paste of
+this kind cannot be avoided, check **Retention Category** and every Proposed
+value on each new row, and set them again.
+
+**Unlike the copy button, a paste does not check for an existing row.** A
+parcel that already has a row gets a second row. Delete the second row. Do not
+use `Tidy PI refs after splitting` on it: that gives the two rows the
+suffixes of a split, and both stay. For each type, the result of a second row
+is:
+
+| Type | Result of a second row |
+| --- | --- |
+| Area habitats | **Avoid Overlap** trims the second parcel to nothing. QGIS still adds a row, with no shape. |
+| Hedgerows, individual trees and vertical area habitats | The service refuses the file. The rows of one baseline feature add up to more than the feature. |
+| Watercourses | The service does not find it, because a watercourse can continue as two rows. Look for it yourself (Part 7). |
 
 ---
 
@@ -432,9 +518,11 @@ Open the attribute table of each layer and compare the totals.
 | **Area Habitats** baseline total and post-intervention total | The same. Ground cannot disappear. |
 | Hedgerow, watercourse, vertical area habitat and tree totals | The post-intervention total can be smaller. The difference is what you removed, and the service lists it as removed. |
 | Each post-intervention row | Has a Retention Category |
-| `Created` rows | Have Proposed values. For area habitats, only a Fill Ring shape has a blank `Parent Ref`. A split or copied row keeps the parcel's `Parent Ref`. For the other types, a `Created` row always has a blank `Parent Ref`. |
+| `Created` rows | Have Proposed values. For area habitats, only a Fill Ring shape has a blank `Parent Ref`. A split, copied or pasted row keeps the parcel's `Parent Ref`. For the other types, a `Created` row always has a blank `Parent Ref`. |
 | `Enhanced` rows | Have Baseline and Proposed values |
 | `Retained` rows | Proposed values agree with Baseline values. A shortened hedge stays `Retained` at its new length. |
+| `Retained` and `Enhanced` rows | Have a `Parent Ref`. A blank one is a paste that found no baseline feature (section 4.2). |
+| Rows that share a `Parent Ref` | Are the parts of a split. Two such rows with the same size are one feature pasted twice (section 4.2). |
 
 **Different area totals mean a gap or an overlap.** The usual cause is that
 snapping was off for part of the work.
@@ -454,7 +542,8 @@ file to the service.
 The procedure is the same:
 
 1. Draw the baseline.
-2. Run the copy button on the Post-Intervention layer.
+2. Run the copy button on the Post-Intervention layer, or paste the baseline
+   features (Part 4).
 3. Edit only the Post-Intervention layer.
 4. Tidy the refs.
 
@@ -472,7 +561,8 @@ no baseline, so you draw it directly on the Post-Intervention layer.
 3. Give it a new **PI Ref**.
 4. Set **Retention Category** to `Created`.
 5. Fill in the Proposed fields. The Baseline fields stay blank and locked.
-6. Leave **Parent Ref** blank. It is locked.
+6. Check that **Parent Ref** is blank. It is locked. If it is filled, see
+   *A new feature exactly on a baseline feature*, below.
 
 For a vertical area habitat, type the `Area (ha)`. For a tree, type the
 `Count`.
@@ -481,7 +571,8 @@ For a vertical area habitat, type the `Area (ha)`. For a tree, type the
 Baseline layer is empty, because a site with no hedges can gain new ones. A
 `Created` row gives no warning and is not on the list of removals. The service
 does not match it to a baseline feature by overlap, so a new hedge along an
-old one stays separate.
+old one stays separate. The exception is a new feature that lies exactly on a
+baseline feature.
 
 **A `Retained` or `Enhanced` row over an empty Baseline layer is refused.** A
 copy must have a baseline feature to copy.
@@ -500,6 +591,27 @@ Split Features or Fill Ring (Part 5c).
 
 > If the Retention Category and Proposed lists are empty on a new feature, get
 > a new copy of this template.
+
+### A new feature exactly on a baseline feature
+
+**QGIS links a new feature to a baseline feature that has exactly the same
+shape.** It treats the new feature as a paste of the baseline feature. This
+happens when snapping puts a new tree on the point of a baseline tree. It
+also happens when tracing gives a new hedge every corner of a baseline hedge,
+in the same order.
+
+The new feature then gets the `Parent Ref` of the baseline feature, and
+**Retention Category** `Retained`. A tree also gets **Category** `Existing`.
+The service counts the baseline feature as kept, not removed. For a tree that
+was felled and replaced, the loss is then never counted.
+
+To prevent this:
+
+- Place a replacement tree or hedge a short distance from the old one.
+- Or turn snapping off, with the **magnet** icon, while you draw it.
+
+If a new feature shows a `Parent Ref`, delete it and draw it again. The link
+is locked, and it stays when you move the feature.
 
 ### Vertical Area Habitats
 
@@ -526,9 +638,14 @@ Draw a hedgerow as a **line**. QGIS fills in `Length (m)` and locks it.
   keep the same `Parent Ref`.
 - **Part of a hedge is removed:** split off that part and delete its row.
 - **A hedge is shorter but its condition is the same:** keep it `Retained`.
-  Draw it again or split it to the shorter length.
+  Shorten the copied line with the **Vertex Tool**, or split it to the
+  shorter length. A new line drawn in its place has no link to the baseline.
 - **A new hedge:** draw a new line on the Post-Intervention layer (see *New
   habitats*).
+
+**After a split, check the values of each part.** A part with exactly the
+shape of a baseline hedge becomes `Retained`, with the Baseline values in its
+Proposed fields (section 4.2). Set them again.
 
 **The service calculates lost length as the baseline length minus the
 remaining post-intervention length.** The Statutory Metric sheets use the same
@@ -542,10 +659,12 @@ Draw a watercourse as a **line**. QGIS fills in `Length (m)` and locks it.
 **A post-intervention watercourse can leave the baseline line completely.** A
 re-meandered channel moves and gets longer. This is correct.
 
-- **A re-meandered channel:** draw the new channel where it goes. Set
-  **Retention Category** to `Enhanced` and fill in **Enhancement Type**.
-- **Do not edit `Baseline Length (m)`.** The copy button writes the original
-  length there. The calculation needs it after the channel moves.
+- **A re-meandered channel:** move the copied line onto the new route with
+  **Reshape Features** or the **Vertex Tool**, so that it keeps its link to
+  the baseline. Set **Retention Category** to `Enhanced` and fill in
+  **Enhancement Type**.
+- **Do not edit `Baseline Length (m)`.** The copy button and a paste write the
+  original length there. The calculation needs it after the channel moves.
 - **A stretch is fully lost**, for example culverted or filled: delete its
   copied row.
 - **A new channel:** draw it on the Post-Intervention layer (see *New
@@ -567,13 +686,15 @@ Draw each tree as a **point**. A point cannot be split.
 - **A tree that stays:** `Retained`.
 - **A planted tree:** add a point, set **Retention Category** to `Created`, and
   fill in only the Proposed fields. **Parent Ref** stays blank. The
-  **Category** field fills in as `Newly Planted` by itself.
+  **Category** field fills in as `Newly Planted` by itself. A point exactly on
+  a baseline tree is the exception (see *A new feature exactly on a baseline
+  feature*).
 - **A felled tree:** delete its copied row. The service lists it as removed.
 - **Some trees of a point are felled:** keep the row as `Retained` and reduce
   its `Count`.
-- **A tree planted where a tree was felled:** add a separate `Created` point
-  with a blank `Parent Ref`. The Statutory Metric also treats the two as
-  separate.
+- **A tree planted where a tree was felled:** add a separate `Created` point,
+  a short distance from the felled tree or with snapping off. Its `Parent Ref`
+  must stay blank. The Statutory Metric also treats the two as separate.
 
 ### Layers that you do not need
 
@@ -592,6 +713,9 @@ example, a site with no watercourses has two empty watercourse layers.
 | Cut a parcel in two | Split Features | Advanced Digitizing |
 | Cut a hole and fill it | Fill Ring | Advanced Digitizing |
 | Join two shapes | Merge Selected Features | Advanced Digitizing |
+| Give a line a new route | Reshape Features | Advanced Digitizing |
+| Copy selected features | Copy Features (`Ctrl+C`) | **Edit** menu |
+| Paste features into the selected layer | Paste Features (`Ctrl+V`) | **Edit** menu |
 | Make shapes meet exactly | Enable Snapping (magnet) | Snapping |
 | Follow an existing edge | Enable Tracing (`T`) | Snapping |
 | See the values of a feature | Identify | Attributes |
@@ -609,9 +733,14 @@ mode. Click the yellow pencil or press `Ctrl+E`.
 sure that the `CSV References` folder is next to the `.qgz` file. Unzip the
 full folder. Do not open the project from inside the zip file.
 
-**A condition shows `1. Good`, not `Good`.** This is correct. The numbers come
-from the lists in the Metric, and the service removes them. Do not type `Good`
-yourself: QGIS shows it in brackets because it is not on the list.
+**A list is in alphabetical order, with `Fairly Good` before `Good`.** Older
+versions of QGIS sort each list by name. The values are correct. QGIS 3.44 and
+later show each list in order, from `Good` to `Poor` for a condition.
+
+**A value shows in brackets, such as `(1. Good)`.** The value is not on the
+list. The lists hold the words only, with no list number, so a numbered value
+from an older copy of this template is not on them. Select the value again
+from the list.
 
 **QGIS cannot save.** The folder is probably in OneDrive, SharePoint or
 another synchronised folder. Move the full folder to a local disk, such as
@@ -629,6 +758,23 @@ pencil.
 **You cannot find `Copy baseline to post-intervention`.** Open the attribute
 table of a **Post-Intervention** layer and click **Actions** (section 1.3).
 `Rename a ref` is on the **Baseline** layers.
+
+**The copy button says that the layer has unsaved edits.** The layer is in
+edit mode, for example after a paste. Click the pencil to stop editing, save,
+then click the button again.
+
+**A pasted row has a blank `Parent Ref`.** The paste found no baseline feature
+with exactly the same shape. Section 4.2 gives the causes and what to do.
+
+**A hedgerow, tree or watercourse row changed back to `Retained`, with the
+Baseline values in its Proposed fields.** The row was pasted, duplicated or
+split, and the result has exactly the shape of one baseline feature. QGIS
+treats it as a paste from the baseline. Set the values again, and paste only
+from the Baseline layer of this project (section 4.2).
+
+**A new tree or hedge has a `Parent Ref`.** It lies exactly on a baseline
+feature, usually because of snapping. Delete it, and draw it again a short
+distance from the old one or with snapping off (Part 9).
 
 **You typed a new baseline ref, and the post-intervention rows did not
 change.** Typing changes one cell only. Press `Ctrl+Z`, then use **`Rename a
@@ -658,9 +804,15 @@ touches the parcel edge, use Split Features (Part 5c).
 **You edited the baseline by mistake.** Press `Ctrl+Z` before you save.
 
 **The service says that the baseline changed after the copy, but you did not
-change it.** The service compares each baseline shape with the hidden record
-made during the copy. It ignores corners that do not change the shape, such as
-those that **Topological Editing** adds during a split. If the warning stays,
-delete the copied rows and run **`Copy baseline to post-intervention`** again.
-This removes your Part 5 edits, so compare that work with a known false
+change it.** The service compares each baseline shape with its hidden record in
+`parent_geom`. That record is made at the copy, at the paste or at the last
+`Refresh from baseline`. The comparison is to the nearest millimetre. It
+ignores corners that do not change the shape, such as those that **Topological
+Editing** adds during a split.
+
+Run **`Refresh from baseline`** on the layer (section 1.3). It records the
+current shape on each row that it can update, and names the other rows for you
+to check. To clear the warning for a named row, delete every row that came
+from its baseline feature, then paste that feature again (section 4.2). This
+removes your Part 5 edits on those rows, so first compare them with the
 warning.

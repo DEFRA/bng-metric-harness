@@ -16,10 +16,20 @@ A drop-down whose filter reads a column the layer does not have is skipped and
 reported: QGIS ignores such a filter and offers the whole list, so there is no
 narrower list to hold a value to.
 
-    python3 development/tools/reset_stale_dropdowns.py <project.qgz> [...]
+On a post-intervention layer the same expression also pre-fills a pasted
+feature, as the Copy button fills a copied row: Retention Category becomes
+Retained and each Proposed value takes its Baseline twin. The pre-fill is
+part of the reset because QGIS keeps one default per column. It applies only
+while a feature that equals one baseline feature is created, and only to a
+blank value. A Proposed value is pre-filled only on a Retained row (see
+paste_lineage.py).
+
+    python3 development/tools/reset_stale_dropdowns.py [--check] <project.qgz> [...]
 
 Edits the `<default>` elements in place and leaves every other byte alone,
 for the same reasons as qgz_actions.py. Running it twice changes nothing.
+With --check it writes nothing, lists what it would change, and exits 1 if
+anything would change.
 """
 import os
 import re
@@ -28,9 +38,11 @@ import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import paste_lineage                                            # noqa: E402
 from qgz_actions import escape, read_project, write_project     # noqa: E402
 
 CURRENT_VALUE = re.compile(r"current_value\(\s*'([^']+)'\s*\)")
+CHECK = "--check"
 MAPLAYER = re.compile(r"<maplayer\b.*?</maplayer>", re.S)
 LAYER_ID = re.compile(r"<id>([^<]+)</id>")
 
@@ -68,7 +80,7 @@ def ancestors(field, rules, seen=()):
     return list(dict.fromkeys(found))
 
 
-def reset_expression(field, rules):
+def reset_expression(field, rules, prefill=None):
     """Keep the value while it and every choice above it are still valid.
 
     The choices above are checked as well as the field's own list so that the
@@ -77,21 +89,69 @@ def reset_expression(field, rules):
     type would blank the habitat type on screen and leave the condition below
     it showing until the form is saved. A blank choice above is accepted: a
     newly planted tree has no baseline size, and its proposed size is valid.
+
+    A blank value stays blank, unless a pre-fill is given. The pre-fill is an
+    expression that gives NULL whenever it does not apply.
     """
     checks = [in_list(field, rules[field])]
     checks += [f'("{a}" IS NULL OR {in_list(a, rules[a])})'
                for a in ancestors(field, rules)]
-    return (f'if("{field}" IS NULL, NULL, '
+    blank = prefill or "NULL"
+    return (f'if("{field}" IS NULL, {blank}, '
             f'if({" AND ".join(checks)}, "{field}", NULL))')
+
+
+def prefills(layer_name, names, fields, known):
+    """Field -> the pre-fill of a pasted feature, on a post-intervention layer.
+
+    The value is the one the Copy button writes, and it is written only while
+    a feature that equals one baseline feature is created.
+    """
+    parent = paste_lineage.parent_of(layer_name, known)
+    if parent is None:
+        return {}
+    baseline_id, baseline_names, _ref = parent
+    found = {}
+    for field in fields:
+        value = paste_lineage.copy_value(field, names, baseline_names)
+        if value is not None:
+            gate = paste_lineage.prefill_gate(baseline_id, field)
+            found[field] = f"if({gate}, {value}, NULL)"
+    return found
+
+
+def filter_rule(field, locked, names):
+    """Return (rule, missing) for one field.
+
+    rule is (layer id, key, filter) for a drop-down this tool manages, and
+    None for any other field. missing lists the columns that a drop-down's
+    filter reads and the layer does not have; such a drop-down is skipped.
+    """
+    widget = field.find("editWidget")
+    if widget is None or widget.get("type") != "ValueRelation":
+        return None, []
+    opts = options(widget)
+    filter_expr = opts.get("FilterExpression") or ""
+    if not filter_expr.strip() or field.get("name") in locked:
+        return None, []
+    needs = set(CURRENT_VALUE.findall(filter_expr))
+    # With no current_value() the filter is fixed, such as on-site spatial
+    # risk: no other choice can change the list, so no value can go stale.
+    missing = sorted(needs - names)
+    if not needs or missing:
+        return None, missing
+    return (opts["Layer"], opts["Key"], filter_expr), []
 
 
 def plan(xml):
     """Map layer id -> [(field, expression)], and list what was skipped."""
     wanted, skipped = {}, []
+    known = paste_lineage.layers(xml)
     for layer in ET.fromstring(xml).iter("maplayer"):
         config = layer.find("fieldConfiguration")
         if config is None:
             continue
+        layer_name = layer.findtext("layername")
         names = {f.get("name") for f in config.findall("field")}
         # A locked column is written only by the Actions, from a baseline
         # that already had to pass its own resets. Refresh writes those
@@ -102,28 +162,16 @@ def plan(xml):
                   for f in f.findall("field") if f.get("editable") == "0"}
         rules = {}
         for field in config.findall("field"):
-            widget = field.find("editWidget")
-            if widget is None or widget.get("type") != "ValueRelation":
-                continue
-            opts = options(widget)
-            filter_expr = opts.get("FilterExpression") or ""
-            if not filter_expr.strip():
-                continue
-            if field.get("name") in locked:
-                continue
-            needs = set(CURRENT_VALUE.findall(filter_expr))
-            if not needs:
-                # A fixed filter, such as on-site spatial risk: no other
-                # choice can change the list, so no value can go stale.
-                continue
-            if not needs <= names:
-                skipped.append((layer.findtext("layername"), field.get("name"),
-                                sorted(needs - names)))
-                continue
-            rules[field.get("name")] = (opts["Layer"], opts["Key"], filter_expr)
+            rule, missing = filter_rule(field, locked, names)
+            if missing:
+                skipped.append((layer_name, field.get("name"), missing))
+            if rule is not None:
+                rules[field.get("name")] = rule
         if rules:
+            fills = prefills(layer_name, names, rules, known)
             wanted[layer.findtext("id")] = [
-                (name, reset_expression(name, rules)) for name in rules]
+                (name, reset_expression(name, rules, fills.get(name)))
+                for name in rules]
     return wanted, skipped
 
 
@@ -145,7 +193,10 @@ def rewrite_layer(block, fields):
     return block, changed
 
 
-def main(paths):
+def main(argv):
+    check = CHECK in argv
+    paths = [a for a in argv if a != CHECK]
+    pending = 0
     for path in paths:
         qgs, payload = read_project(path)
         xml = payload[qgs].decode("utf-8")
@@ -169,8 +220,13 @@ def main(paths):
         if new_xml == xml:
             print(f"no change needed: {path}")
             continue
+        if check:
+            pending += total
+            print(f"{total} drop-down reset(s) out of date in {path}")
+            continue
         write_project(path, qgs, payload, new_xml)
-        print(f"added {total} drop-down reset(s) to {path}")
+        print(f"wrote {total} drop-down reset(s) to {path}")
+    return 1 if pending else 0
 
 
 if __name__ == "__main__":

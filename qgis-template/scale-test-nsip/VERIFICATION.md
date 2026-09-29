@@ -96,8 +96,9 @@ This note is for a maintainer who changes the copy action.
 - It stops the canvas from redrawing during a batch, and redraws once at the
   end.
 - It reads only the two columns that it needs to find copied features.
-- It records `parent_geom` at three decimal places, which is all that its
-  checksum uses. This halves that column from 11.6 MB to 5.3 MB.
+- It records `parent_geom` at three decimal places. The service rounds both
+  shapes to three decimal places before it compares them, so more digits add
+  nothing. This halves that column from 11.6 MB to 5.3 MB.
 - It refuses to run while the layer has unsaved edits.
 - It emits `featureAdded` for each new row, so an open attribute table shows
   the rows without a reopen.
@@ -458,6 +459,18 @@ cannot hide in it. It marks each column on each side as one of these:
 pair against that list. It pairs rows by position, then proves each pair by
 geometry. A column that is on one side and not in the list fails the check.
 
+**Some legacy labels have a number in front.** The Natural England lists
+number the conditions, the watercourse retention categories and the riparian
+encroachment values, for example `3. Moderate`. The BNG Service lists hold
+the same label with no number, `Moderate`. The list marks each of these
+columns. The legacy value must hold the same words, and must be a label that
+the Natural England list in `templates/legacy-ne/` offers for the habitat or
+watercourse type of that row, with its number. A wrong or missing number
+fails. There are three exceptions. `Created` on an existing watercourse must
+be `4. Created`, which the Natural England list does not offer. A watercourse
+loss row that the conversion adds is checked without its number, because it
+is written as `Lost`. A tree's proposed condition must have no number.
+
 **Pass: all eight layer pairs and the red line boundary, about 34,000 rows.**
 
 ### Claim 3: the answer does not move
@@ -473,9 +486,9 @@ metres and whole metres. An exact match would be suspicious.
 
 | | Staged | Legacy | Difference |
 | --- | --- | --- | --- |
-| Baseline units | 16,051.4515 | 16,051.4146 | **0.000230%** |
-| Post-intervention units | 15,291.6926 | 15,291.6465 | **0.000302%** |
-| Net change | -4.733272% | -4.733341% | **0.000069 percentage points** |
+| Baseline units | 16,045.7269 | 16,045.6896 | **0.000232%** |
+| Post-intervention units | 15,281.4052 | 15,281.3517 | **0.000350%** |
+| Net change | -4.763397% | -4.763509% | **0.000112 percentage points** |
 
 **Pass: 34,846 rows, each priced on both sides.**
 

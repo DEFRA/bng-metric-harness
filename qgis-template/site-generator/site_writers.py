@@ -13,9 +13,7 @@ from collections import Counter, defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', 'scale-test-nsip', 'generator'))
-sys.path.insert(0, os.path.join(HERE, '..', 'plugin', 'bng_template_convert'))
 
-from gpkg_common import blob_checksum                              # noqa: E402
 import corridor_linear as lin                                      # noqa: E402
 import corridor_scenario as sc                                     # noqa: E402
 import gpkg_write as gw                                            # noqa: E402
@@ -122,7 +120,7 @@ def write_area_habitats(conn, site):
                 significance if kind == sc.RETAINED
                 else sc.strategic_significance(choose.key(child_seed, 909)),
                 advance, delay, ON_SITE, child_area / SQ_M_PER_HECTARE,
-                feature_uuid, blob_checksum(blob), gw.polygon_wkt(ring)))
+                feature_uuid, gw.polygon_wkt(ring)))
 
     insert_many(conn, 'Habitats Baseline', HABITAT_BASE_COLS, base_rows)
     insert_many(conn, 'Habitats Post-Intervention', HABITAT_PI_COLS, pi_rows)
@@ -188,8 +186,7 @@ def write_hedgerows(conn, site):
                 hedge_type, distinctiveness, condition, significance, length,
                 kind, proposed, HEDGE_DISTINCTIVENESS[proposed],
                 proposed_condition, significance, advance, delay, ON_SITE,
-                line_length(child), feature_uuid, blob_checksum(blob),
-                gw.line_wkt(points)))
+                line_length(child), feature_uuid, gw.line_wkt(points)))
 
     if site['new_hedge']:
         points = path_points(mesh, site['new_hedge'])
@@ -200,7 +197,7 @@ def write_hedgerows(conn, site):
             gw.line_blob(points), 'HN-01', None, 'To be created', 'N/A', 'N/A',
             'N/A', None, 'Created', proposed, HEDGE_DISTINCTIVENESS[proposed],
             'Good', lin.significance(choose.key(1421)), advance, delay,
-            ON_SITE, line_length(points), None, None, None))
+            ON_SITE, line_length(points), None, None))
 
     insert_many(conn, 'Hedgerows Baseline', HEDGE_BASE_COLS, base_rows)
     insert_many(conn, 'Hedgerows Post-Intervention', HEDGE_PI_COLS, pi_rows)
@@ -291,8 +288,7 @@ def write_trees(conn, site):
         pi_rows.append((
             blob, ref, ref, size, tree_type, setting, condition, significance,
             'Retained', size, tree_type, setting, condition, significance,
-            'Existing', '', '', ON_SITE, 1, feature_uuid, blob_checksum(blob),
-            gw.point_wkt(point)))
+            'Existing', '', '', ON_SITE, 1, feature_uuid, gw.point_wkt(point)))
 
     planted = []
     low, high = scheme['street_trees']
@@ -312,17 +308,14 @@ def write_trees(conn, site):
             placed, spacing)
         advance, delay = sc.timing_for('Created', choose.key(seed, 2005))
         counts['created'] += 1
-        # A planted tree is priced as an area habitat, so it needs a real
-        # condition: the metric cannot value one recorded as not applicable.
         pi_rows.append((
             gw.point_blob(point), f'TN-{number:02d}', None, 'N/A', 'N/A', 'N/A',
             'N/A', 'N/A', 'Created',
             choose.pick([('Small', 0.74), ('Medium', 0.26)], seed, 2007),
             'Native', 'Urban tree' if urban else 'Rural tree',
-            choose.pick([('1. Good', 0.34), ('2. Fairly Good', 0.42),
-                         ('3. Moderate', 0.24)], seed, 2009),
+            choose.pick(lin.PLANTED_TREE_CONDITIONS, seed, 2009),
             lin.tree_significance(choose.key(seed, 2011)), 'Newly Planted',
-            advance, delay, ON_SITE, 1, None, None, None))
+            advance, delay, ON_SITE, 1, None, None))
 
     insert_many(conn, 'Trees Baseline', TREE_BASE_COLS, base_rows)
     insert_many(conn, 'Trees Post-Intervention', TREE_PI_COLS, pi_rows)

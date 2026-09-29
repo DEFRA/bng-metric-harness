@@ -15,8 +15,9 @@ import math
 import os
 
 from corridor_mesh import _hash01, line_length
-from corridor_scenario import (CORE, CSV_ROOT, EARTHWORKS, SS_DESIRABLE,
-                               SS_FORMAL, SS_NONE, _pick, zone_of)
+from corridor_scenario import (CONDITION_SCALE, CORE, CSV_ROOT, EARTHWORKS,
+                               SS_DESIRABLE, SS_FORMAL, SS_NONE, _pick,
+                               zone_of)
 
 # ------------------------------------------------------- reference values
 
@@ -47,20 +48,24 @@ HEDGE_CREATED = [
     ('Native hedgerow - associated with bank or ditch', 0.11),
 ]
 
-WATERCOURSE_CONDITIONS = [('1. Good', 0.10), ('2. Fairly Good', 0.22),
-                          ('3. Moderate', 0.36), ('4. Fairly Poor', 0.22),
-                          ('5. Poor', 0.10)]
-RIPARIAN = [('2. Moderate/ Moderate', 0.24), ('3. Minor/ Minor', 0.34),
-            ('3. Minor/ No Encroachment', 0.22),
-            ('4. No Encroachment/ No Encroachment', 0.20)]
+WATERCOURSE_CONDITIONS = list(zip(CONDITION_SCALE,
+                                  (0.10, 0.22, 0.36, 0.22, 0.10)))
+# A culvert has one condition, and no encroachment to assess on either list.
+CULVERT_CONDITION = 'Poor'
+CULVERT_ENCROACHMENT = 'N/A - Culvert'
+NO_RIPARIAN_ENCROACHMENT = 'No Encroachment/ No Encroachment'
+RIPARIAN = [('Moderate/ Moderate', 0.24), ('Minor/ Minor', 0.34),
+            ('Minor/ No Encroachment', 0.22),
+            (NO_RIPARIAN_ENCROACHMENT, 0.20)]
 ENCROACHMENT = [('No Encroachment', 0.44), ('Minor', 0.40), ('Major', 0.16)]
 
 TREE_SIZES = [('Small', 0.28), ('Medium', 0.37), ('Large', 0.27),
               ('Very large', 0.08)]
 TREE_TYPES = [('Native', 0.79), ('Non-native', 0.21)]
-TREE_CONDITIONS = [('1. Good', 0.16), ('2. Fairly Good', 0.27),
-                   ('3. Moderate', 0.34), ('4. Fairly Poor', 0.16),
-                   ('5. Poor', 0.07)]
+TREE_CONDITIONS = list(zip(CONDITION_SCALE, (0.16, 0.27, 0.34, 0.16, 0.07)))
+# A planted tree is priced as an area habitat, so it needs a real condition:
+# the metric cannot value one recorded as not applicable.
+PLANTED_TREE_CONDITIONS = list(zip(CONDITION_SCALE, (0.34, 0.42, 0.24)))
 # The tree lists word formal identification differently from every other
 # habitat type, so a tree cannot share the hedgerow and parcel wording.
 SS_FORMAL_TREE = 'Within area formally identified in local strategy'
