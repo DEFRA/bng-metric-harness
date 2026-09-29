@@ -13,8 +13,8 @@ purpose:
 
 The workbooks are recalculated headlessly and saved with their calculated
 values in, so the metric's own answers can be read straight from each workbook:
-by a tester opening it, and by the backend's `npm run compare:metric`, which
-compares them with the service (see [compare-metric.md](compare-metric.md)).
+by a tester opening it, and by `npm run compare:metric`, which compares them
+with the service (see [compare-metric.md](compare-metric.md)).
 `manifest.json` records each scenario's headline results and checks for
 `index.md`, which tabulates them, one table per purpose.
 
@@ -63,7 +63,7 @@ needed, and it takes a few seconds. The engine and file checks still run.
 GeoPackage pair and its metric workbook, saved with the metric's answers in it,
 with `manifest.json` and `index.md` summarising them. A tester can open the
 workbook beside the files they upload without generating anything, and the
-backend's metric comparison reads its answers from the same workbooks. To
+metric comparison reads its answers from the same workbooks. To
 refresh them:
 
 ```sh

@@ -12,8 +12,10 @@ npm run compare:metric -- --only trading-rules   # a purpose, or scenario ids
 npm run compare:metric -- --corpus ~/my-test-spreadsheets   # any folder of scenarios
 ```
 
-This proxies to the backend's `npm run compare:metric`. The report is written to
-`bng-metric-backend/metric-comparison/`:
+It runs the backend checked out beside this repo, in process, so the backend
+needs `npm run install:be` first; `BNG_BACKEND_DIR` names another checkout (a
+worktree of a backend branch, say). The report is written to
+`metric-comparison/` in this repo:
 
 | File | What it is |
 | --- | --- |
@@ -64,18 +66,20 @@ flowchart LR
   subgraph harness[bng-metric-harness]
     gen["npm run generate:scenarios<br>GeoPackage pairs + workbooks,<br>recalculated with LibreOffice"]
     corpus["example-files/permutations<br>GeoPackage pairs + workbooks<br>saved with their answers"]
+    import["importGeoPackagePair<br>the backend's upload pipeline,<br>in process"]
+    cli["npm run compare:metric<br>report.html / .xlsx / .md / .json"]
+    ci["CI: pull requests and weekly<br>job summary + artifact"]
   end
   subgraph library[bng-library]
     reader["workbook-writer<br>readMetricResults: headline,<br>per-feature units, trading figures"]
     compare["metric-compare<br>figures, comparison,<br>service gaps, causes, report"]
   end
   subgraph backend[bng-metric-backend]
-    import["importGeoPackagePair<br>the upload pipeline, in process"]
-    ci["CI: pull requests and publish<br>job summary + artifact"]
-    cli["npm run compare:metric<br>report.html / .md / .json"]
+    pipeline["upload pipeline<br>validation, extraction,<br>enrichment, schema"]
   end
   gen --> reader
   reader --> corpus
+  pipeline --> import
   corpus --> import --> compare
   compare --> cli --> ci
 ```
@@ -100,41 +104,52 @@ flowchart LR
 - **Where the committed scenarios live.** They're only in this repo's
   `example-files/permutations/`, each GeoPackage pair beside its workbook.
   Neither the library nor the backend carries a copy, so no library consumer
-  pulls in test data.
-  - **Locally**, the backend finds this repo checked out beside it, by its
-    `package.json`. `METRIC_CORPUS_DIR` or `--corpus` names another folder.
-  - **In CI**, the backend's jobs fetch that folder, and nothing else, with a
-    sparse, blobless clone of this repo. A backend pull request whose branch
-    also exists here uses that branch, so a corpus change and a backend change
-    can be tested together before either is merged. Otherwise, and on every
-    publish, it's this repo's `main`.
-  - **A backend checkout on its own** skips the comparison's tests rather than
-    failing.
+  pulls in test data. `--corpus` names another folder.
 - **The comparison.** bng-library's `metric-compare` turns each side into
   comparable figures and compares them.
-- **The service's answers.** The backend's `importGeoPackagePair` runs the same
-  code the validate route does, in the same order, without S3, the worker pool
-  or a database. That code is the format gate, the GEOS geometry checks, the
-  data-quality checks, feature IDs, sizing, extraction, enrichment and the
-  schema. It returns the body `GET /projects/{id}` would return. The whole
-  corpus runs in a couple of seconds.
+- **The service's answers.** `importGeoPackagePair`
+  (`scripts/metric-comparison/`) runs the same code the backend's validate
+  route does, in the same order, without S3, the worker pool or a database.
+  That code is the format gate, the GEOS geometry checks, the data-quality
+  checks, feature IDs, sizing, extraction, enrichment and the schema. It is
+  the backend's own: each module is imported from the backend checkout, and
+  resolves its dependencies, the engine included, from the backend's
+  `node_modules` at the version the backend pins. Nothing is copied, so the
+  comparison measures what the service would deploy. It returns the body
+  `GET /projects/{id}` would return. The whole corpus runs in a few seconds.
+  - The backend exports what the import calls (`runDataQualityChecks`,
+    `layersForUpload`, `extractAndValidateDocument`, `saveHandlersForConfig`,
+    DEFRA/bng-metric-backend#417). A backend that predates them fails with a
+    message saying so.
+  - **Without an installed backend** the command stops with a pointer to
+    `npm run bootstrap` and `npm run install:be`, and the comparison's tests
+    (`tests/scripts/metric-comparison/`) skip.
 
-### Why it runs in the backend's CI
+### Why it lives in the harness
 
-The figures under test come from two places: the engine in bng-library, and the
-backend's extraction and enrichment around it. The backend is the only repo that
-has both. A library change reaches the service only when the backend's
-`bng-library` pin is bumped, and that bump is a backend pull request. So the
-comparison runs there, where a change's report can be read before it lands.
+The figures under test come from three repos: the scenarios and the metric's
+answers here, the engine in bng-library, and the extraction and enrichment in
+the backend. The harness is where the three already meet, with the scenarios
+committed and the siblings checked out beside it, so the comparison lives here
+and imports the backend rather than the backend fetching the scenarios. The
+backend keeps only the few exports the import needs.
 
-- **Every pull request** (`check-pull-request.yml`) runs `npm run compare:metric`.
-  The summary goes on the job summary. The full report (`report.html` and `report.xlsx`)
-  goes in the `metric-comparison` artifact.
-- **Every publish** (`publish.yml`, on each push to main) does the same, so the
-  sample spreadsheets are re-evaluated for each commit that reaches main. It
-  never holds up a publish.
-- `npm test` checks that the comparison itself runs (`metric-comparison.test.js`),
-  not what it finds.
+- **Every pull request** here (`check-pull-request.yml`) checks the backend
+  out beside the harness, installs it, and runs `npm run compare:metric`. A
+  pull request whose branch also exists in the backend uses that branch, so a
+  scenario change here and a backend change can be tested together before
+  either is merged. Otherwise, it's the backend's `main`. The summary goes on
+  the job summary. The full report (`report.html` and `report.xlsx`) goes in
+  the `metric-comparison` artifact.
+- **Every Monday** the same workflow's schedule re-runs it against the
+  backend's `main`, so a change that reached the service since is in that
+  week's report. A backend change does not trigger it; to see a backend
+  branch's report, run it locally with `BNG_BACKEND_DIR`, or open a harness
+  pull request from a branch of the same name.
+- The workflow fails only when the comparison cannot run (no backend, or one
+  that predates its exports), never on what it finds.
+- `npm run test:scripts` checks that the comparison itself runs, not what it
+  finds.
 - bng-library's own CI tests the comparator, the workbook reader and the
   reports.
 
@@ -155,7 +170,7 @@ template, regenerate it and commit the result here:
 ```sh
 npm run lib:link                     # use the local bng-library
 npm run generate:scenarios -- --outdir example-files/permutations --seed 1
-npm run compare:metric               # the backend picks up the new corpus at once
+npm run compare:metric               # compares the new corpus at once
 ```
 
 ### What the first run found
