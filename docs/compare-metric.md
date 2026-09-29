@@ -103,9 +103,11 @@ flowchart LR
   pulls in test data.
   - **Locally**, the backend finds this repo checked out beside it, by its
     `package.json`. `METRIC_CORPUS_DIR` or `--corpus` names another folder.
-  - **In CI**, the backend's jobs fetch that folder, and nothing else, from
-    this repo's `main` with a sparse, blobless clone. So a corpus change
-    reaches backend CI once it is merged here.
+  - **In CI**, the backend's jobs fetch that folder, and nothing else, with a
+    sparse, blobless clone of this repo. A backend pull request whose branch
+    also exists here uses that branch, so a corpus change and a backend change
+    can be tested together before either is merged. Otherwise, and on every
+    publish, it's this repo's `main`.
   - **A backend checkout on its own** skips the comparison's tests rather than
     failing.
 - **The comparison.** bng-library's `metric-compare` turns each side into
@@ -160,27 +162,31 @@ npm run compare:metric               # the backend picks up the new corpus at on
 
 On the seed-1 corpus of 37 scenarios:
 
-- 36 scenarios have discrepancies.
+- 29 scenarios have discrepancies.
 - `invalid-area-advance-and-delay` is refused by the service, as expected.
+- The other 7 scenarios built on invalid data are accepted by the service. They
+  are reported as "Accepted, though its data is invalid", with their
+  discrepancies, because the service should have refused them.
 - 551 of 1,813 comparable figures match exactly.
 - 540 figures are not implemented in the service yet.
 
-Of the 578 per-feature discrepancies, 561 have a known cause:
+Of the 578 per-feature discrepancies, 562 have a known cause:
 
 | Cause | Discrepancies | |
 | --- | --- | --- |
-| Sizes rounded before pricing | 347 (+140 with the next) | The backend rounds each area to the whole m² and each length to the whole m (`Math.round(feature.sizeMetres)`) before pricing. The metric prices the measured size. The effect is small (a median of 0.0004%, up to 0.9% on the shortest features), but it is not exact. |
-| Strategic significance not applied | 74 (+140 with the above) | The engine prices every feature at a strategic significance multiplier of 1 (`BASELINE_STRATEGIC_SIGNIFICANCE_MULTIPLIER`). The metric applies 1.1 or 1.15, so affected features are 9.1% or 13.0% lower in the service. This is enough to flip a net gain verdict: `intervention-hedgerow-retained` is Met in the service at 10.01% and Not met in the metric at 9.09%. |
+| Sizes rounded before pricing | 347 (+141 with the next) | The backend rounds each area to the whole m² and each length to the whole m (`Math.round(feature.sizeMetres)`) before pricing. The metric prices the measured size. The effect is small (a median of 0.0004%, up to 0.9% on the shortest features), but it is not exact. |
+| Strategic significance not applied | 74 (+141 with the above) | The engine prices every feature at a strategic significance multiplier of 1 (`BASELINE_STRATEGIC_SIGNIFICANCE_MULTIPLIER`). The metric applies 1.1 or 1.15, so affected features are 9.1% or 13.0% lower in the service. This is enough to flip a net gain verdict: `intervention-hedgerow-retained` is Met in the service at 10.01% and Not met in the metric at 9.09%. |
 
-The 17 without a known cause are worth investigating first:
+The 16 without a known cause are worth investigating first:
 
-- **Created trees** (`T005` in 15 scenarios). The workbook reads a year of
+- **Created trees** (`T005` in 13 scenarios). The workbook reads a year of
   advance creation from the tree's row that the service does not, and prices the
   tree's time to target as "30+" where the service has "30". One of the tree
   advance/delay columns is read differently on the two sides.
-- **Created habitats priced with a different difficulty**, for example
-  `intervention-watercourse-created` H005 (Reservoirs). The metric applies
-  Medium difficulty (×0.67); the service applies Low (×1).
+- **An enhanced tree**, `intervention-area-enhanced` T001. The service prices it
+  6.5% lower than the metric.
+- **A created habitat**, `intervention-watercourse-retained` H006. The service
+  prices it 7.4% higher than the metric.
 - **`invalid-area-trading-down`** H001. The metric computes nothing for this
   enhancement (it breaks the trading-down rule), while the service prices it.
   That is expected until enhancement rules are validated, which is out of scope
