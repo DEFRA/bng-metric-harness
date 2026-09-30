@@ -40,3 +40,6 @@ mkdocs.generated.yml
 
 # GeoPackage validation explainer working state — intermediates, not deliverables
 /.geopackage-validation-explainer/
+
+# npm run compare:metric output
+/metric-comparison/

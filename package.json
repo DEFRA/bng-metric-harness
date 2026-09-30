@@ -8,7 +8,8 @@
     "#gpkg-io": "bng-library/gpkg-io",
     "#bng-lib": "bng-library",
     "#metric": "bng-library/metric",
-    "#workbook-writer": "bng-library/workbook-writer"
+    "#workbook-writer": "bng-library/workbook-writer",
+    "#metric-compare": "bng-library/metric-compare"
   },
   "engines": {
     "node": ">=24.14.1"
@@ -36,6 +37,7 @@
     "generate:gpkg": "node scripts/gen-gpkg.mjs",
     "generate:scenarios": "node scripts/gen-scenarios.mjs",
     "generate:scenarios:docker": "docker compose -f compose.gen-scenarios.yml run --rm --build gen-scenarios",
+    "compare:metric": "node scripts/compare-metric.mjs",
     "generate:gpkg:docker": "docker compose -f compose.gen-gpkg.yml run --rm --build gen-gpkg",
     "lib:link": "npm link ../bng-library",
     "lib:unlink": "npm uninstall --no-save bng-library && npm install",
@@ -58,7 +60,7 @@
   },
   "devDependencies": {
     "better-sqlite3": "^13.0.3",
-    "bng-library": "github:DEFRA/bng-library#b4f751cbb4962c5d9fa304516983af1fa45dd707",
+    "bng-library": "github:DEFRA/bng-library#154cfdf6a1d858fd8787c998d1b6134fce5dbdc5",
     "husky": "9.1.7",
     "likec4": "^1.59.4",
     "remark-parse": "^11.0.0",

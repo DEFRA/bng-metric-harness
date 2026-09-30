@@ -33,3 +33,71 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # The metric comparison runs in a job of its own, so nothing it does can skip
+  # the Sonar scan or fail the checks above: a flaky clone or install, a
+  # backend main without the exports the comparison needs, or a crash. It
+  # reports, and never fails the workflow; differences never fail it either.
+  metric-comparison:
+    name: Compare the service with the metric
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      # The metric comparison runs the backend's upload pipeline in process,
+      # so it needs the backend checked out beside the harness, where a
+      # developer has it, and installed. A pull request whose branch also
+      # exists in the backend uses the backend branch, so a change to the
+      # scenarios here and a change there can be tested together before either
+      # is merged; otherwise the backend's main.
+      - name: Check out the backend beside the harness
+        env:
+          BACKEND_URL: https://github.com/DEFRA/bng-metric-backend.git
+          PR_BRANCH: ${{ github.head_ref }}
+        run: |
+          backend="$GITHUB_WORKSPACE/../bng-metric-backend"
+          ref=main
+          if [ -n "$PR_BRANCH" ] && git ls-remote --exit-code --heads "$BACKEND_URL" "$PR_BRANCH" > /dev/null; then
+            ref="$PR_BRANCH"
+          fi
+          echo "Metric comparison runs bng-metric-backend@$ref"
+          git clone --quiet --depth 1 --branch "$ref" "$BACKEND_URL" "$backend"
+          cd "$backend"
+          # As the backend's own CI does: min-release-age collides with the
+          # git-dependency prepare step npm runs for bng-library
+          # (npm/cli#9005), and npm ci installs exact locked versions anyway.
+          sed -i '/^min-release-age=/d' .npmrc
+          npm ci
+
+      # Every committed scenario is imported through the backend's upload
+      # pipeline and compared, figure by figure, with the Statutory
+      # Biodiversity Metric's own answers. Report only: differences never fail
+      # the job; the reports are for people to judge. A summary goes on the job
+      # summary, the full report (report.html and report.xlsx) in the artifact.
+      - name: Compare the service with the metric
+        id: compare-metric
+        run: npm run compare:metric
+
+      - name: Publish the metric comparison summary
+        if: ${{ !cancelled() && steps.compare-metric.outcome != 'skipped' }}
+        run: |
+          if [ -f metric-comparison/summary.md ]; then
+            cat metric-comparison/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload the metric comparison report
+        if: ${{ !cancelled() && steps.compare-metric.outcome != 'skipped' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: metric-comparison
+          path: metric-comparison/
+          if-no-files-found: warn

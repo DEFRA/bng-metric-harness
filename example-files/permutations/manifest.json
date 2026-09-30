@@ -44,6 +44,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "738936fb10309b54f2d0f316862063ef2e60fac3d5b82c75142392ab503d26c8",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 1,
@@ -75,9 +76,9 @@
             "watercourse": 0.528312991089552
           },
           "netPercentChange": {
-            "area": -0.0019439784565339299,
+            "area": -0.00194397845653393,
             "hedgerow": 0.894988472348617,
-            "watercourse": 0.46001667423382003
+            "watercourse": 0.46001667423382
           },
           "netGainMessage": {
             "area": "On-site net gain is less than target set ⚠",
@@ -229,6 +230,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "1a25b47ae8d15e9718ddb8db7dc3e3cc3895874d8a1823659fdf1c37ad31b2cc",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 1,
@@ -428,6 +430,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "e61edc2b590ef03271a8832abffed13b92e6699c03dac0ff2ec3a540047b5f45",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 7,
@@ -460,7 +463,7 @@
           },
           "netPercentChange": {
             "area": 0.0946418291076761,
-            "hedgerow": -0.22692365925719699,
+            "hedgerow": -0.226923659257197,
             "watercourse": 0.264611129715484
           },
           "netGainMessage": {
@@ -653,6 +656,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "0c20079880c19bd04f9e8ec5eed41edfa035fec70852ec90190d1ea61766b1ec",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 4,
@@ -894,6 +898,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "42219812148c92e251a15d1be8ec396d7d8ea818194137d2277b2a958b780927",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 3,
@@ -1089,6 +1094,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "28e7fdafa09033dcbfe56ff35ac7da06afe937054e0e79c3f0a70038cb96af2e",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 6,
@@ -1318,6 +1324,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "95badd088c111b65d5112ff6a655b2e22e07b34b477b4c36b67e03ae8fb35b56",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 7,
@@ -1507,6 +1514,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "85563b70ff72de87d434032fc5a47de3a19ab28c6c48249b5a2f72ceadf3fc4b",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 6,
@@ -1539,7 +1547,7 @@
           },
           "netPercentChange": {
             "area": 0.219981185810369,
-            "hedgerow": 0.45631262895970104,
+            "hedgerow": 0.456312628959701,
             "watercourse": 0.544592450300838
           },
           "netGainMessage": {
@@ -1735,6 +1743,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "a91604f248bcc8b60662c75acfa8181a2c822fd43346647fc063251b93615196",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 6,
@@ -1767,7 +1776,7 @@
           },
           "netPercentChange": {
             "area": -0.190108828588166,
-            "hedgerow": 0.9021842940814351,
+            "hedgerow": 0.902184294081435,
             "watercourse": 1.91721994382182
           },
           "netGainMessage": {
@@ -1993,6 +2002,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "e04ede49b2925cf4f85a629c0091286e99f1fb3799d7c07edb2f1883efcce458",
       "inputRows": {
         "habitatBaseline": 2,
         "habitatCreation": 0,
@@ -2184,6 +2194,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "89894ed3cfa40d604978af75dfd28729d7bfd08a905a6f790e2a163bdedf4420",
       "inputRows": {
         "habitatBaseline": 2,
         "habitatCreation": 0,
@@ -2375,6 +2386,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "33f2bfff890fa05594b3c5be1aeb1c01cfb3ebfec9d722cc5abe7f1739f93634",
       "inputRows": {
         "habitatBaseline": 2,
         "habitatCreation": 0,
@@ -2567,6 +2579,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "efeaf2d8cb158c101454a72d5431b47bce3a2debb1a992b06df5915d20f79a23",
       "inputRows": {
         "habitatBaseline": 2,
         "habitatCreation": 1,
@@ -2755,6 +2768,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "9a57fa1eeaeeb1f1a82212d861bfb56b9db5c59b6df66e0215693e4a19342994",
       "inputRows": {
         "habitatBaseline": 1,
         "habitatCreation": 0,
@@ -3010,6 +3024,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "eebc41664db418ec205ff4d484439fbff6e7387d2d6b68a52bcd0e8716fbd5b7",
       "inputRows": {
         "habitatBaseline": 1,
         "habitatCreation": 0,
@@ -3198,6 +3213,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "0f5ae29fc13a3f827c1fe512e01586063a7c490d5d251ebd02def49d578b7fab",
       "inputRows": {
         "habitatBaseline": 1,
         "habitatCreation": 0,
@@ -3388,6 +3404,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "0cdb31ef3d71ed01711b0387678d9943c86e5a90068a02cba1112d65669d71d8",
       "inputRows": {
         "habitatBaseline": 9,
         "habitatCreation": 1,
@@ -3420,7 +3437,7 @@
           },
           "netPercentChange": {
             "area": -0.00102902192754351,
-            "hedgerow": -0.5702546917167161,
+            "hedgerow": -0.570254691716716,
             "watercourse": -0.14002679566841
           },
           "netGainMessage": {
@@ -3607,6 +3624,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "8173e4e234f5bc1686080d44d4581e052ad43b0d4fdb65821c6a209561a8798c",
       "inputRows": {
         "habitatBaseline": 7,
         "habitatCreation": 1,
@@ -3817,6 +3835,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "081010bb9d4cb0bed1e5f03d359b8e33164b682f6bd68d21aa0dab25ec36623d",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 1,
@@ -4027,6 +4046,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "8f1d357b3d6269339691f79bfa257a5b3f978ca2ab83666bfdce2361d2adf58a",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 1,
@@ -4058,7 +4078,7 @@
             "watercourse": 1.2512614979151
           },
           "netPercentChange": {
-            "area": 0.0008010762592385311,
+            "area": 0.000801076259238531,
             "hedgerow": -0.0900507856022873,
             "watercourse": 3.5846206031075
           },
@@ -4242,6 +4262,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "8a2ed91cabcb7afdb7c58ccacc9d7b60072f463b34bdf81f1e85fe8584f840b6",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 1,
@@ -4273,8 +4294,8 @@
             "watercourse": -0.729363317182367
           },
           "netPercentChange": {
-            "area": 1.1557522781860898,
-            "hedgerow": 1.3361596562539901,
+            "area": 1.15575227818609,
+            "hedgerow": 1.33615965625399,
             "watercourse": -0.430205506211647
           },
           "netGainMessage": {
@@ -4493,6 +4514,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "6165842db4d3b67b9e5435c7245726651abd5b825baf1714edbec204e755b90d",
       "inputRows": {
         "habitatBaseline": 3,
         "habitatCreation": 0,
@@ -4689,6 +4711,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "0972e40dd62d204fa96d97f0b03297d80c789eb587123e6445f9251a32e8539d",
       "inputRows": {
         "habitatBaseline": 3,
         "habitatCreation": 2,
@@ -4720,9 +4743,9 @@
             "watercourse": 1.612919969547
           },
           "netPercentChange": {
-            "area": 0.14068802886704002,
+            "area": 0.14068802886704,
             "hedgerow": 2.20036128762108,
-            "watercourse": 2.7399789579301603
+            "watercourse": 2.73997895793016
           },
           "netGainMessage": {
             "area": null,
@@ -4885,6 +4908,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "a7fd731cd89390cc7e976462a821f0d880f772ae84d471755d6cd2cdab86c37f",
       "inputRows": {
         "habitatBaseline": 2,
         "habitatCreation": 1,
@@ -4918,7 +4942,7 @@
           "netPercentChange": {
             "area": -0.0759275367182716,
             "hedgerow": -0.535609229998825,
-            "watercourse": -0.7778844304116199
+            "watercourse": -0.77788443041162
           },
           "netGainMessage": {
             "area": "On-site net gain is less than target set ⚠",
@@ -5144,6 +5168,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "f1b9ed2142c9797947f1e6a591425e991c63ec654cefbed2fbc3c422104025c7",
       "inputRows": {
         "habitatBaseline": 3,
         "habitatCreation": 2,
@@ -5175,8 +5200,8 @@
             "watercourse": 1.36753793002781
           },
           "netPercentChange": {
-            "area": 0.23605041193450202,
-            "hedgerow": 0.020968912918765098,
+            "area": 0.236050411934502,
+            "hedgerow": 0.0209689129187651,
             "watercourse": 2.52028053384032
           },
           "netGainMessage": {
@@ -5386,6 +5411,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "bc3e0cdabb765ce60caf751c634d73dfc9204440e7f5dd4d653f9eb9a6a7c076",
       "inputRows": {
         "habitatBaseline": 2,
         "habitatCreation": 1,
@@ -5628,6 +5654,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "9c21663d5057e421a319201a907480f15e8d268d6cdef28925d683770a2931de",
       "inputRows": {
         "habitatBaseline": 2,
         "habitatCreation": 1,
@@ -5660,7 +5687,7 @@
           },
           "netPercentChange": {
             "area": 0.392217117159761,
-            "hedgerow": 3.3819279141736303,
+            "hedgerow": 3.38192791417363,
             "watercourse": 3.7095667063962
           },
           "netGainMessage": {
@@ -5812,6 +5839,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "75f077f9c3e5398cae82d1edf4d520e353d3d20bc97ff78e4ca200cc74467180",
       "inputRows": {
         "habitatBaseline": 2,
         "habitatCreation": 1,
@@ -5843,7 +5871,7 @@
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": 0.17049369836558198,
+            "area": 0.170493698365582,
             "hedgerow": 0.317502752460324,
             "watercourse": 0
           },
@@ -5996,6 +6024,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "ec531ce65eeb99b06935ad5bbd3dc42e00e8baa3c7ecf701a00504865b8fa094",
       "inputRows": {
         "habitatBaseline": 2,
         "habitatCreation": 1,
@@ -6211,6 +6240,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "b227b4c57ab5db2fd402ff9087e4616f010f30384aac3169671171cd39e05ead",
       "inputRows": {
         "habitatBaseline": 3,
         "habitatCreation": 1,
@@ -6242,7 +6272,7 @@
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": 0.20820020866393601,
+            "area": 0.208200208663936,
             "hedgerow": 0.745625916900107,
             "watercourse": 0
           },
@@ -6395,6 +6425,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "be62be486e88b0de1cd370c8dd73f69203cef2020f371158e50ece1acfec6146",
       "inputRows": {
         "habitatBaseline": 3,
         "habitatCreation": 1,
@@ -6426,7 +6457,7 @@
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": 0.058636987633824196,
+            "area": 0.0586369876338242,
             "hedgerow": -0.0255818811719721,
             "watercourse": 0
           },
@@ -6592,6 +6623,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "3839ed69081a13014ad39e4f8d837365c2218176c8645fdab9e6d524417ea5f4",
       "inputRows": {
         "habitatBaseline": 4,
         "habitatCreation": 1,
@@ -6623,7 +6655,7 @@
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": 0.587490142396209,
+            "area": 0.587490142396208,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -6774,6 +6806,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "1a9615ef901070cc4109ae80e42db7e7ff556999f2ce7d1aa870dab89aa46728",
       "inputRows": {
         "habitatBaseline": 3,
         "habitatCreation": 2,
@@ -6944,6 +6977,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "15334abb972288dd7aa942a551fcfac851bc6d40e2b12d0310e0fb36b65b0862",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 7,
@@ -6975,8 +7009,8 @@
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": 0.822656882369412,
-            "hedgerow": -0.17952848297951401,
+            "area": 0.822656882369413,
+            "hedgerow": -0.179528482979514,
             "watercourse": 0
           },
           "netGainMessage": {
@@ -7201,6 +7235,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "a292cd2b5cf5f61764c5d12ed4482d3e80fa7ac4bb90d93d00ad5e3b16c0ea85",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 7,
@@ -7234,7 +7269,7 @@
           "netPercentChange": {
             "area": -0.155865053957858,
             "hedgerow": 3.69075550231585,
-            "watercourse": -0.9572108061421061
+            "watercourse": -0.957210806142106
           },
           "netGainMessage": {
             "area": "On-site net gain is less than target set ⚠",
@@ -7453,6 +7488,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "063ba211a6afc5ebdd56aeaa70f90d99c34b982596958232837fa5cb051304e1",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 1,
@@ -7658,6 +7694,7 @@
           "passed": true
         }
       ],
+      "workbookSource": "51e4648973f0b20769cbdee373de941ec011404a55b746e45cb942a17bea0df6",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 1,

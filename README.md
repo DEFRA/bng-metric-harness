@@ -213,6 +213,10 @@ This repo contains scripts to generate example GeoPackage files for testing:
 
 See [docs/generate-test-data.md](docs/generate-test-data.md) and [docs/generate-scenarios.md](docs/generate-scenarios.md) for details.
 
+## Comparison with the metric
+
+`npm run compare:metric` imports every scenario in the corpus through the backend's upload pipeline and compares the service's figures (unit calculations per feature, totals, net gain, trading rules figures and statuses) exactly with the metric's own. It writes an HTML report of every discrepancy, how far it is from the metric's value, and what the service does not implement yet. It runs the backend checked out beside the harness, in process (run `npm run install:be` first). This repo's pull-request check and weekly schedule produce the report as a CI artifact; differences are reported, not failed. See [docs/compare-metric.md](docs/compare-metric.md).
+
 ## Tilt
 
 [Tilt](https://tilt.dev/) is a local development orchestrator. Instead of manually running `docker compose up` and `npm run dev` separately, Tilt starts the full stack — Docker services **and** both Node apps — in one command, with dependency ordering (apps wait for their backing services to be healthy) and a web dashboard for logs and restarts.
