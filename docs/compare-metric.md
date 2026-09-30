@@ -44,7 +44,10 @@ doing.
 **The comparison is exact.** Both sides carry 15 significant figures: the
 engine rounds every result to that, and LibreOffice exports the recalculated
 values at that precision. Each number is taken to 15 significant figures, and
-then the two must be equal. Every discrepancy is reported with both values, the
+then the two must be equal, give or take one in the 15th digit. That digit is
+not a tolerance for rounding: the engine and the spreadsheet multiply the same
+factors in a different order, and a last-bit difference in the product can land
+either side of a rounding boundary in the 15th digit. Every discrepancy is reported with both values, the
 difference (service less metric), and that difference as a share of the
 metric's value.
 
@@ -173,24 +176,34 @@ npm run generate:scenarios -- --outdir example-files/permutations --seed 1
 npm run compare:metric               # compares the new corpus at once
 ```
 
-### What the first run found
+### What the comparison finds
 
-On the seed-1 corpus of 37 scenarios:
+On the seed-1 corpus of 37 scenarios, since the service prices the measured
+size (BMD-1042):
 
-- 29 scenarios have discrepancies.
+- 26 scenarios have discrepancies. `trading-lost-to-development`,
+  `trading-low-deficit-covered-beside-medium-deficit` and `trading-low-for-low`
+  match the metric in every figure.
 - `invalid-area-advance-and-delay` is refused by the service, as expected.
 - The other 7 scenarios built on invalid data are accepted by the service. They
   are reported as "Accepted, though its data is invalid", with their
   discrepancies, because the service should have refused them.
-- 551 of 1,813 comparable figures match exactly.
+- 1,180 of 1,813 comparable figures match exactly (551 did while the service
+  priced rounded sizes).
 - 540 figures are not implemented in the service yet.
 
-Of the 578 per-feature discrepancies, 562 have a known cause:
+Of the 231 per-feature discrepancies, 215 have a known cause:
 
 | Cause | Discrepancies | |
 | --- | --- | --- |
-| Sizes rounded before pricing | 347 (+141 with the next) | The backend rounds each area to the whole m² and each length to the whole m (`Math.round(feature.sizeMetres)`) before pricing. The metric prices the measured size. The effect is small (a median of 0.0004%, up to 0.9% on the shortest features), but it is not exact. |
-| Strategic significance not applied | 74 (+141 with the above) | The engine prices every feature at a strategic significance multiplier of 1 (`BASELINE_STRATEGIC_SIGNIFICANCE_MULTIPLIER`). The metric applies 1.1 or 1.15, so affected features are 9.1% or 13.0% lower in the service. This is enough to flip a net gain verdict: `intervention-hedgerow-retained` is Met in the service at 10.01% and Not met in the metric at 9.09%. |
+| Strategic significance not applied | 215 | The engine prices every feature at a strategic significance multiplier of 1 (`BASELINE_STRATEGIC_SIGNIFICANCE_MULTIPLIER`). The metric applies 1.1 or 1.15, so affected features are 9.1% or 13.0% lower in the service. This is enough to flip a net gain verdict: `intervention-hedgerow-retained` is Met in the service at 10.01% and Not met in the metric at 9.09%. |
+
+Until BMD-1042 the service also rounded each area to the whole m² and each
+length to the whole metre before pricing it, where the metric prices the
+measured size: 488 per-feature discrepancies, up to 0.005 units each. The
+service now prices the measured size, and the workbooks carry that size exactly
+as the backend's GEOS measures it, so none remain; the *Priced on a different
+size* cause is kept to catch it coming back.
 
 The 16 without a known cause are worth investigating first:
 

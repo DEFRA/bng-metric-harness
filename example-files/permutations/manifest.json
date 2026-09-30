@@ -44,7 +44,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "738936fb10309b54f2d0f316862063ef2e60fac3d5b82c75142392ab503d26c8",
+      "workbookSource": "49e6d5af3b2a5417d23b6e3b0d3f1158461bc7356eb55e46fffadffdf1a85537",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 1,
@@ -61,12 +61,12 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 459.821616437988,
+            "area": 459.821616439843,
             "hedgerow": 5.48751544021243,
             "watercourse": 1.14846487242986
           },
           "postInterventionUnits": {
-            "area": 458.927733121784,
+            "area": 458.927733123639,
             "hedgerow": 10.3987785010376,
             "watercourse": 1.67677786351941
           },
@@ -76,7 +76,7 @@
             "watercourse": 0.528312991089552
           },
           "netPercentChange": {
-            "area": -0.00194397845653393,
+            "area": -0.00194397845652605,
             "hedgerow": 0.894988472348617,
             "watercourse": 0.46001667423382
           },
@@ -86,12 +86,12 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 505.803778081787,
+            "area": 505.803778083827,
             "hedgerow": 6.03626698423367,
             "watercourse": 1.26331135967284
           },
           "unitDeficit": {
-            "area": 46.8760449600029,
+            "area": 46.8760449601884,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -230,7 +230,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "1a25b47ae8d15e9718ddb8db7dc3e3cc3895874d8a1823659fdf1c37ad31b2cc",
+      "workbookSource": "a47a2e8f41a9980399f56db4e40f1e5b295555df7d43a38c85531723300b040b",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 1,
@@ -247,22 +247,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 427.822327561035,
+            "area": 427.822327557887,
             "hedgerow": 5.07783894373242,
             "watercourse": 2.11855441051759
           },
           "postInterventionUnits": {
-            "area": 577.356853431513,
+            "area": 577.356853427263,
             "hedgerow": 2.77175378232699,
             "watercourse": 2.11855441051759
           },
           "netUnitChange": {
-            "area": 149.534525870478,
+            "area": 149.534525869376,
             "hedgerow": -2.30608516140543,
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": 0.349524828970374,
+            "area": 0.34952482897037,
             "hedgerow": -0.454146968219981,
             "watercourse": 0
           },
@@ -272,7 +272,7 @@
             "watercourse": "On-site net gain is less than target set ⚠"
           },
           "unitsRequired": {
-            "area": 470.604560317139,
+            "area": 470.604560313676,
             "hedgerow": 5.58562283810566,
             "watercourse": 2.33040985156935
           },
@@ -348,7 +348,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 149.534525870478
+          "areaCumulativeSurplus": 149.534525869376
         },
         "sheetWarnings": [
           {
@@ -430,7 +430,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "e61edc2b590ef03271a8832abffed13b92e6699c03dac0ff2ec3a540047b5f45",
+      "workbookSource": "be644998a529c34b9b061cdf4643ef6c329f1264a8009606e675d148995da29e",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 7,
@@ -447,22 +447,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 373.516158100586,
+            "area": 373.516158121985,
             "hedgerow": 5.80930272573454,
             "watercourse": 1.62938558138676
           },
           "postInterventionUnits": {
-            "area": 408.866410504497,
+            "area": 408.866410528648,
             "hedgerow": 4.49103449347805,
             "watercourse": 2.06053914081963
           },
           "netUnitChange": {
-            "area": 35.3502524039114,
+            "area": 35.3502524066633,
             "hedgerow": -1.31826823225649,
             "watercourse": 0.43115355943287
           },
           "netPercentChange": {
-            "area": 0.0946418291076761,
+            "area": 0.0946418291096218,
             "hedgerow": -0.226923659257197,
             "watercourse": 0.264611129715484
           },
@@ -472,12 +472,12 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 410.867773910645,
+            "area": 410.867773934183,
             "hedgerow": 6.390232998308,
             "watercourse": 1.79232413952543
           },
           "unitDeficit": {
-            "area": 2.00136340614722,
+            "area": 2.00136340553519,
             "hedgerow": 1.89919850482994,
             "watercourse": 0
           },
@@ -548,7 +548,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 35.669508909654
+          "areaCumulativeSurplus": 35.6695089124059
         },
         "sheetWarnings": [
           {
@@ -656,7 +656,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "0c20079880c19bd04f9e8ec5eed41edfa035fec70852ec90190d1ea61766b1ec",
+      "workbookSource": "93972fa1ff16acde9d80439529d1b12b9eaec082e5b5f30c8edd22d9140abf92",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 4,
@@ -673,22 +673,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 176.100457318344,
+            "area": 176.100457330091,
             "hedgerow": 8.86404193823939,
             "watercourse": 1.56447882055107
           },
           "postInterventionUnits": {
-            "area": 192.107632294434,
+            "area": 192.107632303979,
             "hedgerow": 9.81422610593515,
             "watercourse": 0.927719785543748
           },
           "netUnitChange": {
-            "area": 16.0071749760895,
+            "area": 16.0071749738873,
             "hedgerow": 0.950184167695763,
             "watercourse": -0.636759035007326
           },
           "netPercentChange": {
-            "area": 0.0908979750526864,
+            "area": 0.0908979750341177,
             "hedgerow": 0.107195360120836,
             "watercourse": -0.407010326150042
           },
@@ -698,12 +698,12 @@
             "watercourse": "On-site net gain is less than target set ⚠"
           },
           "unitsRequired": {
-            "area": 193.710503050179,
+            "area": 193.7105030631,
             "hedgerow": 9.75044613206333,
             "watercourse": 1.72092670260618
           },
           "unitDeficit": {
-            "area": 1.6028707557449,
+            "area": 1.6028707591218,
             "hedgerow": 0,
             "watercourse": 0.793206917062434
           },
@@ -774,7 +774,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 52.6034271180472
+          "areaCumulativeSurplus": 52.6034271200314
         },
         "sheetWarnings": [
           {
@@ -898,7 +898,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "42219812148c92e251a15d1be8ec396d7d8ea818194137d2277b2a958b780927",
+      "workbookSource": "2ad591ecdba19a7641665bb15d39ad9183b489accdeba47d29a6e09905c73e7e",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 3,
@@ -915,22 +915,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 224.890151410484,
+            "area": 224.890151422783,
             "hedgerow": 9.84657279409039,
-            "watercourse": 2.53394471297993
+            "watercourse": 2.53394471297994
           },
           "postInterventionUnits": {
-            "area": 255.138789090646,
+            "area": 255.138789107135,
             "hedgerow": 2.70339205618357,
-            "watercourse": 2.53394471297993
+            "watercourse": 2.53394471297994
           },
           "netUnitChange": {
-            "area": 30.2486376801621,
+            "area": 30.2486376843518,
             "hedgerow": -7.14318073790682,
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": 0.134504056715896,
+            "area": 0.134504056727169,
             "hedgerow": -0.725448426298533,
             "watercourse": 0
           },
@@ -940,7 +940,7 @@
             "watercourse": "On-site net gain is less than target set ⚠"
           },
           "unitsRequired": {
-            "area": 247.379166551533,
+            "area": 247.379166565062,
             "hedgerow": 10.8312300734994,
             "watercourse": 2.78733918427793
           },
@@ -1016,7 +1016,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 30.6637472303998
+          "areaCumulativeSurplus": 30.6637472345895
         },
         "sheetWarnings": [
           {
@@ -1094,7 +1094,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "28e7fdafa09033dcbfe56ff35ac7da06afe937054e0e79c3f0a70038cb96af2e",
+      "workbookSource": "59db20c800912f770d14000737228c5d816620e9a36071ba1d457af5ea816181",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 6,
@@ -1111,22 +1111,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 160.617685106583,
+            "area": 160.617685110984,
             "hedgerow": 2.72978324805183,
             "watercourse": 1.21519507553963
           },
           "postInterventionUnits": {
-            "area": 159.949853040207,
+            "area": 159.949853046729,
             "hedgerow": 7.93513820713456,
             "watercourse": 1.21519507553963
           },
           "netUnitChange": {
-            "area": -0.667832066376093,
+            "area": -0.667832064255009,
             "hedgerow": 5.20535495908273,
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": -0.0041578987141605,
+            "area": -0.00415789870084071,
             "hedgerow": 1.90687482707561,
             "watercourse": 0
           },
@@ -1136,12 +1136,12 @@
             "watercourse": "On-site net gain is less than target set ⚠"
           },
           "unitsRequired": {
-            "area": 176.679453617241,
+            "area": 176.679453622082,
             "hedgerow": 3.00276157285702,
             "watercourse": 1.33671458309359
           },
           "unitDeficit": {
-            "area": 16.7296005770344,
+            "area": 16.7296005753534,
             "hedgerow": 0,
             "watercourse": 0.121519507553963
           },
@@ -1212,7 +1212,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": -0.514278462442171
+          "areaCumulativeSurplus": -0.514278460321073
         },
         "sheetWarnings": [
           {
@@ -1324,7 +1324,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "95badd088c111b65d5112ff6a655b2e22e07b34b477b4c36b67e03ae8fb35b56",
+      "workbookSource": "4104947bbeec6cceb2e8bc4aa74d1fa9223734e15e40436d868e76c67a25c4a1",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 7,
@@ -1341,23 +1341,23 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 251.537611868591,
+            "area": 251.537611873452,
             "hedgerow": 6.08224263109725,
             "watercourse": 7.44549823722184
           },
           "postInterventionUnits": {
-            "area": 264.525882382021,
+            "area": 264.525882386788,
             "hedgerow": 6.25309461474303,
             "watercourse": 7.99901993086405
           },
           "netUnitChange": {
-            "area": 12.9882705134296,
-            "hedgerow": 0.170851983645777,
+            "area": 12.9882705133356,
+            "hedgerow": 0.170851983645778,
             "watercourse": 0.553521693642213
           },
           "netPercentChange": {
-            "area": 0.0516355006193467,
-            "hedgerow": 0.0280902939932461,
+            "area": 0.0516355006179747,
+            "hedgerow": 0.0280902939932464,
             "watercourse": 0.0743431367527596
           },
           "netGainMessage": {
@@ -1366,13 +1366,13 @@
             "watercourse": "On-site net gain is less than target set ⚠"
           },
           "unitsRequired": {
-            "area": 276.69137305545,
+            "area": 276.691373060797,
             "hedgerow": 6.69046689420698,
             "watercourse": 8.19004806094402
           },
           "unitDeficit": {
-            "area": 12.1654906734295,
-            "hedgerow": 0.437372279463949,
+            "area": 12.1654906740097,
+            "hedgerow": 0.437372279463948,
             "watercourse": 0.191028130079972
           },
           "target": 0.1,
@@ -1442,7 +1442,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 144.895154402851
+          "areaCumulativeSurplus": 144.895154404177
         },
         "sheetWarnings": [
           {
@@ -1514,7 +1514,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "85563b70ff72de87d434032fc5a47de3a19ab28c6c48249b5a2f72ceadf3fc4b",
+      "workbookSource": "6c78fb86dbee307529bf6a26781b2279522a42949a9ead9b87aa17b3ff4f9a5c",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 6,
@@ -1531,22 +1531,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 238.916700224304,
+            "area": 238.916700229993,
             "hedgerow": 3.47807390005568,
             "watercourse": 3.48429645312453
           },
           "postInterventionUnits": {
-            "area": 291.473879249547,
+            "area": 291.473879242381,
             "hedgerow": 5.0651629451062,
             "watercourse": 5.38181799610613
           },
           "netUnitChange": {
-            "area": 52.5571790252429,
+            "area": 52.5571790123876,
             "hedgerow": 1.58708904505053,
             "watercourse": 1.89752154298161
           },
           "netPercentChange": {
-            "area": 0.219981185810369,
+            "area": 0.219981185751324,
             "hedgerow": 0.456312628959701,
             "watercourse": 0.544592450300838
           },
@@ -1556,7 +1556,7 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 262.808370246735,
+            "area": 262.808370252993,
             "hedgerow": 3.82588129006125,
             "watercourse": 3.83272609843698
           },
@@ -1632,7 +1632,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 129.764440342253
+          "areaCumulativeSurplus": 129.76444033669
         },
         "sheetWarnings": [
           {
@@ -1743,7 +1743,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "a91604f248bcc8b60662c75acfa8181a2c822fd43346647fc063251b93615196",
+      "workbookSource": "868d9654504128a8b35f2463f31a1038c4be1de379ffc76d6cb59fbe2f21ecd6",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 6,
@@ -1760,22 +1760,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 253.04037077774,
+            "area": 253.040370774396,
             "hedgerow": 1.8882485375649,
             "watercourse": 1.14221100788361
           },
           "postInterventionUnits": {
-            "area": 204.935162303669,
+            "area": 204.935162301849,
             "hedgerow": 3.59179671147819,
             "watercourse": 3.33208073225089
           },
           "netUnitChange": {
-            "area": -48.1052084740716,
+            "area": -48.1052084725478,
             "hedgerow": 1.70354817391329,
             "watercourse": 2.18986972436728
           },
           "netPercentChange": {
-            "area": -0.190108828588166,
+            "area": -0.190108828584657,
             "hedgerow": 0.902184294081435,
             "watercourse": 1.91721994382182
           },
@@ -1785,12 +1785,12 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 278.344407855515,
+            "area": 278.344407851836,
             "hedgerow": 2.07707339132139,
             "watercourse": 1.25643210867197
           },
           "unitDeficit": {
-            "area": 73.4092455518456,
+            "area": 73.4092455499874,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -1861,7 +1861,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 102.411863998031
+          "areaCumulativeSurplus": 102.411863998394
         },
         "sheetWarnings": [
           {
@@ -2002,7 +2002,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "e04ede49b2925cf4f85a629c0091286e99f1fb3799d7c07edb2f1883efcce458",
+      "workbookSource": "9317a0e99ecd960456a73ab9444bb40aabd7e821c58e9f82dcf7a31c58b9076d",
       "inputRows": {
         "habitatBaseline": 2,
         "habitatCreation": 0,
@@ -2019,22 +2019,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 489.049956066895,
+            "area": 489.049956061724,
             "hedgerow": 0,
             "watercourse": 0
           },
           "postInterventionUnits": {
-            "area": 279.086868048096,
+            "area": 279.086868042153,
             "hedgerow": 0,
             "watercourse": 0
           },
           "netUnitChange": {
-            "area": -209.963088018799,
+            "area": -209.963088019571,
             "hedgerow": 0,
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": -0.429328508088198,
+            "area": -0.429328508094316,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -2044,12 +2044,12 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 537.954951673584,
+            "area": 537.954951667896,
             "hedgerow": 0,
             "watercourse": 0
           },
           "unitDeficit": {
-            "area": 258.868083625488,
+            "area": 258.868083625743,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -2194,7 +2194,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "89894ed3cfa40d604978af75dfd28729d7bfd08a905a6f790e2a163bdedf4420",
+      "workbookSource": "5132e52eb232444bc2e6be9de034fbe618decb1a02b02bfc7ca5c6bb1c277ebc",
       "inputRows": {
         "habitatBaseline": 2,
         "habitatCreation": 0,
@@ -2211,22 +2211,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 453.129539862061,
+            "area": 453.129539857173,
             "hedgerow": 0,
             "watercourse": 0
           },
           "postInterventionUnits": {
-            "area": 221.347201525879,
+            "area": 221.347201528414,
             "hedgerow": 0,
             "watercourse": 0
           },
           "netUnitChange": {
-            "area": -231.782338336182,
+            "area": -231.78233832876,
             "hedgerow": 0,
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": -0.511514518357686,
+            "area": -0.511514518346823,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -2236,12 +2236,12 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 498.442493848267,
+            "area": 498.442493842891,
             "hedgerow": 0,
             "watercourse": 0
           },
           "unitDeficit": {
-            "area": 277.095292322388,
+            "area": 277.095292314477,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -2386,7 +2386,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "33f2bfff890fa05594b3c5be1aeb1c01cfb3ebfec9d722cc5abe7f1739f93634",
+      "workbookSource": "1bbaa26ee9f87a159971885e61c0af7813d4f8003a1d39c38d6b43d3cb6092e5",
       "inputRows": {
         "habitatBaseline": 2,
         "habitatCreation": 0,
@@ -2403,22 +2403,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 482.455420239258,
+            "area": 482.455420227093,
             "hedgerow": 0,
             "watercourse": 0
           },
           "postInterventionUnits": {
-            "area": 347.485266943359,
+            "area": 347.485266934266,
             "hedgerow": 0,
             "watercourse": 0
           },
           "netUnitChange": {
-            "area": -134.970153295898,
+            "area": -134.970153292827,
             "hedgerow": 0,
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": -0.279756735304092,
+            "area": -0.27975673530478,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -2428,12 +2428,12 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 530.700962263184,
+            "area": 530.700962249802,
             "hedgerow": 0,
             "watercourse": 0
           },
           "unitDeficit": {
-            "area": 183.215695319824,
+            "area": 183.215695315536,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -2579,7 +2579,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "efeaf2d8cb158c101454a72d5431b47bce3a2debb1a992b06df5915d20f79a23",
+      "workbookSource": "e9ac05adab630a64f86e4397fe0fef0cce5ad3292f3e1cc750b5cee6efe31086",
       "inputRows": {
         "habitatBaseline": 2,
         "habitatCreation": 1,
@@ -2596,22 +2596,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 389.04598137207,
+            "area": 389.045981366006,
             "hedgerow": 0,
             "watercourse": 0
           },
           "postInterventionUnits": {
-            "area": 240.661626550293,
+            "area": 240.661626547816,
             "hedgerow": 0,
             "watercourse": 0
           },
           "netUnitChange": {
-            "area": -148.384354821777,
+            "area": -148.384354818189,
             "hedgerow": 0,
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": -0.381405699908432,
+            "area": -0.381405699905156,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -2621,12 +2621,12 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 427.950579509277,
+            "area": 427.950579502606,
             "hedgerow": 0,
             "watercourse": 0
           },
           "unitDeficit": {
-            "area": 187.288952958984,
+            "area": 187.28895295479,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -2768,7 +2768,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "9a57fa1eeaeeb1f1a82212d861bfb56b9db5c59b6df66e0215693e4a19342994",
+      "workbookSource": "fc0d2ca11c96ab5dbf3c37ae49d722f1cb7aa2eddd3f61f9af857fc67f2c9f64",
       "inputRows": {
         "habitatBaseline": 1,
         "habitatCreation": 0,
@@ -2785,12 +2785,12 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 419.499503198242,
+            "area": 419.499503198746,
             "hedgerow": 2.50824194406017,
             "watercourse": 0
           },
           "postInterventionUnits": {
-            "area": 419.499503198242,
+            "area": 419.499503198746,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -2810,12 +2810,12 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 461.449453518066,
+            "area": 461.449453518621,
             "hedgerow": 2.75906613846619,
             "watercourse": 0
           },
           "unitDeficit": {
-            "area": 41.9499503198243,
+            "area": 41.9499503198746,
             "hedgerow": 2.75906613846619,
             "watercourse": 0
           },
@@ -3024,7 +3024,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "eebc41664db418ec205ff4d484439fbff6e7387d2d6b68a52bcd0e8716fbd5b7",
+      "workbookSource": "ca0686af7f22f8a6b030c500995267d787f9d0d77b9dac7f251a078026d195ac",
       "inputRows": {
         "habitatBaseline": 1,
         "habitatCreation": 0,
@@ -3050,12 +3050,12 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 437.583261791992,
+            "area": 437.58326178802,
             "hedgerow": 0,
             "watercourse": 2.02352043982477
           },
           "postInterventionUnits": {
-            "area": 437.583261791992,
+            "area": 437.58326178802,
             "hedgerow": 0,
             "watercourse": 1.52476001970612
           },
@@ -3075,12 +3075,12 @@
             "watercourse": "On-site net gain is less than target set ⚠"
           },
           "unitsRequired": {
-            "area": 481.341587971191,
+            "area": 481.341587966822,
             "hedgerow": 0,
             "watercourse": 2.22587248380725
           },
           "unitDeficit": {
-            "area": 43.7583261791992,
+            "area": 43.758326178802,
             "hedgerow": 0,
             "watercourse": 0.701112464101131
           },
@@ -3213,7 +3213,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "0f5ae29fc13a3f827c1fe512e01586063a7c490d5d251ebd02def49d578b7fab",
+      "workbookSource": "9db3de7d5c51cb9b1556c84b27ebf6f29443609d61fe82e4d948fd7fee89e7e7",
       "inputRows": {
         "habitatBaseline": 1,
         "habitatCreation": 0,
@@ -3230,12 +3230,12 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 481.082650506592,
+            "area": 481.082650516617,
             "hedgerow": 0,
             "watercourse": 3.82808103492229
           },
           "postInterventionUnits": {
-            "area": 481.082650506592,
+            "area": 481.082650516617,
             "hedgerow": 0,
             "watercourse": "Check Data ⚠"
           },
@@ -3255,12 +3255,12 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 529.190915557251,
+            "area": 529.190915568279,
             "hedgerow": 0,
             "watercourse": 4.21088913841452
           },
           "unitDeficit": {
-            "area": 48.1082650506593,
+            "area": 48.1082650516618,
             "hedgerow": 0,
             "watercourse": "Error ▲"
           },
@@ -3404,7 +3404,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "0cdb31ef3d71ed01711b0387678d9943c86e5a90068a02cba1112d65669d71d8",
+      "workbookSource": "366c0604f02dd6be482352855a8c5dfaa2b3933061d4607a5fd3169e821c3b92",
       "inputRows": {
         "habitatBaseline": 9,
         "habitatCreation": 1,
@@ -3421,22 +3421,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 423.510190466614,
+            "area": 423.510190448375,
             "hedgerow": 4.63876817939471,
             "watercourse": 3.24772988865401
           },
           "postInterventionUnits": {
-            "area": 423.074389194085,
+            "area": 423.074389175846,
             "hedgerow": 1.99348886130867,
             "watercourse": 2.79296067914927
           },
           "netUnitChange": {
-            "area": -0.435801272528295,
+            "area": -0.435801272528352,
             "hedgerow": -2.64527931808604,
             "watercourse": -0.454769209504743
           },
           "netPercentChange": {
-            "area": -0.00102902192754351,
+            "area": -0.00102902192758803,
             "hedgerow": -0.570254691716716,
             "watercourse": -0.14002679566841
           },
@@ -3446,12 +3446,12 @@
             "watercourse": "On-site net gain is less than target set ⚠"
           },
           "unitsRequired": {
-            "area": 465.861209513275,
+            "area": 465.861209493212,
             "hedgerow": 5.10264499733418,
             "watercourse": 3.57250287751941
           },
           "unitDeficit": {
-            "area": 42.7868203191897,
+            "area": 42.7868203173658,
             "hedgerow": 3.10915613602551,
             "watercourse": 0.779542198370144
           },
@@ -3624,7 +3624,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "8173e4e234f5bc1686080d44d4581e052ad43b0d4fdb65821c6a209561a8798c",
+      "workbookSource": "ea9d01b827eadc9cce2f4b3b5b5b5b02c63b38e53a47b4f08aba8892cb5e3041",
       "inputRows": {
         "habitatBaseline": 7,
         "habitatCreation": 1,
@@ -3641,22 +3641,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 454.993744239502,
+            "area": 454.993744252592,
             "hedgerow": 2.1479403449319,
             "watercourse": 2.65846817752122
           },
           "postInterventionUnits": {
-            "area": 455.173816051513,
+            "area": 455.173816064603,
             "hedgerow": 7.47527335606706,
             "watercourse": 2.45384470604148
           },
           "netUnitChange": {
-            "area": 0.180071812011079,
-            "hedgerow": 5.32733301113515,
+            "area": 0.180071812011022,
+            "hedgerow": 5.32733301113516,
             "watercourse": -0.204623471479735
           },
           "netPercentChange": {
-            "area": 0.000395767665579694,
+            "area": 0.00039576766556837,
             "hedgerow": 2.48020529234207,
             "watercourse": -0.0769704423058125
           },
@@ -3666,12 +3666,12 @@
             "watercourse": "On-site net gain is less than target set ⚠"
           },
           "unitsRequired": {
-            "area": 500.493118663452,
+            "area": 500.493118677851,
             "hedgerow": 2.36273437942509,
             "watercourse": 2.92431499527334
           },
           "unitDeficit": {
-            "area": 45.3193026119392,
+            "area": 45.3193026132482,
             "hedgerow": 0,
             "watercourse": 0.470470289231857
           },
@@ -3835,7 +3835,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "081010bb9d4cb0bed1e5f03d359b8e33164b682f6bd68d21aa0dab25ec36623d",
+      "workbookSource": "ae589a84f59bba77018766bf33466b294d22709bae37d2022e8e093decb5eeaa",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 1,
@@ -3852,22 +3852,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 118.815183057251,
+            "area": 118.815183054889,
             "hedgerow": 8.29352503893321,
             "watercourse": 1.87416022303741
           },
           "postInterventionUnits": {
-            "area": 460.821136127582,
+            "area": 460.821136118299,
             "hedgerow": 8.75952736605984,
             "watercourse": 1.87416022303741
           },
           "netUnitChange": {
-            "area": 342.005953070331,
+            "area": 342.00595306341,
             "hedgerow": 0.466002327126631,
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": 2.87847011021761,
+            "area": 2.87847011021658,
             "hedgerow": 0.0561886923761639,
             "watercourse": 0
           },
@@ -3877,14 +3877,14 @@
             "watercourse": "On-site net gain is less than target set ⚠"
           },
           "unitsRequired": {
-            "area": 130.696701362976,
+            "area": 130.696701360378,
             "hedgerow": 9.12287754282653,
             "watercourse": 2.06157624534115
           },
           "unitDeficit": {
             "area": 0,
             "hedgerow": 0.363350176766691,
-            "watercourse": 0.187416022303742
+            "watercourse": 0.187416022303741
           },
           "target": 0.1,
           "tradingRulesSatisfied": "No - Check Trading Summaries ▲",
@@ -3953,7 +3953,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 343.161605393015
+          "areaCumulativeSurplus": 343.161605386094
         },
         "sheetWarnings": [
           {
@@ -4046,7 +4046,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "8f1d357b3d6269339691f79bfa257a5b3f978ca2ab83666bfdce2361d2adf58a",
+      "workbookSource": "a7728e1651c0a95c791d0186e38a7a380e59e1c358b45d71fdabe811202bf320",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 1,
@@ -4063,22 +4063,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 365.599900484619,
+            "area": 365.599900492114,
             "hedgerow": 5.04320600534324,
             "watercourse": 0.34906385820312
           },
           "postInterventionUnits": {
-            "area": 365.892773885277,
+            "area": 365.892773892772,
             "hedgerow": 4.58906134260791,
             "watercourse": 1.60032535611822
           },
           "netUnitChange": {
-            "area": 0.292873400658209,
+            "area": 0.292873400658152,
             "hedgerow": -0.454144662735332,
             "watercourse": 1.2512614979151
           },
           "netPercentChange": {
-            "area": 0.000801076259238531,
+            "area": 0.000801076259221878,
             "hedgerow": -0.0900507856022873,
             "watercourse": 3.5846206031075
           },
@@ -4088,12 +4088,12 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 402.159890533081,
+            "area": 402.159890541326,
             "hedgerow": 5.54752660587756,
             "watercourse": 0.383970244023432
           },
           "unitDeficit": {
-            "area": 36.2671166478037,
+            "area": 36.2671166485533,
             "hedgerow": 0.958465263269656,
             "watercourse": 0
           },
@@ -4262,7 +4262,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "8a2ed91cabcb7afdb7c58ccacc9d7b60072f463b34bdf81f1e85fe8584f840b6",
+      "workbookSource": "cdeb4321a25042739b82e319b12dc414f0b64a9660b304e160d5ea599a97484d",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 1,
@@ -4279,22 +4279,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 169.384341515503,
+            "area": 169.384341513776,
             "hedgerow": 2.99509583332745,
             "watercourse": 1.69538350079495
           },
           "postInterventionUnits": {
-            "area": 365.150680111096,
+            "area": 365.150680107346,
             "hedgerow": 6.99702205243402,
             "watercourse": 0.966020183612586
           },
           "netUnitChange": {
-            "area": 195.766338595594,
+            "area": 195.76633859357,
             "hedgerow": 4.00192621910657,
             "watercourse": -0.729363317182367
           },
           "netPercentChange": {
-            "area": 1.15575227818609,
+            "area": 1.15575227818593,
             "hedgerow": 1.33615965625399,
             "watercourse": -0.430205506211647
           },
@@ -4304,7 +4304,7 @@
             "watercourse": "On-site net gain is less than target set ⚠"
           },
           "unitsRequired": {
-            "area": 186.322775667053,
+            "area": 186.322775665154,
             "hedgerow": 3.2946054166602,
             "watercourse": 1.86492185087445
           },
@@ -4380,7 +4380,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 196.914114935765
+          "areaCumulativeSurplus": 196.914114933742
         },
         "sheetWarnings": [
           {
@@ -4514,7 +4514,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "6165842db4d3b67b9e5435c7245726651abd5b825baf1714edbec204e755b90d",
+      "workbookSource": "3d4d9e2ed4026218271e6537de8e7d0cb851705c5345f6c03334bf883b27321a",
       "inputRows": {
         "habitatBaseline": 3,
         "habitatCreation": 0,
@@ -4531,22 +4531,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 211.768954705811,
+            "area": 211.768954706067,
             "hedgerow": 3.67784266837976,
             "watercourse": 6.07423395146757
           },
           "postInterventionUnits": {
-            "area": 281.974139118559,
+            "area": 281.97413911969,
             "hedgerow": 4.9407075637384,
-            "watercourse": 7.38609351214708
+            "watercourse": 7.38609351214709
           },
           "netUnitChange": {
-            "area": 70.2051844127482,
+            "area": 70.2051844136233,
             "hedgerow": 1.26286489535864,
             "watercourse": 1.31185956067951
           },
           "netPercentChange": {
-            "area": 0.331517830412287,
+            "area": 0.331517830416018,
             "hedgerow": 0.343371103450433,
             "watercourse": 0.215971194254472
           },
@@ -4556,7 +4556,7 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 232.945850176392,
+            "area": 232.945850176673,
             "hedgerow": 4.04562693521773,
             "watercourse": 6.68165734661433
           },
@@ -4632,7 +4632,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 70.2051844127481
+          "areaCumulativeSurplus": 70.2051844136233
         },
         "sheetWarnings": [],
         "rowWarnings": []
@@ -4711,7 +4711,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "0972e40dd62d204fa96d97f0b03297d80c789eb587123e6445f9251a32e8539d",
+      "workbookSource": "d354f8b4ae63ed693caac4ccf4c6f0e25cab451ae8e49824264ce5731c3a1d78",
       "inputRows": {
         "habitatBaseline": 3,
         "habitatCreation": 2,
@@ -4728,22 +4728,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 288.078298010254,
+            "area": 288.078297999901,
             "hedgerow": 1.29291627056865,
             "watercourse": 0.588661443869424
           },
           "postInterventionUnits": {
-            "area": 328.607465916688,
+            "area": 328.607465911121,
             "hedgerow": 4.13779918046332,
             "watercourse": 2.20158141341643
           },
           "netUnitChange": {
-            "area": 40.5291679064342,
+            "area": 40.5291679112208,
             "hedgerow": 2.84488290989467,
-            "watercourse": 1.612919969547
+            "watercourse": 1.61291996954701
           },
           "netPercentChange": {
-            "area": 0.14068802886704,
+            "area": 0.140688028888711,
             "hedgerow": 2.20036128762108,
             "watercourse": 2.73997895793016
           },
@@ -4753,7 +4753,7 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 316.886127811279,
+            "area": 316.886127799891,
             "hedgerow": 1.42220789762551,
             "watercourse": 0.647527588256366
           },
@@ -4829,7 +4829,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 40.5291679064342
+          "areaCumulativeSurplus": 40.5291679112208
         },
         "sheetWarnings": [],
         "rowWarnings": []
@@ -4908,7 +4908,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "a7fd731cd89390cc7e976462a821f0d880f772ae84d471755d6cd2cdab86c37f",
+      "workbookSource": "5f979be508ee7703f6d7dd7f7b18ec6667433a1e3b765ce35577d9c461cf8c5c",
       "inputRows": {
         "habitatBaseline": 2,
         "habitatCreation": 1,
@@ -4925,22 +4925,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 322.937506982422,
+            "area": 322.937506985405,
             "hedgerow": 5.3046705851023,
             "watercourse": 3.1732348292958
           },
           "postInterventionUnits": {
-            "area": 298.417657563307,
+            "area": 298.417657566179,
             "hedgerow": 2.46344005761824,
             "watercourse": 0.704824861546721
           },
           "netUnitChange": {
-            "area": -24.5198494191149,
+            "area": -24.5198494192264,
             "hedgerow": -2.84123052748406,
             "watercourse": -2.46840996774908
           },
           "netPercentChange": {
-            "area": -0.0759275367182716,
+            "area": -0.0759275367179154,
             "hedgerow": -0.535609229998825,
             "watercourse": -0.77788443041162
           },
@@ -4950,12 +4950,12 @@
             "watercourse": "On-site net gain is less than target set ⚠"
           },
           "unitsRequired": {
-            "area": 355.231257680664,
+            "area": 355.231257683946,
             "hedgerow": 5.83513764361253,
             "watercourse": 3.49055831222538
           },
           "unitDeficit": {
-            "area": 56.8136001173571,
+            "area": 56.813600117767,
             "hedgerow": 3.37169758599429,
             "watercourse": 2.78573345067866
           },
@@ -5168,7 +5168,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "f1b9ed2142c9797947f1e6a591425e991c63ec654cefbed2fbc3c422104025c7",
+      "workbookSource": "3e0c95d17bbe8b7766360cc610fb8b861c8ae28436fe7118c93803159640a0e2",
       "inputRows": {
         "habitatBaseline": 3,
         "habitatCreation": 2,
@@ -5185,22 +5185,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 302.882707498169,
+            "area": 302.882707497595,
             "hedgerow": 2.79809631115207,
             "watercourse": 0.542613376433934
           },
           "postInterventionUnits": {
-            "area": 374.378295370949,
+            "area": 374.378295370135,
             "hedgerow": 2.85676934903894,
             "watercourse": 1.91015130646175
           },
           "netUnitChange": {
-            "area": 71.4955878727799,
+            "area": 71.4955878725406,
             "hedgerow": 0.0586730378868658,
             "watercourse": 1.36753793002781
           },
           "netPercentChange": {
-            "area": 0.236050411934502,
+            "area": 0.236050411934159,
             "hedgerow": 0.0209689129187651,
             "watercourse": 2.52028053384032
           },
@@ -5210,7 +5210,7 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 333.170978247986,
+            "area": 333.170978247354,
             "hedgerow": 3.07790594226728,
             "watercourse": 0.596874714077328
           },
@@ -5286,7 +5286,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 249.259526550758
+          "areaCumulativeSurplus": 249.259526545359
         },
         "sheetWarnings": [
           {
@@ -5411,7 +5411,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "bc3e0cdabb765ce60caf751c634d73dfc9204440e7f5dd4d653f9eb9a6a7c076",
+      "workbookSource": "93cdc41262b110d788be5074ed93b7ab76e0c7886d6cfd5697219f2b90a7d106",
       "inputRows": {
         "habitatBaseline": 2,
         "habitatCreation": 1,
@@ -5428,22 +5428,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 437.106457525635,
+            "area": 437.106457519706,
             "hedgerow": 1.50338348944546,
             "watercourse": 2.52579130153499
           },
           "postInterventionUnits": {
-            "area": 296.270960633503,
+            "area": 296.270960630328,
             "hedgerow": 0.638678215057124,
             "watercourse": 0.292614312962325
           },
           "netUnitChange": {
-            "area": -140.835496892132,
+            "area": -140.835496889379,
             "hedgerow": -0.864705274388339,
             "watercourse": -2.23317698857266
           },
           "netPercentChange": {
-            "area": -0.322199533929037,
+            "area": -0.322199533927108,
             "hedgerow": -0.575172788885219,
             "watercourse": -0.884149449408391
           },
@@ -5453,12 +5453,12 @@
             "watercourse": "On-site net gain is less than target set ⚠"
           },
           "unitsRequired": {
-            "area": 480.817103278198,
+            "area": 480.817103271677,
             "hedgerow": 1.65372183839001,
             "watercourse": 2.77837043168849
           },
           "unitDeficit": {
-            "area": 184.546142644695,
+            "area": 184.546142641349,
             "hedgerow": 1.01504362333289,
             "watercourse": 2.48575611872616
           },
@@ -5529,7 +5529,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 198.083574677692
+          "areaCumulativeSurplus": 198.08357467382
         },
         "sheetWarnings": [
           {
@@ -5654,7 +5654,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "9c21663d5057e421a319201a907480f15e8d268d6cdef28925d683770a2931de",
+      "workbookSource": "4e8dab97bed97030927bd55455af6dbc54b67ca22dabebf615361df2647c1dbd",
       "inputRows": {
         "habitatBaseline": 2,
         "habitatCreation": 1,
@@ -5671,22 +5671,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 285.34103321228,
+            "area": 285.341033215437,
             "hedgerow": 1.2754789812299,
             "watercourse": 0.443142747869206
           },
           "postInterventionUnits": {
-            "area": 397.256670666189,
+            "area": 397.25667066395,
             "hedgerow": 5.58905695179305,
             "watercourse": 2.08701033154574
           },
           "netUnitChange": {
-            "area": 111.915637453908,
+            "area": 111.915637448513,
             "hedgerow": 4.31357797056315,
             "watercourse": 1.64386758367653
           },
           "netPercentChange": {
-            "area": 0.392217117159761,
+            "area": 0.392217117136515,
             "hedgerow": 3.38192791417363,
             "watercourse": 3.7095667063962
           },
@@ -5696,7 +5696,7 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 313.875136533508,
+            "area": 313.875136536981,
             "hedgerow": 1.40302687935289,
             "watercourse": 0.487457022656126
           },
@@ -5772,7 +5772,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 111.915637453908
+          "areaCumulativeSurplus": 111.915637448513
         },
         "sheetWarnings": [],
         "rowWarnings": []
@@ -5839,7 +5839,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "75f077f9c3e5398cae82d1edf4d520e353d3d20bc97ff78e4ca200cc74467180",
+      "workbookSource": "5a6b603172f01b817f167a87f0dcd6e1236d048aff0b84eb8c85386b3d5935cf",
       "inputRows": {
         "habitatBaseline": 2,
         "habitatCreation": 1,
@@ -5856,22 +5856,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 317.590778735352,
+            "area": 317.590778737206,
             "hedgerow": 3.00898721612703,
             "watercourse": 0
           },
           "postInterventionUnits": {
-            "area": 371.738005168747,
+            "area": 371.738005168241,
             "hedgerow": 3.96434893936529,
             "watercourse": 0
           },
           "netUnitChange": {
-            "area": 54.1472264333954,
+            "area": 54.147226431035,
             "hedgerow": 0.955361723238259,
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": 0.170493698365582,
+            "area": 0.170493698357155,
             "hedgerow": 0.317502752460324,
             "watercourse": 0
           },
@@ -5881,7 +5881,7 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 349.349856608887,
+            "area": 349.349856610927,
             "hedgerow": 3.30988593773973,
             "watercourse": 0
           },
@@ -5957,7 +5957,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 54.1472264333954
+          "areaCumulativeSurplus": 54.147226431035
         },
         "sheetWarnings": [],
         "rowWarnings": []
@@ -6024,7 +6024,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "ec531ce65eeb99b06935ad5bbd3dc42e00e8baa3c7ecf701a00504865b8fa094",
+      "workbookSource": "b74b58370436f7bcea480b5f9692aade0a6b2482a3640a10dec7cc1005e29e6b",
       "inputRows": {
         "habitatBaseline": 2,
         "habitatCreation": 1,
@@ -6041,23 +6041,23 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 409.59459463501,
+            "area": 409.594594632745,
             "hedgerow": 5.01521748159494,
             "watercourse": 0
           },
           "postInterventionUnits": {
-            "area": 293.038924688721,
+            "area": 293.038924685311,
             "hedgerow": 4.68526950372963,
             "watercourse": 0
           },
           "netUnitChange": {
-            "area": -116.555669946289,
-            "hedgerow": -0.329947977865308,
+            "area": -116.555669947434,
+            "hedgerow": -0.329947977865307,
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": -0.284563496376587,
-            "hedgerow": -0.0657893658801767,
+            "area": -0.284563496380955,
+            "hedgerow": -0.0657893658801765,
             "watercourse": 0
           },
           "netGainMessage": {
@@ -6066,13 +6066,13 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 450.554054098511,
+            "area": 450.55405409602,
             "hedgerow": 5.51673922975443,
             "watercourse": 0
           },
           "unitDeficit": {
-            "area": 157.51512940979,
-            "hedgerow": 0.831469726024802,
+            "area": 157.515129410709,
+            "hedgerow": 0.831469726024801,
             "watercourse": 0
           },
           "target": 0.1,
@@ -6142,7 +6142,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": -116.555669946289
+          "areaCumulativeSurplus": -116.555669947434
         },
         "sheetWarnings": [
           {
@@ -6240,7 +6240,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "b227b4c57ab5db2fd402ff9087e4616f010f30384aac3169671171cd39e05ead",
+      "workbookSource": "d4b5e5c543be1bba701c0133e63e8f20dddcd483890975eb5fbc388ed846fef2",
       "inputRows": {
         "habitatBaseline": 3,
         "habitatCreation": 1,
@@ -6257,22 +6257,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 239.005365396118,
+            "area": 239.005365393153,
             "hedgerow": 4.46864007039063,
             "watercourse": 0
           },
           "postInterventionUnits": {
-            "area": 288.76633234339,
+            "area": 288.766332339951,
             "hedgerow": 7.80057392017221,
             "watercourse": 0
           },
           "netUnitChange": {
-            "area": 49.760966947272,
+            "area": 49.7609669467978,
             "hedgerow": 3.33193384978157,
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": 0.208200208663936,
+            "area": 0.208200208664535,
             "hedgerow": 0.745625916900107,
             "watercourse": 0
           },
@@ -6282,7 +6282,7 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 262.90590193573,
+            "area": 262.905901932468,
             "hedgerow": 4.91550407742969,
             "watercourse": 0
           },
@@ -6358,7 +6358,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 49.760966947272
+          "areaCumulativeSurplus": 49.7609669467978
         },
         "sheetWarnings": [],
         "rowWarnings": []
@@ -6425,7 +6425,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "be62be486e88b0de1cd370c8dd73f69203cef2020f371158e50ece1acfec6146",
+      "workbookSource": "8e4f06dd248dda6446d6d209160fffcc3e46aaa43838278aed45b0cccf9b4344",
       "inputRows": {
         "habitatBaseline": 3,
         "habitatCreation": 1,
@@ -6442,22 +6442,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 219.144340679932,
+            "area": 219.144340673605,
             "hedgerow": 4.02023414432141,
             "watercourse": 0
           },
           "postInterventionUnits": {
-            "area": 231.994304674403,
+            "area": 231.994304665906,
             "hedgerow": 3.91738899215787,
             "watercourse": 0
           },
           "netUnitChange": {
-            "area": 12.8499639944717,
+            "area": 12.8499639923003,
             "hedgerow": -0.102845152163535,
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": 0.0586369876338242,
+            "area": 0.0586369876256083,
             "hedgerow": -0.0255818811719721,
             "watercourse": 0
           },
@@ -6467,12 +6467,12 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 241.058774747925,
+            "area": 241.058774740966,
             "hedgerow": 4.42225755875355,
             "watercourse": 0
           },
           "unitDeficit": {
-            "area": 9.06447007352148,
+            "area": 9.06447007506026,
             "hedgerow": 0.504868566595676,
             "watercourse": 0
           },
@@ -6543,7 +6543,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 166.539858086269
+          "areaCumulativeSurplus": 166.539858080795
         },
         "sheetWarnings": [
           {
@@ -6623,7 +6623,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "3839ed69081a13014ad39e4f8d837365c2218176c8645fdab9e6d524417ea5f4",
+      "workbookSource": "f9ce9db86dd441219633faa496387b2aa68282468afd6840a6fe4a9a788f5fed",
       "inputRows": {
         "habitatBaseline": 4,
         "habitatCreation": 1,
@@ -6640,22 +6640,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 233.573696078491,
+            "area": 233.573696060479,
             "hedgerow": 0,
             "watercourse": 0
           },
           "postInterventionUnits": {
-            "area": 370.795940047653,
+            "area": 370.795940026009,
             "hedgerow": 0,
             "watercourse": 0
           },
           "netUnitChange": {
-            "area": 137.222243969162,
+            "area": 137.22224396553,
             "hedgerow": 0,
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": 0.587490142396208,
+            "area": 0.587490142425966,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -6665,7 +6665,7 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 256.93106568634,
+            "area": 256.931065666527,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -6741,7 +6741,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 223.223648559005
+          "areaCumulativeSurplus": 223.223648544364
         },
         "sheetWarnings": [
           {
@@ -6806,7 +6806,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "1a9615ef901070cc4109ae80e42db7e7ff556999f2ce7d1aa870dab89aa46728",
+      "workbookSource": "e8d996ea16f53f04116346289ab5b5a2bff7ecbc43b375943a99fd9108902fe0",
       "inputRows": {
         "habitatBaseline": 3,
         "habitatCreation": 2,
@@ -6823,22 +6823,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 386.760167678833,
+            "area": 386.76016767333,
             "hedgerow": 0,
             "watercourse": 0
           },
           "postInterventionUnits": {
-            "area": 176.434195608553,
+            "area": 176.434195605535,
             "hedgerow": 0,
             "watercourse": 0
           },
           "netUnitChange": {
-            "area": -210.32597207028,
+            "area": -210.325972067795,
             "hedgerow": 0,
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": -0.543814977981226,
+            "area": -0.543814977982538,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -6848,12 +6848,12 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 425.436184446716,
+            "area": 425.436184440663,
             "hedgerow": 0,
             "watercourse": 0
           },
           "unitDeficit": {
-            "area": 249.001988838163,
+            "area": 249.001988835128,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -6924,7 +6924,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 95.2042017700522
+          "areaCumulativeSurplus": 95.2042017684236
         },
         "sheetWarnings": [
           {
@@ -6977,7 +6977,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "15334abb972288dd7aa942a551fcfac851bc6d40e2b12d0310e0fb36b65b0862",
+      "workbookSource": "e3193acb8f418e88fcf0c5c90967b3fd7b0f483745bf0115888488b21bad5c48",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 7,
@@ -6994,22 +6994,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 322.463036706238,
+            "area": 322.463036722117,
             "hedgerow": 2.27280483752886,
             "watercourse": 2.02573757764037
           },
           "postInterventionUnits": {
-            "area": 587.739473162365,
+            "area": 587.739473186934,
             "hedgerow": 1.8647716329388,
             "watercourse": 2.02573757764037
           },
           "netUnitChange": {
-            "area": 265.276436456127,
+            "area": 265.276436464817,
             "hedgerow": -0.408033204590057,
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": 0.822656882369413,
+            "area": 0.822656882355852,
             "hedgerow": -0.179528482979514,
             "watercourse": 0
           },
@@ -7019,13 +7019,13 @@
             "watercourse": "On-site net gain is less than target set ⚠"
           },
           "unitsRequired": {
-            "area": 354.709340376862,
+            "area": 354.709340394328,
             "hedgerow": 2.50008532128174,
             "watercourse": 2.2283113354044
           },
           "unitDeficit": {
             "area": 0,
-            "hedgerow": 0.635313688342943,
+            "hedgerow": 0.635313688342942,
             "watercourse": 0.202573757764037
           },
           "target": 0.1,
@@ -7095,7 +7095,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 265.745037792445
+          "areaCumulativeSurplus": 265.745037801135
         },
         "sheetWarnings": [
           {
@@ -7235,7 +7235,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "a292cd2b5cf5f61764c5d12ed4482d3e80fa7ac4bb90d93d00ad5e3b16c0ea85",
+      "workbookSource": "0f51efd0d196fa5f9bce1b0a8afa01a6fdf41350aeca91f8a76ff9c7cac1e316",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 7,
@@ -7252,22 +7252,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 463.682303257446,
+            "area": 463.682303274246,
             "hedgerow": 0.277974482610335,
             "watercourse": 3.61737782439682
           },
           "postInterventionUnits": {
-            "area": 391.410436040921,
+            "area": 391.410436050944,
             "hedgerow": 1.30391033380783,
             "watercourse": 0.154784680985361
           },
           "netUnitChange": {
-            "area": -72.2718672165256,
+            "area": -72.2718672233025,
             "hedgerow": 1.02593585119749,
             "watercourse": -3.46259314341146
           },
           "netPercentChange": {
-            "area": -0.155865053957858,
+            "area": -0.155865053966826,
             "hedgerow": 3.69075550231585,
             "watercourse": -0.957210806142106
           },
@@ -7277,12 +7277,12 @@
             "watercourse": "On-site net gain is less than target set ⚠"
           },
           "unitsRequired": {
-            "area": 510.050533583191,
+            "area": 510.050533601671,
             "hedgerow": 0.305771930871369,
             "watercourse": 3.97911560683651
           },
           "unitDeficit": {
-            "area": 118.64009754227,
+            "area": 118.640097550727,
             "hedgerow": 0,
             "watercourse": 3.82433092585115
           },
@@ -7488,7 +7488,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "063ba211a6afc5ebdd56aeaa70f90d99c34b982596958232837fa5cb051304e1",
+      "workbookSource": "68cde3837a832c5bb24fd615b141cde340e5239e12c815cd3bc8a5801f1d2af0",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 1,
@@ -7505,22 +7505,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 450.687692310791,
+            "area": 450.687692297246,
             "hedgerow": 3.04162087010976,
             "watercourse": 2.87492115865078
           },
           "postInterventionUnits": {
-            "area": 607.879345096882,
+            "area": 607.879345078594,
             "hedgerow": 2.25432797780813,
             "watercourse": 2.87492115865078
           },
           "netUnitChange": {
-            "area": 157.191652786091,
+            "area": 157.191652781348,
             "hedgerow": -0.787292892301635,
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": 0.348781773871234,
+            "area": 0.348781773871193,
             "hedgerow": -0.258839916584747,
             "watercourse": 0
           },
@@ -7530,7 +7530,7 @@
             "watercourse": "On-site net gain is less than target set ⚠"
           },
           "unitsRequired": {
-            "area": 495.75646154187,
+            "area": 495.75646152697,
             "hedgerow": 3.34578295712074,
             "watercourse": 3.16241327451586
           },
@@ -7606,7 +7606,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 157.417542165457
+          "areaCumulativeSurplus": 157.417542160715
         },
         "sheetWarnings": [
           {
@@ -7694,7 +7694,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "51e4648973f0b20769cbdee373de941ec011404a55b746e45cb942a17bea0df6",
+      "workbookSource": "cb8cdff8f5f059738ace6b081d4ac84f2bac6baf2ebbd870493025c3a9afab67",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 1,
@@ -7760,22 +7760,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 385.817573369141,
+            "area": 385.817573384526,
             "hedgerow": 4.79191106732054,
             "watercourse": 1.3771610266471
           },
           "postInterventionUnits": {
-            "area": 329.391195265957,
+            "area": 329.391195279285,
             "hedgerow": 4.69903520597557,
             "watercourse": 0
           },
           "netUnitChange": {
-            "area": -56.4263781031835,
+            "area": -56.4263781052411,
             "hedgerow": -0.0928758613449752,
             "watercourse": -1.3771610266471
           },
           "netPercentChange": {
-            "area": -0.146251446274056,
+            "area": -0.146251446273557,
             "hedgerow": -0.0193817998790424,
             "watercourse": -1
           },
@@ -7785,12 +7785,12 @@
             "watercourse": "On-site net gain is less than target set ⚠"
           },
           "unitsRequired": {
-            "area": 424.399330706055,
+            "area": 424.399330722979,
             "hedgerow": 5.2711021740526,
             "watercourse": 1.51487712931181
           },
           "unitDeficit": {
-            "area": 95.0081354400976,
+            "area": 95.0081354436937,
             "hedgerow": 0.57206696807703,
             "watercourse": 1.51487712931181
           },
