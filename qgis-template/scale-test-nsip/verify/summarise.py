@@ -40,19 +40,19 @@ def main():
     print('\nbaseline area habitats')
     for habitat, count, hectares in conn.execute(
             'SELECT "Baseline Habitat Type", COUNT(*), SUM("Area") '
-            'FROM "Habitats Baseline" GROUP BY 1 ORDER BY 3 DESC'):
+            'FROM "Area Habitats Baseline" GROUP BY 1 ORDER BY 3 DESC'):
         print(f'  {count:6d}  {hectares:10.2f} ha  {habitat}')
 
     print('\npost-intervention retention')
     for retention, count, hectares in conn.execute(
             'SELECT "Retention Category", COUNT(*), SUM("Area") '
-            'FROM "Habitats Post-Intervention" GROUP BY 1 ORDER BY 3 DESC'):
+            'FROM "Area Habitats Post-Intervention" GROUP BY 1 ORDER BY 3 DESC'):
         print(f'  {count:6d}  {hectares:10.2f} ha  {retention}')
 
     print('\nproposed area habitats')
     for habitat, count, hectares in conn.execute(
             'SELECT "Proposed Habitat Type", COUNT(*), SUM("Area") '
-            'FROM "Habitats Post-Intervention" GROUP BY 1 ORDER BY 3 DESC'):
+            'FROM "Area Habitats Post-Intervention" GROUP BY 1 ORDER BY 3 DESC'):
         print(f'  {count:6d}  {hectares:10.2f} ha  {habitat}')
 
     print('\nhedgerows, watercourses and trees')
@@ -64,7 +64,7 @@ def main():
                               'ROUND(SUM("Length")/1000, 2) FROM "Watercourses Baseline" '
                               'GROUP BY 1 ORDER BY 3 DESC'),
         ('tree sizes', 'SELECT "Baseline Tree Size", COUNT(*), SUM("Count") '
-                       'FROM "Trees Baseline" GROUP BY 1 ORDER BY 2 DESC'),
+                       'FROM "Individual Trees Baseline" GROUP BY 1 ORDER BY 2 DESC'),
     ]:
         print(f'  {label}')
         for name, count, measure in conn.execute(sql):
@@ -72,8 +72,8 @@ def main():
 
     print('\ndistinctiveness bands present')
     bands = collections.Counter()
-    for column, table in [('Baseline Distinctiveness', 'Habitats Baseline'),
-                          ('Proposed Distinctiveness', 'Habitats Post-Intervention'),
+    for column, table in [('Baseline Distinctiveness', 'Area Habitats Baseline'),
+                          ('Proposed Distinctiveness', 'Area Habitats Post-Intervention'),
                           ('Baseline Distinctiveness', 'Hedgerows Baseline'),
                           ('Baseline Distinctiveness', 'Watercourses Baseline')]:
         for (band,) in conn.execute(f'SELECT DISTINCT "{column}" FROM "{table}"'):

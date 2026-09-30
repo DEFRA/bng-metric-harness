@@ -348,9 +348,14 @@ class ConvertFromLegacyAlgorithm(QgsProcessingAlgorithm):
             "the companion tool — and deliberately leaves the rest blank so "
             "the service works them out from the shapes and tells you which "
             "ones it guessed. The log says how many were linked.</p>"
-            "<p><b>Afterwards you must</b> fill in Irreplaceable Habitat (no "
-            "legacy column exists) and add any vertical area habitats such as "
-            "green walls.</p>"
+            "<p><b>Strategic significance.</b> The template holds Low or "
+            "High. Legacy's middle value, <i>Location ecologically desirable "
+            "but not in local strategy</i>, is left blank, and the log names "
+            "those rows.</p>"
+            "<p><b>Afterwards you must</b> fill in Irreplaceable Habitat where "
+            "the habitat allows either answer (no legacy column exists), "
+            "choose Low or High where significance was left blank, and add any "
+            "vertical area habitats such as green walls.</p>"
         )
 
     def initAlgorithm(self, config=None):
@@ -440,7 +445,8 @@ class ConvertFromLegacyAlgorithm(QgsProcessingAlgorithm):
         feedback.pushInfo("")
         feedback.pushInfo(
             "Next: open the template project, check the parent links, fill in "
-            "Irreplaceable Habitat, and add any vertical area habitats."
+            "any blank Irreplaceable Habitat and strategic significance, and "
+            "add any vertical area habitats."
         )
         return {self.OUTPUT_FILE: template or destination}
 

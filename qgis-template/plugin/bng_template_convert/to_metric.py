@@ -37,6 +37,9 @@ HOW IT MAPS
     So the baseline sheet always holds the whole baseline layer, however much
     of post-intervention has been drawn.
 
+    The template stores strategic significance as "Low" or "High". The
+    metric's own wording is written instead (see reference_lists.py).
+
     A value the metric needs and the layer leaves blank is written as a
     blank. The metric then flags that row or leaves its units blank, and a
     total including it can read Check Data, so the report lists every such
@@ -82,6 +85,11 @@ except ImportError:  # pragma: no cover - running as a plain script
         split_into_parts,
         summarise_refs,
     )
+
+try:
+    from .reference_lists import to_legacy_significance
+except ImportError:  # pragma: no cover - running as a plain script
+    from reference_lists import to_legacy_significance
 
 NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 REL = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
@@ -226,13 +234,16 @@ LAYOUT = {
 # factor taking the template's units to the metric's. Areas are hectares on
 # both sides; the metric wants linear features in KILOMETRES.
 MODULES = (
-    ("areas", "Habitats Baseline", "Habitats Post-Intervention",
+    ("areas", "Area Habitats Baseline", "Area Habitats Post-Intervention",
      "Area", "Habitat Type", 1.0),
     ("hedgerows", "Hedgerows Baseline", "Hedgerows Post-Intervention",
      "Length", "Hedge Type", 1.0 / METRES_PER_KM),
     ("watercourses", "Watercourses Baseline", "Watercourses Post-Intervention",
      "Length", "River Type", 1.0 / METRES_PER_KM),
 )
+
+# Every habitat table holds its reference in this column.
+REF_FIELD = "Habitat Ref"
 
 # A cell that proves the workbook already holds a site.
 OCCUPIED_PROBE = ("A-1 On-Site Habitat Baseline", "E11")
@@ -285,19 +296,22 @@ def read_table(conn, table, present):
 
 
 def read_staged(path):
+    """Every module's rows, with significance in the metric's wording."""
     conn = sqlite3.connect(read_only_uri(path), uri=True)
     try:
         present = {
             row[0] for row in conn.execute(
                 "SELECT table_name FROM gpkg_contents WHERE data_type='features'")
         }
-        return {
+        staged = {
             kind: {"baseline": read_table(conn, base, present),
                    "pi": read_table(conn, pi, present)}
             for kind, base, pi, _size, _type, _scale in MODULES
         }
     finally:
         conn.close()
+    to_legacy_significance(staged)
+    return staged
 
 
 def is_irreplaceable(row):
@@ -315,8 +329,8 @@ def retention_of(row):
 def baseline_line(row, size, type_field):
     """A baseline feature's own values over `size`, with nothing kept."""
     return {
-        "ref": row.get("Parcel Ref") or row.get("Tree Ref"),
-        "number": row.get("Parcel Ref"),
+        "ref": row.get(REF_FIELD),
+        "number": row.get(REF_FIELD),
         "broad": row.get("Baseline Broad Habitat Type"),
         "habitat": row.get(f"Baseline {type_field}"),
         # Its own flag, not None: a wholly lost parcel is still
@@ -386,8 +400,8 @@ def build_lines(tables, size_field, type_field, consolidate,
         elif retention == CREATED or parent is None:
             line = proposed_values(row, type_field)
             line.update({
-                "ref": row.get("PI Ref"),
-                "number": row.get("PI Ref"),
+                "ref": row.get(REF_FIELD),
+                "number": row.get(REF_FIELD),
                 "broad": row.get("Proposed Broad Habitat Type"),
                 "size": numeric(row.get(size_field)) or 0.0,
             })
@@ -413,8 +427,8 @@ def build_lines(tables, size_field, type_field, consolidate,
             retention = retention_of(part)
             line = baseline_line(parent, size, type_field)
             line.update({
-                "ref": part.get("PI Ref"),
-                "number": part.get("PI Ref"),
+                "ref": part.get(REF_FIELD),
+                "number": part.get(REF_FIELD),
                 "irreplaceable": part.get("Irreplaceable Habitat"),
                 "retained": size if retention == RETAINED else 0,
                 "enhanced": size if retention == ENHANCED else 0,
@@ -425,7 +439,7 @@ def build_lines(tables, size_field, type_field, consolidate,
             carried += size
 
         lost = whole - carried
-        ref = parent.get("Parcel Ref") or parent.get("fid")
+        ref = parent.get(REF_FIELD) or parent.get("fid")
         if lost > tolerance:
             baseline.append(baseline_line(parent, lost, type_field))
             accounting["partly lost" if carried else "wholly lost"].append(ref)
@@ -517,14 +531,14 @@ def check_needed_values(staged, report, consequence=METRIC_GAP_CONSEQUENCE,
             for column in BASELINE_NEEDS[kind]:
                 if column not in skip and is_blank(row.get(column)):
                     gaps.setdefault(column, []).append(
-                        row_label(row, "Parcel Ref"))
+                        row_label(row, REF_FIELD))
         report_gaps(base_table, gaps, report, consequence)
 
         gaps = OrderedDict()
         for row in tables["pi"]:
             for column in needed_columns(kind, row, parents, size_field):
                 if column not in skip and is_blank(row.get(column)):
-                    gaps.setdefault(column, []).append(row_label(row, "PI Ref"))
+                    gaps.setdefault(column, []).append(row_label(row, REF_FIELD))
         report_gaps(pi_table, gaps, report, consequence)
 
 

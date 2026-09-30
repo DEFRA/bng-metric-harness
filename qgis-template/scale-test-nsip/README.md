@@ -47,7 +47,7 @@ area is 3,184.04 hectares, below the 100 km² limit for a red line boundary.
 | Individual trees | 3,600 | 2,767 |
 | Red line boundary | 1 | |
 
-The site has 546,629 vertices. The staged template is 32 MB, and the converted
+The site has 546,629 vertices. The staged template is 28 MB, and the converted
 legacy pair is 31 MB.
 
 **266 baseline parcels, 72.3 hectares, are ancient woodland.** Each is
@@ -100,6 +100,20 @@ area habitat row keeps the parent of the parcel it was cut from. Every label
 is written as the reference lists hold it, with no number in front, for
 example `Moderate`.
 
+**The values the template fills itself are written as it fills them.**
+
+- Each row holds its reference in `Habitat Ref`.
+- Baseline Strategic Significance is `Low` on every baseline row, and on each
+  post-intervention row cut from one. A created hedgerow or tree leaves it
+  blank.
+- Proposed Strategic Significance is mostly `Low` and sometimes `High`,
+  chosen by hash.
+- Spatial risk category is `N/A`.
+- Distinctiveness comes from the template's list for the habitat type. A
+  habitat that allows one condition gets that condition.
+- Irreplaceable Habitat is the only answer where the habitat allows one.
+  Where it allows both, ancient woodland blocks are `Yes` and the rest `No`.
+
 ## Running it
 
 Run all commands from the `qgis-template` folder.
@@ -113,7 +127,10 @@ python3 plugin/bng_template_convert/new_to_old.py \
 
 Generation takes about 7 seconds, and conversion about 2 seconds. The
 generator then runs the drop-down check and stops with an error if a value is
-not in the template lists. To run that check alone:
+not in the template lists. The check tests the columns the template fills
+itself (distinctiveness, strategic significance, spatial risk and
+Irreplaceable Habitat) against the lists and rules directly, whatever widget
+the project gives them. To run that check alone:
 
 ```sh
 python3 scale-test-nsip/generator/dropdown_check.py \
@@ -162,5 +179,5 @@ own merge by default.
 
 **Claims 2 and 3 both pass.** Claim 2 checks about 34,000 rows against a
 transformation list written in advance. Claim 3 prices the whole site in both
-templates. The unit totals differ by 0.0003% and the net change by 0.000069
+templates. The unit totals differ by 0.0003% and the net change by 0.000112
 percentage points, which is within the rounding that the legacy format forces.

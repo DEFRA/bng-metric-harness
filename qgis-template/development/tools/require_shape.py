@@ -33,16 +33,16 @@ CHECK = "--check"
 # Layer -> the column that carries the constraint: the first one a surveyor
 # sees, so the message shows beside the row's ref.
 LAYERS = {
-    "Area Habitats Baseline": "Parcel Ref",
-    "Area Habitats Post-Intervention": "PI Ref",
-    "Hedgerows Baseline": "Parcel Ref",
-    "Hedgerows Post-Intervention": "PI Ref",
-    "Individual Trees Baseline": "Tree Ref",
-    "Individual Trees Post-Intervention": "PI Ref",
-    "Vertical Area Habitats Baseline": "Parcel Ref",
-    "Vertical Area Habitats Post-Intervention": "PI Ref",
-    "Watercourses Baseline": "Parcel Ref",
-    "Watercourses Post-Intervention": "PI Ref",
+    "Area Habitats Baseline": "Habitat Ref",
+    "Area Habitats Post-Intervention": "Habitat Ref",
+    "Hedgerows Baseline": "Habitat Ref",
+    "Hedgerows Post-Intervention": "Habitat Ref",
+    "Individual Trees Baseline": "Habitat Ref",
+    "Individual Trees Post-Intervention": "Habitat Ref",
+    "Vertical Area Habitats Baseline": "Habitat Ref",
+    "Vertical Area Habitats Post-Intervention": "Habitat Ref",
+    "Watercourses Baseline": "Habitat Ref",
+    "Watercourses Post-Intervention": "Habitat Ref",
     "Red Line Boundary": "Site Name",
 }
 EXPRESSION = "$geometry IS NOT NULL"

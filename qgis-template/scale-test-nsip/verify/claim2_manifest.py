@@ -45,6 +45,17 @@ EXISTING_TREE = "Existing"
 CREATED = "Created"
 EXISTING_WATERCOURSE_CREATED = "4. Created"
 
+# Strategic significance. The BNG Service template stores Low or High, and
+# NULL where the value does not apply. Natural England stores the metric's
+# wording, and trees word High differently from every other habitat type.
+LOW, HIGH = "Low", "High"
+NE_LOW = "Area/compensation not in local strategy/ no local strategy"
+NE_HIGH = "Formally identified in local strategy"
+NE_HIGH_TREES = "Within area formally identified in local strategy"
+NOT_APPLICABLE = "N/A"
+NO_HABITAT_TYPES = (TO_BE_CREATED, NOT_APPLICABLE)
+NEWLY_PLANTED = "Newly Planted"
+
 # --- rules -----------------------------------------------------------------
 
 
@@ -153,6 +164,40 @@ def rounded_to_whole(staged, legacy):
     return int(legacy) == round(float(staged))
 
 
+def significance_blank(column, type_column, row):
+    """What legacy holds where the staged value is NULL.
+
+    The earlier template's drop-downs held "N/A" for a hedgerow or
+    watercourse type of "To be created" or "N/A", and for a newly planted
+    tree's baseline. Everywhere else they held a blank, and so does legacy.
+    """
+    if type_column == "Category":
+        is_na = (column.startswith("Baseline")
+                 and normalise(row.get("Category")) == NEWLY_PLANTED)
+    else:
+        is_na = bool(type_column) and normalise(
+            row.get(type_column)) in NO_HABITAT_TYPES
+    return NOT_APPLICABLE if is_na else ""
+
+
+def significance(column, trees=False, type_column=None):
+    """A COMPOSE entry for strategic significance: Low and High to wording."""
+    def rule(row, legacy):
+        staged, legacy = normalise(row.get(column)), normalise(legacy)
+        if staged == LOW:
+            return legacy == NE_LOW
+        if staged == HIGH:
+            return legacy == (NE_HIGH_TREES if trees else NE_HIGH)
+        if staged == "":
+            return legacy == significance_blank(column, type_column, row)
+        return False
+
+    sources = (column, type_column) if type_column else (column,)
+    return (sources, rule,
+            "Low and High as the metric words them; a blank as N/A where "
+            "the earlier template offered only N/A, else blank")
+
+
 def linear_reference(row, legacy):
     """The reference a derived feature is matched back to its baseline by.
 
@@ -162,7 +207,7 @@ def linear_reference(row, legacy):
     and carries its own reference instead.
     """
     parent = normalise(row.get("Parent Ref"))
-    own = normalise(row.get("PI Ref"))
+    own = normalise(row.get("Habitat Ref"))
     return normalise(legacy) == (parent or own)
 
 
@@ -179,13 +224,13 @@ def comment_carries(staged, legacy):
 
 AREA_BASELINE = {
     "CARRY": {
-        "Parcel Ref": "Parcel Ref",
+        "Habitat Ref": "Parcel Ref",
         "Baseline Broad Habitat Type": "Baseline Broad Habitat Type",
         "Baseline Habitat Type": "Baseline Habitat Type",
         "Baseline Distinctiveness": "Baseline Distinctiveness",
-        "Baseline Strategic Significance": "Baseline Strategic Significance",
     },
     "COMPOSE": {
+        "Baseline Strategic Significance": significance("Baseline Strategic Significance"),
         "Baseline Condition": numbered(
             "Baseline Condition", AREA_CONDITION, "Baseline Habitat Type"),
     },
@@ -221,22 +266,23 @@ AREA_BASELINE = {
 
 AREA_PI = {
     "CARRY": {
-        "PI Ref": "Parcel Ref",
+        "Habitat Ref": "Parcel Ref",
         "Baseline Broad Habitat Type": "Baseline Broad Habitat Type",
         "Baseline Habitat Type": "Baseline Habitat Type",
         "Baseline Distinctiveness": "Baseline Distinctiveness",
-        "Baseline Strategic Significance": "Baseline Strategic Significance",
         "Retention Category": "Retention Category",
         "Proposed Broad Habitat Type": "Proposed Broad Habitat Type",
         "Proposed Habitat Type": "Proposed Habitat Type",
         "Proposed Distinctiveness": "Proposed Distinctiveness",
-        "Proposed Strategic Significance": "Proposed Strategic Significance",
         "Habitat created in advance/years": "Habitat created in advance/years",
         "Delay in starting habitat creation/years":
             "Delay in starting habitat creation/years",
         "Spatial risk category": "Spatial risk category",
     },
     "COMPOSE": {
+        "Baseline Strategic Significance": significance(
+            "Baseline Strategic Significance", type_column="Baseline Habitat Type"),
+        "Proposed Strategic Significance": significance("Proposed Strategic Significance"),
         "Baseline Condition": numbered(
             "Baseline Condition", AREA_CONDITION, "Baseline Habitat Type"),
         "Proposed Condition": numbered(
@@ -263,11 +309,13 @@ AREA_PI = {
 
 HEDGEROW_BASELINE = {
     "CARRY": {
-        "Parcel Ref": "Parcel Ref",
+        "Habitat Ref": "Parcel Ref",
         "Baseline Hedge Type": "Baseline Hedge Type",
         "Baseline Distinctiveness": "Baseline Distinctiveness",
         "Baseline Condition": "Baseline Condition",
-        "Baseline Strategic Significance": "Baseline Strategic Significance",
+    },
+    "COMPOSE": {
+        "Baseline Strategic Significance": significance("Baseline Strategic Significance"),
     },
     "CHANGE": {
         "Length": ("Length", rounded_to_whole, "rounded to whole metres"),
@@ -296,19 +344,21 @@ HEDGEROW_PI = {
         "Baseline Hedge Type": "Baseline Hedge Type",
         "Baseline Distinctiveness": "Baseline Distinctiveness",
         "Baseline Condition": "Baseline Condition",
-        "Baseline Strategic Significance": "Baseline Strategic Significance",
         "Retention Category": "Retention Category",
         "Proposed Hedge Type": "Proposed Hedge Type",
         "Proposed Distinctiveness": "Proposed Distinctiveness",
         "Proposed Condition": "Proposed Condition",
-        "Proposed Strategic Significance": "Proposed Strategic Significance",
         "Habitat created in advance/years": "Habitat created in advance/years",
         "Delay in starting habitat creation/years":
             "Delay in starting habitat creation/years",
         "Spatial risk category": "Spatial risk category",
     },
     "COMPOSE": {
-        "Parcel Ref": (("Parent Ref", "PI Ref"), linear_reference,
+        "Baseline Strategic Significance": significance(
+            "Baseline Strategic Significance", type_column="Baseline Hedge Type"),
+        "Proposed Strategic Significance": significance(
+            "Proposed Strategic Significance", type_column="Proposed Hedge Type"),
+        "Parcel Ref": (("Parent Ref", "Habitat Ref"), linear_reference,
                         "the parent's reference, or the feature's own when it\n                         was created from nothing"),
     },
     "CHANGE": {
@@ -330,14 +380,14 @@ HEDGEROW_PI = {
 
 WATERCOURSE_BASELINE = {
     "CARRY": {
-        "Parcel Ref": "Parcel Ref",
+        "Habitat Ref": "Parcel Ref",
         "Baseline River Type": "Baseline River Type",
         "Baseline Distinctiveness": "Baseline Distinctiveness",
-        "Baseline Strategic Significance": "Baseline Strategic Significance",
         "Baseline Encroachment into Watercourse":
             "Baseline Encroachment into Watercourse",
     },
     "COMPOSE": {
+        "Baseline Strategic Significance": significance("Baseline Strategic Significance"),
         "Baseline Condition": numbered(
             "Baseline Condition", WATERCOURSE_CONDITION, "Baseline River Type"),
         "Baseline Encroachment into riparian zone": numbered(
@@ -373,12 +423,10 @@ WATERCOURSE_PI = {
     "CARRY": {
         "Baseline River Type": "Baseline River Type",
         "Baseline Distinctiveness": "Baseline Distinctiveness",
-        "Baseline Strategic Significance": "Baseline Strategic Significance",
         "Baseline Encroachment into Watercourse":
             "Baseline Encroachment into Watercourse",
         "Proposed River Type": "Proposed River Type",
         "Proposed Distinctiveness": "Proposed Distinctiveness",
-        "Proposed Strategic Significance": "Proposed Strategic Significance",
         "Proposed Encroachment into Watercourse":
             "Proposed Encroachment into Watercourse",
         "Enhancement Type": "Enhancement Type",
@@ -388,7 +436,11 @@ WATERCOURSE_PI = {
         "Spatial risk category": "Spatial risk category",
     },
     "COMPOSE": {
-        "Parcel Ref": (("Parent Ref", "PI Ref"), linear_reference,
+        "Baseline Strategic Significance": significance(
+            "Baseline Strategic Significance", type_column="Baseline River Type"),
+        "Proposed Strategic Significance": significance(
+            "Proposed Strategic Significance", type_column="Proposed River Type"),
+        "Parcel Ref": (("Parent Ref", "Habitat Ref"), linear_reference,
                         "the parent's reference, or the feature's own when it\n                         was created from nothing"),
         "Baseline Condition": numbered(
             "Baseline Condition", WATERCOURSE_CONDITION, "Baseline River Type"),
@@ -423,13 +475,13 @@ WATERCOURSE_PI = {
 
 TREE_BASELINE = {
     "CARRY": {
-        "Tree Ref": "Tree Ref",
+        "Habitat Ref": "Tree Ref",
         "Baseline Tree Size": "Baseline Tree Size",
         "Baseline Tree Type": "Baseline Tree Type",
         "Baseline Rural or Urban Tree": "Baseline Rural or Urban Tree",
-        "Baseline Strategic Significance": "Baseline Strategic Significance",
     },
     "COMPOSE": {
+        "Baseline Strategic Significance": significance("Baseline Strategic Significance", trees=True),
         "Baseline Condition": numbered(
             "Baseline Condition", TREE_CONDITION, fallback=EXISTING_TREE),
     },
@@ -462,13 +514,11 @@ TREE_PI = {
         "Baseline Tree Size": "Baseline Tree Size",
         "Baseline Tree Type": "Baseline Tree Type",
         "Baseline Rural or Urban Tree": "Baseline Rural or Urban Tree",
-        "Baseline Strategic Significance": "Baseline Strategic Significance",
         "Retention Category": "Retention Category",
         "Category": "Category",
         "Proposed Tree Size": "Proposed Tree Size",
         "Proposed Tree Type": "Proposed Tree Type",
         "Proposed Rural or Urban Tree": "Proposed Rural or Urban Tree",
-        "Proposed Strategic Significance": "Proposed Strategic Significance",
         "Habitat Created/Enhanced in advance/years":
             "Habitat Created/Enhanced in advance/years",
         "Delay in starting habitat creation/enhancement in years":
@@ -476,7 +526,10 @@ TREE_PI = {
         "Spatial risk category": "Spatial risk category",
     },
     "COMPOSE": {
-        "Tree Ref": (("Parent Ref", "PI Ref"), linear_reference,
+        "Baseline Strategic Significance": significance(
+            "Baseline Strategic Significance", trees=True, type_column="Category"),
+        "Proposed Strategic Significance": significance("Proposed Strategic Significance", trees=True),
+        "Tree Ref": (("Parent Ref", "Habitat Ref"), linear_reference,
                         "the parent's reference, or the feature's own when it\n                         was created from nothing"),
         "Baseline Condition": numbered(
             "Baseline Condition", TREE_CONDITION, "Category",
@@ -504,14 +557,16 @@ TREE_PI = {
 
 # staged table -> (legacy table, stage, mapping, geometry column in legacy)
 LAYERS = [
-    ("Habitats Baseline", "Habitats", "baseline", AREA_BASELINE, "geom"),
-    ("Habitats Post-Intervention", "Habitats", "pi", AREA_PI, "geom"),
+    ("Area Habitats Baseline", "Habitats", "baseline", AREA_BASELINE, "geom"),
+    ("Area Habitats Post-Intervention", "Habitats", "pi", AREA_PI, "geom"),
     ("Hedgerows Baseline", "Hedgerows", "baseline", HEDGEROW_BASELINE, "geom"),
     ("Hedgerows Post-Intervention", "Hedgerows", "pi", HEDGEROW_PI, "geom"),
     ("Watercourses Baseline", "Rivers", "baseline", WATERCOURSE_BASELINE, "geom"),
     ("Watercourses Post-Intervention", "Rivers", "pi", WATERCOURSE_PI, "geom"),
-    ("Trees Baseline", "Urban Trees", "baseline", TREE_BASELINE, "geometry"),
-    ("Trees Post-Intervention", "Urban Trees", "pi", TREE_PI, "geometry"),
+    ("Individual Trees Baseline", "Urban Trees", "baseline", TREE_BASELINE,
+     "geometry"),
+    ("Individual Trees Post-Intervention", "Urban Trees", "pi", TREE_PI,
+     "geometry"),
 ]
 
 # Rows legacy needs that the staged file does not hold. The staged template

@@ -1,8 +1,3 @@
-Category,Significance
-Created,Within area formally identified in local strategy
-Created,Location ecologically desirable but not in local strategy
-Created,Area/compensation not in local strategy/ no local strategy
-Retained,Within area formally identified in local strategy
-Retained,Location ecologically desirable but not in local strategy
-Retained,Area/compensation not in local strategy/ no local strategy
-Lost,N/A
+Value,Description,Order
+Low,Low,1
+High,High,2

@@ -20,6 +20,21 @@ Keep one clean copy of each, and give the tool a new copy for each run.
 **Save your edits first.** The tools read the GeoPackage from disk, and stop
 with the names of any layers that have unsaved edits.
 
+**The tools read and write the current BNG Service template only.** Its
+tables are `Area Habitats`, `Hedgerows`, `Watercourses`, `Individual Trees`
+and `Vertical Area Habitats`, each as `Baseline` and `Post-Intervention`.
+Each holds its reference in `Habitat Ref`. A file or template with the older
+table names (`Habitats Baseline`, `Trees Baseline`) is refused.
+
+**Strategic significance is `Low` or `High` in the template.** Natural England
+and the metric use a wording instead. The tools convert as below.
+
+| BNG Service | Natural England and the metric |
+| --- | --- |
+| `Low` | *Area/compensation not in local strategy/ no local strategy* |
+| `High` | *Formally identified in local strategy*; for trees *Within area formally identified in local strategy* |
+| Blank | *N/A* for a hedgerow or watercourse type of *To be created* or *N/A*, and for a newly planted tree; blank elsewhere |
+
 ---
 
 ## Install the plugin
@@ -115,6 +130,10 @@ three CSV files that the Excel GIS import tool reads.
 units are missing from a legacy calculation. The irreplaceable flag has no
 legacy column, so it is lost.
 
+**`Habitat Ref` becomes `Parcel Ref`,** or `Tree Ref` for trees. A hedgerow,
+watercourse or tree cut from a parent takes the parent's reference, because
+legacy matches it to the baseline by reference.
+
 **Record lineage in comments** writes the parent reference of each feature to
 the legacy Comment column. The reverse tool uses it to restore the links.
 
@@ -179,17 +198,35 @@ shape with the baseline, and warns when a baseline feature has changed since.
 **The tool takes the list number off drop-down values,** such as
 `4. Fairly Poor`, because the BNG Service template stores the words alone.
 
-**A copy of an earlier template can be filled.** The tool writes only the
-columns that the template has. The log names each column that the template
-lacks, whose values are not written, and each column of the template that the
-tool leaves blank, such as `parent_checksum`. An earlier template whose
-drop-down lists number their labels gets the numbered form, from its own
-lists, so that its drop-downs offer each value. The tool reads those lists from
-the `CSV References` folder beside `Layers/`, so fill the GeoPackage inside a
-full copy of the template folder.
+**`Parcel Ref` and `Tree Ref` become `Habitat Ref`.**
 
-**After the conversion, you must** fill in Irreplaceable Habitat and add any
-vertical area habitats, such as green walls.
+**Strategic significance becomes `Low` or `High`:**
+
+- Every baseline row is `Low`. The log names each row whose legacy value was
+  something else.
+- On a post-intervention row, *Baseline Strategic Significance* is `Low` where
+  the row has a baseline habitat, and blank where it has none.
+- *Proposed Strategic Significance* follows the table above. *Location
+  ecologically desirable but not in local strategy* has no place in the
+  template, so it is left blank, and the log names the rows. *N/A* is left
+  blank.
+
+**Spatial risk category is `N/A` on every post-intervention row.** The log
+names each row whose legacy value was something else.
+
+**The tool fills the blanks that the template fills itself:** distinctiveness
+from the habitat type, a condition where the habitat allows only one, and
+Irreplaceable Habitat where the habitat allows only one answer. It reads these
+from the template's own lists.
+
+**The target template must have the current table names.** The tool writes
+only the columns that the template has. The log names each column that the
+template lacks, whose values are not written, and each column of the template
+that the tool leaves blank.
+
+**After the conversion, you must** fill in Irreplaceable Habitat where the
+habitat allows either answer, choose `Low` or `High` where significance was
+left blank, and add any vertical area habitats, such as green walls.
 
 ---
 
@@ -231,6 +268,8 @@ python3 to_metric.py  INPUT.gpkg --metric METRIC.xlsm|.xlsx -o OUT [--consolidat
 Add `--dry-run` to `new_to_old.py` or `old_to_new.py` to see the report and
 write nothing.
 
-The two conversion scripts read the drop-down lists of both templates. Run
-from the repository, they read them from `templates/`. The plugin zip carries a
-copy of each list, which `build_plugin.py` adds.
+The two conversion scripts read the drop-down lists of both templates, and
+`old_to_new.py` also reads the BNG Service distinctiveness, condition and
+irreplaceable lists. Run from the repository, they read them from
+`templates/`. The plugin zip carries a copy of each list, which
+`build_plugin.py` adds.

@@ -118,10 +118,11 @@ def main(argv=None):
     totals['trees'] = write_trees(conn, mesh)
     totals['redline'] = write_redline(conn, mesh)
 
-    for table in ['Habitats Baseline', 'Habitats Post-Intervention',
+    for table in ['Area Habitats Baseline', 'Area Habitats Post-Intervention',
                   'Hedgerows Baseline', 'Hedgerows Post-Intervention',
                   'Watercourses Baseline', 'Watercourses Post-Intervention',
-                  'Trees Baseline', 'Trees Post-Intervention',
+                  'Individual Trees Baseline',
+                  'Individual Trees Post-Intervention',
                   'Red Line Boundary']:
         update_layer_extent(conn, table, 'geom')
     conn.commit()

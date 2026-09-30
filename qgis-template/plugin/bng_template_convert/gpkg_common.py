@@ -647,7 +647,7 @@ def resolve_table_name(candidates, present):
     """First accepted spelling of a table that `present` actually holds.
 
     `candidates` is ordered most-preferred first. Matching is by EXACT name and
-    never by substring, so "Habitats Baseline" can never be resolved to — or
+    never by substring, so "Area Habitats Baseline" can never be resolved to — or
     confused with — "Vertical Area Habitats Baseline". Returns None when the
     file holds none of them, which callers must report rather than quietly
     treat as an empty layer.

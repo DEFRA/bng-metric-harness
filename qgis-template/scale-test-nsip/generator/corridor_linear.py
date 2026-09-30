@@ -16,8 +16,7 @@ import os
 
 from corridor_mesh import _hash01, line_length
 from corridor_scenario import (CONDITION_SCALE, CORE, CSV_ROOT, EARTHWORKS,
-                               SS_DESIRABLE, SS_FORMAL, SS_NONE, _pick,
-                               zone_of)
+                               PROPOSED_SIGNIFICANCE, _pick, zone_of)
 
 # ------------------------------------------------------- reference values
 
@@ -66,20 +65,16 @@ TREE_CONDITIONS = list(zip(CONDITION_SCALE, (0.16, 0.27, 0.34, 0.16, 0.07)))
 # A planted tree is priced as an area habitat, so it needs a real condition:
 # the metric cannot value one recorded as not applicable.
 PLANTED_TREE_CONDITIONS = list(zip(CONDITION_SCALE, (0.34, 0.42, 0.24)))
-# The tree lists word formal identification differently from every other
-# habitat type, so a tree cannot share the hedgerow and parcel wording.
-SS_FORMAL_TREE = 'Within area formally identified in local strategy'
-TREE_SIGNIFICANCE = [(SS_NONE, 0.76), (SS_DESIRABLE, 0.18),
-                     (SS_FORMAL_TREE, 0.06)]
 
 
 def significance(seed):
-    return _pick([(SS_NONE, 0.76), (SS_DESIRABLE, 0.18), (SS_FORMAL, 0.06)],
-                 _hash01(seed, 3301))
+    """A proposed significance, Low or High. A baseline one is always Low."""
+    return _pick(PROPOSED_SIGNIFICANCE, _hash01(seed, 3301))
 
 
 def tree_significance(seed):
-    return _pick(TREE_SIGNIFICANCE, _hash01(seed, 3301))
+    """Trees take the same Low and High as every other habitat type."""
+    return significance(seed)
 
 
 # ------------------------------------------------------ hedgerow lookups

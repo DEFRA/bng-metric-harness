@@ -24,15 +24,15 @@ import xml.etree.ElementTree as ET
 # The names are the ones the buttons use.
 PARENTS = {
     "Area Habitats Post-Intervention":
-        ("Area Habitats Baseline", "Parcel Ref"),
+        ("Area Habitats Baseline", "Habitat Ref"),
     "Hedgerows Post-Intervention":
-        ("Hedgerows Baseline", "Parcel Ref"),
+        ("Hedgerows Baseline", "Habitat Ref"),
     "Individual Trees Post-Intervention":
-        ("Individual Trees Baseline", "Tree Ref"),
+        ("Individual Trees Baseline", "Habitat Ref"),
     "Vertical Area Habitats Post-Intervention":
-        ("Vertical Area Habitats Baseline", "Parcel Ref"),
+        ("Vertical Area Habitats Baseline", "Habitat Ref"),
     "Watercourses Post-Intervention":
-        ("Watercourses Baseline", "Parcel Ref"),
+        ("Watercourses Baseline", "Habitat Ref"),
 }
 
 # The Copy button writes parent_geom with asWkt(3). geom_to_wkt(g, 3) is the

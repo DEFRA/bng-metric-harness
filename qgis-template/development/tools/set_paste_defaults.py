@@ -51,7 +51,7 @@ APPLY_ON_UPDATE = re.compile(r'\bapplyOnUpdate="([^"]*)"')
 # Column -> the baseline expression whose value it takes. {ref} is the ref
 # column of the baseline layer. The same on every post-intervention layer.
 LOOKUPS = (
-    ("PI Ref", '"{ref}"'),
+    ("Habitat Ref", '"{ref}"'),
     ("Parent Ref", '"{ref}"'),
     ("parent_uuid", UUID),
     ("parent_geom", f"geom_to_wkt($geometry, {WKT_DECIMALS})"),
@@ -59,11 +59,7 @@ LOOKUPS = (
 
 # Layer -> (column, value when pasted from the baseline, value otherwise).
 # Copy writes the same values, except where Copy has no "otherwise".
-AREA = (
-    ("Retention Category", RETAINED, NULL),
-    ("Proposed Strategic Significance",
-     '"Baseline Strategic Significance"', NULL),
-)
+AREA = (("Retention Category", RETAINED, NULL),)
 LINEAR = (("Baseline Length", LENGTH, NULL),)
 GATED = {
     "Area Habitats Post-Intervention": AREA,

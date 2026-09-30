@@ -73,7 +73,7 @@ function readStaged() {
   return {
     areasBaseline: q(`SELECT "Baseline Broad Habitat Type" AS broad,
         "Baseline Habitat Type" AS type, "Baseline Condition" AS condition,
-        "Area" AS sizeHa FROM "Habitats Baseline"`),
+        "Area" AS sizeHa FROM "Area Habitats Baseline"`),
     areasPi: q(`SELECT "Retention Category" AS retention,
         "Baseline Broad Habitat Type" AS baseBroad,
         "Baseline Habitat Type" AS baseType,
@@ -82,7 +82,7 @@ function readStaged() {
         "Proposed Habitat Type" AS type, "Proposed Condition" AS condition,
         "Habitat created in advance/years" AS advance,
         "Delay in starting habitat creation/years" AS delay,
-        "Area" AS sizeHa FROM "Habitats Post-Intervention"`),
+        "Area" AS sizeHa FROM "Area Habitats Post-Intervention"`),
     hedgesBaseline: q(`SELECT "Baseline Hedge Type" AS type,
         "Baseline Condition" AS condition, "Length" AS lengthM
         FROM "Hedgerows Baseline"`),
@@ -112,14 +112,14 @@ function readStaged() {
     treesBaseline: q(`SELECT "Baseline Tree Size" AS size,
         "Baseline Rural or Urban Tree" AS setting,
         "Baseline Condition" AS condition, "Count" AS count
-        FROM "Trees Baseline"`),
+        FROM "Individual Trees Baseline"`),
     treesPi: q(`SELECT "Retention Category" AS retention,
         "Proposed Tree Size" AS size,
         "Proposed Rural or Urban Tree" AS setting,
         "Proposed Condition" AS condition,
         "Habitat Created/Enhanced in advance/years" AS advance,
         "Delay in starting habitat creation/enhancement in years" AS delay,
-        "Count" AS count FROM "Trees Post-Intervention"`),
+        "Count" AS count FROM "Individual Trees Post-Intervention"`),
   }
 }
 

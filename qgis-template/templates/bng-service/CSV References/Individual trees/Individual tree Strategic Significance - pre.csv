@@ -1,5 +1,3 @@
-Category,Retention
-Newly Planted,N/A
-Existing,Within area formally identified in local strategy
-Existing,Location ecologically desirable but not in local strategy
-Existing,Area/compensation not in local strategy/ no local strategy
+Value,Description,Order
+Low,Low,1
+High,High,2

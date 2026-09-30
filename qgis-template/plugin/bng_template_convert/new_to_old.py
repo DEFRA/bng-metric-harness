@@ -74,10 +74,10 @@ except ImportError:  # pragma: no cover - running as a plain script
     )
 
 try:
-    from .reference_lists import to_legacy_labels
+    from .reference_lists import to_legacy_labels, to_legacy_significance
     from .to_metric import check_needed_values
 except ImportError:  # pragma: no cover - running as a plain script
-    from reference_lists import to_legacy_labels
+    from reference_lists import to_legacy_labels, to_legacy_significance
     from to_metric import check_needed_values
 
 # Sizes below this are treated as "no shortfall" when deciding whether a
@@ -256,23 +256,14 @@ LEGACY_LAYERS = {
     },
 }
 
-# Staged (new template) table names, by habitat type.
-#
-# Two of these layers are being renamed in the QGIS template — "Habitats *" to
-# "Area Habitats *" and "Trees *" to "Individual Trees *" — so both spellings
-# are accepted and a file from either template version converts. Candidates are
-# listed newest-name-first, so a file that somehow carried both would be read
-# from the new one. Resolution is by EXACT name (see resolve_table_name), which
-# is what keeps "Habitats Baseline" from ever matching the table it is a
-# substring of, "Vertical Area Habitats Baseline".
+# Staged (new template) table names, by habitat type. Resolution is by EXACT
+# name (see resolve_table_name), so "Area Habitats Baseline" can never match
+# "Vertical Area Habitats Baseline".
 STAGED_TABLES = {
     "areas": {
         "label": "Area habitats",
-        "baseline": ("Area Habitats Baseline", "Habitats Baseline"),
-        "pi": (
-            "Area Habitats Post-Intervention",
-            "Habitats Post-Intervention",
-        ),
+        "baseline": ("Area Habitats Baseline",),
+        "pi": ("Area Habitats Post-Intervention",),
     },
     "hedgerows": {
         "label": "Hedgerows",
@@ -286,11 +277,8 @@ STAGED_TABLES = {
     },
     "trees": {
         "label": "Trees",
-        "baseline": ("Individual Trees Baseline", "Trees Baseline"),
-        "pi": (
-            "Individual Trees Post-Intervention",
-            "Trees Post-Intervention",
-        ),
+        "baseline": ("Individual Trees Baseline",),
+        "pi": ("Individual Trees Post-Intervention",),
     },
     "verticalAreas": {
         "label": "Vertical area habitats",
@@ -301,6 +289,9 @@ STAGED_TABLES = {
 # Key in STAGED_TABLES -> how that stage reads in a message.
 STAGED_STAGES = (("baseline", "baseline"), ("pi", "post-intervention"))
 STAGED_REDLINE_TABLE = "Red Line Boundary"
+# Every staged habitat table holds its reference in this one column. Legacy
+# calls it Parcel Ref, or Tree Ref for trees.
+REF_FIELD = "Habitat Ref"
 
 SITE_DETAIL_FIELDS = [
     "Site Name",
@@ -346,7 +337,7 @@ def rounded_size(value):
 
 def child_ref(row):
     """The reference a post-intervention row carries in the new template."""
-    return row.get("PI Ref") or row.get("Parcel Ref") or row.get("Tree Ref")
+    return row.get(REF_FIELD)
 
 
 def continuing_ref(row):
@@ -415,7 +406,7 @@ def merged_comment(base_comment, note):
 def map_area_baseline(row, site):
     return with_site(
         {
-            "Parcel Ref": row.get("Parcel Ref"),
+            "Parcel Ref": row.get(REF_FIELD),
             "Baseline Broad Habitat Type": row.get("Baseline Broad Habitat Type"),
             "Baseline Habitat Type": row.get("Baseline Habitat Type"),
             "Baseline Distinctiveness": row.get("Baseline Distinctiveness"),
@@ -481,7 +472,7 @@ def area_lost_row(parent, lost_hectares, site):
     """
     return with_site(
         {
-            "Parcel Ref": parent.get("Parcel Ref"),
+            "Parcel Ref": parent.get(REF_FIELD),
             "Baseline Broad Habitat Type": parent.get("Baseline Broad Habitat Type"),
             "Baseline Habitat Type": parent.get("Baseline Habitat Type"),
             "Baseline Distinctiveness": parent.get("Baseline Distinctiveness"),
@@ -507,7 +498,7 @@ def area_lost_row(parent, lost_hectares, site):
 def map_hedgerow_baseline(row, site):
     return with_site(
         {
-            "Parcel Ref": row.get("Parcel Ref"),
+            "Parcel Ref": row.get(REF_FIELD),
             "Baseline Hedge Type": row.get("Baseline Hedge Type"),
             "Baseline Distinctiveness": row.get("Baseline Distinctiveness"),
             "Baseline Condition": row.get("Baseline Condition"),
@@ -557,7 +548,7 @@ def map_hedgerow_pi(row, site, carry_lineage):
 def hedgerow_lost_row(parent, lost_length, site):
     return with_site(
         {
-            "Parcel Ref": parent.get("Parcel Ref"),
+            "Parcel Ref": parent.get(REF_FIELD),
             "Baseline Hedge Type": parent.get("Baseline Hedge Type"),
             "Baseline Distinctiveness": parent.get("Baseline Distinctiveness"),
             "Baseline Condition": parent.get("Baseline Condition"),
@@ -579,7 +570,7 @@ def hedgerow_lost_row(parent, lost_length, site):
 def map_watercourse_baseline(row, site):
     return with_site(
         {
-            "Parcel Ref": row.get("Parcel Ref"),
+            "Parcel Ref": row.get(REF_FIELD),
             "Baseline River Type": row.get("Baseline River Type"),
             "Baseline Distinctiveness": row.get("Baseline Distinctiveness"),
             "Baseline Condition": row.get("Baseline Condition"),
@@ -648,7 +639,7 @@ def map_watercourse_pi(row, site, carry_lineage):
 def watercourse_lost_row(parent, lost_length, site):
     return with_site(
         {
-            "Parcel Ref": parent.get("Parcel Ref"),
+            "Parcel Ref": parent.get(REF_FIELD),
             "Baseline River Type": parent.get("Baseline River Type"),
             "Baseline Distinctiveness": parent.get("Baseline Distinctiveness"),
             "Baseline Condition": parent.get("Baseline Condition"),
@@ -676,7 +667,7 @@ def watercourse_lost_row(parent, lost_length, site):
 def map_tree_baseline(row, site):
     return with_site(
         {
-            "Tree Ref": row.get("Tree Ref"),
+            "Tree Ref": row.get(REF_FIELD),
             "Baseline Tree Size": row.get("Baseline Tree Size"),
             "Baseline Tree Type": row.get("Baseline Tree Type"),
             "Baseline Rural or Urban Tree": row.get("Baseline Rural or Urban Tree"),
@@ -731,7 +722,7 @@ def map_tree_pi(row, site, carry_lineage):
 def tree_lost_row(parent, lost_count, site):
     return with_site(
         {
-            "Tree Ref": parent.get("Tree Ref"),
+            "Tree Ref": parent.get(REF_FIELD),
             "Baseline Tree Size": parent.get("Baseline Tree Size"),
             "Baseline Tree Type": parent.get("Baseline Tree Type"),
             "Baseline Rural or Urban Tree": parent.get("Baseline Rural or Urban Tree"),
@@ -779,7 +770,7 @@ def synthesise_lost_rows(baseline_rows, pi_rows, size_field, rule, tolerance):
 
     losses = []
     for row in baseline_rows:
-        ref = row.get("Parcel Ref") or row.get("Tree Ref")
+        ref = row.get(REF_FIELD)
         baseline_size = numeric(row.get(size_field))
         if ref is None or baseline_size is None:
             continue
@@ -1065,11 +1056,6 @@ def resolve_staged_tables(source, report):
                     "treated as EMPTY, so nothing from it reaches the legacy "
                     "files. Check the input is a BNG Service template file."
                 )
-            elif table != candidates[-1]:
-                report.note(
-                    f"{spec['label']} ({stage_label}): read from renamed table "
-                    f'"{table}".'
-                )
         resolved[habitat_type] = names
     return resolved
 
@@ -1195,7 +1181,7 @@ def convert(input_path, out_dir, carry_lineage, dry_run, formats=("gpkg",),
 def _report_area_losses(losses, want_gpkg, want_csv, report):
     """Area habitat baseline that post-intervention does not yet cover."""
     detail = summarise_list(
-        f"{parent.get('Parcel Ref')} "
+        f"{parent.get(REF_FIELD)} "
         f"({int(round(hectares_to_sq_metres(size)))} m²)"
         for parent, size in losses
     )
@@ -1398,7 +1384,7 @@ def _write_linear(
     report.count(f"{table_name} (post-intervention)", len(pi_rows))
     if losses:
         detail = summarise_list(
-            f"{parent.get('Parcel Ref')} ({int(round(size))} m)"
+            f"{parent.get(REF_FIELD)} ({int(round(size))} m)"
             for parent, size in losses
         )
         report.note(
@@ -1445,7 +1431,7 @@ def _write_trees(baseline_conn, pi_conn, tables, site, carry_lineage, report):
     report.count("Urban Trees (post-intervention)", len(pi_rows))
     if losses:
         detail = summarise_list(
-            f"{parent.get('Tree Ref')} ({int(round(size))})" for parent, size in losses
+            f"{parent.get(REF_FIELD)} ({int(round(size))})" for parent, size in losses
         )
         report.note(f"Urban Trees: synthesised {len(losses)} 'Lost' row(s) — {detail}")
     return pi_rows
@@ -1464,6 +1450,15 @@ def _number_list_values(staged, report):
             f"Put the Natural England list number on {changed} drop-down "
             "value(s), such as 'Fairly Poor' to '4. Fairly Poor', because the "
             "legacy template stores them that way"
+        )
+    changed = to_legacy_significance(staged)
+    if changed:
+        report.note(
+            f"Wrote {changed} strategic significance value(s) in the Natural "
+            "England wording: Low as 'Area/compensation not in local "
+            "strategy/ no local strategy', High as 'Formally identified in "
+            "local strategy' (for trees, 'Within area formally identified in "
+            "local strategy')"
         )
 
 

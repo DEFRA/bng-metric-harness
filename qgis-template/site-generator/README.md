@@ -100,6 +100,14 @@ along the edge of the development.
 development is lost. New trees are planted in the development and in the
 green margin.
 
+**The values the template fills itself are written as it fills them.** Each
+row holds its reference in `Habitat Ref`. Baseline Strategic Significance is
+`Low`, and blank on a created hedgerow or planted tree. Proposed Strategic
+Significance is mostly `Low` and sometimes `High`. Spatial risk category is
+`N/A`. Irreplaceable Habitat is the only answer where the habitat allows one,
+and `No` where it allows both. The Natural England templates and the metric
+get the metric's wording for significance: see `../plugin/README.md`.
+
 ---
 
 ## How the output is checked

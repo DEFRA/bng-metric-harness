@@ -14,6 +14,9 @@ needed to use the template or the plugin.
 | `set_paste_defaults.py` | Gives the lineage columns of each post-intervention layer the default values that make a pasted feature get the lineage the Copy button writes. Safe to run again |
 | `paste_lineage.py` | The rules that the two tools above share: which baseline layer each post-intervention layer is copied from, and the expressions that find the parent of a pasted feature |
 | `allow_blank.py` | Gives every drop-down a blank choice: the `<NULL>` entry on a Value Map, and "Allow NULL value" on a Value Relation. Safe to run again |
+| `set_field_rules.py` | Fills in and locks the columns a surveyor never chooses: Distinctiveness from the habitat type, Baseline Strategic Significance (`Low`) and Spatial risk category (`N/A`). Makes Proposed Strategic Significance a `Low`/`High` drop-down that starts at `Low`. Safe to run again. Run it before `reset_stale_dropdowns.py` |
+| `rename_field.py` | Renames a field wherever the project names it as a whole, quoted name: settings, expressions and button code. Rename the GeoPackage column too. Safe to run again |
+| `rename_table.py` | Points the layers at a GeoPackage table under its new name. Rename the table with GDAL too, which renames its index and triggers. Safe to run again |
 | `require_shape.py` | Gives the ref column of each data layer a hard constraint that the row has a shape, so a paste of rows with no shape (what Copy Layer leaves on the clipboard) opens the Fix Pasted Features dialog instead of adding blank rows. Safe to run again |
 | `order_dropdowns.py` | Makes each drop-down show its items in the order of the `Order` column of its reference list. Safe to run again |
 | `check_metric_lookups.py` | Checks each condition in a filled Metric workbook against the lookup rows of the same workbook |
@@ -56,6 +59,9 @@ python3 development/tools/patch_actions.py "templates/bng-service/BNG Service Ha
 python3 development/tools/drop_field.py "templates/bng-service/BNG Service Habitat Mapping.qgz" "<field>"
 python3 development/tools/set_paste_defaults.py "templates/bng-service/BNG Service Habitat Mapping.qgz"
 python3 development/tools/order_dropdowns.py "templates/bng-service/BNG Service Habitat Mapping.qgz"
+python3 development/tools/set_field_rules.py "templates/bng-service/BNG Service Habitat Mapping.qgz"
+python3 development/tools/rename_field.py "templates/bng-service/BNG Service Habitat Mapping.qgz" "<old>" "<new>"
+python3 development/tools/rename_table.py "templates/bng-service/BNG Service Habitat Mapping.qgz" "<old>" "<new>"
 python3 development/tools/allow_blank.py "templates/bng-service/BNG Service Habitat Mapping.qgz"
 python3 development/tools/require_shape.py "templates/bng-service/BNG Service Habitat Mapping.qgz"
 python3 development/tools/check_metric_lookups.py "Filled metric.xlsm"
@@ -72,11 +78,13 @@ order.
 code, so edit any button that reads the field first. It names any other
 element that still refers to the field, and does not remove it.
 
-`reset_stale_dropdowns.py`, `set_paste_defaults.py`, `order_dropdowns.py`,
-`allow_blank.py` and `require_shape.py` take `--check` before the project.
-With `--check` they write nothing, list what they would change, and exit with
-1 if a change is needed. A template that is in step gives "no change needed"
-from all five.
+`set_field_rules.py`, `reset_stale_dropdowns.py`, `set_paste_defaults.py`,
+`order_dropdowns.py`, `allow_blank.py` and `require_shape.py` take `--check`
+before the project. With `--check` they write nothing, list what they would
+change, and exit with 1 if a change is needed. A template that is in step
+gives "no change needed" from all six. Run them in that order:
+`reset_stale_dropdowns.py` manages only the filtered drop-downs that
+`set_field_rules.py` leaves.
 
 ## Defaults for a pasted feature
 
@@ -86,7 +94,7 @@ the lineage itself. A paste goes through QGIS, which fills each column from
 its default value expression. The defaults make a paste write the same values
 as the button:
 
-- `PI Ref`, `Parent Ref`, `parent_uuid` and `parent_geom` come from the
+- `Habitat Ref`, `Parent Ref`, `parent_uuid` and `parent_geom` come from the
   parent. `parent_geom` is the parent's shape as WKT at 3 decimal places,
   the same text that the button writes.
 - `Retention Category` is `Retained`.

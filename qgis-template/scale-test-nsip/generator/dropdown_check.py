@@ -13,6 +13,12 @@ every value the list would not have offered.
 A blank is always accepted: it is a missing value, which the service reports
 as such, not an invalid one.
 
+Some columns the template fills itself, from the habitat type or a fixed
+rule, and shows read-only: distinctiveness, strategic significance, spatial
+risk and Irreplaceable Habitat. Those are checked against the lists and the
+rules directly, whatever widget the project gives them, and a blank there is
+wrong wherever the template would have filled a value.
+
     python3 dropdown_check.py <site folder>     # exits 1 on any invalid value
 
 Standard library only. The filter language is the small subset the template
@@ -116,7 +122,11 @@ def options(widget):
 
 
 def build_checks(site, project):
-    """Map GeoPackage table -> [(field, allowed(row) -> set of values)]."""
+    """Map GeoPackage table -> [(field, allowed(row) -> set of values)].
+
+    A blank passes a drop-down check. A rule check says itself whether a
+    blank is allowed, by putting None in the set.
+    """
     layers = {ml.findtext("id"): ml for ml in project.iter("maplayer")}
     checks = {}
     for layer in layers.values():
@@ -126,6 +136,8 @@ def build_checks(site, project):
         table = source.split("layername=")[1].split("|")[0]
         names = {f.get("name") for f in layer.find("fieldConfiguration")}
         for field in layer.find("fieldConfiguration"):
+            if field.get("name") in RULE_FIELDS:
+                continue
             widget = field.find("editWidget")
             kind = widget.get("type") if widget is not None else None
             if kind == "ValueMap":
@@ -145,6 +157,121 @@ def build_checks(site, project):
                     flt = None
                 checks.setdefault(table, []).append(
                     (field.get("name"), allowed_by(rows, key, flt)))
+    for table, fields in rule_checks(site).items():
+        checks.setdefault(table, []).extend(fields)
+    return checks
+
+
+# ------------------------------------------------ columns the template fills
+
+RULE_FIELDS = {
+    "Baseline Distinctiveness", "Proposed Distinctiveness",
+    "Baseline Strategic Significance", "Proposed Strategic Significance",
+    "Spatial risk category", "Irreplaceable Habitat",
+}
+LOW, HIGH, NOT_APPLICABLE = "Low", "High", "N/A"
+NO_HABITAT_TYPES = ("To be created", NOT_APPLICABLE)
+BLANK = {None}
+
+# Table stem -> (type column stem, distinctiveness lists as
+# (path, key column, value column) for baseline and proposed).
+AREA_LISTS = (
+    ("Habitats/Habitat Distinctiveness- pre.csv", "Habitat",
+     "Baseline Distinctivness"),
+    ("Habitats/Habitat Distinctiveness- post.csv", "Habitat",
+     "Proposed Distinctivness"))
+KINDS = {
+    "Area Habitats": ("Habitat Type", AREA_LISTS),
+    "Vertical Area Habitats": ("Habitat Type", (
+        ("Vertical Area Habitats/Vertical Area Habitat Distinctiveness- pre.csv",
+         "Habitat", "Baseline Distinctivness"),
+        ("Vertical Area Habitats/Vertical Area Habitat Distinctiveness- post.csv",
+         "Habitat", "Proposed Distinctivness"))),
+    "Hedgerows": ("Hedge Type", (
+        ("Hedgerows/Hedgerow Distinctiveness- pre.csv", "Value",
+         "Distinctiveness"),
+        ("Hedgerows/Hedgerow Distinctiveness - post.csv", "Value",
+         "Distinctiveness"))),
+    "Watercourses": ("River Type", (
+        ("Watercourses/Watercourse Distinctiveness- pre.csv", "Value",
+         "Distinctiveness"),
+        ("Watercourses/Watercourse Distinctiveness- post.csv", "Value",
+         "Distinctiveness"))),
+    "Individual Trees": ("Tree Type", None),
+}
+IRREPLACEABLE_LIST = ("Habitats/Habitat Irreplaceable.csv", "UKHAB",
+                      "Irreplaceable")
+STAGES = (("Baseline", False), ("Post-Intervention", True))
+
+
+def list_values(site, path, key, value):
+    """Key -> set of values, from one list in the site's CSV References."""
+    out = {}
+    full = os.path.join(site, "CSV References", path)
+    with open(full, encoding="utf-8-sig") as handle:
+        for row in csv.DictReader(handle):
+            if row.get(value):
+                out.setdefault(row[key], set()).add(row[value])
+    return out
+
+
+def has_type(value):
+    return value is not None and value != "" and value not in NO_HABITAT_TYPES
+
+
+def from_type(values, type_column):
+    """The value a list gives for the row's type. Blank when there is none."""
+    def allowed(row):
+        habitat = blank_to_none(row.get(type_column))
+        return values.get(habitat, set()) if habitat is not None else BLANK
+    return allowed
+
+
+def irreplaceable_rule(values, type_column):
+    """The only answer the habitat allows, or either answer or a blank."""
+    def allowed(row):
+        habitat = blank_to_none(row.get(type_column))
+        if habitat is None:
+            return BLANK
+        options = values.get(habitat, set())
+        return options if len(options) == 1 else options | BLANK
+    return allowed
+
+
+def baseline_significance(type_column, post):
+    """Low on a baseline row, and on a post-intervention row with a baseline
+    habitat. Blank on a row created from nothing."""
+    if not post:
+        return lambda row: {LOW}
+    return lambda row: {LOW} if has_type(row.get(type_column)) else BLANK
+
+
+def rule_checks(site):
+    """Map GeoPackage table -> [(field, allowed(row))] for RULE_FIELDS."""
+    irreplaceable = list_values(site, *IRREPLACEABLE_LIST)
+    checks = {}
+    for stem, (type_stem, lists) in KINDS.items():
+        for stage, post in STAGES:
+            table = f"{stem} {stage}"
+            baseline_type = f"Baseline {type_stem}"
+            fields = [("Baseline Strategic Significance",
+                       baseline_significance(baseline_type, post))]
+            if lists:
+                fields.append(("Baseline Distinctiveness", from_type(
+                    list_values(site, *lists[0]), baseline_type)))
+            if post:
+                fields.append(("Proposed Strategic Significance",
+                               lambda row: {LOW, HIGH, None}))
+                fields.append(("Spatial risk category",
+                               lambda row: {NOT_APPLICABLE}))
+                if lists:
+                    fields.append(("Proposed Distinctiveness", from_type(
+                        list_values(site, *lists[1]),
+                        f"Proposed {type_stem}")))
+            if stem in ("Area Habitats", "Vertical Area Habitats"):
+                fields.append(("Irreplaceable Habitat", irreplaceable_rule(
+                    irreplaceable, baseline_type)))
+            checks[table] = fields
     return checks
 
 
@@ -170,7 +297,9 @@ def check_site(site):
             row = dict(record)
             for field, allowed in fields:
                 value = blank_to_none(row.get(field))
-                if value is None or value in allowed(row):
+                if value is None and field not in RULE_FIELDS:
+                    continue
+                if value in allowed(row):
                     continue
                 count, examples = invalid.get((table, field), (0, []))
                 if len(examples) < EXAMPLES_PER_FIELD:

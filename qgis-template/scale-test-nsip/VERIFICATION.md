@@ -28,8 +28,8 @@ GeoPackage.** QGIS locks an open project, and the script fails.
 
 1. Open this project:
    `scale-test-nsip/hs2-phase2a-subsection/BNG Service Habitat Mapping.qgz`.
-2. Zoom to the Habitats Baseline layer.
-3. Switch to Habitats Post-Intervention.
+2. Zoom to the Area Habitats Baseline layer.
+3. Switch to Area Habitats Post-Intervention.
 
 **Pass:**
 
@@ -51,14 +51,14 @@ Then check the feature counts in Layer Properties, Information:
 
 | Layer | Rows |
 | --- | --- |
-| Habitats Baseline | **11,554** |
-| Habitats Post-Intervention | **13,682** |
+| Area Habitats Baseline | **11,554** |
+| Area Habitats Post-Intervention | **13,682** |
 | Hedgerows Baseline | **1,275** |
 | Hedgerows Post-Intervention | **1,469** |
 | Watercourses Baseline | **256** |
 | Watercourses Post-Intervention | **243** |
-| Trees Baseline | **3,600** |
-| Trees Post-Intervention | **2,767** |
+| Individual Trees Baseline | **3,600** |
+| Individual Trees Post-Intervention | **2,767** |
 | Red Line Boundary | **1** |
 
 ## 2. The template buttons, at scale
@@ -75,10 +75,10 @@ of the attribute table toolbar.
 
 | Button | Layer | Measured |
 | --- | --- | --- |
-| Copy baseline to post-intervention | Habitats Post-Intervention | **About 5 s** in QGIS on macOS, **6.1 s** on Windows, for 11,554 parcels. The interface stays responsive |
-| Tidy PI refs after splitting | Habitats Post-Intervention | **1 s**, with nothing to change |
-| Refresh from baseline | Habitats Post-Intervention | **9 s**, with nothing to bring in |
-| Rename a ref (updates post-intervention) | Habitats Baseline | Not timed |
+| Copy baseline to post-intervention | Area Habitats Post-Intervention | **About 5 s** in QGIS on macOS, **6.1 s** on Windows, for 11,554 parcels. The interface stays responsive |
+| Tidy PI refs after splitting | Area Habitats Post-Intervention | **1 s**, with nothing to change |
+| Refresh from baseline | Area Habitats Post-Intervention | **9 s**, with nothing to bring in |
+| Rename a ref (updates post-intervention) | Area Habitats Baseline | Not timed |
 
 **The copy is safe to cancel.** Batches already written stay written. A second
 run skips what is already copied, and takes **0.4 s** when nothing is left.
@@ -157,6 +157,13 @@ trees. The report lists them.
 The report also warns that the irreplaceable flag is dropped, on **580**
 features. The legacy template has no column for it.
 
+**Strategic significance gets the Natural England wording.** `Low` becomes
+*Area/compensation not in local strategy/ no local strategy*. `High` becomes
+*Formally identified in local strategy*, or *Within area formally identified
+in local strategy* for trees. A blank becomes *N/A* on the **394** created
+hedgerows and the **1,152** planted trees, as before, and stays blank on the
+added `Lost` rows. `Habitat Ref` becomes `Parcel Ref`, or `Tree Ref`.
+
 **Screenshot:** the plugin log with the row counts and the warnings.
 
 ### Open the result in the legacy QGIS template
@@ -214,9 +221,12 @@ python3 plugin/bng_template_convert/new_to_old.py \
 
 | File | Rows before | Rows after | Parts after |
 | --- | --- | --- | --- |
-| Habitats | 13,682 | **4,044** | **17** |
-| Hedgerows | 2,157 | **195** | 1 |
-| Rivers | 256 | **106** | 1 |
+| Habitats | 13,682 | **3,105** | **13** |
+| Hedgerows | 2,157 | **122** | 1 |
+| Rivers | 256 | **81** | 1 |
+
+Measured 30 September 2026. Every baseline row is now `Low`, so more rows
+match than before.
 
 **The totals must not change.** Both runs give **31,840,375** m² of habitat,
 **411,018** m of hedgerow and **111,031** m of watercourse. Check it:
@@ -238,7 +248,7 @@ PY
 
 ### 4c. Irreplaceable habitat
 
-**Pass:** of the 4,044 consolidated habitat rows, **169** have a `Parcel Ref`
+**Pass:** of the 3,105 consolidated habitat rows, **147** have a `Parcel Ref`
 that ends `-IRR`. Their comment reads
 `IRREPLACEABLE HABITAT, do not merge with other rows`.
 
@@ -252,11 +262,11 @@ python3 plugin/bng_template_convert/new_to_old.py \
     --merge-irreplaceable
 ```
 
-**Result:** **3,967** rows, 77 fewer. The 77 groups mix flagged and unflagged
-parcels. They absorb **215 of the 314** irreplaceable rows into rows that show
-as ordinary habitat. The largest group has **92** parcels.
+**Result:** **3,020** rows, 85 fewer. The 85 groups mix flagged and unflagged
+parcels. They absorb **248 of the 314** irreplaceable rows into rows that show
+as ordinary habitat. The largest of them has **110** parcels.
 
-**Screenshot:** 4,044 rows against 3,967, on one screen.
+**Screenshot:** 3,105 rows against 3,020, on one screen.
 
 Git ignores the `csv-merged/` folder, so it can stay after the check.
 
@@ -268,8 +278,8 @@ Not yet run. Needs Excel.
 2. On the Habitats, Hedges and Rivers tabs, use **Import GIS CSV Data**.
 3. Load each file from `scale-test-nsip/csv-consolidated`.
 
-**Pass:** Hedgerows and Rivers load whole, at 195 and 106 rows. Habitats needs
-17 separate imports, one for each part, and each part is a separate metric.
+**Pass:** Hedgerows and Rivers load whole, at 122 and 81 rows. Habitats needs
+13 separate imports, one for each part, and each part is a separate metric.
 
 **Do not press Consolidate Data.** The tool cannot see the irreplaceable flag,
 so the button undoes step 4b. Take a screenshot before and after, to show that
@@ -311,20 +321,20 @@ python3 plugin/bng_template_convert/to_metric.py \
     --consolidate
 ```
 
-**Pass**, measured 28 September 2026: about **2 seconds**, **2** workbooks
-and **5,084** cells.
+**Pass**, measured 30 September 2026: about **1.5 seconds**, **1** workbook
+and **4,292** cells.
 
 | Rows mapped | Baseline | Creation | Enhancement |
 | --- | --- | --- | --- |
-| Area habitats | **262** | **182** | **135** |
-| Hedgerows | **65** | **18** | **29** |
-| Watercourses | **33** | **0** | **11** |
+| Area habitats | **222** | **151** | **135** |
+| Hedgerows | **45** | **14** | **29** |
+| Watercourses | **28** | **0** | **11** |
 
-The export gives two warnings, and both are correct:
+The export gives one warning, and it is correct: **19** irreplaceable parcels
+are wholly or partly lost. The metric shows 'Any Loss Unacceptable' for them
+and leaves them out of the baseline total.
 
-- **19** irreplaceable parcels are wholly or partly lost. The metric shows
-  'Any Loss Unacceptable' for them and leaves them out of the baseline total.
-- The section needs **2** workbooks.
+**Strategic significance is written in the metric's wording**, as in step 3.
 
 **Open each workbook in Excel and let it recalculate.** Check that the on-site
 habitat tabs hold names, sizes and conditions, and the headline units show no
@@ -336,7 +346,7 @@ errors.
 
 - **Without merging**, the same section needs **7** workbooks: **1,533**
   baseline and **923** creation rows.
-- **The full site, merged**, needs **6** workbooks and **23,216** cells.
+- **The full site, merged**, needs **5** workbooks and **21,832** cells.
 - **A wrong input stops the export.** The `.xlsb` import tool is refused with
   a message. A workbook that already holds a site is refused, unless you add
   `--allow-occupied`.
@@ -366,12 +376,18 @@ python3 plugin/bng_template_convert/old_to_new.py \
 **Pass:** about **3 seconds**, and each count as it started: **11,554**,
 **13,682**, **1,275**, **1,469**, **256**, **243**, **3,600**, **2,767**.
 
+**Strategic significance comes back as `Low` and `High`.** The wordings from
+step 3 map back one to one, and *N/A* comes back blank. Spatial risk category
+is `N/A` on every post-intervention row. Irreplaceable Habitat is filled on
+**23,049** rows whose habitat allows only one answer.
+
 **The converter drops the `Lost` rows from step 3.** The staged template
 records a removal by absence, so the 688 hedgerow, 13 watercourse and 1,985
 tree rows go. The report names each dropped reference.
 
-The report also warns that the irreplaceable flag is blank and that vertical
-area habitats are empty. The legacy template holds neither.
+The report also warns that Irreplaceable Habitat is blank on **2,187** rows,
+whose habitat allows either answer, and that vertical area habitats are empty.
+The legacy template holds neither.
 
 This step satisfies claim 1 for the round trip, at the level of counts. Step 8
 compares the values.
@@ -471,6 +487,13 @@ be `4. Created`, which the Natural England list does not offer. A watercourse
 loss row that the conversion adds is checked without its number, because it
 is written as `Lost`. A tree's proposed condition must have no number.
 
+**Strategic significance is checked against the wording.** `Low` must arrive
+as *Area/compensation not in local strategy/ no local strategy*. `High` must
+arrive as *Formally identified in local strategy*, or *Within area formally
+identified in local strategy* for trees. A blank must arrive as *N/A* for a
+hedgerow or watercourse type of *To be created* or *N/A* and for a newly
+planted tree, and as a blank elsewhere.
+
 **Pass: all eight layer pairs and the red line boundary, about 34,000 rows.**
 
 ### Claim 3: the answer does not move
@@ -503,7 +526,7 @@ at zero with no error.
 | 1. Open in QGIS | None, a sanity check | Baseline and post-intervention side by side |
 | 2. Template buttons | 5, in the template | The message bar report and time for each button |
 | 3. Convert to legacy, and open in the legacy template | 1, 5 | The legacy template open on the site |
-| 4. CSVs and consolidation | 1, 5 | 4,044 rows against 3,967 |
+| 4. CSVs and consolidation | 1, 5 | 3,105 rows against 3,020 |
 | 5. Metric workbook | 5 | Tab A-1 filled |
 | 6. Round trip | 1, 4 | The counts, unchanged |
 | 7. The service | 5 | The upload that timed out |

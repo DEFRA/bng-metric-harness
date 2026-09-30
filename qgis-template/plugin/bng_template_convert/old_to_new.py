@@ -45,6 +45,7 @@ try:
         feature_table_names,
         line_blob_length_m,
         numeric,
+        plain_label,
         polygon_blob_area_sqm,
         quote_ident,
         quoted_names,
@@ -67,6 +68,7 @@ except ImportError:  # pragma: no cover - running as a plain script
         feature_table_names,
         line_blob_length_m,
         numeric,
+        plain_label,
         polygon_blob_area_sqm,
         quote_ident,
         quoted_names,
@@ -83,6 +85,15 @@ except ImportError:  # pragma: no cover - running as a plain script
 
 try:
     from .reference_lists import (
+        BASELINE_SIGNIFICANCE,
+        NE_SIGNIFICANCE_LOW,
+        NE_SIGNIFICANCE_MEDIUM,
+        NOT_APPLICABLE,
+        PROPOSED_SIGNIFICANCE,
+        SIGNIFICANCE_LOW,
+        fill_template_values,
+        has_baseline_part,
+        service_significance,
         template_lists_numbered,
         to_service_labels,
         to_template_labels,
@@ -90,6 +101,15 @@ try:
     from .to_metric import MODULES as METRIC_MODULES, check_needed_values
 except ImportError:  # pragma: no cover - running as a plain script
     from reference_lists import (
+        BASELINE_SIGNIFICANCE,
+        NE_SIGNIFICANCE_LOW,
+        NE_SIGNIFICANCE_MEDIUM,
+        NOT_APPLICABLE,
+        PROPOSED_SIGNIFICANCE,
+        SIGNIFICANCE_LOW,
+        fill_template_values,
+        has_baseline_part,
+        service_significance,
         template_lists_numbered,
         to_service_labels,
         to_template_labels,
@@ -99,6 +119,9 @@ except ImportError:  # pragma: no cover - running as a plain script
 # What a blank costs on the way in: the converted site carries the gap.
 # Irreplaceable Habitat is left out of the check because the legacy format
 # has no such column, and that is already said once for the whole file.
+# Every staged habitat table holds its reference in this one column.
+REF_FIELD = "Habitat Ref"
+SPATIAL_RISK = "Spatial risk category"
 INCOMING_GAP_CONSEQUENCE = (
     "Fill them in before uploading or exporting to the metric: until then "
     "neither can score those rows.")
@@ -116,15 +139,15 @@ STAGES = ("baseline", "pi")
 # The layers whose drop-down values an earlier BNG Service template numbers,
 # keyed as reference_lists.COLUMN_LISTS, as (baseline, post-intervention).
 NUMBERED_LABEL_LAYERS = {
-    "areas": ("Habitats Baseline", "Habitats Post-Intervention"),
+    "areas": ("Area Habitats Baseline", "Area Habitats Post-Intervention"),
     "watercourses": ("Watercourses Baseline", "Watercourses Post-Intervention"),
-    "trees": ("Trees Baseline", "Trees Post-Intervention"),
+    "trees": ("Individual Trees Baseline", "Individual Trees Post-Intervention"),
 }
 
 BASELINE_TAIL = [("Comment", "TEXT"), ("feature_uuid", "TEXT")]
 PI_TAIL = [("parent_uuid", "TEXT"), ("parent_geom", "TEXT")]
 AREA_BASELINE_HEAD = [
-    ("Parcel Ref", "TEXT"),
+    ("Habitat Ref", "TEXT"),
     ("Baseline Broad Habitat Type", "TEXT"),
     ("Baseline Habitat Type", "TEXT"),
     ("Baseline Distinctiveness", "TEXT"),
@@ -134,7 +157,7 @@ AREA_BASELINE_HEAD = [
     ("Area", "REAL"),
 ]
 AREA_PI_HEAD = [
-    ("PI Ref", "TEXT"),
+    ("Habitat Ref", "TEXT"),
     ("Parent Ref", "TEXT"),
     ("Baseline Broad Habitat Type", "TEXT"),
     ("Baseline Habitat Type", "TEXT"),
@@ -168,12 +191,12 @@ STAGED_LAYERS = {
             ("Base Map", "TEXT"),
         ],
     },
-    "Habitats Baseline": {
+    "Area Habitats Baseline": {
         "geom_column": "geom",
         "geom_type": "POLYGON",
         "columns": AREA_BASELINE_HEAD + BASELINE_TAIL,
     },
-    "Habitats Post-Intervention": {
+    "Area Habitats Post-Intervention": {
         "geom_column": "geom",
         "geom_type": "POLYGON",
         "columns": AREA_PI_HEAD + PI_TAIL,
@@ -192,7 +215,7 @@ STAGED_LAYERS = {
         "geom_column": "geom",
         "geom_type": "LINESTRING",
         "columns": [
-            ("Parcel Ref", "TEXT"),
+            ("Habitat Ref", "TEXT"),
             ("Baseline Hedge Type", "TEXT"),
             ("Baseline Distinctiveness", "TEXT"),
             ("Baseline Condition", "TEXT"),
@@ -205,7 +228,7 @@ STAGED_LAYERS = {
         "geom_column": "geom",
         "geom_type": "LINESTRING",
         "columns": [
-            ("PI Ref", "TEXT"),
+            ("Habitat Ref", "TEXT"),
             ("Parent Ref", "TEXT"),
             ("Baseline Hedge Type", "TEXT"),
             ("Baseline Distinctiveness", "TEXT"),
@@ -228,7 +251,7 @@ STAGED_LAYERS = {
         "geom_column": "geom",
         "geom_type": "LINESTRING",
         "columns": [
-            ("Parcel Ref", "TEXT"),
+            ("Habitat Ref", "TEXT"),
             ("Baseline River Type", "TEXT"),
             ("Baseline Distinctiveness", "TEXT"),
             ("Baseline Condition", "TEXT"),
@@ -243,7 +266,7 @@ STAGED_LAYERS = {
         "geom_column": "geom",
         "geom_type": "LINESTRING",
         "columns": [
-            ("PI Ref", "TEXT"),
+            ("Habitat Ref", "TEXT"),
             ("Parent Ref", "TEXT"),
             ("Baseline River Type", "TEXT"),
             ("Baseline Distinctiveness", "TEXT"),
@@ -267,11 +290,11 @@ STAGED_LAYERS = {
         ]
         + PI_TAIL,
     },
-    "Trees Baseline": {
+    "Individual Trees Baseline": {
         "geom_column": "geom",
         "geom_type": "POINT",
         "columns": [
-            ("Tree Ref", "TEXT"),
+            ("Habitat Ref", "TEXT"),
             ("Baseline Tree Size", "TEXT"),
             ("Baseline Tree Type", "TEXT"),
             ("Baseline Rural or Urban Tree", "TEXT"),
@@ -281,11 +304,11 @@ STAGED_LAYERS = {
         ]
         + BASELINE_TAIL,
     },
-    "Trees Post-Intervention": {
+    "Individual Trees Post-Intervention": {
         "geom_column": "geom",
         "geom_type": "POINT",
         "columns": [
-            ("PI Ref", "TEXT"),
+            ("Habitat Ref", "TEXT"),
             ("Parent Ref", "TEXT"),
             ("Baseline Tree Size", "TEXT"),
             ("Baseline Tree Type", "TEXT"),
@@ -308,29 +331,10 @@ STAGED_LAYERS = {
     },
 }
 
-# Two staged layers are being renamed in the QGIS template — "Habitats *" to
-# "Area Habitats *" and "Trees *" to "Individual Trees *". The keys above stay
-# the OLD names because that is what the shipped template still ships, and what
-# a fresh conversion must keep producing; these are the other spellings a
-# template being filled with --into may carry instead. Newest name first, and
-# matched by EXACT name (see resolve_table_name), so "Habitats Baseline" can
-# never resolve to the table it is a substring of, "Vertical Area Habitats
-# Baseline".
-STAGED_TABLE_ALIASES = {
-    "Habitats Baseline": ("Area Habitats Baseline",),
-    "Habitats Post-Intervention": ("Area Habitats Post-Intervention",),
-    "Trees Baseline": ("Individual Trees Baseline",),
-    "Trees Post-Intervention": ("Individual Trees Post-Intervention",),
-}
-
 # The layers holding area habitats. Named explicitly rather than matched on the
 # word "Habitats", which is also a substring of "Vertical Area Habitats *".
-AREA_HABITAT_LAYERS = ("Habitats Baseline", "Habitats Post-Intervention")
-
-
-def staged_table_candidates(layer):
-    """Every accepted spelling of a staged table, most-preferred first."""
-    return STAGED_TABLE_ALIASES.get(layer, ()) + (layer,)
+AREA_HABITAT_LAYERS = ("Area Habitats Baseline",
+                       "Area Habitats Post-Intervention")
 
 
 LEGACY_REDLINE = "Red Line Boundary"
@@ -524,12 +528,12 @@ def drop_lost_rows(rows, ref_key, label, report, index=None):
 
 
 def unique_pi_refs(rows, ref_key, report, label):
-    """Give post-intervention rows distinct PI Refs, the way the template does.
+    """Give post-intervention rows distinct references, as the template does.
 
     Legacy allows several post-intervention rows to share one reference (its
     only way of saying "part of this feature became X and part became Y"). The
-    new template gives each its own PI Ref and records the shared origin in
-    Parent Ref instead.
+    new template gives each its own Habitat Ref and records the shared origin
+    in Parent Ref instead.
     """
     occurrences = defaultdict(list)
     for row in rows:
@@ -563,7 +567,7 @@ def unique_pi_refs(rows, ref_key, report, label):
         )
         report.note(
             f"{label}: {len(renamed_groups)} reference(s) appeared on more "
-            f"than one post-intervention row and were given distinct PI Refs, "
+            f"than one post-intervention row and were given distinct Habitat Refs, "
             f"each keeping its original as Parent Ref ({examples})"
         )
 
@@ -637,7 +641,7 @@ def build_area_baseline(rows, report):
             (
                 blob,
                 {
-                    "Parcel Ref": row.get("Parcel Ref"),
+                    REF_FIELD: row.get("Parcel Ref"),
                     "Baseline Broad Habitat Type": row.get(
                         "Baseline Broad Habitat Type"
                     ),
@@ -647,6 +651,9 @@ def build_area_baseline(rows, report):
                     "Baseline Strategic Significance": row.get(
                         "Baseline Strategic Significance"
                     ),
+                    # No legacy column: filled below where the habitat
+                    # allows only one answer.
+                    "Irreplaceable Habitat": None,
                     "Area": area,
                     "Comment": row.get("Comment"),
                     "feature_uuid": feature_uuid,
@@ -678,7 +685,7 @@ def build_linear_baseline(rows, spec, report, label):
             length = line_blob_length_m(blob)
         index.add(row.get("Parcel Ref"), feature_uuid, blob_wkt(blob), length)
         values = {
-            "Parcel Ref": row.get("Parcel Ref"),
+            REF_FIELD: row.get("Parcel Ref"),
             "Baseline Condition": row.get("Baseline Condition"),
             "Baseline Distinctiveness": row.get("Baseline Distinctiveness"),
             "Baseline Strategic Significance": row.get(
@@ -709,7 +716,7 @@ def build_tree_baseline(rows, report):
             (
                 blob,
                 {
-                    "Tree Ref": row.get("Tree Ref"),
+                    REF_FIELD: row.get("Tree Ref"),
                     "Baseline Tree Size": row.get("Baseline Tree Size"),
                     "Baseline Tree Type": row.get("Baseline Tree Type"),
                     "Baseline Rural or Urban Tree": row.get(
@@ -777,7 +784,7 @@ def build_area_pi(rows, index, report):
         if area is None and blob is not None:
             area = sq_metres_to_hectares(polygon_blob_area_sqm(blob))
         values = {
-            "PI Ref": row.get("_pi_ref"),
+            REF_FIELD: row.get("_pi_ref"),
             "Baseline Broad Habitat Type": row.get("Baseline Broad Habitat Type"),
             "Baseline Habitat Type": row.get("Baseline Habitat Type"),
             "Baseline Distinctiveness": row.get("Baseline Distinctiveness"),
@@ -785,6 +792,7 @@ def build_area_pi(rows, index, report):
             "Baseline Strategic Significance": row.get(
                 "Baseline Strategic Significance"
             ),
+            "Irreplaceable Habitat": None,
             "Retention Category": retention,
             "Proposed Broad Habitat Type": row.get("Proposed Broad Habitat Type"),
             "Proposed Habitat Type": row.get("Proposed Habitat Type"),
@@ -835,7 +843,7 @@ def build_linear_pi(rows, index, spec, report, label, is_watercourse=False):
         if length is None and blob is not None:
             length = line_blob_length_m(blob)
         values = {
-            "PI Ref": row.get("_pi_ref"),
+            REF_FIELD: row.get("_pi_ref"),
             "Baseline Condition": row.get("Baseline Condition"),
             "Baseline Distinctiveness": row.get("Baseline Distinctiveness"),
             "Baseline Strategic Significance": row.get(
@@ -878,7 +886,7 @@ def build_tree_pi(rows, index, report):
     for row in rows:
         count = numeric(row.get("Count"))
         values = {
-            "PI Ref": row.get("_pi_ref"),
+            REF_FIELD: row.get("_pi_ref"),
             "Baseline Tree Size": row.get("Baseline Tree Size"),
             "Baseline Tree Type": row.get("Baseline Tree Type"),
             "Baseline Rural or Urban Tree": row.get("Baseline Rural or Urban Tree"),
@@ -929,7 +937,7 @@ def build_meander_rows(rows, index, report):
         if length is None and blob is not None:
             length = line_blob_length_m(blob)
         values = {
-            "PI Ref": row.get("Baseline Parcel Ref"),
+            REF_FIELD: row.get("Baseline Parcel Ref"),
             "Retention Category": "Enhanced",
             "Enhancement Type": MEANDER_ENHANCEMENT_TYPE,
             "Proposed River Type": row.get("Proposed River Type"),
@@ -1096,28 +1104,23 @@ def create_staged_gpkg(path, srs_rows):
 
 
 def resolve_template_tables(conn):
-    """Map each logical staged layer to the table name this template carries.
+    """Map each staged layer to its table in the target template.
 
-    Templates from before and after the "Area Habitats" / "Individual Trees"
-    rename are both accepted; the rows are written into whichever the target
-    actually has. A layer with no accepted spelling is a hard error naming
-    every name that was looked for, rather than the bare SQLite
-    "no such table".
+    A layer the target lacks is a hard error naming every missing table,
+    rather than the bare SQLite "no such table". A template from before the
+    "Area Habitats" / "Individual Trees" rename is refused this way.
     """
     present = feature_table_names(conn)
     resolved = {}
     missing = []
     for layer in STAGED_LAYERS:
-        table = resolve_table_name(staged_table_candidates(layer), present)
+        table = resolve_table_name((layer,), present)
         if table is None:
             missing.append(layer)
         else:
             resolved[layer] = table
     if missing:
-        detail = "; ".join(
-            f"{layer} (looked for {quoted_names(staged_table_candidates(layer))})"
-            for layer in missing
-        )
+        detail = quoted_names(missing)
         raise ValueError(
             "The target GeoPackage is missing feature table(s): "
             f"{detail}. Point --into at a copy of the BNG Service template."
@@ -1197,6 +1200,8 @@ def convert(baseline_path, pi_path, out_dir, into_path, force, dry_run,
     if post:
         _strip_list_numbers(post, report, "Post-intervention file")
 
+    _baseline_significance(baseline, report)
+
     if not baseline["redline"]:
         report.warn(
             "The baseline file has no Red Line Boundary feature — the new "
@@ -1239,6 +1244,8 @@ def convert(baseline_path, pi_path, out_dir, into_path, force, dry_run,
         post["trees"] = drop_lost_rows(
             post["trees"], "Tree Ref", "Trees", report, tree_index
         )
+        _post_significance(post, report)
+        _post_spatial_risk(post, report)
 
         unique_pi_refs(post["areas"], "Parcel Ref", report, "Habitats")
         unique_pi_refs(post["hedgerows"], "Parcel Ref", report, "Hedgerows")
@@ -1267,18 +1274,19 @@ def convert(baseline_path, pi_path, out_dir, into_path, force, dry_run,
 
     tables = {
         "Red Line Boundary": redline_rows,
-        "Habitats Baseline": area_baseline,
-        "Habitats Post-Intervention": area_pi,
+        "Area Habitats Baseline": area_baseline,
+        "Area Habitats Post-Intervention": area_pi,
         "Hedgerows Baseline": hedge_baseline,
         "Hedgerows Post-Intervention": hedge_pi,
         "Watercourses Baseline": water_baseline,
         "Watercourses Post-Intervention": water_pi,
-        "Trees Baseline": tree_baseline,
-        "Trees Post-Intervention": tree_pi,
+        "Individual Trees Baseline": tree_baseline,
+        "Individual Trees Post-Intervention": tree_pi,
     }
     for table, rows in tables.items():
         report.count(table, len(rows))
 
+    _fill_template_values(tables, report)
     _report_lineage_quality(tables, report)
     _report_manual_steps(tables, report)
     check_needed_values(_as_staged(tables), report, INCOMING_GAP_CONSEQUENCE,
@@ -1290,16 +1298,6 @@ def convert(baseline_path, pi_path, out_dir, into_path, force, dry_run,
     if into_path:
         conn, table_names = open_template_gpkg(into_path, force)
         target = into_path
-        renamed = [
-            f'"{layer}" -> "{name}"'
-            for layer, name in table_names.items()
-            if name != layer
-        ]
-        if renamed:
-            report.note(
-                "Target template uses renamed table(s); wrote into "
-                + ", ".join(renamed)
-            )
         _report_missing_columns(missing_columns(conn, table_names), report)
         _report_extra_columns(extra_columns(conn, table_names), report)
         _match_target_labels(tables, into_path, report)
@@ -1313,8 +1311,7 @@ def convert(baseline_path, pi_path, out_dir, into_path, force, dry_run,
             stem = os.path.splitext(os.path.basename(baseline_path))[0]
             target = os.path.join(out_dir, f"{stem} - Staged.gpkg")
         conn = create_staged_gpkg(target, baseline["srs"])
-        # A file we create ourselves carries the names the shipped template
-        # still uses, so every logical layer maps to itself.
+        # A file we create ourselves carries the template's own table names.
         table_names = {layer: layer for layer in STAGED_LAYERS}
 
     try:
@@ -1328,6 +1325,154 @@ def convert(baseline_path, pi_path, out_dir, into_path, force, dry_run,
 
     report.note(f"Staged file: {target}")
     return report
+
+
+# Legacy layer key -> (its reference column, how it reads in a message).
+LEGACY_REFS = {
+    "areas": ("Parcel Ref", "Habitats"),
+    "hedgerows": ("Parcel Ref", "Hedgerows"),
+    "watercourses": ("Parcel Ref", "Watercourses"),
+    "trees": ("Tree Ref", "Trees"),
+    "meanders": ("Baseline Parcel Ref", "Meanders"),
+}
+HABITAT_KEYS = ("areas", "hedgerows", "watercourses", "trees")
+
+
+def _legacy_ref(row, key):
+    ref = row.get(LEGACY_REFS[key][0])
+    return ref if ref not in (None, "") else f"fid {row.get('fid')}"
+
+
+def _baseline_significance(legacy, report):
+    """Write Low on every baseline row, as the BNG Service template stores it.
+
+    The template holds no other value for a baseline feature. A row whose
+    legacy value said anything else is named, so the user can check it.
+    """
+    for key in HABITAT_KEYS:
+        other = []
+        for row in legacy[key]:
+            if plain_label(row.get(BASELINE_SIGNIFICANCE)) != NE_SIGNIFICANCE_LOW:
+                other.append(_legacy_ref(row, key))
+            row[BASELINE_SIGNIFICANCE] = SIGNIFICANCE_LOW
+        if other:
+            report.warn(
+                f"{LEGACY_REFS[key][1]} baseline: {len(other)} row(s) had a "
+                f"Baseline Strategic Significance other than "
+                f"'{NE_SIGNIFICANCE_LOW}' ({summarise_refs(other)}). The BNG "
+                "Service template stores Low for every baseline feature, so "
+                "they were written as Low."
+            )
+
+
+def _post_significance(post, report):
+    """Read strategic significance into the template's Low and High.
+
+    Baseline Strategic Significance on a post-intervention row is Low where
+    the row has a baseline habitat, and blank where it has none, as the
+    template fills it. Proposed Strategic Significance maps by wording.
+    Natural England's middle value has no place in the template, so it is
+    left blank, and the rows are named.
+    """
+    for key, (_ref_column, label) in LEGACY_REFS.items():
+        changed, medium, unknown = [], [], []
+        for row in post[key]:
+            ref = _legacy_ref(row, key)
+            if BASELINE_SIGNIFICANCE in row:
+                value = plain_label(row.get(BASELINE_SIGNIFICANCE))
+                if has_baseline_part(key, row):
+                    stored = SIGNIFICANCE_LOW
+                    if value != NE_SIGNIFICANCE_LOW:
+                        changed.append(ref)
+                else:
+                    stored = None
+                    if value not in (None, "", NOT_APPLICABLE):
+                        changed.append(ref)
+                row[BASELINE_SIGNIFICANCE] = stored
+            value = row.get(PROPOSED_SIGNIFICANCE)
+            stored, known = service_significance(value)
+            if plain_label(value) == NE_SIGNIFICANCE_MEDIUM:
+                medium.append(ref)
+            elif not known:
+                unknown.append(ref)
+            row[PROPOSED_SIGNIFICANCE] = stored
+        _report_significance(label, changed, medium, unknown, report)
+
+
+def _report_significance(label, changed, medium, unknown, report):
+    if changed:
+        report.warn(
+            f"{label} post-intervention: {len(changed)} row(s) had a Baseline "
+            f"Strategic Significance the template does not hold "
+            f"({summarise_refs(changed)}). The template stores Low where a "
+            "row has a baseline habitat and leaves it blank where it has "
+            "none, so they were written that way."
+        )
+    if medium:
+        report.warn(
+            f"{label}: {len(medium)} post-intervention row(s) have Proposed "
+            f"Strategic Significance '{NE_SIGNIFICANCE_MEDIUM}' "
+            f"({summarise_refs(medium)}). The BNG Service template holds "
+            "only Low or High, so it was left blank. Choose Low or High for "
+            "these rows."
+        )
+    if unknown:
+        report.warn(
+            f"{label}: {len(unknown)} post-intervention row(s) have a Proposed "
+            f"Strategic Significance that is not a Natural England value "
+            f"({summarise_refs(unknown)}). It was left blank. Choose Low or "
+            "High for these rows."
+        )
+
+
+def _post_spatial_risk(post, report):
+    """Write N/A on every post-intervention row, as the template does.
+
+    The template maps on-site habitat only, where spatial risk does not
+    apply. A row whose legacy value said something else is named.
+    """
+    for key, (_ref_column, label) in LEGACY_REFS.items():
+        other = []
+        for row in post[key]:
+            value = plain_label(row.get(SPATIAL_RISK))
+            if value not in (None, "", NOT_APPLICABLE):
+                other.append(_legacy_ref(row, key))
+            row[SPATIAL_RISK] = NOT_APPLICABLE
+        if other:
+            report.warn(
+                f"{label}: {len(other)} post-intervention row(s) had a "
+                f"Spatial risk category other than N/A "
+                f"({summarise_refs(other)}). The BNG Service template is for "
+                "on-site habitat and stores N/A, so they were written as N/A."
+            )
+
+
+# Layer key -> the staged tables whose blanks the template would fill.
+FILLED_LAYERS = {
+    "areas": AREA_HABITAT_LAYERS,
+    "hedgerows": ("Hedgerows Baseline", "Hedgerows Post-Intervention"),
+    "watercourses": ("Watercourses Baseline", "Watercourses Post-Intervention"),
+}
+
+
+def _fill_template_values(tables, report):
+    """Fill the blanks the template would fill itself, from its own lists."""
+    totals = {}
+    for key, names in FILLED_LAYERS.items():
+        for name in names:
+            filled = fill_template_values(
+                key, [values for _, values in tables[name]])
+            for column, count in filled.items():
+                totals[column] = totals.get(column, 0) + count
+    if totals:
+        detail = ", ".join(f"{column} on {count}"
+                           for column, count in totals.items())
+        report.note(
+            "Filled blanks the BNG Service template fills itself from the "
+            f"habitat type: {detail} row(s). Distinctiveness comes from the "
+            "template's list; a condition or Irreplaceable Habitat only where "
+            "the habitat allows one answer"
+        )
 
 
 def _as_staged(tables):
@@ -1447,15 +1592,19 @@ def _strip_list_numbers(legacy, report, label):
 
 
 def _report_manual_steps(tables, report):
-    if any(
-        values.get("Irreplaceable Habitat") is None
+    blank = [
+        values.get(REF_FIELD)
         for table, rows in tables.items()
         if table in AREA_HABITAT_LAYERS
         for _, values in rows
-    ):
+        if values.get("Irreplaceable Habitat") is None
+    ]
+    if blank:
         report.warn(
-            "Irreplaceable Habitat is blank on every habitat feature — the legacy "
-            "template has no such column. Fill it in before uploading."
+            f"Irreplaceable Habitat is blank on {len(blank)} area habitat row(s) "
+            f"({summarise_refs(blank)}). The legacy template has "
+            "no such column, and their habitat can be either. Choose Yes or "
+            "No before uploading."
         )
     report.warn(
         "Vertical area habitats (green walls, intertidal hard structures) are "

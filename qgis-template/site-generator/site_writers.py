@@ -19,10 +19,12 @@ import corridor_scenario as sc                                     # noqa: E402
 import gpkg_write as gw                                            # noqa: E402
 from corridor_mesh import line_length, ring_area                   # noqa: E402
 from corridor_parcels import parcel_ring, trace_ring               # noqa: E402
-from corridor_writers import (HABITAT_BASE_COLS, HABITAT_PI_COLS,   # noqa: E402
-                              HEDGE_BASE_COLS, HEDGE_DISTINCTIVENESS,
-                              HEDGE_PI_COLS, REDLINE_COLS, TREE_BASE_COLS,
-                              TREE_PI_COLS, connected_components,
+from corridor_writers import (AREA_BASELINE, AREA_PI,              # noqa: E402
+                              BASELINE_SIGNIFICANCE, HABITAT_BASE_COLS,
+                              HABITAT_PI_COLS, HEDGE_BASE_COLS,
+                              HEDGE_DISTINCTIVENESS, HEDGE_PI_COLS,
+                              REDLINE_COLS, TREE_BASE_COLS, TREE_BASELINE,
+                              TREE_PI, TREE_PI_COLS, connected_components,
                               insert_many)
 import site_plan as plan                                           # noqa: E402
 
@@ -76,6 +78,17 @@ def _pieces(mesh, cells, zone_of):
 
 # -------------------------------------------------------------- area habitats
 
+def _irreplaceable(habitat):
+    """Irreplaceable Habitat as the template fills it.
+
+    A habitat that allows one answer gets that answer. Where both are
+    allowed the user chooses, and a small site says No: an irreplaceable
+    parcel that is built over reads 'Any Loss Unacceptable' in the metric.
+    """
+    allowed = sc.IRREPLACEABLE.get(habitat, set())
+    return next(iter(allowed)) if len(allowed) == 1 else 'No'
+
+
 def write_area_habitats(conn, site):
     mesh, choose = site['mesh'], site['choose']
     parcels = site['parcels']
@@ -94,13 +107,15 @@ def write_area_habitats(conn, site):
             site['landscape'], index == largest,
             len(parcels) < 3 or area >= median, choose, seed)
         condition = sc.condition_for(habitat, choose.roll(seed, 211))
-        significance = sc.strategic_significance(choose.key(seed, 907))
+        significance = BASELINE_SIGNIFICANCE
         distinctiveness = sc.DISTINCTIVENESS[habitat]
+        irreplaceable = _irreplaceable(habitat)
         feature_uuid = uid(site['seed'], f'area/{ref}')
         blob = gw.polygon_blob(ring)
         base_rows.append((blob, ref, sc.BROAD[habitat], habitat,
-                          distinctiveness, condition, significance, 'No',
-                          area / SQ_M_PER_HECTARE, None, feature_uuid))
+                          distinctiveness, condition, significance,
+                          irreplaceable, area / SQ_M_PER_HECTARE, None,
+                          feature_uuid))
 
         pieces = _pieces(mesh, cells, site['zones'])
         for number, (zone, group) in enumerate(pieces, start=1):
@@ -115,15 +130,15 @@ def write_area_habitats(conn, site):
             pi_rows.append((
                 gw.polygon_blob(child_ring), ref if whole else f'{ref}-{number}',
                 ref, sc.BROAD[habitat], habitat, distinctiveness, condition,
-                significance, 'No', kind, sc.BROAD[proposed], proposed,
+                significance, irreplaceable, kind, sc.BROAD[proposed], proposed,
                 sc.DISTINCTIVENESS[proposed], proposed_condition,
                 significance if kind == sc.RETAINED
                 else sc.strategic_significance(choose.key(child_seed, 909)),
                 advance, delay, ON_SITE, child_area / SQ_M_PER_HECTARE,
                 feature_uuid, gw.polygon_wkt(ring)))
 
-    insert_many(conn, 'Habitats Baseline', HABITAT_BASE_COLS, base_rows)
-    insert_many(conn, 'Habitats Post-Intervention', HABITAT_PI_COLS, pi_rows)
+    insert_many(conn, AREA_BASELINE, HABITAT_BASE_COLS, base_rows)
+    insert_many(conn, AREA_PI, HABITAT_PI_COLS, pi_rows)
     return {'baseline': len(base_rows), 'post_intervention': len(pi_rows),
             **{kind.lower(): n for kind, n in sorted(retention.items())},
             'hectares': round(sum(areas) / SQ_M_PER_HECTARE, 4)}
@@ -160,7 +175,7 @@ def write_hedgerows(conn, site):
         length = line_length(points)
         hedge_type = choose.pick(lin.HEDGE_TYPES, seed, 1301)
         condition = lin.hedge_condition(hedge_type, choose.roll(seed, 1303))
-        significance = lin.significance(choose.key(seed, 1305))
+        significance = BASELINE_SIGNIFICANCE
         distinctiveness = HEDGE_DISTINCTIVENESS[hedge_type]
         feature_uuid = uid(site['seed'], f'hedge/{ref}')
         blob = gw.line_blob(points)
@@ -185,7 +200,10 @@ def write_hedgerows(conn, site):
                 ref if len(stretches) == 1 else f'{ref}-{number}', ref,
                 hedge_type, distinctiveness, condition, significance, length,
                 kind, proposed, HEDGE_DISTINCTIVENESS[proposed],
-                proposed_condition, significance, advance, delay, ON_SITE,
+                proposed_condition,
+                significance if kind == sc.RETAINED
+                else lin.significance(choose.key(child_seed, 1305)),
+                advance, delay, ON_SITE,
                 line_length(child), feature_uuid, gw.line_wkt(points)))
 
     if site['new_hedge']:
@@ -195,7 +213,7 @@ def write_hedgerows(conn, site):
         counts['created'] += 1
         pi_rows.append((
             gw.line_blob(points), 'HN-01', None, 'To be created', 'N/A', 'N/A',
-            'N/A', None, 'Created', proposed, HEDGE_DISTINCTIVENESS[proposed],
+            None, None, 'Created', proposed, HEDGE_DISTINCTIVENESS[proposed],
             'Good', lin.significance(choose.key(1421)), advance, delay,
             ON_SITE, line_length(points), None, None))
 
@@ -276,7 +294,7 @@ def write_trees(conn, site):
         size = choose.pick(lin.TREE_SIZES, seed, 1903)
         tree_type = choose.pick(lin.TREE_TYPES, seed, 1905)
         condition = choose.pick(lin.TREE_CONDITIONS, seed, 1907)
-        significance = lin.tree_significance(choose.key(seed, 1909))
+        significance = BASELINE_SIGNIFICANCE
         feature_uuid = uid(site['seed'], f'tree/{ref}')
         blob = gw.point_blob(point)
         base_rows.append((blob, ref, size, tree_type, setting, condition,
@@ -310,15 +328,15 @@ def write_trees(conn, site):
         counts['created'] += 1
         pi_rows.append((
             gw.point_blob(point), f'TN-{number:02d}', None, 'N/A', 'N/A', 'N/A',
-            'N/A', 'N/A', 'Created',
+            'N/A', None, 'Created',
             choose.pick([('Small', 0.74), ('Medium', 0.26)], seed, 2007),
             'Native', 'Urban tree' if urban else 'Rural tree',
             choose.pick(lin.PLANTED_TREE_CONDITIONS, seed, 2009),
             lin.tree_significance(choose.key(seed, 2011)), 'Newly Planted',
             advance, delay, ON_SITE, 1, None, None))
 
-    insert_many(conn, 'Trees Baseline', TREE_BASE_COLS, base_rows)
-    insert_many(conn, 'Trees Post-Intervention', TREE_PI_COLS, pi_rows)
+    insert_many(conn, TREE_BASELINE, TREE_BASE_COLS, base_rows)
+    insert_many(conn, TREE_PI, TREE_PI_COLS, pi_rows)
     return {'baseline': len(base_rows), 'post_intervention': len(pi_rows),
             **dict(sorted(counts.items()))}
 

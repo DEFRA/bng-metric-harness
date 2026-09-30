@@ -24,6 +24,16 @@ Earlier versions of the BNG Service template numbered their labels as the
 Natural England template does. to_template_labels writes the numbered form
 that such a template's own lists hold, so old_to_new can fill a copy of it.
 
+Strategic significance is stored differently too. The BNG Service template
+stores "Low" or "High". Natural England and the Statutory Metric store the
+metric's wording. to_legacy_significance and service_significance convert
+between the two.
+
+The BNG Service template also fills some values itself from its lists: the
+distinctiveness of a habitat type, a condition when the habitat allows only
+one, and Irreplaceable Habitat when the habitat allows only one answer.
+TEMPLATE_RULES reads those lists, so old_to_new can fill the same values.
+
 WHERE THE LISTS ARE READ FROM
     The plugin zip carries a copy of each list in `reference_lists/`, written
     by build_plugin.py. Run from the repository, the module reads the lists in
@@ -206,8 +216,10 @@ def reference_files():
 
     build_plugin.py copies exactly these into the plugin zip.
     """
-    return [(template, label_list.path)
-            for template in TEMPLATES for label_list in LABEL_LISTS]
+    files = [(template, label_list.path)
+             for template in TEMPLATES for label_list in LABEL_LISTS]
+    files += [(SERVICE_TEMPLATE, lookup.path) for lookup in RULE_LISTS]
+    return list(dict.fromkeys(files))
 
 
 # ---------------------------------------------------------------------------
@@ -345,3 +357,247 @@ def _convert_layers(layers, convert):
         for rows in stages:
             changed += _convert_rows(rows, columns, convert)
     return changed
+
+
+# ---------------------------------------------------------------------------
+# Values the BNG Service template fills itself from its lists
+# ---------------------------------------------------------------------------
+
+
+class ListLookup:
+    """The values one BNG Service list allows, by the value it is keyed on."""
+
+    def __init__(self, path, key_column, value_column):
+        self.path = path
+        self.key_column = key_column
+        self.value_column = value_column
+        self._values = None
+
+    def values(self, key):
+        """Every value the list gives for `key`, in list order."""
+        if self._values is None:
+            self._values = {}
+            for row in read_list(SERVICE_TEMPLATE, self.path):
+                value = row.get(self.value_column)
+                if value:
+                    found = self._values.setdefault(row.get(self.key_column), [])
+                    if value not in found:
+                        found.append(value)
+        return self._values.get(key, [])
+
+    def only(self, key):
+        """The value, when the list gives exactly one for `key`; else None."""
+        values = self.values(key)
+        return values[0] if len(values) == 1 else None
+
+
+def _lookup(path, key_column, value_column):
+    return ListLookup(path, key_column, value_column)
+
+
+# Layer key -> {column filled: (list, column holding the habitat type)}.
+DISTINCTIVENESS_LISTS = {
+    "areas": {
+        "Baseline Distinctiveness": (_lookup(
+            "Habitats/Habitat Distinctiveness- pre.csv", "Habitat",
+            "Baseline Distinctivness"), "Baseline Habitat Type"),
+        "Proposed Distinctiveness": (_lookup(
+            "Habitats/Habitat Distinctiveness- post.csv", "Habitat",
+            "Proposed Distinctivness"), "Proposed Habitat Type"),
+    },
+    "hedgerows": {
+        "Baseline Distinctiveness": (_lookup(
+            "Hedgerows/Hedgerow Distinctiveness- pre.csv", "Value",
+            "Distinctiveness"), "Baseline Hedge Type"),
+        "Proposed Distinctiveness": (_lookup(
+            "Hedgerows/Hedgerow Distinctiveness - post.csv", "Value",
+            "Distinctiveness"), "Proposed Hedge Type"),
+    },
+    "watercourses": {
+        "Baseline Distinctiveness": (_lookup(
+            "Watercourses/Watercourse Distinctiveness- pre.csv", "Value",
+            "Distinctiveness"), "Baseline River Type"),
+        "Proposed Distinctiveness": (_lookup(
+            "Watercourses/Watercourse Distinctiveness- post.csv", "Value",
+            "Distinctiveness"), "Proposed River Type"),
+    },
+}
+AREA_CONDITIONS = _lookup("Habitats/Habitat Condition.csv", "UKHAB", "Label")
+HEDGEROW_CONDITIONS = _lookup(
+    "Hedgerows/Hedgerow Condition.csv", "Habitat", "Condition")
+WATERCOURSE_CONDITIONS = _lookup(
+    "Watercourses/Watercourse Condition.csv", "Habitat", "Label")
+CONDITION_LISTS = {
+    "areas": {"Baseline Condition": (AREA_CONDITIONS, "Baseline Habitat Type"),
+              "Proposed Condition": (AREA_CONDITIONS, "Proposed Habitat Type")},
+    "hedgerows": {
+        "Baseline Condition": (HEDGEROW_CONDITIONS, "Baseline Hedge Type"),
+        "Proposed Condition": (HEDGEROW_CONDITIONS, "Proposed Hedge Type")},
+    "watercourses": {
+        "Baseline Condition": (WATERCOURSE_CONDITIONS, "Baseline River Type"),
+        "Proposed Condition": (WATERCOURSE_CONDITIONS, "Proposed River Type")},
+}
+IRREPLACEABLE_LIST = _lookup(
+    "Habitats/Habitat Irreplaceable.csv", "UKHAB", "Irreplaceable")
+IRREPLACEABLE_COLUMN = "Irreplaceable Habitat"
+IRREPLACEABLE_TYPE_COLUMN = "Baseline Habitat Type"
+
+RULE_LISTS = tuple(
+    [lookup for columns in DISTINCTIVENESS_LISTS.values()
+     for lookup, _type in columns.values()]
+    + [AREA_CONDITIONS, HEDGEROW_CONDITIONS, WATERCOURSE_CONDITIONS,
+       IRREPLACEABLE_LIST])
+
+
+def fill_template_values(key, rows):
+    """Fill the blanks the BNG Service template would fill, in place.
+
+    `key` is "areas", "hedgerows" or "watercourses". Only a blank is filled:
+    distinctiveness from the habitat type, a condition when the habitat
+    allows exactly one, and, for area habitats, Irreplaceable Habitat when
+    the habitat allows only one answer. Returns {column: count filled}.
+    """
+    filled = {}
+    rules = []
+    for column, (lookup, type_column) in DISTINCTIVENESS_LISTS.get(
+            key, {}).items():
+        rules.append((column, lookup.values, type_column))
+    for column, (lookup, type_column) in CONDITION_LISTS.get(key, {}).items():
+        rules.append((column, lookup.values, type_column))
+    if key == "areas":
+        rules.append((IRREPLACEABLE_COLUMN, IRREPLACEABLE_LIST.values,
+                      IRREPLACEABLE_TYPE_COLUMN))
+    for row in rows:
+        for column, values, type_column in rules:
+            if column not in row or not _is_blank(row.get(column)):
+                continue
+            allowed = values(row.get(type_column))
+            if len(allowed) == 1:
+                row[column] = allowed[0]
+                filled[column] = filled.get(column, 0) + 1
+    return filled
+
+
+def _is_blank(value):
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
+# ---------------------------------------------------------------------------
+# Strategic significance
+# ---------------------------------------------------------------------------
+
+SIGNIFICANCE_LOW = "Low"
+SIGNIFICANCE_HIGH = "High"
+NE_SIGNIFICANCE_LOW = (
+    "Area/compensation not in local strategy/ no local strategy")
+NE_SIGNIFICANCE_MEDIUM = (
+    "Location ecologically desirable but not in local strategy")
+NE_SIGNIFICANCE_HIGH = "Formally identified in local strategy"
+# Trees word formal identification differently from every other habitat type.
+NE_SIGNIFICANCE_HIGH_TREES = "Within area formally identified in local strategy"
+BASELINE_SIGNIFICANCE = "Baseline Strategic Significance"
+PROPOSED_SIGNIFICANCE = "Proposed Strategic Significance"
+# A type column holding one of these, or nothing, means no baseline part.
+NO_HABITAT_TYPES = (WATERCOURSE_TO_BE_CREATED, NOT_APPLICABLE)
+TREE_NEWLY_PLANTED = "Newly Planted"
+TREE_LOST = "Lost"
+
+# Layer key -> (baseline type column, proposed type column).
+TYPE_COLUMNS = {
+    "areas": ("Baseline Habitat Type", "Proposed Habitat Type"),
+    "verticalAreas": ("Baseline Habitat Type", "Proposed Habitat Type"),
+    "hedgerows": ("Baseline Hedge Type", "Proposed Hedge Type"),
+    "watercourses": ("Baseline River Type", "Proposed River Type"),
+    "meanders": (None, "Proposed River Type"),
+    "trees": ("Baseline Tree Type", "Proposed Tree Type"),
+}
+
+
+def has_habitat_type(value):
+    """True when a type column names a habitat, not a creation or nothing."""
+    return not _is_blank(value) and value not in NO_HABITAT_TYPES
+
+
+def has_baseline_part(key, row):
+    """Whether a post-intervention row carries a baseline habitat."""
+    column = TYPE_COLUMNS[key][0]
+    return bool(column) and has_habitat_type(row.get(column))
+
+
+def _legacy_blank(key, column, row):
+    """What the earlier BNG Service template held where the new one is NULL.
+
+    Its significance drop-downs offered only "N/A" for a hedgerow or
+    watercourse type of "To be created" or "N/A", for a newly planted tree's
+    baseline, and for a lost tree's proposal. Elsewhere they held a blank.
+    """
+    if key in ("hedgerows", "watercourses"):
+        baseline_type, proposed_type = TYPE_COLUMNS[key]
+        type_column = (baseline_type if column == BASELINE_SIGNIFICANCE
+                       else proposed_type)
+        if row.get(type_column) in NO_HABITAT_TYPES:
+            return NOT_APPLICABLE
+    if key == "trees":
+        if (column == BASELINE_SIGNIFICANCE
+                and row.get("Category") == TREE_NEWLY_PLANTED):
+            return NOT_APPLICABLE
+        if (column == PROPOSED_SIGNIFICANCE
+                and plain_label(row.get("Retention Category")) == TREE_LOST):
+            return NOT_APPLICABLE
+    return None
+
+
+def legacy_significance(key, column, row):
+    """A row's significance as Natural England and the metric word it."""
+    value = row.get(column)
+    if _is_blank(value):
+        return _legacy_blank(key, column, row)
+    if value == SIGNIFICANCE_LOW:
+        return NE_SIGNIFICANCE_LOW
+    if value == SIGNIFICANCE_HIGH:
+        return (NE_SIGNIFICANCE_HIGH_TREES if key == "trees"
+                else NE_SIGNIFICANCE_HIGH)
+    return value
+
+
+def to_legacy_significance(layers):
+    """Write every significance in place as Natural England words it.
+
+    `layers` maps a layer key ("areas", "hedgerows", ...) to a dict of row
+    lists by stage. Returns how many values changed.
+    """
+    changed = 0
+    for key, stages in layers.items():
+        if key not in TYPE_COLUMNS:
+            continue
+        for rows in stages.values():
+            for row in rows:
+                for column in (BASELINE_SIGNIFICANCE, PROPOSED_SIGNIFICANCE):
+                    if column not in row:
+                        continue
+                    value = legacy_significance(key, column, row)
+                    if value != row[column]:
+                        row[column] = value
+                        changed += 1
+    return changed
+
+
+# Natural England wording -> the BNG Service value. Medium has no place in
+# the BNG Service template, so it reads as NULL, and so do "N/A" and blank.
+SERVICE_SIGNIFICANCE = {
+    NE_SIGNIFICANCE_LOW: SIGNIFICANCE_LOW,
+    NE_SIGNIFICANCE_HIGH: SIGNIFICANCE_HIGH,
+    NE_SIGNIFICANCE_HIGH_TREES: SIGNIFICANCE_HIGH,
+    NE_SIGNIFICANCE_MEDIUM: None,
+    NOT_APPLICABLE: None,
+}
+
+
+def service_significance(value):
+    """(BNG Service value, whether the wording was known) for an NE value."""
+    if _is_blank(value):
+        return None, True
+    words = plain_label(value)
+    if words in SERVICE_SIGNIFICANCE:
+        return SERVICE_SIGNIFICANCE[words], True
+    return None, False

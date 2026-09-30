@@ -42,6 +42,14 @@ CREATED_HEDGE_ATTEMPTS_PER_STATION = 900 / 1396
 CREATED_TREE_ATTEMPTS_PER_STATION = 1900 / 1396
 SQ_M_PER_HECTARE = 10000
 ON_SITE = 'N/A'
+# Every baseline feature, and every post-intervention part of one, is Low.
+# A feature created from nothing has no baseline part, and so no baseline
+# significance.
+BASELINE_SIGNIFICANCE = sc.SS_LOW
+AREA_BASELINE = 'Area Habitats Baseline'
+AREA_PI = 'Area Habitats Post-Intervention'
+TREE_BASELINE = 'Individual Trees Baseline'
+TREE_PI = 'Individual Trees Post-Intervention'
 
 
 def uid(seed):
@@ -92,12 +100,12 @@ def zone_children(mesh, cells):
 # -------------------------------------------------------------- area habitats
 
 HABITAT_BASE_COLS = [
-    'geom', 'Parcel Ref', 'Baseline Broad Habitat Type', 'Baseline Habitat Type',
+    'geom', 'Habitat Ref', 'Baseline Broad Habitat Type', 'Baseline Habitat Type',
     'Baseline Distinctiveness', 'Baseline Condition',
     'Baseline Strategic Significance', 'Irreplaceable Habitat', 'Area',
     'Comment', 'feature_uuid']
 HABITAT_PI_COLS = [
-    'geom', 'PI Ref', 'Parent Ref', 'Baseline Broad Habitat Type',
+    'geom', 'Habitat Ref', 'Parent Ref', 'Baseline Broad Habitat Type',
     'Baseline Habitat Type', 'Baseline Distinctiveness', 'Baseline Condition',
     'Baseline Strategic Significance', 'Irreplaceable Habitat',
     'Retention Category', 'Proposed Broad Habitat Type',
@@ -126,7 +134,7 @@ def write_area_habitats(conn, mesh):
         broad = sc.BROAD[habitat]
         condition = sc.condition_for(habitat, _hash01(seed, 211))
         distinctiveness = sc.DISTINCTIVENESS[habitat]
-        significance = sc.strategic_significance(seed)
+        significance = BASELINE_SIGNIFICANCE
         irreplaceable = sc.is_irreplaceable(mesh, first[0], first[1], habitat)
         feature_uuid = uid(f'area/{ref}')
         blob = gw.polygon_blob(ring)
@@ -160,14 +168,14 @@ def write_area_habitats(conn, mesh):
                 feature_uuid, wkt))
 
         if len(base_rows) >= BATCH:
-            insert_many(conn, 'Habitats Baseline', HABITAT_BASE_COLS, base_rows)
-            insert_many(conn, 'Habitats Post-Intervention', HABITAT_PI_COLS, pi_rows)
+            insert_many(conn, AREA_BASELINE, HABITAT_BASE_COLS, base_rows)
+            insert_many(conn, AREA_PI, HABITAT_PI_COLS, pi_rows)
             counts['baseline'] += len(base_rows)
             counts['post_intervention'] += len(pi_rows)
             base_rows, pi_rows = [], []
 
-    insert_many(conn, 'Habitats Baseline', HABITAT_BASE_COLS, base_rows)
-    insert_many(conn, 'Habitats Post-Intervention', HABITAT_PI_COLS, pi_rows)
+    insert_many(conn, AREA_BASELINE, HABITAT_BASE_COLS, base_rows)
+    insert_many(conn, AREA_PI, HABITAT_PI_COLS, pi_rows)
     counts['baseline'] += len(base_rows)
     counts['post_intervention'] += len(pi_rows)
     counts['baseline_ha'] = round(baseline_area / SQ_M_PER_HECTARE, 4)
@@ -177,11 +185,11 @@ def write_area_habitats(conn, mesh):
 # ------------------------------------------------------------------ hedgerows
 
 HEDGE_BASE_COLS = [
-    'geom', 'Parcel Ref', 'Baseline Hedge Type', 'Baseline Distinctiveness',
+    'geom', 'Habitat Ref', 'Baseline Hedge Type', 'Baseline Distinctiveness',
     'Baseline Condition', 'Baseline Strategic Significance', 'Length',
     'Comment', 'feature_uuid']
 HEDGE_PI_COLS = [
-    'geom', 'PI Ref', 'Parent Ref', 'Baseline Hedge Type',
+    'geom', 'Habitat Ref', 'Parent Ref', 'Baseline Hedge Type',
     'Baseline Distinctiveness', 'Baseline Condition',
     'Baseline Strategic Significance', 'Baseline Length', 'Retention Category',
     'Proposed Hedge Type', 'Proposed Distinctiveness', 'Proposed Condition',
@@ -217,7 +225,7 @@ def write_hedgerows(conn, mesh):
         base_length += length
         hedge_type = lin._pick(lin.HEDGE_TYPES, _hash01(seed, 1301))
         condition = lin.hedge_condition(hedge_type, _hash01(seed, 1303))
-        significance = lin.significance(seed)
+        significance = BASELINE_SIGNIFICANCE
         feature_uuid = uid(f'hedge/{ref}')
         blob = gw.line_blob(points)
         wkt = gw.line_wkt(points)
@@ -256,7 +264,9 @@ def write_hedgerows(conn, mesh):
                 gw.line_blob(child_points), pi_ref, ref, hedge_type,
                 distinctiveness, condition, significance, length, retention,
                 proposed, HEDGE_DISTINCTIVENESS[proposed], proposed_condition,
-                significance, advance, delay, ON_SITE, child_length,
+                significance if retention == sc.RETAINED
+                else lin.significance(child_seed),
+                advance, delay, ON_SITE, child_length,
                 feature_uuid, wkt))
 
     for extra in range(round(mesh.stations
@@ -275,7 +285,7 @@ def write_hedgerows(conn, mesh):
         counts['created'] += 1
         pi_rows.append((
             gw.line_blob(points), f'HN-{extra + 1:05d}', None, 'To be created',
-            'N/A', 'N/A', 'N/A', None, 'Created', proposed,
+            'N/A', 'N/A', None, None, 'Created', proposed,
             HEDGE_DISTINCTIVENESS[proposed], 'Good', lin.significance(seed),
             advance, delay, ON_SITE, line_length(points), None, None))
 
@@ -291,13 +301,13 @@ def write_hedgerows(conn, mesh):
 # --------------------------------------------------------------- watercourses
 
 WATER_BASE_COLS = [
-    'geom', 'Parcel Ref', 'Baseline River Type', 'Baseline Distinctiveness',
+    'geom', 'Habitat Ref', 'Baseline River Type', 'Baseline Distinctiveness',
     'Baseline Condition', 'Baseline Strategic Significance',
     'Baseline Encroachment into Watercourse',
     'Baseline Encroachment into riparian zone', 'Length', 'Comment',
     'feature_uuid']
 WATER_PI_COLS = [
-    'geom', 'PI Ref', 'Parent Ref', 'Baseline River Type',
+    'geom', 'Habitat Ref', 'Parent Ref', 'Baseline River Type',
     'Baseline Distinctiveness', 'Baseline Condition',
     'Baseline Strategic Significance', 'Baseline Encroachment into Watercourse',
     'Baseline Encroachment into riparian zone', 'Baseline Length',
@@ -335,7 +345,7 @@ def write_watercourses(conn, mesh):
                         else lin._pick(lin.ENCROACHMENT, _hash01(seed, 1607)))
         riparian = (lin.CULVERT_ENCROACHMENT if culvert
                     else lin._pick(lin.RIPARIAN, _hash01(seed, 1609)))
-        significance = lin.significance(seed)
+        significance = BASELINE_SIGNIFICANCE
         feature_uuid = uid(f'water/{ref}')
         blob = gw.line_blob(points)
         wkt = gw.line_wkt(points)
@@ -383,7 +393,10 @@ def write_watercourses(conn, mesh):
             gw.line_blob(child_points), ref, ref, river_type, distinctiveness,
             condition, significance, encroachment, riparian, length, retention,
             proposed_type, WATER_DISTINCTIVENESS[proposed_type],
-            proposed_condition, significance, proposed_encroachment,
+            proposed_condition,
+            significance if retention == sc.RETAINED
+            else lin.significance(seed),
+            proposed_encroachment,
             proposed_riparian, enhancement, advance, delay, ON_SITE,
             line_length(child_points), feature_uuid, wkt))
 
@@ -405,11 +418,11 @@ def _better_water(condition):
 # ---------------------------------------------------------------------- trees
 
 TREE_BASE_COLS = [
-    'geom', 'Tree Ref', 'Baseline Tree Size', 'Baseline Tree Type',
+    'geom', 'Habitat Ref', 'Baseline Tree Size', 'Baseline Tree Type',
     'Baseline Rural or Urban Tree', 'Baseline Condition',
     'Baseline Strategic Significance', 'Count', 'Comment', 'feature_uuid']
 TREE_PI_COLS = [
-    'geom', 'PI Ref', 'Parent Ref', 'Baseline Tree Size', 'Baseline Tree Type',
+    'geom', 'Habitat Ref', 'Parent Ref', 'Baseline Tree Size', 'Baseline Tree Type',
     'Baseline Rural or Urban Tree', 'Baseline Condition',
     'Baseline Strategic Significance', 'Retention Category',
     'Proposed Tree Size', 'Proposed Tree Type', 'Proposed Rural or Urban Tree',
@@ -432,7 +445,7 @@ def write_trees(conn, mesh):
         band = sc.band_for(mesh, int(station), int(lane))
         setting = 'Urban tree' if band == 3 else 'Rural tree'
         condition = lin._pick(lin.TREE_CONDITIONS, _hash01(seed, 1907))
-        significance = lin.tree_significance(seed)
+        significance = BASELINE_SIGNIFICANCE
         count = 1 if _hash01(seed, 1913) < 0.88 else 2
         feature_uuid = uid(f'tree/{ref}')
         blob = gw.point_blob(point)
@@ -473,14 +486,14 @@ def write_trees(conn, mesh):
                                        _hash01(seed, 2029))
         pi_rows.append((
             gw.point_blob(point), f'TN-{extra + 1:05d}', None, 'N/A', 'N/A',
-            'N/A', 'N/A', 'N/A', 'Created', size, 'Native',
+            'N/A', 'N/A', None, 'Created', size, 'Native',
             'Urban tree' if zone == sc.MITIGATION and
             _hash01(seed, 2027) < 0.12 else 'Rural tree', proposed_condition,
             lin.tree_significance(seed), 'Newly Planted', advance, delay, ON_SITE,
             1, None, None))
 
-    insert_many(conn, 'Trees Baseline', TREE_BASE_COLS, base_rows)
-    insert_many(conn, 'Trees Post-Intervention', TREE_PI_COLS, pi_rows)
+    insert_many(conn, TREE_BASELINE, TREE_BASE_COLS, base_rows)
+    insert_many(conn, TREE_PI, TREE_PI_COLS, pi_rows)
     counts['baseline'] = len(base_rows)
     counts['post_intervention'] = len(pi_rows)
     return counts

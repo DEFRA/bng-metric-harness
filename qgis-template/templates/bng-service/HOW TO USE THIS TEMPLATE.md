@@ -248,19 +248,32 @@ gaps and no overlaps.**
 
 | Field | What to enter |
 | --- | --- |
-| Parcel Ref | A label, for example `PR-1`. Each label must be different. |
+| Habitat Ref | A label, for example `PR-1`. Each label must be different. |
 | Baseline Broad Habitat Type | Select from the list, for example `Grassland` |
 | Baseline Habitat Type | Select from the habitats in that broad type, for example `Modified grassland` |
-| Baseline Distinctiveness | Select the matching value |
-| Baseline Condition | Select from the conditions that the habitat allows |
-| Baseline Strategic Significance | Select one |
-| Irreplaceable Habitat | Usually `No`. Some habitats allow one answer only. |
+| Baseline Distinctiveness | Do not enter. QGIS fills it in from the habitat type and locks it. |
+| Baseline Condition | Select from the conditions that the habitat allows. When the habitat allows one condition only, QGIS fills it in. |
+| Baseline Strategic Significance | Do not enter. It is always `Low`, and locked. |
+| Irreplaceable Habitat | QGIS fills it in when the habitat allows one answer only: `No` for most habitats, `Yes` for Blanket bog, Coastal sand dunes and Limestone pavement. Otherwise select `Yes` or `No`. |
 | Area (ha) | Do not enter. QGIS fills it in and locks it. |
 | Comment | Optional notes about this parcel |
 
 **Each list shows only the values that your earlier choices allow.** If you
 change the habitat type, a condition that the new type does not allow is
 cleared. Select it again. A condition that still fits stays.
+
+**Some fields fill themselves in.** On every layer:
+
+| Field | What QGIS does |
+| --- | --- |
+| Baseline and Proposed Distinctiveness | Fills in the band of the habitat type, and locks the field. Blank until you choose a habitat type. |
+| Baseline Strategic Significance | Always `Low`, and locked. |
+| Proposed Strategic Significance | `Low` on a new or copied row. Change it to `High` where the site is in an area formally identified in a local strategy. |
+| Baseline and Proposed Condition | Fills in the condition when the habitat allows one only, for example `N/A - Other` for Developed land; sealed surface. You can still change it. |
+| Spatial risk category | Always `N/A` on the post-intervention layers, and locked. |
+
+The Metric has a third strategic significance, "Location ecologically
+desirable but not in local strategy". The template does not offer it.
 
 **Each parcel takes the Natural England UKHab colour for its habitat type.** A
 parcel with an unexpected colour probably has the wrong habitat type.
@@ -294,7 +307,7 @@ pencil to stop editing, save, then click the button again.
 
 **Each copied row gets these values:**
 
-- **PI Ref**: the same as the baseline ref.
+- **Habitat Ref**: the same as the baseline ref.
 - **Parent Ref**: the baseline parcel it came from. The field is locked.
 - **Retention Category**: `Retained`. It is next to the Proposed columns,
   because it describes what happens to the parcel.
@@ -440,7 +453,7 @@ there. Select the method from where the new habitat is.
 1. Click **Fill Ring** on the Advanced Digitizing toolbar.
 2. Draw the pond inside the parcel, then right-click to finish.
 3. QGIS cuts a hole in the parcel and fills it with a new feature.
-4. Set **PI Ref** to a new label, for example `PI-POND`.
+4. Set **Habitat Ref** to a new label, for example `PI-POND`.
 5. Set **Retention Category** to `Created`.
 6. Set the Proposed habitat fields for the pond.
 
@@ -508,7 +521,7 @@ When you finish, click the **pencil**, then click **Save**.
 
 ## Part 6: Tidy the references
 
-A split leaves two rows with one `PI Ref`.
+A split leaves two rows with one `Habitat Ref`.
 
 1. Open the attribute table of **Area Habitats Post-Intervention**.
 2. Click **Actions**, then **`Tidy PI refs after splitting`**.
@@ -567,7 +580,7 @@ no baseline, so you draw it directly on the Post-Intervention layer.
 1. Select the **Post-Intervention** layer of the type, then click the
    **pencil**.
 2. Click **Add Line Feature**, or **Add Point Feature** for trees, and draw it.
-3. Give it a new **PI Ref**.
+3. Give it a new **Habitat Ref**.
 4. Set **Retention Category** to `Created`.
 5. Fill in the Proposed fields. The Baseline fields stay blank and locked.
 6. Check that **Parent Ref** is blank. It is locked. If it is filled, see

@@ -25,9 +25,12 @@ CSV_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         '..', '..',
                         'templates', 'bng-service', 'CSV References')
 
-SS_NONE = 'Area/compensation not in local strategy/ no local strategy'
-SS_DESIRABLE = 'Location ecologically desirable but not in local strategy'
-SS_FORMAL = 'Formally identified in local strategy'
+# The template stores strategic significance as Low or High. Every baseline
+# feature is Low. A proposal is mostly Low, and High where the site sits in
+# an area a local strategy formally identifies.
+SS_LOW = 'Low'
+SS_HIGH = 'High'
+PROPOSED_SIGNIFICANCE = [(SS_LOW, 0.9), (SS_HIGH, 0.1)]
 ON_SITE_RISK = 'N/A'
 
 
@@ -51,11 +54,12 @@ def load_reference():
     with open(os.path.join(CSV_ROOT, 'Habitats', 'Habitat Options- pre.csv')) as fh:
         for row in csv.DictReader(fh):
             broad[row['UKHAB']] = row['ID']
-    irreplaceable = {}
-    with open(os.path.join(CSV_ROOT, 'Habitats', 'Habitat Irreplaceable.csv')) as fh:
-        for row in csv.reader(fh):
-            if len(row) >= 2 and row[0] != 'UKHAB':
-                irreplaceable[row[0]] = row[1]
+    # The answers each habitat allows: only No, only Yes, or both.
+    irreplaceable = collections.defaultdict(set)
+    with open(os.path.join(CSV_ROOT, 'Habitats', 'Habitat Irreplaceable.csv'),
+              encoding='utf-8-sig') as fh:
+        for row in csv.DictReader(fh):
+            irreplaceable[row['UKHAB']].add(row['Irreplaceable'])
     distinctiveness = {}
     with open(os.path.join(CSV_ROOT, 'Habitats',
                            'Habitat Distinctiveness- pre.csv')) as fh:
@@ -200,8 +204,8 @@ def baseline_habitat(mesh, i, j, seed):
 
 
 def strategic_significance(seed):
-    return _pick([(SS_NONE, 0.78), (SS_DESIRABLE, 0.17), (SS_FORMAL, 0.05)],
-                 _hash01(seed, 907))
+    """A proposed significance. A baseline one is always SS_LOW."""
+    return _pick(PROPOSED_SIGNIFICANCE, _hash01(seed, 907))
 
 
 # -------------------------------------------------------- intervention zones
@@ -342,7 +346,15 @@ IRREPLACEABLE_CANDIDATES = frozenset({
 
 
 def is_irreplaceable(mesh, i, j, habitat):
-    """Ancient woodland, in blocks rather than scattered single parcels."""
+    """Ancient woodland, in blocks rather than scattered single parcels.
+
+    A habitat that allows only one answer gets that answer, as the template
+    fills it. Where both are allowed, the woodland candidates are flagged in
+    blocks and everything else is No.
+    """
+    allowed = IRREPLACEABLE.get(habitat, set())
+    if len(allowed) == 1:
+        return next(iter(allowed))
     if habitat not in IRREPLACEABLE_CANDIDATES:
         return 'No'
     u = i / mesh.stations

@@ -12,6 +12,9 @@ blanks it otherwise. The expression is generated from the drop-down's own
 reference list, key column and filter, so it can never disagree with the list
 the user is shown. A valid value is never touched.
 
+A condition or Irreplaceable Habitat drop-down whose filtered list allows one
+value only takes that value by itself, and keeps it while the list allows it.
+
 A drop-down whose filter reads a column the layer does not have is skipped and
 reported: QGIS ignores such a filter and offers the whole list, so there is no
 narrower list to hold a value to.
@@ -60,13 +63,17 @@ def options(widget):
             for o in widget.iter("Option") if o.get("name")}
 
 
+def parent_filter(filter_expr):
+    """The drop-down's filter, as an aggregate over its list sees it."""
+    return CURRENT_VALUE.sub(
+        lambda m: f"attribute(@parent, '{m.group(1)}')", filter_expr.strip())
+
+
 def in_list(field, rule):
     """True while the field's value is in its filtered list."""
     layer_id, key, filter_expr = rule
-    parent_filter = CURRENT_VALUE.sub(
-        lambda m: f"attribute(@parent, '{m.group(1)}')", filter_expr.strip())
     return (f"coalesce(aggregate(layer:='{layer_id}', aggregate:='count', "
-            f'expression:="{key}", filter:=({parent_filter}) '
+            f'expression:="{key}", filter:=({parent_filter(filter_expr)}) '
             f"AND \"{key}\" = attribute(@parent, '{field}')), 0) > 0")
 
 
@@ -99,6 +106,33 @@ def reset_expression(field, rules, prefill=None):
     blank = prefill or "NULL"
     return (f'if("{field}" IS NULL, {blank}, '
             f'if({" AND ".join(checks)}, "{field}", NULL))')
+
+
+def fills_single(field):
+    """True for a drop-down that takes its only choice by itself.
+
+    A condition list can allow one condition only, such as `N/A - Other` for
+    Developed land; sealed surface. The irreplaceable list can allow `No`
+    only, or `Yes` only. The surveyor can still change the value.
+    """
+    return field.endswith(" Condition") or field == "Irreplaceable Habitat"
+
+
+def single_fill(rule, otherwise):
+    """The only value the filtered list allows, else `otherwise`."""
+    layer_id, key, filter_expr = rule
+    return (f"with_variable('only', array_distinct(aggregate("
+            f"layer:='{layer_id}', aggregate:='array_agg', "
+            f'expression:="{key}", filter:=({parent_filter(filter_expr)}))), '
+            f"if(array_length(@only) = 1, @only[0], {otherwise}))")
+
+
+def rule_expression(field, rules, prefill=None):
+    """The reset, with the only choice filled in where the list has one."""
+    reset = reset_expression(field, rules, prefill)
+    if fills_single(field):
+        return single_fill(rules[field], reset)
+    return reset
 
 
 def prefills(layer_name, names, fields, known):
@@ -170,7 +204,7 @@ def plan(xml):
         if rules:
             fills = prefills(layer_name, names, rules, known)
             wanted[layer.findtext("id")] = [
-                (name, reset_expression(name, rules, fills.get(name)))
+                (name, rule_expression(name, rules, fills.get(name)))
                 for name in rules]
     return wanted, skipped
 

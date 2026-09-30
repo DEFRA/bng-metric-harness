@@ -21,8 +21,8 @@ COLOURS = {
 }
 
 fig, axes = plt.subplots(1, 2, figsize=(17, 8.5))
-for ax, (table, hcol) in zip(axes, [('Habitats Baseline', 'Baseline Broad Habitat Type'),
-                                    ('Habitats Post-Intervention', 'Proposed Broad Habitat Type')]):
+for ax, (table, hcol) in zip(axes, [('Area Habitats Baseline', 'Baseline Broad Habitat Type'),
+                                    ('Area Habitats Post-Intervention', 'Proposed Broad Habitat Type')]):
     rows = conn.execute(f'SELECT geom, "{hcol}" FROM "{table}"').fetchall()
     drawn = 0
     for blob, broad in rows:
@@ -46,7 +46,7 @@ for ax, (table, hcol) in zip(axes, [('Habitats Baseline', 'Baseline Broad Habita
             if max(xs) < box[0] or min(xs) > box[1] or max(ys) < box[2] or min(ys) > box[3]:
                 continue
             ax.plot(xs, ys, color=colour, linewidth=width, solid_capstyle='round')
-    tt = 'Trees Baseline' if 'Baseline' in table else 'Trees Post-Intervention'
+    tt = 'Individual Trees Baseline' if 'Baseline' in table else 'Individual Trees Post-Intervention'
     px, py = [], []
     for (blob,) in conn.execute(f'SELECT geom FROM "{tt}"'):
         if blob is None: continue

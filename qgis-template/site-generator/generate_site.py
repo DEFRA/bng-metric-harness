@@ -53,9 +53,10 @@ MIN_AREA_HA, MAX_AREA_HA = 0.05, 500.0
 SQ_M_PER_HECTARE = 10000
 AREA_TOLERANCE_SQ_M = 0.01
 
-LAYERS = ['Habitats Baseline', 'Habitats Post-Intervention',
+LAYERS = ['Area Habitats Baseline', 'Area Habitats Post-Intervention',
           'Hedgerows Baseline', 'Hedgerows Post-Intervention',
-          'Trees Baseline', 'Trees Post-Intervention', 'Red Line Boundary']
+          'Individual Trees Baseline', 'Individual Trees Post-Intervention',
+          'Red Line Boundary']
 
 
 def parse_centre(text):
