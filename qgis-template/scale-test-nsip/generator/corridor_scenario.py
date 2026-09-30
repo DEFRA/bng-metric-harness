@@ -306,15 +306,19 @@ def _enhance(habitat, condition, seed):
 
 
 def timing_for(retention, seed):
-    """At most one of advance and delay: the metric allows only one."""
+    """At most one of advance and delay: the metric allows only one.
+
+    None, stored as NULL, where there is no value: an empty string is not in
+    the drop-down's list, and QGIS shows it as `()`.
+    """
     if retention == RETAINED:
-        return '', ''
+        return None, None
     roll = _hash01(seed, 6607)
     if roll < 0.06:
-        return str(1 + int(_hash01(seed, 6611) * 4)), ''
+        return str(1 + int(_hash01(seed, 6611) * 4)), None
     if roll < 0.22:
-        return '', str(1 + int(_hash01(seed, 6613) * 8))
-    return '', ''
+        return None, str(1 + int(_hash01(seed, 6613) * 8))
+    return None, None
 
 
 assert_in_scope({name for band in BANDS for name, _ in band}

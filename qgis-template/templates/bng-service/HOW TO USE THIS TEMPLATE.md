@@ -341,6 +341,15 @@ the baseline after the copy.
 6. Open the attribute table. Check that each pasted row has a `Parent Ref`.
 7. Click the **pencil** to stop editing, then click **Save**.
 
+To paste every parcel, click **Edit → Select → Select All Features**
+(`Ctrl+A`) at step 2.
+
+**Do not use Copy Layer.** Copy Layer, on the right-click menu of the Layers
+panel, copies the layer's settings, not its parcels. Paste Features turns that
+text into thousands of rows with no shape and every field blank. The template
+refuses a row with no shape: QGIS opens the **Fix Pasted Features** dialog. Click
+**Discard All**, then copy the parcels with **Copy Features**.
+
 **A pasted parcel gets its link only when its shape is exactly the shape of
 one baseline parcel.** It then gets the same values as a copied row, and
 `parent_geom` records the shape at the paste. In the cases below, the pasted
@@ -765,6 +774,15 @@ then click the button again.
 
 **A pasted row has a blank `Parent Ref`.** The paste found no baseline feature
 with exactly the same shape. Section 4.2 gives the causes and what to do.
+
+**A paste opens the Fix Pasted Features dialog, and every field is blank.** The
+clipboard held a layer, not features: Copy Layer was used instead of Copy
+Features. Click **Discard All**. Then select the features and click **Edit →
+Copy Features** (section 4.2).
+
+**A drop-down shows `()`.** The field holds an empty text value, which is not
+in the list. Pick `<NULL>` to leave the field blank, or pick a value. Every
+drop-down offers `<NULL>`.
 
 **A hedgerow, tree or watercourse row changed back to `Retained`, with the
 Baseline values in its Proposed fields.** The row was pasted, duplicated or

@@ -177,7 +177,7 @@ post-intervention layers. `set_paste_defaults.py` and
 The parent is the one baseline feature whose shape is exactly the shape of the
 pasted feature.
 
-After any change to the template, check that the three generated settings are
+After any change to the template, check that the five generated settings are
 in step. Each command gives "no change needed" on a template that is in step,
 and exits with 1 otherwise:
 
@@ -186,6 +186,8 @@ P="templates/bng-service/BNG Service Habitat Mapping.qgz"
 python3 development/tools/reset_stale_dropdowns.py --check "$P"
 python3 development/tools/set_paste_defaults.py --check "$P"
 python3 development/tools/order_dropdowns.py --check "$P"
+python3 development/tools/allow_blank.py --check "$P"
+python3 development/tools/require_shape.py --check "$P"
 ```
 
 Then generate the example site again. Its run ends with `dropdown_check.py`.

@@ -1041,6 +1041,17 @@ def missing_columns(conn, table_names):
     return missing
 
 
+def _blank_to_null(value):
+    """NULL for an empty or all-space text value.
+
+    A drop-down lists NULL as its blank choice. An empty string is not in the
+    list, and QGIS shows it as `()`.
+    """
+    if isinstance(value, str) and not value.strip():
+        return None
+    return value
+
+
 def insert_rows(conn, table, rows, target_table=None):
     """Insert rows for the logical layer `table`.
 
@@ -1061,7 +1072,7 @@ def insert_rows(conn, table, rows, target_table=None):
         + [quote_ident(name) for name in column_names]
     )
     payload = [
-        [geometry] + [values.get(name) for name in column_names]
+        [geometry] + [_blank_to_null(values.get(name)) for name in column_names]
         for geometry, values in rows
     ]
     conn.executemany(

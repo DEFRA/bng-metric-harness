@@ -46,6 +46,12 @@ RETAINED = "'Retained'"
 PROPOSED = "Proposed "
 BASELINE = "Baseline "
 
+# A row with no shape has no baseline twin. Every lookup tests this first, so
+# a paste of rows with no shape reads nothing from the baseline. That paste is
+# what Paste Features makes of the text Copy Layer leaves on the clipboard:
+# one row per line of the layer's XML, often thousands.
+SHAPED = "$geometry IS NOT NULL"
+
 # Every default written by these tools reads the baseline through this call.
 # A tool may therefore replace a default that contains it: it wrote it.
 MARKER = "overlay_equals(layer:="
@@ -70,8 +76,9 @@ def matches(baseline_id, expression):
 
 def lookup(baseline_id, expression):
     """The expression's value on the one matching baseline feature, or NULL."""
-    return (f"with_variable('m', {matches(baseline_id, expression)}, "
-            f"if(array_length(@m) = 1, @m[0], NULL))")
+    return (f"if({SHAPED}, with_variable('m', "
+            f"{matches(baseline_id, expression)}, "
+            f"if(array_length(@m) = 1, @m[0], NULL)), NULL)")
 
 
 def gate(baseline_id):
@@ -91,8 +98,11 @@ def gate(baseline_id):
     is true whenever the new shape equals one baseline feature. A default
     applied on update then replaces the value the row brought with it. See
     prefill_gate for the part of that which a column before can prevent.
+
+    QGIS stops at the first false term of an AND, so a row with no shape
+    never reaches the baseline lookup.
     """
-    return ('"parent_uuid" IS NULL AND '
+    return (f'{SHAPED} AND "parent_uuid" IS NULL AND '
             f"array_length({matches(baseline_id, UUID)}) = 1")
 
 

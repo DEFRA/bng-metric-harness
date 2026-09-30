@@ -288,7 +288,7 @@ def write_trees(conn, site):
         pi_rows.append((
             blob, ref, ref, size, tree_type, setting, condition, significance,
             'Retained', size, tree_type, setting, condition, significance,
-            'Existing', '', '', ON_SITE, 1, feature_uuid, gw.point_wkt(point)))
+            'Existing', None, None, ON_SITE, 1, feature_uuid, gw.point_wkt(point)))
 
     planted = []
     low, high = scheme['street_trees']

@@ -448,7 +448,7 @@ def write_trees(conn, mesh):
         pi_rows.append((
             blob, ref, ref, size, tree_type, setting, condition, significance,
             'Retained', size, tree_type, setting, condition, significance,
-            'Existing', '', '', ON_SITE, count, feature_uuid, wkt))
+            'Existing', None, None, ON_SITE, count, feature_uuid, wkt))
 
     for extra in range(round(mesh.stations
                              * CREATED_TREE_ATTEMPTS_PER_STATION)):

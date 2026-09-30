@@ -2,7 +2,7 @@
 name=BNG Template Convert
 qgisMinimumVersion=3.22
 description=Convert habitat mapping between the legacy Natural England template and the BNG Service template.
-version=1.4.0
+version=1.4.1
 author=Defra BNG Metric Service
 email=
 
@@ -12,7 +12,9 @@ about=Moves a habitat map out of the BNG Service QGIS template without anyone ne
     Export to the Statutory Metric fills a copy of the metric workbook directly, with no CSVs and no import tool in between.
     All three appear in the Processing Toolbox and under Plugins > BNG Template Convert. No dependencies beyond QGIS itself.
 
-changelog=1.4.0
+changelog=1.4.1
+    Convert from legacy writes an empty or all-space text value as NULL. An empty string is not in a drop-down's list, and QGIS shows it as "()".
+  1.4.0
     Convert from legacy records the shape of each linked feature's parent in parent_geom, at three decimal places, as the template's buttons do. The parent_checksum column is gone from the template and is no longer written.
     Convert from legacy can fill a copy of an earlier template. It writes only the columns the template has. The log names each column that the template lacks, whose values are not written, and each column that it leaves blank, such as parent_checksum. When the template's own drop-down lists number their labels, the values are written in that numbered form.
     The BNG Service template now stores conditions, watercourse retention categories and riparian encroachment without the list number in front. Convert from legacy takes the number off. Convert to legacy puts the Natural England number back, taken from the Natural England template's own drop-down lists, with three exceptions. Created on an existing watercourse becomes "4. Created", which the Natural England list does not offer. A watercourse loss row that the conversion adds is written as "Lost", which the Natural England list offers only as "4. Lost". A tree's proposed condition is written without a number, because the Natural England template stores it that way.
