@@ -178,8 +178,8 @@ npm run compare:metric               # compares the new corpus at once
 
 ### What the comparison finds
 
-On the seed-1 corpus of 37 scenarios, since the service prices the measured
-size (BMD-1042):
+On the seed-1 corpus of 37 scenarios, now that the service prices the measured
+size:
 
 - 26 scenarios have discrepancies. `trading-lost-to-development`,
   `trading-low-deficit-covered-beside-medium-deficit` and `trading-low-for-low`
@@ -198,7 +198,7 @@ Of the 231 per-feature discrepancies, 215 have a known cause:
 | --- | --- | --- |
 | Strategic significance not applied | 215 | The engine prices every feature at a strategic significance multiplier of 1 (`BASELINE_STRATEGIC_SIGNIFICANCE_MULTIPLIER`). The metric applies 1.1 or 1.15, so affected features are 9.1% or 13.0% lower in the service. This is enough to flip a net gain verdict: `intervention-hedgerow-retained` is Met in the service at 10.01% and Not met in the metric at 9.09%. |
 
-Until BMD-1042 the service also rounded each area to the whole m² and each
+The service used to round each area to the whole m² and each
 length to the whole metre before pricing it, where the metric prices the
 measured size: 488 per-feature discrepancies, up to 0.005 units each. The
 service now prices the measured size, and the service and the workbooks both

@@ -126,8 +126,7 @@ file:
 
 - Areas and lengths are measured from the geometry with `bng-library/measure`,
   the same functions the backend prices with, and left unrounded, as the metric
-  prices them (BMD-1042). The rounded `Area` and `Length`
-  attributes are not used.
+  prices them. The rounded `Area` and `Length` attributes are not used.
 - An area habitat marked `Lost` is a creation. Its baseline row is lost, and its
   proposed habitat is created on the same land (A-1 plus A-2).
 - A lost hedgerow, watercourse or tree is simply lost. A created one has no
