@@ -201,9 +201,10 @@ Of the 231 per-feature discrepancies, 215 have a known cause:
 Until BMD-1042 the service also rounded each area to the whole m² and each
 length to the whole metre before pricing it, where the metric prices the
 measured size: 488 per-feature discrepancies, up to 0.005 units each. The
-service now prices the measured size, and the workbooks carry that size exactly
-as the backend's GEOS measures it, so none remain; the *Priced on a different
-size* cause is kept to catch it coming back.
+service now prices the measured size, and the service and the workbooks both
+measure it with `bng-library/measure`, one definition of a feature's size, so
+none remain; the *Priced on a different size* cause is kept to catch it coming
+back.
 
 The 16 without a known cause are worth investigating first:
 

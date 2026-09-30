@@ -124,9 +124,9 @@ post-intervention GeoPackage, not from a separate description, so the two
 cannot drift apart. The mapping follows what the service does with the same
 file:
 
-- Areas and lengths are measured from the geometry, as the backend's GEOS
-  measures them, to the last digit, and left unrounded: the service prices the
-  measured size, as the metric does (BMD-1042). The rounded `Area` and `Length`
+- Areas and lengths are measured from the geometry with `bng-library/measure`,
+  the same functions the backend prices with, and left unrounded, as the metric
+  prices them (BMD-1042). The rounded `Area` and `Length`
   attributes are not used.
 - An area habitat marked `Lost` is a creation. Its baseline row is lost, and its
   proposed habitat is created on the same land (A-1 plus A-2).
