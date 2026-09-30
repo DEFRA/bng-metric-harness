@@ -27,9 +27,35 @@ jobs:
           cache: npm
       - run: npm ci
 
-      # BMD-1036: the metric comparison runs the backend's upload pipeline in
-      # process, so it needs the backend checked out beside the harness, where
-      # a developer has it, and installed. A pull request whose branch also
+      - name: SonarCloud Scan
+        if: github.actor != 'dependabot[bot]'
+        uses: SonarSource/sonarqube-scan-action@v8.2.2 #  (or check latest version on https://github.com/marketplace/actions/official-sonarqube-scan)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # The metric comparison runs in a job of its own, so nothing it does can skip
+  # the Sonar scan or fail the checks above: a flaky clone or install, a
+  # backend main without the exports the comparison needs, or a crash. It
+  # reports, and never fails the workflow; differences never fail it either.
+  metric-comparison:
+    name: Compare the service with the metric
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      # The metric comparison runs the backend's upload pipeline in process,
+      # so it needs the backend checked out beside the harness, where a
+      # developer has it, and installed. A pull request whose branch also
       # exists in the backend uses the backend branch, so a change to the
       # scenarios here and a change there can be tested together before either
       # is merged; otherwise the backend's main.
@@ -75,10 +101,3 @@ jobs:
           name: metric-comparison
           path: metric-comparison/
           if-no-files-found: warn
-
-      - name: SonarCloud Scan
-        if: github.actor != 'dependabot[bot]'
-        uses: SonarSource/sonarqube-scan-action@v8.2.2 #  (or check latest version on https://github.com/marketplace/actions/official-sonarqube-scan)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

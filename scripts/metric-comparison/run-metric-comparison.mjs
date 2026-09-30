@@ -47,22 +47,47 @@ function isSelected(scenario, only) {
 }
 
 /**
+ * The service's side of one scenario: its figures, or its refusal. A scenario
+ * whose import throws is reported rather than stopping the run: a crash in
+ * the service is a finding in its own right, and the other scenarios still
+ * need their report.
+ *
+ * @returns {Promise<{ service?: object, serviceError?: string }>}
+ */
+async function importScenario(scenario, importPair) {
+  try {
+    const imported = await importPair(scenario.files);
+    return {
+      service: imported.accepted
+        ? { accepted: true, figures: figuresFromProject(imported.project) }
+        : imported,
+    };
+  } catch (error) {
+    return { serviceError: error?.message || String(error) };
+  }
+}
+
+/**
  * @param {import('bng-library/metric-compare').CorpusScenario} scenario
  * @param {{ results?: object, error?: string }} answers the metric workbook's
  *   answers, from readWorkbookAnswers
+ * @param {typeof importGeoPackagePair} [importPair] the service's import; the
+ *   backend's upload pipeline unless a test stands in for it
  */
-export async function compareCorpusScenario(scenario, answers) {
+export async function compareCorpusScenario(
+  scenario,
+  answers,
+  importPair = importGeoPackagePair,
+) {
   if (answers.error) {
     return compareScenario({ scenario, workbookError: answers.error });
   }
-  const imported = await importGeoPackagePair(scenario.files);
-  const service = imported.accepted
-    ? { accepted: true, figures: figuresFromProject(imported.project) }
-    : imported;
+  const { service, serviceError } = await importScenario(scenario, importPair);
   return compareScenario({
     scenario,
     expected: figuresFromWorkbook(answers.results),
     service,
+    serviceError,
   });
 }
 
@@ -72,11 +97,18 @@ export async function compareCorpusScenario(scenario, answers) {
  *   committed ones
  * @param {string[]} [options.only] scenario ids, names or purposes to run
  * @param {(result: object) => void} [options.onResult]
+ * @param {typeof importGeoPackagePair} [options.importPair] the service's
+ *   import; the backend's upload pipeline unless a test stands in for it
  * @returns {Promise<{ corpusDir: string, unmatched: string[], results: object[] }>}
  *   `unmatched` lists workbooks found without both GeoPackages beside them
  */
 export async function runMetricComparison(options = {}) {
-  const { corpusDir = DEFAULT_CORPUS_DIR, only = [], onResult } = options;
+  const {
+    corpusDir = DEFAULT_CORPUS_DIR,
+    only = [],
+    onResult,
+    importPair = importGeoPackagePair,
+  } = options;
   const { scenarios, unmatched } = findScenarios(corpusDir);
   const selected = scenarios.filter((s) => isSelected(s, only));
   const answers = await readWorkbookAnswers(
@@ -84,7 +116,11 @@ export async function runMetricComparison(options = {}) {
   );
   const results = [];
   for (const [i, scenario] of selected.entries()) {
-    const result = await compareCorpusScenario(scenario, answers[i]);
+    const result = await compareCorpusScenario(
+      scenario,
+      answers[i],
+      importPair,
+    );
     onResult?.(result);
     results.push(result);
   }
