@@ -29,7 +29,9 @@ worktree of a backend branch, say). The report is written to
 
 **It reports; it does not judge.** Differences never make the command or a
 build fail. The report is there for people to decide what, if anything, needs
-doing.
+doing. A scenario the service throws an error on is reported too, as *Import
+failed in the service* with the error, and the run carries on with the rest:
+a crash in the service is a finding like any other.
 
 ### What is compared
 
@@ -135,7 +137,8 @@ and imports the backend rather than the backend fetching the scenarios. The
 backend keeps only the few exports the import needs.
 
 - **Every pull request** here (`check-pull-request.yml`) checks the backend
-  out beside the harness, installs it, and runs `npm run compare:metric`. A
+  out beside the harness, installs it, and runs `npm run compare:metric`, in a
+  job of its own beside the Sonar scan. A
   pull request whose branch also exists in the backend uses that branch, so a
   scenario change here and a backend change can be tested together before
   either is merged. Otherwise, it's the backend's `main`. The summary goes on
@@ -146,8 +149,10 @@ backend keeps only the few exports the import needs.
   week's report. A backend change does not trigger it; to see a backend
   branch's report, run it locally with `BNG_BACKEND_DIR`, or open a harness
   pull request from a branch of the same name.
-- The workflow fails only when the comparison cannot run (no backend, or one
-  that predates its exports), never on what it finds.
+- The comparison never fails the workflow. When it cannot run (a failed clone
+  or install, or a backend that predates its exports), its job shows the
+  failure, but it is marked `continue-on-error`, so the pull request check
+  and the Sonar scan are unaffected. What it finds never fails anything.
 - `npm run test:scripts` checks that the comparison itself runs, not what it
   finds.
 - bng-library's own CI tests the comparator, the workbook reader and the

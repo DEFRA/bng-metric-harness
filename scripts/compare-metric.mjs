@@ -23,6 +23,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import {
+  OUTCOME,
   renderComparisonHtml,
   renderComparisonReport,
   renderComparisonXlsx,
@@ -138,11 +139,18 @@ write(
 
 const differing = results.filter((r) => r.discrepancies?.length).length;
 const unreadable = results.filter(
-  (r) => r.outcome === "workbook-unreadable",
+  (r) => r.outcome === OUTCOME.workbookUnreadable,
 ).length;
 const unreadableSuffix = unreadable
   ? `; ${unreadable} workbook(s) could not be read, so were not compared`
   : "";
+const failed = results.filter((r) => r.outcome === OUTCOME.importFailed);
+for (const r of failed) {
+  warn(`the service failed to import ${r.id}: ${r.errors[0].message}`);
+}
+const failedSuffix = failed.length
+  ? `; the service failed to import ${failed.length}, so they were not compared`
+  : "";
 console.log(
-  `${differing} of ${results.length} scenarios differ from the metric${unreadableSuffix}. Reports → ${path.join(OUT_DIR, "report.html")} and report.xlsx`,
+  `${differing} of ${results.length} scenarios differ from the metric${unreadableSuffix}${failedSuffix}. Reports → ${path.join(OUT_DIR, "report.html")} and report.xlsx`,
 );

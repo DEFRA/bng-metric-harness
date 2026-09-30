@@ -124,3 +124,42 @@ describe.skipIf(!isBackendInstalled())("runMetricComparison", () => {
     expect(results[0].outcome).toBe(OUTCOME.rejectedAsExpected);
   });
 });
+
+// A stand-in for the backend's import, so these run without a backend
+// checkout: what matters is how the run treats an import that throws.
+describe("runMetricComparison when the service's import throws", () => {
+  const throwsFor = (failing) => async (files) => {
+    if (files.baseline === scenario(failing).files.baseline) {
+      throw new Error("GEOS threw: TopologyException");
+    }
+    return { accepted: false, rejectedFile: "baseline", errors: [] };
+  };
+
+  it("reports that scenario as a failed import, with the error", async () => {
+    const { results } = await runMetricComparison({
+      only: ["net-gain/met"],
+      importPair: throwsFor("net-gain/met"),
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      id: "net-gain/met",
+      outcome: OUTCOME.importFailed,
+      errors: [
+        { code: "IMPORT_FAILED", message: "GEOS threw: TopologyException" },
+      ],
+    });
+  });
+
+  it("carries on and reports every other scenario", async () => {
+    const { results } = await runMetricComparison({
+      only: ["net-gain"],
+      importPair: throwsFor("net-gain/met"),
+    });
+
+    expect(Object.fromEntries(results.map((r) => [r.id, r.outcome]))).toEqual({
+      "net-gain/met": OUTCOME.importFailed,
+      "net-gain/unmet": OUTCOME.rejected,
+    });
+  });
+});
