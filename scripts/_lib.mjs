@@ -161,3 +161,47 @@ export function reposForTarget(target) {
   if (target === "all") return REPOS;
   return REPOS.filter((r) => r.key === target);
 }
+
+/**
+ * Run `step` on each item in turn, each waiting for the one before, and
+ * resolve to their results in order. For work that must not overlap: steps
+ * that share state, or whose output should read in order. Recursive rather
+ * than a loop, so the one-at-a-time intent lives here, named, instead of in
+ * an `await` inside each caller's loop.
+ *
+ * @template T, R
+ * @param {T[]} items
+ * @param {(item: T, index: number) => Promise<R> | R} step
+ * @returns {Promise<R[]>}
+ */
+export async function mapInSequence(items, step) {
+  const results = [];
+  const next = async (index) => {
+    if (index >= items.length) {
+      return results;
+    }
+    results.push(await step(items[index], index));
+    return next(index + 1);
+  };
+  return next(0);
+}
+
+/**
+ * Call `probe` until it resolves truthy, waiting `intervalMs` between tries,
+ * for at most `attempts` tries. A probe that throws counts as a failed try.
+ *
+ * @param {() => Promise<unknown>} probe
+ * @param {{ attempts: number, intervalMs: number }} options
+ * @returns {Promise<boolean>} whether the probe ever succeeded
+ */
+export async function pollUntil(probe, { attempts, intervalMs }) {
+  const succeeded = await probe().then(Boolean, () => false);
+  if (succeeded) {
+    return true;
+  }
+  if (attempts <= 1) {
+    return false;
+  }
+  await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  return pollUntil(probe, { attempts: attempts - 1, intervalMs });
+}
