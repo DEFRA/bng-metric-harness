@@ -94,9 +94,7 @@ try:
         fill_template_values,
         has_baseline_part,
         service_significance,
-        template_lists_numbered,
         to_service_labels,
-        to_template_labels,
     )
     from .to_metric import MODULES as METRIC_MODULES, check_needed_values
 except ImportError:  # pragma: no cover - running as a plain script
@@ -110,9 +108,7 @@ except ImportError:  # pragma: no cover - running as a plain script
         fill_template_values,
         has_baseline_part,
         service_significance,
-        template_lists_numbered,
         to_service_labels,
-        to_template_labels,
     )
     from to_metric import MODULES as METRIC_MODULES, check_needed_values
 
@@ -129,20 +125,8 @@ INCOMING_GAP_CONSEQUENCE = (
 # ---------------------------------------------------------------------------
 # New-template schema — the columns of Layers/BNG Service Layers.gpkg, so the
 # output can replace that file inside a copy of the template project. Filling
-# a template with --into writes only the columns that template has, so a copy
-# of an earlier template version still takes the rows.
+# a template with --into writes only the columns that template has.
 # ---------------------------------------------------------------------------
-
-# Where a template keeps its drop-down lists, beside its Layers/ folder.
-TEMPLATE_LISTS = "CSV References"
-STAGES = ("baseline", "pi")
-# The layers whose drop-down values an earlier BNG Service template numbers,
-# keyed as reference_lists.COLUMN_LISTS, as (baseline, post-intervention).
-NUMBERED_LABEL_LAYERS = {
-    "areas": ("Area Habitats Baseline", "Area Habitats Post-Intervention"),
-    "watercourses": ("Watercourses Baseline", "Watercourses Post-Intervention"),
-    "trees": ("Individual Trees Baseline", "Individual Trees Post-Intervention"),
-}
 
 BASELINE_TAIL = [("Comment", "TEXT"), ("feature_uuid", "TEXT")]
 PI_TAIL = [("parent_uuid", "TEXT"), ("parent_geom", "TEXT")]
@@ -1300,7 +1284,6 @@ def convert(baseline_path, pi_path, out_dir, into_path, force, dry_run,
         target = into_path
         _report_missing_columns(missing_columns(conn, table_names), report)
         _report_extra_columns(extra_columns(conn, table_names), report)
-        _match_target_labels(tables, into_path, report)
     else:
         if out_file:
             target = out_file
@@ -1518,9 +1501,8 @@ def _report_missing_columns(missing, report):
     )
     report.warn(
         "The target template has no column for some converted values, so "
-        f"those values were not written ({detail}). The template is probably "
-        "from an earlier version. Fill a copy of the current BNG Service "
-        "template to keep them."
+        f"those values were not written ({detail}). Fill a copy of the current "
+        "BNG Service template to keep them."
     )
 
 
@@ -1533,50 +1515,7 @@ def _report_extra_columns(extra, report):
     )
     report.warn(
         "The target template has columns that this converter does not fill, "
-        f"so they stay blank ({detail}). The template is probably from an "
-        "earlier version. The service does not read parent_checksum, which "
-        "earlier templates had."
-    )
-
-
-def target_list_folder(into_path):
-    """The CSV References folder of the template that holds `into_path`.
-
-    The template keeps its GeoPackage in Layers/, beside that folder.
-    """
-    template = os.path.dirname(os.path.dirname(os.path.abspath(into_path)))
-    return os.path.join(template, TEMPLATE_LISTS)
-
-
-def _match_target_labels(tables, into_path, report):
-    """Write the drop-down values in the form the target's own lists hold.
-
-    An earlier BNG Service template numbers its labels, as "4. Fairly Poor".
-    Its drop-downs do not offer the words alone, and its reset rules blank a
-    value they do not offer on the next edit of the row.
-    """
-    folder = target_list_folder(into_path)
-    numbered = template_lists_numbered(folder)
-    if numbered is None:
-        report.warn(
-            f"Found no drop-down lists at {folder}, so the drop-down values "
-            "are written as the current BNG Service template stores them. "
-            "Point --into at the Layers/ GeoPackage of a template copy to "
-            "match its lists."
-        )
-        return
-    if not numbered:
-        return
-    layers = {
-        key: {stage: [values for _, values in tables[table]]
-              for stage, table in zip(STAGES, pair)}
-        for key, pair in NUMBERED_LABEL_LAYERS.items()
-    }
-    changed = to_template_labels(layers, folder)
-    report.note(
-        "The target is an earlier BNG Service template, whose drop-down lists "
-        f"number their labels. Wrote {changed} drop-down value(s) in that "
-        "form, such as 'Fairly Poor' as '4. Fairly Poor'"
+        f"so they stay blank ({detail})."
     )
 
 

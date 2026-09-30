@@ -152,7 +152,7 @@ def summarise_refs(refs, limit=REF_SAMPLE_SIZE):
 
 # The Natural England template stores some drop-down values with the metric's
 # own list number in front: "4. Fairly Poor", "2. Retained", "1. Major/Major".
-# Earlier versions of the BNG Service template did the same. The number
+# The number
 # belongs to the printed guidance, not to the value, and every lookup
 # downstream matches on the words alone. reference_lists.py puts the number
 # back where the legacy template expects it.

@@ -17,12 +17,7 @@ Two directions:
                    Natural England drop-down uses (for example, the condition
                    list is filtered by habitat type).
 
-A value that is already numbered is not changed by legacy_form, so a file
-from an earlier version of the BNG Service template converts as before.
-
-Earlier versions of the BNG Service template numbered their labels as the
-Natural England template does. to_template_labels writes the numbered form
-that such a template's own lists hold, so old_to_new can fill a copy of it.
+A value that is already numbered is not changed by legacy_form.
 
 Strategic significance is stored differently too. The BNG Service template
 stores "Low" or "High". Natural England and the Statutory Metric store the
@@ -94,18 +89,16 @@ class LabelList:
     side is read with `legacy_filter`, the column its drop-down filters on,
     and `legacy_key`, the column it stores. `gaps` gives the legacy value for
     a BNG Service value the Natural England list does not hold in that
-    context. `numbered_folder` reads the numbered side from that folder in
-    place of the Natural England lists (see stored_in).
+    context.
     """
 
     def __init__(self, path, service_key, legacy_filter, legacy_key,
-                 gaps=None, numbered_folder=None):
+                 gaps=None):
         self.path = path
         self.service_key = service_key
         self.legacy_filter = legacy_filter
         self.legacy_key = legacy_key
         self.gaps = gaps or {}
-        self.numbered_folder = numbered_folder
         self._loaded = False
         self._service_values = set()
         self._legacy_by_context = {}
@@ -118,11 +111,7 @@ class LabelList:
             value = row.get(self.service_key)
             if value:
                 self._service_values.add(value)
-        if self.numbered_folder:
-            numbered_rows = read_rows(self.numbered_folder, self.path)
-        else:
-            numbered_rows = read_list(LEGACY_TEMPLATE, self.path)
-        for row in numbered_rows:
+        for row in read_list(LEGACY_TEMPLATE, self.path):
             label = row.get(self.legacy_key)
             if not label:
                 continue
@@ -131,16 +120,6 @@ class LabelList:
             self._legacy_by_context.setdefault((context, words), set()).add(label)
             self._legacy_by_value.setdefault(words, set()).add(label)
         self._loaded = True
-
-    def stored_in(self, folder):
-        """This list as an earlier BNG Service template stores it.
-
-        `folder` is that template's CSV References folder. Its drop-downs
-        filter on the same column as the Natural England ones, and store the
-        numbered label in the column the current template stores.
-        """
-        return LabelList(self.path, self.service_key, self.legacy_filter,
-                         self.service_key, self.gaps, numbered_folder=folder)
 
     def service_form(self, value):
         """The words alone, when they are a value of either template's list."""
@@ -312,36 +291,6 @@ def to_legacy_labels(layers):
 def to_service_labels(layers):
     """Take the list number off every listed value in place. Returns the count."""
     return _convert_layers(layers, _service)
-
-
-def template_lists_numbered(folder):
-    """Whether the lists in a template's CSV References folder number labels.
-
-    True for an earlier BNG Service template, False for the current one, and
-    None when the folder has no condition list to tell by.
-    """
-    path = os.path.join(folder, AREA_CONDITION.path)
-    if not os.path.isfile(path):
-        return None
-    return any(NUMBERED_LABEL.match(row.get(AREA_CONDITION.service_key) or "")
-               for row in read_rows(folder, AREA_CONDITION.path))
-
-
-def to_template_labels(layers, folder):
-    """Number every listed value in place, as the lists in `folder` hold it.
-
-    For filling an earlier BNG Service template, whose lists number their
-    labels. Takes the same `layers` as to_legacy_labels, and returns how many
-    values changed.
-    """
-    lists = {}
-
-    def convert(label_list, value, context):
-        if label_list.path not in lists:
-            lists[label_list.path] = label_list.stored_in(folder)
-        return lists[label_list.path].legacy_form(value, context)
-
-    return _convert_layers(layers, convert)
 
 
 def _convert_layers(layers, convert):

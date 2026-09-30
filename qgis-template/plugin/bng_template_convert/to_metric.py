@@ -319,11 +319,7 @@ def is_irreplaceable(row):
 
 
 def retention_of(row):
-    # A file from an earlier version of the template stores a watercourse's
-    # retention with the list number in front of it ("2. Retained"). A
-    # comparison against the word has to see through that, or a whole
-    # module silently contributes nothing.
-    return plain_label(row.get(RETENTION_FIELD)) or ""
+    return row.get(RETENTION_FIELD) or ""
 
 
 def baseline_line(row, size, type_field):

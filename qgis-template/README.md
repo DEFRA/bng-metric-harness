@@ -93,8 +93,7 @@ type, with three exceptions:
 
 - `Created` on an existing watercourse becomes `4. Created`. The Natural
   England list does not offer this value: its fourth option for an existing
-  watercourse is `4. Lost`. Earlier versions of the BNG Service template
-  stored it in this form.
+  watercourse is `4. Lost`.
 - A watercourse loss row that the conversion adds is written as `Lost`. The
   Natural England list offers it only as `4. Lost`.
 - A tree's proposed condition gets no number, because the Natural England
@@ -103,10 +102,6 @@ type, with three exceptions:
 The Metric workbook holds only the words. In the import tool CSVs, conditions
 and retention categories have no number, but riparian encroachment keeps it.
 Hedgerow lists have no numbers.
-
-Conversion from legacy into an earlier BNG Service template, whose lists
-still number their labels, writes the numbered form from that template's own
-lists.
 
 **Template areas are in hectares**, as in the Metric. Legacy areas are whole
 square metres. The conversion changes the unit in both directions.
