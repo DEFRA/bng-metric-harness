@@ -35,19 +35,13 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   # The metric comparison runs in a job of its own, so nothing it does can skip
-  # the Sonar scan or fail the checks above: a flaky clone or install, a
-  # backend main without the exports the comparison needs, or a crash. It
-  # reports, and never fails the workflow; differences never fail it either.
-  #
-  # TODO (follow-up PR): once DEFRA/bng-library#68 and
-  # DEFRA/bng-metric-backend#426 have merged, fail on unexplained differences:
-  # drop continue-on-error here and pass --fail-on-unexplained to the compare
-  # step below. Until then a pull request here compares backend main, which
-  # still prices rounded sizes, so it would fail on every run.
+  # the Sonar scan or the checks above. It fails the workflow on any
+  # difference from the metric that nothing known explains
+  # (scripts/metric-comparison/unexplained.mjs), as well as on a clone,
+  # install or import that fails.
   metric-comparison:
     name: Compare the service with the metric
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -86,13 +80,13 @@ jobs:
 
       # Every committed scenario is imported through the backend's upload
       # pipeline and compared, figure by figure, with the Statutory
-      # Biodiversity Metric's own answers. Report only: differences never fail
-      # the job; the reports are for people to judge. A summary goes on the job
-      # summary, the full report (report.html and report.xlsx) in the artifact.
-      # TODO (follow-up PR): `npm run compare:metric -- --fail-on-unexplained`.
+      # Biodiversity Metric's own answers. An unexplained difference fails the
+      # job, after the reports are written. A summary goes on the job summary,
+      # leading with any unexplained differences; the full report (report.html
+      # and report.xlsx) is in the artifact.
       - name: Compare the service with the metric
         id: compare-metric
-        run: npm run compare:metric
+        run: npm run compare:metric -- --fail-on-unexplained
 
       - name: Publish the metric comparison summary
         if: ${{ !cancelled() && steps.compare-metric.outcome != 'skipped' }}

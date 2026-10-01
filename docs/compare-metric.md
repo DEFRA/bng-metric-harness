@@ -147,7 +147,7 @@ and imports the backend rather than the backend fetching the scenarios. The
 backend keeps only the few exports the import needs.
 
 - **Every pull request** here (`check-pull-request.yml`) checks the backend
-  out beside the harness, installs it, and runs `npm run compare:metric`, in a
+  out beside the harness, installs it, and runs `npm run compare:metric -- --fail-on-unexplained`, in a
   job of its own beside the Sonar scan. A
   pull request whose branch also exists in the backend uses that branch, so a
   scenario change here and a backend change can be tested together before
@@ -159,11 +159,10 @@ backend keeps only the few exports the import needs.
   week's report. A backend change does not trigger it; to see a backend
   branch's report, run it locally with `BNG_BACKEND_DIR`, or open a harness
   pull request from a branch of the same name.
-- The comparison does not fail the workflow yet. When it cannot run (a
-  failed clone or install, or a backend that predates its exports), its job
-  shows the failure, but it is marked `continue-on-error`, so the pull request
-  check and the Sonar scan are unaffected. Unexplained differences lead the
-  job summary, but do not fail the job: see below.
+- An unexplained difference fails the job, and so the workflow; so does a
+  comparison that cannot run (a failed clone or install, or a backend that
+  predates its exports). The Sonar scan is in a separate job and still runs.
+  Unexplained differences lead the job summary: see below.
 - `npm run test:scripts` checks that the comparison itself runs, and the rules
   for what is explained (`tests/scripts/metric-comparison/unexplained.test.mjs`).
 - bng-library's own CI tests the comparator, the workbook reader and the
@@ -171,12 +170,10 @@ backend keeps only the few exports the import needs.
 
 ### What fails the build
 
-Nothing yet. CI will run `npm run compare:metric -- --fail-on-unexplained`, and
-drop the job's `continue-on-error`, once bng-library#68 and
-bng-metric-backend#426 have merged. Until then, a harness pull request whose
-branch is not in the backend compares the backend's `main`, which still prices
-rounded sizes and so has hundreds of unexplained differences. Locally, pass
-the flag to see whether a run would pass.
+Any unexplained difference. CI runs
+`npm run compare:metric -- --fail-on-unexplained`, which writes the reports and
+then exits 1 if anything is unexplained. Locally, pass the same flag to see
+whether a run would pass.
 
 `scripts/metric-comparison/unexplained.mjs` decides which differences have a
 known explanation. A difference is explained when:
