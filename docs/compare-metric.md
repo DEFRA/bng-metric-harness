@@ -46,13 +46,13 @@ any other, and is unexplained.
 | Trading rules figures | Each habitat's net change, the Medium broad habitat totals, Medium surplus and deficit, Low net change and the cumulative figure (area and watercourse) |
 | Trading rules statuses | Met / Not met for each distinctiveness band |
 
-**The comparison allows only differences too small to matter.** Two numbers
-match when they differ by less than 0.001% of the metric's value, or by less
-than 0.000001 where the metric's value is zero (`TOLERANCE` in
-`bng-library/metric-compare`). The metric shows units and percentages to 2
-decimal places, and 0.001% is 0.01 units on a site of 1,000 units, so a
-difference inside the tolerance cannot change a project's outcome. What it
-clears is floating-point noise: the engine and the spreadsheet add up the same
+**The comparison allows only floating-point noise.** Two numbers match when
+they differ by less than 1e-12 of the metric's value, or by less than 1e-12
+where the metric's value is zero (`TOLERANCE` in
+`bng-library/metric-compare`). It is not sized by what could change a
+project's outcome: a difference too small for that, such as pricing a size
+rounded to the whole square metre, is still the service calculating
+differently, so it is a discrepancy. What the tolerance clears is noise: the engine and the spreadsheet add up the same
 figures in a different order, so a total can differ in its 14th significant
 figure. On the corpus that noise is at most about 1e-13 of the value. Met /
 Not met answers must be equal. A match that is not exact is counted in the
@@ -246,7 +246,7 @@ How it got here:
 | Was | Differences | What changed |
 | --- | --- | --- |
 | Sizes rounded before pricing | 488 per-feature, up to 0.005 units each | The service prices the measured size, unrounded, and the service and the workbooks both measure it with `bng-library/measure` (BMD-1042). The *Priced on a different size* cause is kept to name it if it comes back. |
-| Floating-point noise in totals | 38 figures, up to about 1e-13 of the value | Figures match within a tolerance of 0.001% of the metric's value (BMD-1042). |
+| Floating-point noise in totals | 38 figures, up to about 1e-13 of the value | Figures match within a tolerance of 1e-12 of the metric's value (BMD-1042). |
 | Baseline strategic significance | about 160 per-feature, and the totals and verdicts they flipped | The service prices every baseline at Low, as Defra's LNRS guidance requires; the corpus gave baselines High or Medium. It now follows the guidance (bng-library#68). |
 | Hedgerows' proposed strategic significance | 18 per-feature | The service never read a hedgerow's Proposed Strategic Significance, so priced it at Low (bng-metric-backend#439). |
 | A habitat the metric spells two ways | 2 trading figures | "Ruderal/ephemeral" and "Ruderal/Ephemeral" are matched as one habitat (bng-library#68). |
