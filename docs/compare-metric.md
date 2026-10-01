@@ -197,8 +197,11 @@ Everything else is unexplained:
 
 When the service starts refusing an invalid scenario, its `VALIDATION_GAPS`
 entry is reported as stale (a warning, not a failure), so it can be removed.
-When the service implements strategic significance, the cause stops matching
-and its differences go away, so nothing needs updating here.
+Strategic significance should soon explain nothing. The corpus follows the
+LNRS guidance (Low baselines; Low or High proposed values), and once
+bng-metric-backend#439 (hedgerows read their proposed value) has merged, no
+difference has that cause. bng-library should then stop treating it as *not
+implemented yet*, so a strategic significance difference fails like any other.
 
 To accept a new kind of expected difference, explain it in `unexplained.mjs`
 (or, for a feature's units, as a cause in bng-library's
@@ -220,39 +223,33 @@ npm run compare:metric               # compares the new corpus at once
 
 ### What the comparison finds
 
-On the seed-1 corpus of 37 scenarios, now that the service prices the measured
-size:
+On the seed-1 corpus of 37 scenarios, against the backend with
+bng-metric-backend#426 (sizes measured, unrounded) and #439 (hedgerows read
+their proposed strategic significance):
 
-- 17 scenarios have discrepancies. The other 12 valid scenarios match the
-  metric in every figure: the 3 trading-rules scenarios that always did, and 9
-  more whose only differences were floating-point noise in their totals.
+- **All 29 valid scenarios match the metric**, in every figure compared.
 - `invalid-area-advance-and-delay` is refused by the service, as expected.
 - The other 7 scenarios built on invalid data are accepted by the service. They
-  are reported as "Accepted, though its data is invalid", with their
-  discrepancies, because the service should have refused them.
-- 1,305 of 1,813 comparable figures match: 1,186 exactly and 119 within the
-  tolerance. 508 differ.
-- 540 figures are not implemented in the service yet.
+  are reported as "Accepted, though its data is invalid", because the service
+  should have refused them; each is listed in `VALIDATION_GAPS`. Two of them
+  are the only scenarios with differing figures:
+  - **`invalid-area-trading-down`** H001: the metric computes nothing for this
+    enhancement (it breaks the trading-down rule), while the service prices it.
+  - **`invalid-watercourse-encroachment-worsened`**: the metric reports *Check
+    Data* and *N/A*, while the service computes its totals.
+- 1,793 of 1,804 comparable figures match: 1,589 exactly and 204 within the
+  tolerance. The 11 that differ are all in those two scenarios.
+- 544 figures are not implemented in the service yet.
 
-Of the 180 per-feature discrepancies, 179 have a known cause:
+How it got here:
 
-| Cause | Discrepancies | |
+| Was | Differences | What changed |
 | --- | --- | --- |
-| Strategic significance not applied | 179 | The engine prices every feature at a strategic significance multiplier of 1 (`BASELINE_STRATEGIC_SIGNIFICANCE_MULTIPLIER`). The metric applies 1.1 or 1.15, so affected features are 9.1% or 13.0% lower in the service. This is enough to flip a net gain verdict: in `intervention-hedgerow-retained` the hedgerow net change is 10.72% (Met) in the metric and 9.97% (Not met) in the service. |
+| Sizes rounded before pricing | 488 per-feature, up to 0.005 units each | The service prices the measured size, unrounded, and the service and the workbooks both measure it with `bng-library/measure` (BMD-1042). The *Priced on a different size* cause is kept to name it if it comes back. |
+| Floating-point noise in totals | 38 figures, up to about 1e-13 of the value | Figures match within a tolerance of 0.001% of the metric's value (BMD-1042). |
+| Baseline strategic significance | about 160 per-feature, and the totals and verdicts they flipped | The service prices every baseline at Low, as Defra's LNRS guidance requires; the corpus gave baselines High or Medium. It now follows the guidance (bng-library#72). |
+| Hedgerows' proposed strategic significance | 18 per-feature | The service never read a hedgerow's Proposed Strategic Significance, so priced it at Low (bng-metric-backend#439). |
+| A habitat the metric spells two ways | 2 trading figures | "Ruderal/ephemeral" and "Ruderal/Ephemeral" are matched as one habitat (bng-library#72). |
 
-Every other discrepancy, in totals, net gain and trading rules, is in one of
-the 17 scenarios with strategic significance or in an invalid-data scenario.
-No other scenario differs from the metric.
-
-The service used to round each area to the whole m² and each
-length to the whole metre before pricing it, where the metric prices the
-measured size: 488 per-feature discrepancies, up to 0.005 units each. The
-service now prices the measured size, and the service and the workbooks both
-measure it with `bng-library/measure`, one definition of a feature's size, so
-none remain; the *Priced on a different size* cause is kept to catch it coming
-back.
-
-The one without a known cause is **`invalid-area-trading-down`** H001. The
-metric computes nothing for this enhancement (it breaks the trading-down rule),
-while the service prices it. That is expected until enhancement rules are
-validated, which is out of scope for BMD-1036.
+Until #439 merges, a run against the backend's `main` or #426 alone shows the
+hedgerow differences, explained as *Strategic significance not applied*.
