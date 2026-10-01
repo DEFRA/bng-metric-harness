@@ -16,7 +16,8 @@ Proposed Strategic Significance is a drop-down of `Low` and `High`. It is
 baseline is, and the drop-down is greyed out.
 
 The years created in advance and the years of delay cannot both be above 0.
-A value above 0 in one blanks the other. Blank and `0` are both allowed.
+While one is above 0, the other drop-down is greyed out in the form, and a
+save blanks one if both are. Blank and `0` are both allowed.
 
 Each filled column gets a default value expression applied on update, so it
 follows every change of the column it depends on, and a text widget that the
@@ -188,10 +189,23 @@ def only_one_timing(field, other):
     """Blank this timing value while the other one is above 0.
 
     The values are the drop-down's text: blank, `0`, `1` and so on to `30+`.
-    In the attribute form, picking a value above 0 for one of the pair
-    re-evaluates the other, which this then blanks.
+    A backstop for a table cell, where timing_editable does not apply: QGIS
+    evaluates the pair in its own order, so either one may be blanked.
     """
     return (f'if(coalesce("{other}", \'0\') <> \'0\', NULL, "{field}")')
+
+
+def timing_editable(other):
+    """A timing drop-down can be used only while the other is blank or 0.
+
+    The attribute table's form view saves the row the moment a value is
+    picked, before the form re-evaluates the other value, and the save cannot
+    tell which value was picked last. Greying out the other drop-down stops
+    both values reaching above 0 in any form, so the surveyor sets one back
+    to 0 or blank before picking the other. only_one_timing still blanks one
+    of them if a table cell sets both.
+    """
+    return f'coalesce("{other}", \'0\') = \'0\''
 
 
 # The Proposed Strategic Significance drop-down is greyed out on a Retained
@@ -371,6 +385,9 @@ def rewrite(xml):
         if stage == POST:
             block = set_editable_when(block, PROPOSED_SIGNIFICANCE,
                                       SIGNIFICANCE_EDITABLE)
+            advance, delay = TIMING[kind]
+            block = set_editable_when(block, advance, timing_editable(delay))
+            block = set_editable_when(block, delay, timing_editable(advance))
         if block != before:
             changed.append(name.group(1))
         return block
