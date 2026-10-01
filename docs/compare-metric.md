@@ -247,9 +247,9 @@ How it got here:
 | --- | --- | --- |
 | Sizes rounded before pricing | 488 per-feature, up to 0.005 units each | The service prices the measured size, unrounded, and the service and the workbooks both measure it with `bng-library/measure` (BMD-1042). The *Priced on a different size* cause is kept to name it if it comes back. |
 | Floating-point noise in totals | 38 figures, up to about 1e-13 of the value | Figures match within a tolerance of 0.001% of the metric's value (BMD-1042). |
-| Baseline strategic significance | about 160 per-feature, and the totals and verdicts they flipped | The service prices every baseline at Low, as Defra's LNRS guidance requires; the corpus gave baselines High or Medium. It now follows the guidance (bng-library#72). |
+| Baseline strategic significance | about 160 per-feature, and the totals and verdicts they flipped | The service prices every baseline at Low, as Defra's LNRS guidance requires; the corpus gave baselines High or Medium. It now follows the guidance (bng-library#68). |
 | Hedgerows' proposed strategic significance | 18 per-feature | The service never read a hedgerow's Proposed Strategic Significance, so priced it at Low (bng-metric-backend#439). |
-| A habitat the metric spells two ways | 2 trading figures | "Ruderal/ephemeral" and "Ruderal/Ephemeral" are matched as one habitat (bng-library#72). |
+| A habitat the metric spells two ways | 2 trading figures | "Ruderal/ephemeral" and "Ruderal/Ephemeral" are matched as one habitat (bng-library#68). |
 
 Until #439 merges, a run against the backend's `main` or #426 alone shows the
 hedgerow differences, explained as *Strategic significance not applied*.
