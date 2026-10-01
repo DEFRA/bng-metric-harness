@@ -7,6 +7,7 @@
  *   npm run compare:metric                         # every committed scenario
  *   npm run compare:metric -- --only trading-rules # a purpose, or scenario ids
  *   npm run compare:metric -- --corpus <dir>       # any folder of scenarios
+ *   npm run compare:metric -- --fail-on-unexplained
  *
  * The service is the backend checkout beside this repo (BNG_BACKEND_DIR names
  * another), run in process; see scripts/metric-comparison/backend.mjs.
@@ -14,9 +15,16 @@
  * Writes, to metric-comparison/ in this repo, report.html (a short,
  * self-contained summary), report.xlsx (every difference at full precision,
  * one row each), report.md, summary.md (the report without each scenario's
- * detail, for a CI job summary) and report.json. The report is for people to
- * judge: differences never make this exit non-zero. Only a comparison that
- * cannot run does.
+ * detail, for a CI job summary) and report.json.
+ *
+ * Every report leads with the differences nothing known explains (see
+ * scripts/metric-comparison/unexplained.mjs). With --fail-on-unexplained, any
+ * such difference also makes this exit non-zero, after the reports are
+ * written so they show what failed; a difference that is explained, by
+ * something the service does not do yet, never does. Without it, only a
+ * comparison that cannot run exits non-zero. CI does not pass the flag yet: a
+ * follow-up will, once the BMD-1042 pull requests have merged (see the note in
+ * .github/workflows/check-pull-request.yml).
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -45,6 +53,11 @@ import {
   DEFAULT_CORPUS_DIR,
   runMetricComparison,
 } from "./metric-comparison/run-metric-comparison.mjs";
+import {
+  findUnexplained,
+  hasUnexplained,
+  renderUnexplained,
+} from "./metric-comparison/unexplained.mjs";
 
 const JSON_INDENT = 2;
 const SHORT_SHA_LENGTH = 7;
@@ -57,6 +70,7 @@ const { values } = parseArgs({
   options: {
     only: { type: "string", multiple: true, default: [] },
     corpus: { type: "string" },
+    "fail-on-unexplained": { type: "boolean", default: false },
   },
 });
 const only = values.only.flatMap((v) => v.split(",")).filter(Boolean);
@@ -115,6 +129,9 @@ const context = [
   `Generated ${new Date().toISOString()} for backend ${await backendCommit()}${harnessSuffix}.`,
 ];
 
+const unexplained = findUnexplained(results);
+const unexplainedReport = renderUnexplained(unexplained);
+
 mkdirSync(OUT_DIR, { recursive: true });
 const write = (name, content) =>
   writeFileSync(path.join(OUT_DIR, name), content);
@@ -128,7 +145,8 @@ write(
     preamble: [
       ...context,
       "The full report, with every discrepancy, is `report.html` (and `report.xlsx`) in the `metric-comparison` artifact.",
-    ],
+      unexplainedReport,
+    ].filter(Boolean),
     details: false,
   }),
 );
@@ -154,3 +172,18 @@ const failedSuffix = failed.length
 console.log(
   `${differing} of ${results.length} scenarios differ from the metric${unreadableSuffix}${failedSuffix}. Reports → ${path.join(OUT_DIR, "report.html")} and report.xlsx`,
 );
+
+for (const id of unexplained.stale) {
+  warn(`${id} is refused now, so its entry in VALIDATION_GAPS can go`);
+}
+if (hasUnexplained(unexplained)) {
+  const count = unexplained.scenarios.length + unexplained.discrepancies.length;
+  const report = values["fail-on-unexplained"] ? error : warn;
+  report(`${count} difference(s) from the metric have no known explanation:`);
+  console.log(renderUnexplained({ ...unexplained, stale: [] }));
+  if (values["fail-on-unexplained"]) {
+    process.exit(1);
+  }
+} else {
+  info("Every difference from the metric has a known explanation.");
+}

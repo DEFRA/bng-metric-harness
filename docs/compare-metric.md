@@ -3,7 +3,7 @@
 `npm run compare:metric` checks the service's figures against the Statutory
 Biodiversity Metric's own answers for the same site (BMD-1036). Every scenario
 in the scenario corpus is imported through the backend's upload pipeline. What
-the service computes is then compared, figure by figure and exactly, with what
+the service computes is then compared, figure by figure, with what
 the recalculated metric workbook computes for the same GeoPackage pair.
 
 ```sh
@@ -27,11 +27,14 @@ worktree of a backend branch, say). The report is written to
 
 **Every value names its unit.** Each discrepancy carries its unit: habitat, hedgerow or watercourse units, % of baseline units for a net change, or Met / Not met for a verdict. A difference is in the same unit, except that two percentages differ by percentage points. Each per-feature row also gives the size the feature was priced on by each side, in ha or km, and the metric's strategic significance multiplier. Both reports open with a guide to every unit and column; in the spreadsheet it is the *Guide* sheet.
 
-**It reports; it does not judge.** Differences never make the command or a
-build fail. The report is there for people to decide what, if anything, needs
-doing. A scenario the service throws an error on is reported too, as *Import
-failed in the service* with the error, and the run carries on with the rest:
-a crash in the service is a finding like any other.
+**It singles out what nothing explains.** Every difference is reported, and
+the reports lead with the *unexplained* ones. With `--fail-on-unexplained`, an
+unexplained difference also makes the command exit non-zero, after the reports
+are written. CI does not pass that flag yet; see
+[What fails the build](#what-fails-the-build). A scenario the service throws an
+error on is reported too, as *Import failed in the service* with the error,
+and the run carries on with the rest: a crash in the service is a finding like
+any other, and is unexplained.
 
 ### What is compared
 
@@ -43,12 +46,19 @@ a crash in the service is a finding like any other.
 | Trading rules figures | Each habitat's net change, the Medium broad habitat totals, Medium surplus and deficit, Low net change and the cumulative figure (area and watercourse) |
 | Trading rules statuses | Met / Not met for each distinctiveness band |
 
-**The comparison is exact.** Both sides carry 15 significant figures: the
-engine rounds every result to that, and LibreOffice exports the recalculated
-values at that precision. Each number is taken to 15 significant figures, and
-then the two must be equal. Every discrepancy is reported with both values, the
-difference (service less metric), and that difference as a share of the
-metric's value.
+**The comparison allows only floating-point noise.** Two numbers match when
+they differ by less than 1e-12 of the metric's value, or by less than 1e-12
+where the metric's value is zero (`TOLERANCE` in
+`bng-library/metric-compare`). It is not sized by what could change a
+project's outcome: a difference too small for that, such as pricing a size
+rounded to the whole square metre, is still the service calculating
+differently, so it is a discrepancy. What the tolerance clears is noise: the engine and the spreadsheet add up the same
+figures in a different order, so a total can differ in its 14th significant
+figure. On the corpus that noise is at most about 1e-13 of the value. Met /
+Not met answers must be equal. A match that is not exact is counted in the
+report and listed, with its difference, in `report.json`. Every discrepancy is
+reported with both values, the difference (service less metric), and that
+difference as a share of the metric's value.
 
 **What the service does not do yet** is reported separately from the
 discrepancies, with the metric's value. These are hedgerow trading rules, and
@@ -137,7 +147,7 @@ and imports the backend rather than the backend fetching the scenarios. The
 backend keeps only the few exports the import needs.
 
 - **Every pull request** here (`check-pull-request.yml`) checks the backend
-  out beside the harness, installs it, and runs `npm run compare:metric`, in a
+  out beside the harness, installs it, and runs `npm run compare:metric -- --fail-on-unexplained`, in a
   job of its own beside the Sonar scan. A
   pull request whose branch also exists in the backend uses that branch, so a
   scenario change here and a backend change can be tested together before
@@ -149,23 +159,55 @@ backend keeps only the few exports the import needs.
   week's report. A backend change does not trigger it; to see a backend
   branch's report, run it locally with `BNG_BACKEND_DIR`, or open a harness
   pull request from a branch of the same name.
-- The comparison never fails the workflow. When it cannot run (a failed clone
-  or install, or a backend that predates its exports), its job shows the
-  failure, but it is marked `continue-on-error`, so the pull request check
-  and the Sonar scan are unaffected. What it finds never fails anything.
-- `npm run test:scripts` checks that the comparison itself runs, not what it
-  finds.
+- An unexplained difference fails the job, and so the workflow; so does a
+  comparison that cannot run (a failed clone or install, or a backend that
+  predates its exports). The Sonar scan is in a separate job and still runs.
+  Unexplained differences lead the job summary: see below.
+- `npm run test:scripts` checks that the comparison itself runs, and the rules
+  for what is explained (`tests/scripts/metric-comparison/unexplained.test.mjs`).
 - bng-library's own CI tests the comparator, the workbook reader and the
   reports.
 
-### Failing a build later
+### What fails the build
 
-For now nothing fails. When some differences should fail a build (a new
-discrepancy, say, or any in trading statuses), bng-library already has what a
-gate needs. `knownDiscrepanciesFrom(results)` records a run's discrepancies,
-with both values. `findRegressions(results, known)` lists every way a later run
-differs from that record: a new or changed discrepancy, one that has gone, or a
-change of outcome.
+Any unexplained difference. CI runs
+`npm run compare:metric -- --fail-on-unexplained`, which writes the reports and
+then exits 1 if anything is unexplained. Locally, pass the same flag to see
+whether a run would pass.
+
+`scripts/metric-comparison/unexplained.mjs` decides which differences have a
+known explanation. A difference is explained when:
+
+| Difference | Explained when |
+| --- | --- |
+| A feature's units | Every cause bng-library finds for it is one the service does not implement yet: today, strategic significance. *Priced on a different size* explains nothing: the service has fixed it, so it would be a regression. |
+| A unit total | Its module's feature units differ, all of them for a cause not implemented yet, and the total differs by exactly what those differences add up to: the baseline total by the baseline features' differences, the post-intervention total by the retained, enhanced and created features', and the net change by the second less the first. A total that moves further than its features do is unexplained, as is a differing total in a module whose features all match. |
+| The net change percentage and net gain verdict | The module's totals all reconcile as above, and the service's percentage is the metric's recomputed on totals moved by that much. The verdict is explained only where that percentage differs, since the service's verdict follows from its percentage. |
+| A trading rules figure or status | The module's totals all reconcile as above. The feature figures do not say which habitat or band a feature is in, so trading figures cannot yet be reconciled feature by feature; this is the weakest of the checks. |
+| Any figure in a scenario built on invalid data that the service accepts | `VALIDATION_GAPS` names the scenario and the check the service does not make yet. The metric computes nothing meaningful for invalid rows. |
+
+Everything else is unexplained:
+- a figure that differs for no known reason;
+- a figure one side has and the other does not;
+- a valid scenario the service refuses;
+- an import that crashes;
+- a workbook that cannot be read;
+- an invalid scenario the service accepts with no entry in `VALIDATION_GAPS`.
+
+When the service starts refusing an invalid scenario, its `VALIDATION_GAPS`
+entry is reported as stale (a warning, not a failure), so it can be removed.
+Strategic significance should soon explain nothing. The corpus follows the
+LNRS guidance (Low baselines; Low or High proposed values), and once
+bng-metric-backend#439 (hedgerows read their proposed value) has merged, no
+difference has that cause. bng-library should then stop treating it as *not
+implemented yet*, so a strategic significance difference fails like any other.
+
+To accept a new kind of expected difference, explain it in `unexplained.mjs`
+(or, for a feature's units, as a cause in bng-library's
+`metric-compare/causes.mjs` with `notImplemented: true`). Do not record it as
+an exception without a reason. bng-library's `knownDiscrepanciesFrom` and
+`findRegressions` can also record a run's discrepancies and fail on any change
+to them, if explained differences ever need pinning down too.
 
 ### Refreshing the corpus
 
@@ -178,36 +220,35 @@ npm run generate:scenarios -- --outdir example-files/permutations --seed 1
 npm run compare:metric               # compares the new corpus at once
 ```
 
-### What the first run found
+### What the comparison finds
 
-On the seed-1 corpus of 37 scenarios:
+On the seed-1 corpus of 37 scenarios, against the backend with
+bng-metric-backend#426 (sizes measured, unrounded) and #439 (hedgerows read
+their proposed strategic significance):
 
-- 29 scenarios have discrepancies.
+- **All 29 valid scenarios match the metric**, in every figure compared.
 - `invalid-area-advance-and-delay` is refused by the service, as expected.
 - The other 7 scenarios built on invalid data are accepted by the service. They
-  are reported as "Accepted, though its data is invalid", with their
-  discrepancies, because the service should have refused them.
-- 551 of 1,813 comparable figures match exactly.
-- 540 figures are not implemented in the service yet.
+  are reported as "Accepted, though its data is invalid", because the service
+  should have refused them; each is listed in `VALIDATION_GAPS`. Two of them
+  are the only scenarios with differing figures:
+  - **`invalid-area-trading-down`** H001: the metric computes nothing for this
+    enhancement (it breaks the trading-down rule), while the service prices it.
+  - **`invalid-watercourse-encroachment-worsened`**: the metric reports *Check
+    Data* and *N/A*, while the service computes its totals.
+- 1,793 of 1,804 comparable figures match: 1,589 exactly and 204 within the
+  tolerance. The 11 that differ are all in those two scenarios.
+- 544 figures are not implemented in the service yet.
 
-Of the 578 per-feature discrepancies, 562 have a known cause:
+How it got here:
 
-| Cause | Discrepancies | |
+| Was | Differences | What changed |
 | --- | --- | --- |
-| Sizes rounded before pricing | 347 (+141 with the next) | The backend rounds each area to the whole m² and each length to the whole m (`Math.round(feature.sizeMetres)`) before pricing. The metric prices the measured size. The effect is small (a median of 0.0004%, up to 0.9% on the shortest features), but it is not exact. |
-| Strategic significance not applied | 74 (+141 with the above) | The engine prices every feature at a strategic significance multiplier of 1 (`BASELINE_STRATEGIC_SIGNIFICANCE_MULTIPLIER`). The metric applies 1.1 or 1.15, so affected features are 9.1% or 13.0% lower in the service. This is enough to flip a net gain verdict: `intervention-hedgerow-retained` is Met in the service at 10.01% and Not met in the metric at 9.09%. |
+| Sizes rounded before pricing | 488 per-feature, up to 0.005 units each | The service prices the measured size, unrounded, and the service and the workbooks both measure it with `bng-library/measure` (BMD-1042). The *Priced on a different size* cause is kept to name it if it comes back. |
+| Floating-point noise in totals | 38 figures, up to about 1e-13 of the value | Figures match within a tolerance of 1e-12 of the metric's value (BMD-1042). |
+| Baseline strategic significance | about 160 per-feature, and the totals and verdicts they flipped | The service prices every baseline at Low, as Defra's LNRS guidance requires; the corpus gave baselines High or Medium. It now follows the guidance (bng-library#68). |
+| Hedgerows' proposed strategic significance | 18 per-feature | The service never read a hedgerow's Proposed Strategic Significance, so priced it at Low (bng-metric-backend#439). |
+| A habitat the metric spells two ways | 2 trading figures | "Ruderal/ephemeral" and "Ruderal/Ephemeral" are matched as one habitat (bng-library#68). |
 
-The 16 without a known cause are worth investigating first:
-
-- **Created trees** (`T005` in 13 scenarios). The workbook reads a year of
-  advance creation from the tree's row that the service does not, and prices the
-  tree's time to target as "30+" where the service has "30". One of the tree
-  advance/delay columns is read differently on the two sides.
-- **An enhanced tree**, `intervention-area-enhanced` T001. The service prices it
-  6.5% lower than the metric.
-- **A created habitat**, `intervention-watercourse-retained` H006. The service
-  prices it 7.4% higher than the metric.
-- **`invalid-area-trading-down`** H001. The metric computes nothing for this
-  enhancement (it breaks the trading-down rule), while the service prices it.
-  That is expected until enhancement rules are validated, which is out of scope
-  for BMD-1036.
+Until #439 merges, a run against the backend's `main` or #426 alone shows the
+hedgerow differences, explained as *Strategic significance not applied*.

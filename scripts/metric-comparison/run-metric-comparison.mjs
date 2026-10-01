@@ -22,6 +22,7 @@ import {
 } from "#metric-compare";
 import { HARNESS_ROOT, mapInSequence } from "../_lib.mjs";
 import { importGeoPackagePair } from "./import-geopackage-pair.mjs";
+import { metricTotalsOf } from "./unexplained.mjs";
 
 /** The committed scenarios, each GeoPackage pair beside its workbook. */
 export const DEFAULT_CORPUS_DIR = path.join(
@@ -83,12 +84,11 @@ export async function compareCorpusScenario(
     return compareScenario({ scenario, workbookError: answers.error });
   }
   const { service, serviceError } = await importScenario(scenario, importPair);
-  return compareScenario({
-    scenario,
-    expected: figuresFromWorkbook(answers.results),
-    service,
-    serviceError,
-  });
+  const expected = figuresFromWorkbook(answers.results);
+  return {
+    ...compareScenario({ scenario, expected, service, serviceError }),
+    metricTotals: metricTotalsOf(expected),
+  };
 }
 
 /**
