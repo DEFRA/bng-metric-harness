@@ -1,5 +1,6 @@
 // Which differences from the metric are unexplained, and so fail
-// `compare:metric --fail-on-unexplained`. Built from hand-made comparison results, so these need no backend.
+// `compare:metric --fail-on-unexplained`. Built from hand-made comparison
+// results, so these need no backend.
 
 import { describe, expect, it } from "vitest";
 import { CAUSES, OUTCOME } from "#metric-compare";

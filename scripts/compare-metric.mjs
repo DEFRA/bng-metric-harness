@@ -22,7 +22,9 @@
  * such difference also makes this exit non-zero, after the reports are
  * written so they show what failed; a difference that is explained, by
  * something the service does not do yet, never does. Without it, only a
- * comparison that cannot run exits non-zero.
+ * comparison that cannot run exits non-zero. CI does not pass the flag yet: a
+ * follow-up will, once the BMD-1042 pull requests have merged (see the note in
+ * .github/workflows/check-pull-request.yml).
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
