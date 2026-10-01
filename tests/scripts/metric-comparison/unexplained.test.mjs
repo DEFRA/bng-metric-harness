@@ -47,7 +47,7 @@ const result = (discrepancies, extra = {}) => ({
 });
 
 const NOT_IMPLEMENTED = CAUSES.strategicSignificance.id;
-const FIXED = CAUSES.sizeRounding.id;
+const FIXED = CAUSES.sizeDiffers.id;
 
 describe("findUnexplained", () => {
   it("finds nothing in a scenario that matches", () => {
