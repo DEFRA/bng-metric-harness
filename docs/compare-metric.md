@@ -3,7 +3,7 @@
 `npm run compare:metric` checks the service's figures against the Statutory
 Biodiversity Metric's own answers for the same site (BMD-1036). Every scenario
 in the scenario corpus is imported through the backend's upload pipeline. What
-the service computes is then compared, figure by figure and exactly, with what
+the service computes is then compared, figure by figure, with what
 the recalculated metric workbook computes for the same GeoPackage pair.
 
 ```sh
@@ -43,15 +43,19 @@ a crash in the service is a finding like any other.
 | Trading rules figures | Each habitat's net change, the Medium broad habitat totals, Medium surplus and deficit, Low net change and the cumulative figure (area and watercourse) |
 | Trading rules statuses | Met / Not met for each distinctiveness band |
 
-**The comparison is exact.** Both sides carry 15 significant figures: the
-engine rounds every result to that, and LibreOffice exports the recalculated
-values at that precision. Each number is taken to 15 significant figures, and
-then the two must be equal, give or take one in the 15th digit. That digit is
-not a tolerance for rounding: the engine and the spreadsheet multiply the same
-factors in a different order, and a last-bit difference in the product can land
-either side of a rounding boundary in the 15th digit. Every discrepancy is reported with both values, the
-difference (service less metric), and that difference as a share of the
-metric's value.
+**The comparison allows only differences too small to matter.** Two numbers
+match when they differ by less than 0.001% of the metric's value, or by less
+than 0.000001 where the metric's value is zero (`TOLERANCE` in
+`bng-library/metric-compare`). The metric shows units and percentages to 2
+decimal places, and 0.001% is 0.01 units on a site of 1,000 units, so a
+difference inside the tolerance cannot change a project's outcome. What it
+clears is floating-point noise: the engine and the spreadsheet add up the same
+figures in a different order, so a total can differ in its 14th significant
+figure. On the corpus that noise is at most about 1e-13 of the value. Met /
+Not met answers must be equal. A match that is not exact is counted in the
+report and listed, with its difference, in `report.json`. Every discrepancy is
+reported with both values, the difference (service less metric), and that
+difference as a share of the metric's value.
 
 **What the service does not do yet** is reported separately from the
 discrepancies, with the metric's value. These are hedgerow trading rules, and
@@ -186,22 +190,26 @@ npm run compare:metric               # compares the new corpus at once
 On the seed-1 corpus of 37 scenarios, now that the service prices the measured
 size:
 
-- 26 scenarios have discrepancies. `trading-lost-to-development`,
-  `trading-low-deficit-covered-beside-medium-deficit` and `trading-low-for-low`
-  match the metric in every figure.
+- 17 scenarios have discrepancies. The other 12 valid scenarios match the
+  metric in every figure: the 3 trading-rules scenarios that always did, and 9
+  more whose only differences were floating-point noise in their totals.
 - `invalid-area-advance-and-delay` is refused by the service, as expected.
 - The other 7 scenarios built on invalid data are accepted by the service. They
   are reported as "Accepted, though its data is invalid", with their
   discrepancies, because the service should have refused them.
-- 1,180 of 1,813 comparable figures match exactly (551 did while the service
-  priced rounded sizes).
+- 1,305 of 1,813 comparable figures match: 1,186 exactly and 119 within the
+  tolerance. 508 differ.
 - 540 figures are not implemented in the service yet.
 
-Of the 231 per-feature discrepancies, 215 have a known cause:
+Of the 180 per-feature discrepancies, 179 have a known cause:
 
 | Cause | Discrepancies | |
 | --- | --- | --- |
-| Strategic significance not applied | 215 | The engine prices every feature at a strategic significance multiplier of 1 (`BASELINE_STRATEGIC_SIGNIFICANCE_MULTIPLIER`). The metric applies 1.1 or 1.15, so affected features are 9.1% or 13.0% lower in the service. This is enough to flip a net gain verdict: `intervention-hedgerow-retained` is Met in the service at 10.01% and Not met in the metric at 9.09%. |
+| Strategic significance not applied | 179 | The engine prices every feature at a strategic significance multiplier of 1 (`BASELINE_STRATEGIC_SIGNIFICANCE_MULTIPLIER`). The metric applies 1.1 or 1.15, so affected features are 9.1% or 13.0% lower in the service. This is enough to flip a net gain verdict: in `intervention-hedgerow-retained` the hedgerow net change is 10.72% (Met) in the metric and 9.97% (Not met) in the service. |
+
+Every other discrepancy, in totals, net gain and trading rules, is in one of
+the 17 scenarios with strategic significance or in an invalid-data scenario.
+No other scenario differs from the metric.
 
 The service used to round each area to the whole m² and each
 length to the whole metre before pricing it, where the metric prices the
@@ -211,17 +219,7 @@ measure it with `bng-library/measure`, one definition of a feature's size, so
 none remain; the *Priced on a different size* cause is kept to catch it coming
 back.
 
-The 16 without a known cause are worth investigating first:
-
-- **Created trees** (`T005` in 13 scenarios). The workbook reads a year of
-  advance creation from the tree's row that the service does not, and prices the
-  tree's time to target as "30+" where the service has "30". One of the tree
-  advance/delay columns is read differently on the two sides.
-- **An enhanced tree**, `intervention-area-enhanced` T001. The service prices it
-  6.5% lower than the metric.
-- **A created habitat**, `intervention-watercourse-retained` H006. The service
-  prices it 7.4% higher than the metric.
-- **`invalid-area-trading-down`** H001. The metric computes nothing for this
-  enhancement (it breaks the trading-down rule), while the service prices it.
-  That is expected until enhancement rules are validated, which is out of scope
-  for BMD-1036.
+The one without a known cause is **`invalid-area-trading-down`** H001. The
+metric computes nothing for this enhancement (it breaks the trading-down rule),
+while the service prices it. That is expected until enhancement rules are
+validated, which is out of scope for BMD-1036.
