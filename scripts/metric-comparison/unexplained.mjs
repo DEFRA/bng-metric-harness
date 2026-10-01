@@ -90,6 +90,32 @@ function unexplainedDiscrepancies(result) {
   );
 }
 
+function addResult(found, result, gap) {
+  if (FAILED_OUTCOMES[result.outcome]) {
+    found.scenarios.push({
+      id: result.id,
+      problem: FAILED_OUTCOMES[result.outcome],
+    });
+    return;
+  }
+  if (result.outcome === OUTCOME.acceptedInvalid) {
+    if (!gap) {
+      found.scenarios.push({
+        id: result.id,
+        problem:
+          "The service accepted a scenario built on invalid data, and no validation gap explains it.",
+      });
+    }
+    return;
+  }
+  if (gap) {
+    found.stale.push(result.id);
+  }
+  for (const d of unexplainedDiscrepancies(result)) {
+    found.discrepancies.push({ id: result.id, ...d });
+  }
+}
+
 /**
  * @param {object[]} results compareScenario results
  * @param {Record<string, string>} [validationGaps]
@@ -103,30 +129,7 @@ function unexplainedDiscrepancies(result) {
 export function findUnexplained(results, validationGaps = VALIDATION_GAPS) {
   const found = { scenarios: [], discrepancies: [], stale: [] };
   for (const result of results) {
-    const gap = validationGaps[result.id];
-    if (FAILED_OUTCOMES[result.outcome]) {
-      found.scenarios.push({
-        id: result.id,
-        problem: FAILED_OUTCOMES[result.outcome],
-      });
-      continue;
-    }
-    if (result.outcome === OUTCOME.acceptedInvalid) {
-      if (!gap) {
-        found.scenarios.push({
-          id: result.id,
-          problem:
-            "The service accepted a scenario built on invalid data, and no validation gap explains it.",
-        });
-      }
-      continue;
-    }
-    if (gap) {
-      found.stale.push(result.id);
-    }
-    for (const d of unexplainedDiscrepancies(result)) {
-      found.discrepancies.push({ id: result.id, ...d });
-    }
+    addResult(found, result, validationGaps[result.id]);
   }
   return found;
 }
