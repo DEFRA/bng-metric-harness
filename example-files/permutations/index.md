@@ -51,7 +51,7 @@ Each scenario also has a metric workbook, written into `The_Statutory_Metric_Mac
 | Scenario | Subject | Files | Net gain (our engine) | Area net change | Hedgerow net change | Watercourse net change | Trading rules not met | Warnings | Rejected inputs | Checks |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | **Net gain met (≥ 10%)**<br>Every parcel enhanced from Low-distinctiveness/Poor to Medium-distinctiveness/Good — a large, unambiguous gain. | H001 — enhanced parcels driving a net gain over 10% | `met-baseline.gpkg`<br>`met-post-intervention.gpkg`<br>`met.xlsx` | met (293.0%) | 343.1350 (290.4%) | 1.3684 (18.3%) | 1.0332 (48.9%) | area Medium | 1 | — | ✓ 4 |
-| **Net gain unmet (< 10%)**<br>Every parcel retained unchanged — zero net change, so the 10% gain is not met. | H001 — retained parcels with no net gain | `unmet-baseline.gpkg`<br>`unmet-post-intervention.gpkg`<br>`unmet.xlsx` | unmet (0.0%) | -0.8669 (-0.2%) | -6.7965 (-57.5%) | 0.0000 (0.0%) | area Medium, hedgerow Medium, hedgerow Low | 1 | — | ✓ 4 |
+| **Net gain unmet (< 10%)**<br>Every habitat parcel, hedgerow and watercourse retained unchanged (and no urban trees) — zero net change, so the 10% gain is not met. | H001 — retained parcels with no net gain | `unmet-baseline.gpkg`<br>`unmet-post-intervention.gpkg`<br>`unmet.xlsx` | unmet (0.0%) | 0.0000 (0.0%) | 0.0000 (0.0%) | 0.0000 (0.0%) | — | — | — | ✓ 4 |
 
 ## trading-rules
 
