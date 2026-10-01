@@ -1230,6 +1230,7 @@ def convert(baseline_path, pi_path, out_dir, into_path, force, dry_run,
         )
         _post_significance(post, report)
         _post_spatial_risk(post, report)
+        _post_timing(post, report)
 
         unique_pi_refs(post["areas"], "Parcel Ref", report, "Habitats")
         unique_pi_refs(post["hedgerows"], "Parcel Ref", report, "Hedgerows")
@@ -1348,6 +1349,10 @@ def _baseline_significance(legacy, report):
             )
 
 
+RETENTION_CATEGORY = "Retention Category"
+RETAINED = "Retained"
+
+
 def _post_significance(post, report):
     """Read strategic significance into the template's Low and High.
 
@@ -1355,10 +1360,11 @@ def _post_significance(post, report):
     the row has a baseline habitat, and blank where it has none, as the
     template fills it. Proposed Strategic Significance maps by wording.
     Natural England's middle value has no place in the template, so it is
-    left blank, and the rows are named.
+    left blank, and the rows are named. A Retained row keeps its baseline
+    value, which the template holds as Low.
     """
     for key, (_ref_column, label) in LEGACY_REFS.items():
-        changed, medium, unknown = [], [], []
+        changed, medium, unknown, retained = [], [], [], []
         for row in post[key]:
             ref = _legacy_ref(row, key)
             if BASELINE_SIGNIFICANCE in row:
@@ -1374,12 +1380,24 @@ def _post_significance(post, report):
                 row[BASELINE_SIGNIFICANCE] = stored
             value = row.get(PROPOSED_SIGNIFICANCE)
             stored, known = service_significance(value)
-            if plain_label(value) == NE_SIGNIFICANCE_MEDIUM:
+            if plain_label(row.get(RETENTION_CATEGORY)) == RETAINED:
+                if stored != SIGNIFICANCE_LOW:
+                    retained.append(ref)
+                stored = SIGNIFICANCE_LOW
+            elif plain_label(value) == NE_SIGNIFICANCE_MEDIUM:
                 medium.append(ref)
             elif not known:
                 unknown.append(ref)
             row[PROPOSED_SIGNIFICANCE] = stored
         _report_significance(label, changed, medium, unknown, report)
+        if retained:
+            report.warn(
+                f"{label}: {len(retained)} Retained post-intervention row(s) "
+                f"had a Proposed Strategic Significance other than Low "
+                f"({summarise_refs(retained)}). A retained habitat keeps its "
+                "baseline value, which the template holds as Low, so they "
+                "were written as Low."
+            )
 
 
 def _report_significance(label, changed, medium, unknown, report):
@@ -1406,6 +1424,42 @@ def _report_significance(label, changed, medium, unknown, report):
             f"({summarise_refs(unknown)}). It was left blank. Choose Low or "
             "High for these rows."
         )
+
+
+def _post_timing(post, report):
+    """Name the rows with years in advance and years of delay both above 0.
+
+    The metric allows one or the other. The template blanks one when the
+    other is above 0, but cannot tell which value to keep for a row that
+    arrives with both, so the converter keeps both and names the rows.
+    """
+    for key, (_ref_column, label) in LEGACY_REFS.items():
+        both = []
+        for row in post[key]:
+            advance, delay = timing_columns(row)
+            if _above_zero(row.get(advance)) and _above_zero(row.get(delay)):
+                both.append(_legacy_ref(row, key))
+        if both:
+            report.warn(
+                f"{label}: {len(both)} post-intervention row(s) have both "
+                f"years created in advance and years of delay above 0 "
+                f"({summarise_refs(both)}). The metric allows only one. "
+                "Clear one of them for these rows."
+            )
+
+
+def timing_columns(row):
+    """(years created in advance, years of delay) as this row names them."""
+    if "Habitat Created/Enhanced in advance/years" in row:
+        return ("Habitat Created/Enhanced in advance/years",
+                "Delay in starting habitat creation/enhancement in years")
+    return ("Habitat created in advance/years",
+            "Delay in starting habitat creation/years")
+
+
+def _above_zero(value):
+    text = "" if value is None else str(value).strip()
+    return text not in ("", "0")
 
 
 def _post_spatial_risk(post, report):

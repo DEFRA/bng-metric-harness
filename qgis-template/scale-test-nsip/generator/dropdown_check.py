@@ -246,6 +246,41 @@ def baseline_significance(type_column, post):
     return lambda row: {LOW} if has_type(row.get(type_column)) else BLANK
 
 
+class Anything:
+    """Every value, for a column that a rule only limits in some rows."""
+
+    def __contains__(self, value):
+        return True
+
+
+ANYTHING = Anything()
+RETAINED = "Retained"
+# Table stem -> (years created in advance, years of delay). Both above 0 is
+# not allowed: a value above 0 in one blanks the other.
+TIMING = {
+    "Individual Trees": ("Habitat Created/Enhanced in advance/years",
+                         "Delay in starting habitat creation/enhancement "
+                         "in years"),
+}
+DEFAULT_TIMING = ("Habitat created in advance/years",
+                  "Delay in starting habitat creation/years")
+
+
+def above_zero(value):
+    return blank_to_none(value) not in (None, "0")
+
+
+def blank_while_other_set(other):
+    return lambda row: BLANK if above_zero(row.get(other)) else ANYTHING
+
+
+def proposed_significance(row):
+    """Low on a Retained row, as its baseline; otherwise Low or High."""
+    if blank_to_none(row.get("Retention Category")) == RETAINED:
+        return {LOW}
+    return {LOW, HIGH}
+
+
 def rule_checks(site):
     """Map GeoPackage table -> [(field, allowed(row))] for RULE_FIELDS."""
     irreplaceable = list_values(site, *IRREPLACEABLE_LIST)
@@ -261,7 +296,10 @@ def rule_checks(site):
                     list_values(site, *lists[0]), baseline_type)))
             if post:
                 fields.append(("Proposed Strategic Significance",
-                               lambda row: {LOW, HIGH, None}))
+                               proposed_significance))
+                advance, delay = TIMING.get(stem, DEFAULT_TIMING)
+                fields.append((advance, blank_while_other_set(delay)))
+                fields.append((delay, blank_while_other_set(advance)))
                 fields.append(("Spatial risk category",
                                lambda row: {NOT_APPLICABLE}))
                 if lists:

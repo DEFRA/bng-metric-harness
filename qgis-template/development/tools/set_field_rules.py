@@ -11,8 +11,12 @@ them in and locks them:
   are blank.
 - Spatial risk category: `N/A` on every post-intervention layer.
 
-Proposed Strategic Significance is a drop-down of `Low` and `High`, with a
-blank choice, and is `Low` on a new row.
+Proposed Strategic Significance is a drop-down of `Low` and `High`. It is
+`Low` on a new row and never blank. On a Retained row it is `Low`, as the
+baseline is, and the drop-down is greyed out.
+
+The years created in advance and the years of delay cannot both be above 0.
+A value above 0 in one blanks the other. Blank and `0` are both allowed.
 
 Each filled column gets a default value expression applied on update, so it
 follows every change of the column it depends on, and a text widget that the
@@ -101,10 +105,29 @@ LOW_HIGH = ("Low", "High")
 BASELINE_SIGNIFICANCE = "Baseline Strategic Significance"
 PROPOSED_SIGNIFICANCE = "Proposed Strategic Significance"
 SPATIAL_RISK = "Spatial risk category"
+RETENTION = "Retention Category"
+RETAINED = "Retained"
+
+# Kind -> (years created in advance, years of delay). The metric allows one.
+TIMING = {
+    AREA: ("Habitat created in advance/years",
+           "Delay in starting habitat creation/years"),
+    VERTICAL: ("Habitat created in advance/years",
+               "Delay in starting habitat creation/years"),
+    HEDGE: ("Habitat created in advance/years",
+            "Delay in starting habitat creation/years"),
+    WATER: ("Habitat created in advance/years",
+            "Delay in starting habitat creation/years"),
+    TREE: ("Habitat Created/Enhanced in advance/years",
+           "Delay in starting habitat creation/enhancement in years"),
+}
 
 # A default that any of the template tools wrote contains one of these, and
 # may be replaced.
-OWNED = ("attribute(@parent", paste_lineage.MARKER, "aggregate(layer:=")
+# Every default this tool writes contains one of these, or is a literal.
+OWNED = ("attribute(@parent", paste_lineage.MARKER, "aggregate(layer:=",
+         "coalesce(")
+OWNED_LITERALS = (NA, LOW)
 
 TEXT_WIDGET = ('<editWidget type="TextEdit">\n'
                '{i}  <config>\n'
@@ -153,6 +176,29 @@ def baseline_significance(kind, stage):
             f"{LOW})")
 
 
+def proposed_significance():
+    """Low on a Retained row, which keeps its baseline value, else the
+    surveyor's choice, starting at Low."""
+    field = PROPOSED_SIGNIFICANCE
+    return (f'if("{RETENTION}" = \'{RETAINED}\', {LOW}, '
+            f'coalesce("{field}", {LOW}))')
+
+
+def only_one_timing(field, other):
+    """Blank this timing value while the other one is above 0.
+
+    The values are the drop-down's text: blank, `0`, `1` and so on to `30+`.
+    In the attribute form, picking a value above 0 for one of the pair
+    re-evaluates the other, which this then blanks.
+    """
+    return (f'if(coalesce("{other}", \'0\') <> \'0\', NULL, "{field}")')
+
+
+# The Proposed Strategic Significance drop-down is greyed out on a Retained
+# row. The form evaluates this as the row changes.
+SIGNIFICANCE_EDITABLE = f'coalesce("{RETENTION}", \'\') <> \'{RETAINED}\''
+
+
 def rules_for(kind, stage, ids):
     """[(field, widget kind, locked, default, apply on update)]."""
     rules = []
@@ -169,8 +215,14 @@ def rules_for(kind, stage, ids):
     if stage == POST:
         widget = (("list", SIGNIFICANCE_LISTS[kind])
                   if kind in SIGNIFICANCE_LISTS else ("map", LOW_HIGH))
-        rules.append((PROPOSED_SIGNIFICANCE, widget, False, LOW, "0"))
+        rules.append((PROPOSED_SIGNIFICANCE, widget, False,
+                      proposed_significance(), "1"))
         rules.append((SPATIAL_RISK, None, True, NA, "1"))
+        advance, delay = TIMING[kind]
+        rules.append((advance, None, False, only_one_timing(advance, delay),
+                      "1"))
+        rules.append((delay, None, False, only_one_timing(delay, advance),
+                      "1"))
     return rules
 
 
@@ -245,7 +297,7 @@ def set_default(block, field, expression, on_update, errors, layer):
         return block
     current = html.unescape(
         re.search(r'\bexpression="([^"]*)"', found.group(0)).group(1))
-    if current and current != expression and current != NA and not any(
+    if current and current != expression and current not in OWNED_LITERALS and not any(
             mark in current for mark in OWNED):
         errors.append(f"{layer}: {field!r} already has a default no tool "
                       f"wrote: {current}")
@@ -255,6 +307,45 @@ def set_default(block, field, expression, on_update, errors, layer):
     if found.group(0) == element:
         return block
     return block[:found.start()] + element + block[found.end():]
+
+
+DD_FIELD = ('{p}  <field name="{name}">\n'
+            '{p}    <Option type="Map">\n'
+            '{p}      <Option name="name" type="QString" value=""/>\n'
+            '{p}      <Option name="properties" type="Map">\n'
+            '{p}        <Option name="dataDefinedEditable" type="Map">\n'
+            '{p}          <Option name="active" type="bool" value="true"/>\n'
+            '{p}          <Option name="expression" type="QString" value="{expression}"/>\n'
+            '{p}          <Option name="type" type="int" value="3"/>\n'
+            '{p}        </Option>\n'
+            '{p}      </Option>\n'
+            '{p}      <Option name="type" type="QString" value="collection"/>\n'
+            '{p}    </Option>\n'
+            '{p}  </field>\n')
+
+
+def set_editable_when(block, field, expression):
+    """Make the field editable in the form only while the expression holds."""
+    found = re.search(r"(?P<pad>[ \t]*)<dataDefinedFieldProperties/>", block)
+    entry = DD_FIELD.format(p="{p}", name=escape(field),
+                            expression=escape(expression))
+    if found is not None:
+        pad = found.group("pad")
+        return (block[:found.start()] + f"{pad}<dataDefinedFieldProperties>\n"
+                + entry.format(p=pad) + f"{pad}</dataDefinedFieldProperties>"
+                + block[found.end():])
+    section = re.search(r"(?P<pad>[ \t]*)<dataDefinedFieldProperties>.*?"
+                        r"</dataDefinedFieldProperties>", block, re.S)
+    if section is None:
+        raise SystemExit("a data layer has no <dataDefinedFieldProperties>")
+    pad = section.group("pad")
+    mine = re.compile(r'[ \t]*<field name="' + re.escape(escape(field))
+                      + r'">.*?</field>\n', re.S)
+    text = mine.sub("", section.group(0))
+    text = text.replace(f"{pad}</dataDefinedFieldProperties>",
+                        entry.format(p=pad)
+                        + f"{pad}</dataDefinedFieldProperties>", 1)
+    return block[:section.start()] + text + block[section.end():]
 
 
 def rewrite(xml):
@@ -277,6 +368,9 @@ def rewrite(xml):
             block = set_editable(block, field, locked)
             block = set_default(block, field, expression, on_update, errors,
                                 name.group(1))
+        if stage == POST:
+            block = set_editable_when(block, PROPOSED_SIGNIFICANCE,
+                                      SIGNIFICANCE_EDITABLE)
         if block != before:
             changed.append(name.group(1))
         return block

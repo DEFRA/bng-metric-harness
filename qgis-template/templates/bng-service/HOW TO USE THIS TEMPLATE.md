@@ -268,12 +268,18 @@ cleared. Select it again. A condition that still fits stays.
 | --- | --- |
 | Baseline and Proposed Distinctiveness | Fills in the band of the habitat type, and locks the field. Blank until you choose a habitat type. |
 | Baseline Strategic Significance | Always `Low`, and locked. |
-| Proposed Strategic Significance | `Low` on a new or copied row. Change it to `High` where the site is in an area formally identified in a local strategy. |
+| Proposed Strategic Significance | `Low` on a new or copied row, and never blank. Change it to `High` where the site is in an area formally identified in a local strategy. On a `Retained` row it is `Low`, as the baseline is, and you cannot change it. |
+| Habitat created in advance and Delay in starting habitat creation | The Metric allows one or the other. Pick a value above 0 in one and QGIS blanks the other. `0` and blank are both allowed. |
 | Baseline and Proposed Condition | Fills in the condition when the habitat allows one only, for example `N/A - Other` for Developed land; sealed surface. You can still change it. |
 | Spatial risk category | Always `N/A` on the post-intervention layers, and locked. |
 
 The Metric has a third strategic significance, "Location ecologically
 desirable but not in local strategy". The template does not offer it.
+
+Set these in the form, not in the attribute table's cells. The form applies
+the rules as soon as you pick a value. A cell applies them only when you leave
+it, and if both timing values end up above 0 there, QGIS may blank the one you
+just typed.
 
 **Each parcel takes the Natural England UKHab colour for its habitat type.** A
 parcel with an unexpected colour probably has the wrong habitat type.
