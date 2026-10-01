@@ -20,7 +20,7 @@ import {
   findScenarios,
   readWorkbookAnswers,
 } from "#metric-compare";
-import { HARNESS_ROOT } from "../_lib.mjs";
+import { HARNESS_ROOT, mapInSequence } from "../_lib.mjs";
 import { importGeoPackagePair } from "./import-geopackage-pair.mjs";
 
 /** The committed scenarios, each GeoPackage pair beside its workbook. */
@@ -114,15 +114,16 @@ export async function runMetricComparison(options = {}) {
   const answers = await readWorkbookAnswers(
     selected.map((s) => s.files.workbook),
   );
-  const results = [];
-  for (const [i, scenario] of selected.entries()) {
+  // One scenario at a time: every import runs the backend's pipeline in this
+  // process, on one shared GEOS runtime, and results are reported in order.
+  const results = await mapInSequence(selected, async (scenario, i) => {
     const result = await compareCorpusScenario(
       scenario,
       answers[i],
       importPair,
     );
     onResult?.(result);
-    results.push(result);
-  }
+    return result;
+  });
   return { corpusDir, unmatched, results };
 }
