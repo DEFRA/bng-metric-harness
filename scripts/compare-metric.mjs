@@ -14,9 +14,13 @@
  * Writes, to metric-comparison/ in this repo, report.html (a short,
  * self-contained summary), report.xlsx (every difference at full precision,
  * one row each), report.md, summary.md (the report without each scenario's
- * detail, for a CI job summary) and report.json. The report is for people to
- * judge: differences never make this exit non-zero. Only a comparison that
- * cannot run does.
+ * detail, for a CI job summary) and report.json.
+ *
+ * Exits non-zero when a difference has no known explanation (see
+ * scripts/metric-comparison/unexplained.mjs) — after writing the reports, so
+ * they show what failed — or when the comparison cannot run. A difference
+ * that is explained, by something the service does not do yet, is reported
+ * but does not fail.
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -45,6 +49,11 @@ import {
   DEFAULT_CORPUS_DIR,
   runMetricComparison,
 } from "./metric-comparison/run-metric-comparison.mjs";
+import {
+  findUnexplained,
+  hasUnexplained,
+  renderUnexplained,
+} from "./metric-comparison/unexplained.mjs";
 
 const JSON_INDENT = 2;
 const SHORT_SHA_LENGTH = 7;
@@ -115,6 +124,9 @@ const context = [
   `Generated ${new Date().toISOString()} for backend ${await backendCommit()}${harnessSuffix}.`,
 ];
 
+const unexplained = findUnexplained(results);
+const unexplainedReport = renderUnexplained(unexplained);
+
 mkdirSync(OUT_DIR, { recursive: true });
 const write = (name, content) =>
   writeFileSync(path.join(OUT_DIR, name), content);
@@ -128,7 +140,8 @@ write(
     preamble: [
       ...context,
       "The full report, with every discrepancy, is `report.html` (and `report.xlsx`) in the `metric-comparison` artifact.",
-    ],
+      unexplainedReport,
+    ].filter(Boolean),
     details: false,
   }),
 );
@@ -154,3 +167,14 @@ const failedSuffix = failed.length
 console.log(
   `${differing} of ${results.length} scenarios differ from the metric${unreadableSuffix}${failedSuffix}. Reports → ${path.join(OUT_DIR, "report.html")} and report.xlsx`,
 );
+
+for (const id of unexplained.stale) {
+  warn(`${id} is refused now, so its entry in VALIDATION_GAPS can go`);
+}
+if (hasUnexplained(unexplained)) {
+  const count = unexplained.scenarios.length + unexplained.discrepancies.length;
+  error(`${count} difference(s) from the metric have no known explanation:`);
+  console.log(renderUnexplained({ ...unexplained, stale: [] }));
+  process.exit(1);
+}
+info("Every difference from the metric has a known explanation.");

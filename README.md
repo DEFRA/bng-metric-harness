@@ -215,7 +215,7 @@ See [docs/generate-test-data.md](docs/generate-test-data.md) and [docs/generate-
 
 ## Comparison with the metric
 
-`npm run compare:metric` imports every scenario in the corpus through the backend's upload pipeline and compares the service's figures (unit calculations per feature, totals, net gain, trading rules figures and statuses) with the metric's own, to within a tolerance too small to change any project's outcome. It writes an HTML report of every discrepancy, how far it is from the metric's value, and what the service does not implement yet. It runs the backend checked out beside the harness, in process (run `npm run install:be` first). This repo's pull-request check and weekly schedule produce the report as a CI artifact; differences are reported, not failed. See [docs/compare-metric.md](docs/compare-metric.md).
+`npm run compare:metric` imports every scenario in the corpus through the backend's upload pipeline and compares the service's figures (unit calculations per feature, totals, net gain, trading rules figures and statuses) with the metric's own, to within a tolerance too small to change any project's outcome. It writes an HTML report of every discrepancy, how far it is from the metric's value, and what the service does not implement yet. It runs the backend checked out beside the harness, in process (run `npm run install:be` first). This repo's pull-request check and weekly schedule produce the report as a CI artifact, and fail on any difference nothing known explains (a feature the service does not implement yet, such as strategic significance, is explained). See [docs/compare-metric.md](docs/compare-metric.md).
 
 ## Tilt
 

@@ -27,11 +27,13 @@ worktree of a backend branch, say). The report is written to
 
 **Every value names its unit.** Each discrepancy carries its unit: habitat, hedgerow or watercourse units, % of baseline units for a net change, or Met / Not met for a verdict. A difference is in the same unit, except that two percentages differ by percentage points. Each per-feature row also gives the size the feature was priced on by each side, in ha or km, and the metric's strategic significance multiplier. Both reports open with a guide to every unit and column; in the spreadsheet it is the *Guide* sheet.
 
-**It reports; it does not judge.** Differences never make the command or a
-build fail. The report is there for people to decide what, if anything, needs
-doing. A scenario the service throws an error on is reported too, as *Import
-failed in the service* with the error, and the run carries on with the rest:
-a crash in the service is a finding like any other.
+**It fails on what nothing explains.** Every difference is reported. Only an
+*unexplained* one makes the command exit non-zero, and so fails the build;
+the reports are written first, and `summary.md` leads with what failed. See
+[What fails the build](#what-fails-the-build). A scenario the service throws an
+error on is reported too, as *Import failed in the service* with the error,
+and the run carries on with the rest: a crash in the service is a finding like
+any other, and fails the build.
 
 ### What is compared
 
@@ -156,23 +158,47 @@ backend keeps only the few exports the import needs.
   week's report. A backend change does not trigger it; to see a backend
   branch's report, run it locally with `BNG_BACKEND_DIR`, or open a harness
   pull request from a branch of the same name.
-- The comparison never fails the workflow. When it cannot run (a failed clone
-  or install, or a backend that predates its exports), its job shows the
-  failure, but it is marked `continue-on-error`, so the pull request check
-  and the Sonar scan are unaffected. What it finds never fails anything.
-- `npm run test:scripts` checks that the comparison itself runs, not what it
-  finds.
+- The job fails when a difference has no known explanation, or when the
+  comparison cannot run (a failed clone or install, or a backend that
+  predates its exports). It is a job of its own, so it never skips the Sonar
+  scan. On a pull request whose branch is not in the backend, the comparison
+  runs the backend's `main`, so that has to be free of unexplained
+  differences too.
+- `npm run test:scripts` checks that the comparison itself runs, and the rules
+  for what is explained (`tests/scripts/metric-comparison/unexplained.test.mjs`).
 - bng-library's own CI tests the comparator, the workbook reader and the
   reports.
 
-### Failing a build later
+### What fails the build
 
-For now nothing fails. When some differences should fail a build (a new
-discrepancy, say, or any in trading statuses), bng-library already has what a
-gate needs. `knownDiscrepanciesFrom(results)` records a run's discrepancies,
-with both values. `findRegressions(results, known)` lists every way a later run
-differs from that record: a new or changed discrepancy, one that has gone, or a
-change of outcome.
+`scripts/metric-comparison/unexplained.mjs` decides which differences have a
+known explanation. A difference is explained when:
+
+| Difference | Explained when |
+| --- | --- |
+| A feature's units | Every cause bng-library finds for it is one the service does not implement yet: today, strategic significance. *Priced on a different size* explains nothing: the service has fixed it, so it would be a regression. |
+| A total, net gain figure or verdict, or trading rules figure or status | Its module's feature units differ, all of them for a cause not implemented yet. These figures are sums of the feature units, so they inherit the difference. In a module whose features all match, a differing total is unexplained. |
+| Any figure in a scenario built on invalid data that the service accepts | `VALIDATION_GAPS` names the scenario and the check the service does not make yet. The metric computes nothing meaningful for invalid rows. |
+
+Everything else fails:
+- a figure that differs for no known reason;
+- a figure one side has and the other does not;
+- a valid scenario the service refuses;
+- an import that crashes;
+- a workbook that cannot be read;
+- an invalid scenario the service accepts with no entry in `VALIDATION_GAPS`.
+
+When the service starts refusing an invalid scenario, its `VALIDATION_GAPS`
+entry is reported as stale (a warning, not a failure), so it can be removed.
+When the service implements strategic significance, the cause stops matching
+and its differences go away, so nothing needs updating here.
+
+To accept a new kind of expected difference, explain it in `unexplained.mjs`
+(or, for a feature's units, as a cause in bng-library's
+`metric-compare/causes.mjs` with `notImplemented: true`). Do not record it as
+an exception without a reason. bng-library's `knownDiscrepanciesFrom` and
+`findRegressions` can also record a run's discrepancies and fail on any change
+to them, if explained differences ever need pinning down too.
 
 ### Refreshing the corpus
 
