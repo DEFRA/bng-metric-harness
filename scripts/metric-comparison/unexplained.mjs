@@ -69,12 +69,19 @@ function isNotImplementedYet(discrepancy) {
   );
 }
 
+/** A module's unit totals, as their figure keys end. */
+const TOTAL = Object.freeze({
+  baseline: "baseline",
+  postIntervention: "post-intervention",
+  netChange: "net-change",
+});
+
 /** The total each feature stage adds up into. */
 const TOTAL_OF_STAGE = Object.freeze({
-  baseline: "baseline",
-  retained: "post-intervention",
-  enhanced: "post-intervention",
-  created: "post-intervention",
+  baseline: TOTAL.baseline,
+  retained: TOTAL.postIntervention,
+  enhanced: TOTAL.postIntervention,
+  created: TOTAL.postIntervention,
 });
 
 /**
@@ -120,10 +127,10 @@ function pathOf(discrepancy) {
 function featureShifts(discrepancies) {
   const shifts = new Map();
   const tainted = new Set();
-  for (const d of discrepancies) {
-    if (d.category !== CATEGORY.featureUnits) {
-      continue;
-    }
+  const features = discrepancies.filter(
+    (d) => d.category === CATEGORY.featureUnits,
+  );
+  for (const d of features) {
     const total = TOTAL_OF_STAGE[pathOf(d)[0]];
     const shift = shiftOf(d);
     if (!isNotImplementedYet(d) || !total || shift === null) {
@@ -131,8 +138,8 @@ function featureShifts(discrepancies) {
       continue;
     }
     const module = shifts.get(d.module) ?? {
-      baseline: 0,
-      "post-intervention": 0,
+      [TOTAL.baseline]: 0,
+      [TOTAL.postIntervention]: 0,
     };
     module[total] += shift;
     shifts.set(d.module, module);
@@ -147,7 +154,7 @@ function featureShifts(discrepancies) {
 function expectedTotalShifts(shift) {
   return {
     ...shift,
-    "net-change": shift["post-intervention"] - shift.baseline,
+    [TOTAL.netChange]: shift[TOTAL.postIntervention] - shift[TOTAL.baseline],
   };
 }
 
@@ -169,15 +176,15 @@ function totalsReconcile(expected, totals) {
  * totals moved by what the features account for.
  */
 function expectedPercentage(metric, expected) {
-  const baseline = metric?.baseline;
-  const netChange = metric?.["net-change"];
+  const baseline = metric?.[TOTAL.baseline];
+  const netChange = metric?.[TOTAL.netChange];
   if (!isNumber(baseline) || !isNumber(netChange)) {
     return null;
   }
-  const shiftedBaseline = baseline + expected.baseline;
+  const shiftedBaseline = baseline + expected[TOTAL.baseline];
   return shiftedBaseline === 0
     ? null
-    : (PERCENT * (netChange + expected["net-change"])) / shiftedBaseline;
+    : (PERCENT * (netChange + expected[TOTAL.netChange])) / shiftedBaseline;
 }
 
 /**
@@ -203,37 +210,44 @@ function derivedExplanations(discrepancies, metricTotals) {
     (d) => d.module,
   );
   for (const [module, shift] of featureShifts(discrepancies)) {
-    const derived = byModule.get(module) ?? [];
-    const expected = expectedTotalShifts(shift);
-    const totals = new Map(
-      derived
-        .filter((d) => d.category === CATEGORY.totals)
-        .map((d) => [pathOf(d)[0], d]),
-    );
-    for (const [part, total] of totals) {
-      const observed = shiftOf(total);
-      if (observed !== null && agrees(observed, expected[part] ?? NaN)) {
-        explained.add(total.key);
-      }
-    }
-    if (!totalsReconcile(expected, totals)) {
-      continue;
-    }
-    explainNetGain(
-      explained,
-      derived,
-      expectedPercentage(metricTotals?.[module], expected),
-    );
-    for (const d of derived) {
-      if (
-        d.category === CATEGORY.tradingFigures ||
-        d.category === CATEGORY.tradingStatus
-      ) {
-        explained.add(d.key);
-      }
-    }
+    explainModule(explained, {
+      derived: byModule.get(module) ?? [],
+      expected: expectedTotalShifts(shift),
+      metric: metricTotals?.[module],
+    });
   }
   return explained;
+}
+
+/** One module's share of derivedExplanations. */
+function explainModule(explained, { derived, expected, metric }) {
+  const totals = new Map(
+    derived
+      .filter((d) => d.category === CATEGORY.totals)
+      .map((d) => [pathOf(d)[0], d]),
+  );
+  for (const [part, total] of totals) {
+    const observed = shiftOf(total);
+    if (
+      observed !== null &&
+      part in expected &&
+      agrees(observed, expected[part])
+    ) {
+      explained.add(total.key);
+    }
+  }
+  if (!totalsReconcile(expected, totals)) {
+    return;
+  }
+  explainNetGain(explained, derived, expectedPercentage(metric, expected));
+  for (const d of derived) {
+    if (
+      d.category === CATEGORY.tradingFigures ||
+      d.category === CATEGORY.tradingStatus
+    ) {
+      explained.add(d.key);
+    }
+  }
 }
 
 function explainNetGain(explained, derived, percentage) {
