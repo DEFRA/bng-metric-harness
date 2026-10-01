@@ -3,8 +3,8 @@
 // Statutory Biodiversity Metric's own answers.
 //
 // Differences between the service and the metric do not fail these tests —
-// `npm run compare:metric` fails on the unexplained ones (unexplained.mjs,
-// tested in unexplained.test.mjs). These tests check the comparison itself
+// `npm run compare:metric -- --fail-on-unexplained` fails on the unexplained
+// ones (unexplained.mjs, tested in unexplained.test.mjs). These tests check the comparison itself
 // runs. They need
 // an installed backend beside the harness (or BNG_BACKEND_DIR), and skip
 // without one.

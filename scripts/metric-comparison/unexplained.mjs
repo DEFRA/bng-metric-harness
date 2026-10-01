@@ -1,7 +1,8 @@
 /**
  * Which differences from the metric nothing known explains (BMD-1036). The
- * comparison reports every difference; these are the ones that fail the
- * build, because no one has said why the service and the metric disagree.
+ * comparison reports every difference; these are the ones that fail it with
+ * --fail-on-unexplained, because no one has said why the service and the
+ * metric disagree.
  *
  * A difference is explained when:
  *
@@ -149,7 +150,7 @@ export function renderUnexplained({ scenarios, discrepancies, stale }) {
     lines.push(
       "## ❌ Unexplained differences",
       "",
-      "These fail the build: nothing known explains them. Fix the service, or, if the difference is expected, say why in `scripts/metric-comparison/unexplained.mjs`.",
+      "Nothing known explains these, so `npm run compare:metric -- --fail-on-unexplained` fails on them. Fix the service, or, if the difference is expected, say why in `scripts/metric-comparison/unexplained.mjs`.",
       "",
     );
   }

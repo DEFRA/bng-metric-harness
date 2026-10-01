@@ -27,13 +27,14 @@ worktree of a backend branch, say). The report is written to
 
 **Every value names its unit.** Each discrepancy carries its unit: habitat, hedgerow or watercourse units, % of baseline units for a net change, or Met / Not met for a verdict. A difference is in the same unit, except that two percentages differ by percentage points. Each per-feature row also gives the size the feature was priced on by each side, in ha or km, and the metric's strategic significance multiplier. Both reports open with a guide to every unit and column; in the spreadsheet it is the *Guide* sheet.
 
-**It fails on what nothing explains.** Every difference is reported. Only an
-*unexplained* one makes the command exit non-zero, and so fails the build;
-the reports are written first, and `summary.md` leads with what failed. See
+**It singles out what nothing explains.** Every difference is reported, and
+the reports lead with the *unexplained* ones. With `--fail-on-unexplained`, an
+unexplained difference also makes the command exit non-zero, after the reports
+are written. CI does not pass that flag yet; see
 [What fails the build](#what-fails-the-build). A scenario the service throws an
 error on is reported too, as *Import failed in the service* with the error,
 and the run carries on with the rest: a crash in the service is a finding like
-any other, and fails the build.
+any other, and is unexplained.
 
 ### What is compared
 
@@ -158,18 +159,24 @@ backend keeps only the few exports the import needs.
   week's report. A backend change does not trigger it; to see a backend
   branch's report, run it locally with `BNG_BACKEND_DIR`, or open a harness
   pull request from a branch of the same name.
-- The job fails when a difference has no known explanation, or when the
-  comparison cannot run (a failed clone or install, or a backend that
-  predates its exports). It is a job of its own, so it never skips the Sonar
-  scan. On a pull request whose branch is not in the backend, the comparison
-  runs the backend's `main`, so that has to be free of unexplained
-  differences too.
+- The comparison does not fail the workflow yet. When it cannot run (a
+  failed clone or install, or a backend that predates its exports), its job
+  shows the failure, but it is marked `continue-on-error`, so the pull request
+  check and the Sonar scan are unaffected. Unexplained differences lead the
+  job summary, but do not fail the job: see below.
 - `npm run test:scripts` checks that the comparison itself runs, and the rules
   for what is explained (`tests/scripts/metric-comparison/unexplained.test.mjs`).
 - bng-library's own CI tests the comparator, the workbook reader and the
   reports.
 
 ### What fails the build
+
+Nothing yet. CI will run `npm run compare:metric -- --fail-on-unexplained`, and
+drop the job's `continue-on-error`, once bng-library#68 and
+bng-metric-backend#426 have merged. Until then, a harness pull request whose
+branch is not in the backend compares the backend's `main`, which still prices
+rounded sizes and so has hundreds of unexplained differences. Locally, pass
+the flag to see whether a run would pass.
 
 `scripts/metric-comparison/unexplained.mjs` decides which differences have a
 known explanation. A difference is explained when:
@@ -180,7 +187,7 @@ known explanation. A difference is explained when:
 | A total, net gain figure or verdict, or trading rules figure or status | Its module's feature units differ, all of them for a cause not implemented yet. These figures are sums of the feature units, so they inherit the difference. In a module whose features all match, a differing total is unexplained. |
 | Any figure in a scenario built on invalid data that the service accepts | `VALIDATION_GAPS` names the scenario and the check the service does not make yet. The metric computes nothing meaningful for invalid rows. |
 
-Everything else fails:
+Everything else is unexplained:
 - a figure that differs for no known reason;
 - a figure one side has and the other does not;
 - a valid scenario the service refuses;

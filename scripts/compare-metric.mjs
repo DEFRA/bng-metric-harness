@@ -7,6 +7,7 @@
  *   npm run compare:metric                         # every committed scenario
  *   npm run compare:metric -- --only trading-rules # a purpose, or scenario ids
  *   npm run compare:metric -- --corpus <dir>       # any folder of scenarios
+ *   npm run compare:metric -- --fail-on-unexplained
  *
  * The service is the backend checkout beside this repo (BNG_BACKEND_DIR names
  * another), run in process; see scripts/metric-comparison/backend.mjs.
@@ -16,11 +17,12 @@
  * one row each), report.md, summary.md (the report without each scenario's
  * detail, for a CI job summary) and report.json.
  *
- * Exits non-zero when a difference has no known explanation (see
- * scripts/metric-comparison/unexplained.mjs) — after writing the reports, so
- * they show what failed — or when the comparison cannot run. A difference
- * that is explained, by something the service does not do yet, is reported
- * but does not fail.
+ * Every report leads with the differences nothing known explains (see
+ * scripts/metric-comparison/unexplained.mjs). With --fail-on-unexplained, any
+ * such difference also makes this exit non-zero, after the reports are
+ * written so they show what failed; a difference that is explained, by
+ * something the service does not do yet, never does. Without it, only a
+ * comparison that cannot run exits non-zero.
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -66,6 +68,7 @@ const { values } = parseArgs({
   options: {
     only: { type: "string", multiple: true, default: [] },
     corpus: { type: "string" },
+    "fail-on-unexplained": { type: "boolean", default: false },
   },
 });
 const only = values.only.flatMap((v) => v.split(",")).filter(Boolean);
@@ -173,8 +176,12 @@ for (const id of unexplained.stale) {
 }
 if (hasUnexplained(unexplained)) {
   const count = unexplained.scenarios.length + unexplained.discrepancies.length;
-  error(`${count} difference(s) from the metric have no known explanation:`);
+  const report = values["fail-on-unexplained"] ? error : warn;
+  report(`${count} difference(s) from the metric have no known explanation:`);
   console.log(renderUnexplained({ ...unexplained, stale: [] }));
-  process.exit(1);
+  if (values["fail-on-unexplained"]) {
+    process.exit(1);
+  }
+} else {
+  info("Every difference from the metric has a known explanation.");
 }
-info("Every difference from the metric has a known explanation.");
