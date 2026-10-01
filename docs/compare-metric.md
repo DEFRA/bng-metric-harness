@@ -184,7 +184,9 @@ known explanation. A difference is explained when:
 | Difference | Explained when |
 | --- | --- |
 | A feature's units | Every cause bng-library finds for it is one the service does not implement yet: today, strategic significance. *Priced on a different size* explains nothing: the service has fixed it, so it would be a regression. |
-| A total, net gain figure or verdict, or trading rules figure or status | Its module's feature units differ, all of them for a cause not implemented yet. These figures are sums of the feature units, so they inherit the difference. In a module whose features all match, a differing total is unexplained. |
+| A unit total | Its module's feature units differ, all of them for a cause not implemented yet, and the total differs by exactly what those differences add up to: the baseline total by the baseline features' differences, the post-intervention total by the retained, enhanced and created features', and the net change by the second less the first. A total that moves further than its features do is unexplained, as is a differing total in a module whose features all match. |
+| The net change percentage and net gain verdict | The module's totals all reconcile as above, and the service's percentage is the metric's recomputed on totals moved by that much. The verdict is explained only where that percentage differs, since the service's verdict follows from its percentage. |
+| A trading rules figure or status | The module's totals all reconcile as above. The feature figures do not say which habitat or band a feature is in, so trading figures cannot yet be reconciled feature by feature; this is the weakest of the checks. |
 | Any figure in a scenario built on invalid data that the service accepts | `VALIDATION_GAPS` names the scenario and the check the service does not make yet. The metric computes nothing meaningful for invalid rows. |
 
 Everything else is unexplained:

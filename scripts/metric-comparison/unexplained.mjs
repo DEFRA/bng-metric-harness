@@ -10,11 +10,12 @@
  *   the service does not implement yet (strategic significance, say). A cause
  *   the service has fixed — sizes rounded before pricing — explains nothing:
  *   it is only still recognised so a regression can be named;
- * - it is a total, a net gain figure or verdict, or a trading rules figure or
- *   status, in a module whose feature units differ only for such causes.
- *   Those figures are sums of the feature units, and the verdicts follow from
- *   the sums, so they inherit the difference. A module whose features all
- *   match has no excuse for a total that does not;
+ * - it is a figure derived from the feature units, in a module whose feature
+ *   units differ only for such causes, and it differs by exactly what those
+ *   feature differences account for (see derivedExplanations). Sitting in the
+ *   same module is not enough: a total that moves further than its features
+ *   do is unexplained. A module whose features all match has no excuse for a
+ *   total that does not;
  * - the scenario holds invalid data the service does not refuse yet, and
  *   VALIDATION_GAPS says which check the service lacks. The metric computes
  *   nothing meaningful for invalid rows, so none of that scenario's figures
@@ -25,7 +26,12 @@
  * an import that crashes, and a workbook that cannot be read.
  */
 
-import { CATEGORY, CAUSES_BY_ID, OUTCOME } from "#metric-compare";
+import {
+  CATEGORY,
+  CAUSES_BY_ID,
+  KEY_SEPARATOR,
+  OUTCOME,
+} from "#metric-compare";
 
 /**
  * Scenarios built on invalid data that the service accepts, because it does
@@ -63,31 +69,216 @@ function isNotImplementedYet(discrepancy) {
   );
 }
 
+/** The total each feature stage adds up into. */
+const TOTAL_OF_STAGE = Object.freeze({
+  baseline: "baseline",
+  retained: "post-intervention",
+  enhanced: "post-intervention",
+  created: "post-intervention",
+});
+
 /**
- * The modules whose differences are all explained: at least one feature
- * differs for a cause the service does not implement yet, and none for any
- * other reason.
+ * How closely a derived figure must move by what its features account for.
+ * Both are sums of figures already rounded to 15 significant figures, and a
+ * feature that matches within the comparison's tolerance still moves its
+ * total by up to that tolerance, so the two agree only to about this.
+ * Anything a pricing difference could do is far larger.
  */
-function modulesExplainedByFeatures(discrepancies) {
-  const explained = new Set();
-  const unexplained = new Set();
+const RECONCILE_TOLERANCE = Object.freeze({ relative: 1e-9, absolute: 1e-9 });
+const PERCENT = 100;
+
+function isNumber(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function agrees(a, b) {
+  const scale = Math.max(Math.abs(a), Math.abs(b));
+  return (
+    Math.abs(a - b) <=
+    Math.max(RECONCILE_TOLERANCE.absolute, RECONCILE_TOLERANCE.relative * scale)
+  );
+}
+
+/** How far the service moved a figure from the metric's; null if either has none. */
+function shiftOf(discrepancy) {
+  return isNumber(discrepancy.expected) && isNumber(discrepancy.actual)
+    ? discrepancy.actual - discrepancy.expected
+    : null;
+}
+
+/** A figure's key without its category and module: ["baseline"], say. */
+function pathOf(discrepancy) {
+  return discrepancy.key.split(KEY_SEPARATOR).slice(2);
+}
+
+/**
+ * Per module whose feature units differ only for causes not implemented yet,
+ * how far those differences move its baseline and post-intervention totals.
+ * A module with any other feature difference is left out: nothing derived
+ * from it can be explained.
+ */
+function featureShifts(discrepancies) {
+  const shifts = new Map();
+  const tainted = new Set();
   for (const d of discrepancies) {
     if (d.category !== CATEGORY.featureUnits) {
       continue;
     }
-    (isNotImplementedYet(d) ? explained : unexplained).add(d.module);
+    const total = TOTAL_OF_STAGE[pathOf(d)[0]];
+    const shift = shiftOf(d);
+    if (!isNotImplementedYet(d) || !total || shift === null) {
+      tainted.add(d.module);
+      continue;
+    }
+    const module = shifts.get(d.module) ?? {
+      baseline: 0,
+      "post-intervention": 0,
+    };
+    module[total] += shift;
+    shifts.set(d.module, module);
   }
-  return new Set([...explained].filter((m) => !unexplained.has(m)));
+  for (const module of tainted) {
+    shifts.delete(module);
+  }
+  return shifts;
+}
+
+/** What the features move each of a module's totals by. */
+function expectedTotalShifts(shift) {
+  return {
+    ...shift,
+    "net-change": shift["post-intervention"] - shift.baseline,
+  };
+}
+
+/**
+ * Whether every total in the module moved by what its features account for:
+ * a total that differs by that much, or one that matches where they account
+ * for nothing.
+ */
+function totalsReconcile(expected, totals) {
+  return Object.entries(expected).every(([part, shift]) => {
+    const total = totals.get(part);
+    const observed = total ? shiftOf(total) : 0;
+    return observed !== null && agrees(observed, shift);
+  });
+}
+
+/**
+ * The net change percentage the service should show: the metric's, with the
+ * totals moved by what the features account for.
+ */
+function expectedPercentage(metric, expected) {
+  const baseline = metric?.baseline;
+  const netChange = metric?.["net-change"];
+  if (!isNumber(baseline) || !isNumber(netChange)) {
+    return null;
+  }
+  const shiftedBaseline = baseline + expected.baseline;
+  return shiftedBaseline === 0
+    ? null
+    : (PERCENT * (netChange + expected["net-change"])) / shiftedBaseline;
+}
+
+/**
+ * The derived figures (totals, net gain, trading rules) the feature
+ * differences explain, as a set of keys. Each must follow from those
+ * differences, not merely share their module:
+ *
+ * - a total must differ by the sum of its stages' feature differences
+ *   (baseline; retained, enhanced and created for post-intervention), and the
+ *   net change by the post-intervention sum less the baseline's;
+ * - the net change percentage must be the metric's recomputed on the totals
+ *   so moved, which needs the metric's own totals (`metricTotals`);
+ * - the net gain verdict must differ only where that percentage does, for
+ *   the service's verdict is reproduced from its percentage;
+ * - a trading rules figure or status only in a module whose totals all
+ *   reconcile. The feature figures do not say which habitat or band a feature
+ *   is in, so the trading figures cannot be summed feature by feature yet.
+ */
+function derivedExplanations(discrepancies, metricTotals) {
+  const explained = new Set();
+  const byModule = Map.groupBy(
+    discrepancies.filter((d) => d.category !== CATEGORY.featureUnits),
+    (d) => d.module,
+  );
+  for (const [module, shift] of featureShifts(discrepancies)) {
+    const derived = byModule.get(module) ?? [];
+    const expected = expectedTotalShifts(shift);
+    const totals = new Map(
+      derived
+        .filter((d) => d.category === CATEGORY.totals)
+        .map((d) => [pathOf(d)[0], d]),
+    );
+    for (const [part, total] of totals) {
+      const observed = shiftOf(total);
+      if (observed !== null && agrees(observed, expected[part] ?? NaN)) {
+        explained.add(total.key);
+      }
+    }
+    if (!totalsReconcile(expected, totals)) {
+      continue;
+    }
+    explainNetGain(
+      explained,
+      derived,
+      expectedPercentage(metricTotals?.[module], expected),
+    );
+    for (const d of derived) {
+      if (
+        d.category === CATEGORY.tradingFigures ||
+        d.category === CATEGORY.tradingStatus
+      ) {
+        explained.add(d.key);
+      }
+    }
+  }
+  return explained;
+}
+
+function explainNetGain(explained, derived, percentage) {
+  const netGain = derived.filter((d) => d.category === CATEGORY.netGain);
+  const figure = netGain.find((d) => pathOf(d)[0] === "percentage");
+  if (
+    !figure ||
+    percentage === null ||
+    !isNumber(figure.actual) ||
+    !agrees(figure.actual, percentage)
+  ) {
+    return;
+  }
+  for (const d of netGain) {
+    explained.add(d.key);
+  }
 }
 
 function unexplainedDiscrepancies(result) {
   const discrepancies = result.discrepancies ?? [];
-  const modules = modulesExplainedByFeatures(discrepancies);
+  const derived = derivedExplanations(discrepancies, result.metricTotals);
   return discrepancies.filter((d) =>
     d.category === CATEGORY.featureUnits
       ? !isNotImplementedYet(d)
-      : !modules.has(d.module),
+      : !derived.has(d.key),
   );
+}
+
+/**
+ * The metric's unit totals per module, which a comparison result does not
+ * keep for the totals that match, but the net change percentage is
+ * reconciled against: `{ area: { baseline, "post-intervention",
+ * "net-change" } }`.
+ *
+ * @param {object[]} figures the workbook's figures, from figuresFromWorkbook
+ */
+export function metricTotalsOf(figures) {
+  const totals = {};
+  for (const f of figures ?? []) {
+    if (f.category === CATEGORY.totals) {
+      const [, module, part] = f.key.split(KEY_SEPARATOR);
+      totals[module] = { ...totals[module], [part]: f.value };
+    }
+  }
+  return totals;
 }
 
 function addResult(found, result, gap) {
