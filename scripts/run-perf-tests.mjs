@@ -32,6 +32,7 @@ import {
   error,
   header,
   info,
+  pollUntil,
   repoPath,
   requireSibling,
   run,
@@ -161,7 +162,7 @@ const QUICK_ENV = Object.freeze({
   CREATE_LOOPS: "2",
   CREATE_LARGE_LOOPS: "1",
   SIZE_LOOPS_NORMAL: "2",
-  SIZE_LOOPS_BUSY: "1",
+  SIZE_LOOPS_MEDIUM: "1",
   SIZE_LOOPS_LARGE: "1",
   SIZE_LOOPS_XLARGE: "1",
 });
@@ -171,50 +172,45 @@ const HEALTH_INTERVAL_MS = 1000;
 const FETCH_TIMEOUT_MS = 5000;
 
 const perfRepo = repoPath("bng-perf-tests");
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Containers reach the host's apps via host.docker.internal; on Linux that name
 // needs the explicit host-gateway mapping (harmless on Docker Desktop).
 const isLocalHost = cfg.host === "localhost" || cfg.host === "127.0.0.1";
 const containerHost = isLocalHost ? "host.docker.internal" : cfg.host;
 
+const POLL = { attempts: HEALTH_ATTEMPTS, intervalMs: HEALTH_INTERVAL_MS };
+
 async function waitForHealth(label, url) {
-  for (let attempt = 1; attempt <= HEALTH_ATTEMPTS; attempt += 1) {
-    try {
-      const res = await fetch(url, {
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      });
-      if (res.ok) {
-        info(`▸ ${label} healthy at ${url}`);
-        return true;
-      }
-    } catch {
-      // not up yet — fall through to retry
-    }
-    await sleep(HEALTH_INTERVAL_MS);
+  const healthy = await pollUntil(async () => {
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    return res.ok;
+  }, POLL);
+  if (healthy) {
+    info(`▸ ${label} healthy at ${url}`);
+  } else {
+    error(`${label} never became healthy at ${url}`);
   }
-  error(`${label} never became healthy at ${url}`);
-  return false;
+  return healthy;
 }
 
 // The uploader answers its root with a 404 rather than a health endpoint, so any
 // HTTP response at all means it is listening. Only reachability matters here.
 async function waitForUploader(url) {
-  for (let attempt = 1; attempt <= HEALTH_ATTEMPTS; attempt += 1) {
-    try {
-      await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-      info(`▸ cdp-uploader reachable at ${url}`);
-      return true;
-    } catch {
-      // not up yet — fall through to retry
-    }
-    await sleep(HEALTH_INTERVAL_MS);
+  const reachable = await pollUntil(async () => {
+    await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    return true;
+  }, POLL);
+  if (reachable) {
+    info(`▸ cdp-uploader reachable at ${url}`);
+  } else {
+    error(
+      `cdp-uploader never answered at ${url}. The upload phases stage their fixtures ` +
+        "through it, so it has to be up: `(cd ../bng-metric-backend && docker compose up -d)`.",
+    );
   }
-  error(
-    `cdp-uploader never answered at ${url}. The upload phases stage their fixtures ` +
-      "through it, so it has to be up: `(cd ../bng-metric-backend && docker compose up -d)`.",
-  );
-  return false;
+  return reachable;
 }
 
 // Everything the container needs, as it would come from a CDP task's config. The

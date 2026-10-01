@@ -89,6 +89,72 @@ see the frontend's `.env.example`.
 | `npm run install:all` | `npm install` in harness + both siblings         |
 | `npm run install:fe`  | `npm install` in frontend only                   |
 | `npm run install:be`  | `npm install` in backend only                    |
+| `npm run lib:link`    | Point this repo at your local `../bng-library`   |
+| `npm run lib:status`  | Whether `bng-library` is linked or on its pin    |
+| `npm run lib:unlink`  | Go back to the pinned commit                     |
+
+### Working on `bng-library`
+
+`bng-library` is a **separate repo consumed as a git dependency**, not a sibling
+the dev scripts drive. Three repos depend on it — this harness, the backend and
+the digital prototype — and each pins it independently:
+
+```json
+"bng-library": "github:DEFRA/bng-library#<commit-sha>"
+```
+
+Pins are **commit SHAs, not tags** — there are no releases to point at. The
+three are not kept in step automatically, so they routinely sit on different
+commits. `npm run branch` won't show this; check the pin in each `package.json`.
+
+To see a library change in a consumer without pushing anything, link it. The
+same three commands exist in this harness, `bng-metric-backend` and
+`bng-metric-digital-prototype`:
+
+```sh
+npm run lib:status   # bng-library: installed from pin (not linked)
+npm run lib:link     # bng-library: LINKED -> /path/to/bng-library
+npm run lib:unlink   # back to the pinned commit
+```
+
+A link follows whatever branch `../bng-library` is checked out on, so you can
+switch branches there and the consumer picks it up with no reinstall. Two things
+to know:
+
+- **Link one repo at a time** unless you mean otherwise. Linking the harness
+  does not link the backend — each has to be linked and unlinked separately, and
+  it is easy to leave one linked and wonder why CI disagrees with you.
+- **Always `lib:unlink` before you commit.** The link lives in `node_modules`
+  and never reaches git, so a green local run against a linked library proves
+  nothing about the pin your PR actually ships.
+
+### Releasing a `bng-library` change
+
+Library changes reach the apps only when a consumer's pin moves. Dependabot does
+not track SHA-pinned git dependencies, so **every bump is manual**:
+
+1. Merge the change in `bng-library` and take the **merge commit SHA**.
+2. In each consumer that needs it, set the pin to that SHA and install.
+3. Run that repo's tests against the new pin, then raise a PR for the bump.
+
+A consumer PR must never be merged while its pin points at a **branch head**
+rather than a merged commit — the branch can be force-pushed or deleted, and the
+pin then resolves to nothing. Re-pin to the merge commit first.
+
+In `bng-metric-backend` and `bng-metric-digital-prototype`, a plain
+`npm install` fails while re-pinning:
+
+```
+npm error --min-release-age cannot be provided when using --before
+npm error git dep preparation failed
+```
+
+Their `.npmrc` sets `min-release-age` (supply-chain cooldown), which collides
+with the prepare step npm always runs for a git dependency — npm/cli#9005. The
+Dockerfile and the CI workflows strip the setting for the duration of the
+install; in the backend, `npm run lib:unlink` handles it for you. Doing it by
+hand means removing the `min-release-age=` line from `.npmrc`, installing, and
+putting it back. This harness is unaffected — it does not set the cooldown.
 
 ## Git operations across repos
 
@@ -100,11 +166,13 @@ see the frontend's `.env.example`.
 
 ## Dependabot merge-queue sweep
 
-GitHub ignores merge-queue auto-merge that was armed by a workflow's
-`GITHUB_TOKEN` (recursive-trigger protection), so the per-repo Dependabot
-auto-merge workflows approve and arm PRs that then never reach the queue.
-Until a PAT / GitHub App identity is provisioned, a developer runs the sweep
-once a day — it enqueues as *you*, which is what makes it work:
+The per-repo Dependabot auto-approve workflows approve patch/minor PRs but
+deliberately do not arm auto-merge: GitHub ignores merge-queue auto-merge
+armed by a workflow's `GITHUB_TOKEN` (recursive-trigger protection), and the
+stale arming only cost an extra click to disarm before merging by hand. An
+approved, green PR can be enqueued from the GitHub UI with one "Merge when
+ready" click, or a developer runs the sweep once a day — it enqueues as
+*you*, which is what makes it work:
 
 ```sh
 npm run queue-deps                  # sweep all six BNG repos (incl. this one)
@@ -113,7 +181,7 @@ npm run queue-deps -- --dry-run     # preview without enqueueing
 ```
 
 It only enqueues Dependabot PRs the repo's own workflow already vetted —
-auto-merge armed (patch/minor policy passed), approved, and all checks green.
+approved by `github-actions` (patch/minor policy passed) and all checks green.
 Majors and anything red are skipped with the reason printed. Safe to re-run:
 already-queued PRs are skipped.
 
@@ -141,9 +209,13 @@ npm run be -- db:migrate
 This repo contains scripts to generate example GeoPackage files for testing:
 
 - `npm run generate:gpkg` — one synthetic or workbook-driven fixture (or a `--pair`).
-- `npm run generate:gpkg:all` — a pre-built library of paired fixtures covering many BNG scenarios (intervention types, conditions, strategic significance, met/unmet 10% net gain, trading rules, advance/delay, data completeness), organised by purpose with a `manifest.json` and `index.md`.
+- `npm run generate:scenarios` — a library of paired fixtures covering many BNG scenarios (intervention types, conditions, strategic significance, met/unmet 10% net gain, trading rules, advance/delay, data completeness, invalid interventions), organised by purpose. Each comes with the Defra metric workbook describing it, recalculated with LibreOffice so `manifest.json` holds the metric's own results to compare the service against. `--no-workbooks` gives the GeoPackages alone; `npm run generate:scenarios:docker` runs it all in a container, so LibreOffice needn't be installed.
 
-See [docs/generate-test-data.md](docs/generate-test-data.md) for details.
+See [docs/generate-test-data.md](docs/generate-test-data.md) and [docs/generate-scenarios.md](docs/generate-scenarios.md) for details.
+
+## Comparison with the metric
+
+`npm run compare:metric` imports every scenario in the corpus through the backend's upload pipeline and compares the service's figures (unit calculations per feature, totals, net gain, trading rules figures and statuses) exactly with the metric's own. It writes an HTML report of every discrepancy, how far it is from the metric's value, and what the service does not implement yet. It runs the backend checked out beside the harness, in process (run `npm run install:be` first). This repo's pull-request check and weekly schedule produce the report as a CI artifact; differences are reported, not failed. See [docs/compare-metric.md](docs/compare-metric.md).
 
 ## Tilt
 

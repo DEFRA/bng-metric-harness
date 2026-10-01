@@ -1,12 +1,11 @@
-name: Dependabot auto-merge
+name: Dependabot auto-approve
 on: pull_request_target
 
 permissions:
-  contents: write
   pull-requests: write
 
 jobs:
-  auto-merge:
+  auto-approve:
     if: github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
@@ -16,21 +15,17 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Approve the PR
-        # Satisfies the "1 approving review" branch rule so the armed
-        # auto-merge can complete. github-actions[bot] approving a
-        # dependabot[bot] PR is not a self-approval and counts as a review
-        # from a writer.
-        if: steps.meta.outputs.update-type == 'version-update:semver-patch' || steps.meta.outputs.update-type == 'version-update:semver-minor'
-        run: gh pr review --approve "$PR_URL"
-        env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Enable auto-merge
-        # Only auto-merge patch and minor bumps; leave majors for a human to
+        # Only approve patch and minor bumps; leave majors for a human to
         # review. For grouped updates the reported update-type is the highest
         # bump in the group, so a group containing a major is excluded here.
+        # The approval satisfies the "1 approving review" branch rule, so a
+        # human only needs one click ("Merge when ready") to enqueue it, and
+        # `npm run queue-deps` in bng-metric-harness treats it as vetted.
+        # Auto-merge is deliberately not armed: GitHub ignores auto-merge
+        # armed by GITHUB_TOKEN on a merge-queue branch, and the stale arming
+        # only costs an extra click to disarm before merging by hand.
         if: steps.meta.outputs.update-type == 'version-update:semver-patch' || steps.meta.outputs.update-type == 'version-update:semver-minor'
-        run: gh pr merge --auto --squash "$PR_URL"
+        run: gh pr review --approve "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

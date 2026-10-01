@@ -1,5 +1,8 @@
 # Backend docker compose stack (localstack, redis, postgres, caddy, cdp-uploader)
-docker_compose('../bng-metric-backend/compose.yml')
+# wait=True runs `docker compose up --wait`, so a service only counts as ready
+# once its healthcheck passes. Without it Tilt marks postgres ready as soon as
+# the container starts, and db-migrate races Postgres ("Connection refused").
+docker_compose('../bng-metric-backend/compose.yml', wait=True)
 
 # All resources route through scripts/run-with-nodejs.mjs so each sibling's
 # .nvmrc Node version is selected via nvm — same code path on macOS/Linux
@@ -20,6 +23,17 @@ local_resource(
     'db-migrate',
     cmd='node ./scripts/run-with-nodejs.mjs bng-metric-backend run db:update',
     resource_deps=['postgres'],
+    labels=['infra'],
+)
+
+# Stub Defra ID test users (see bng-metric-frontend docs/stub-test-users.md).
+# The stub keeps users in redis, which has no volume, so every fresh stack
+# starts with none. The seed script replaces rather than duplicates, so this is
+# safe to re-run from the Tilt UI (e.g. after redis restarts mid-session).
+local_resource(
+    'seed-stub-users',
+    cmd='node ./scripts/run-with-nodejs.mjs bng-metric-frontend run seed:stub-users',
+    resource_deps=['cdp-defra-id-stub'],
     labels=['infra'],
 )
 

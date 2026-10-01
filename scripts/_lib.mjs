@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
@@ -122,6 +122,30 @@ export function requireSibling(name) {
   }
 }
 
+/**
+ * Resolve a user-supplied path, throwing unless it lies inside the harness:
+ * the generators read templates from it, write into it and clear parts of
+ * it. Symlinks in the part that already exists are resolved first, so none
+ * can lead out.
+ */
+export function resolveInsideHarness(target, flag) {
+  const baseDir = realpathSync(HARNESS_ROOT);
+  let existing = path.resolve(baseDir, target);
+  while (!existsSync(existing)) {
+    existing = path.dirname(existing);
+  }
+  const resolved = path.join(
+    realpathSync(existing),
+    path.relative(existing, path.resolve(baseDir, target)),
+  );
+  if (!resolved.startsWith(baseDir + path.sep)) {
+    throw new Error(
+      `${flag} must be inside the harness (${baseDir}), got: ${target}`,
+    );
+  }
+  return resolved;
+}
+
 export function parseTarget(argv, { allowAll = true, fallback = "all" } = {}) {
   const raw = argv[0];
   const valid = allowAll ? ["fe", "be", "all"] : ["fe", "be"];
@@ -136,4 +160,48 @@ export function parseTarget(argv, { allowAll = true, fallback = "all" } = {}) {
 export function reposForTarget(target) {
   if (target === "all") return REPOS;
   return REPOS.filter((r) => r.key === target);
+}
+
+/**
+ * Run `step` on each item in turn, each waiting for the one before, and
+ * resolve to their results in order. For work that must not overlap: steps
+ * that share state, or whose output should read in order. Recursive rather
+ * than a loop, so the one-at-a-time intent lives here, named, instead of in
+ * an `await` inside each caller's loop.
+ *
+ * @template T, R
+ * @param {T[]} items
+ * @param {(item: T, index: number) => Promise<R> | R} step
+ * @returns {Promise<R[]>}
+ */
+export async function mapInSequence(items, step) {
+  const results = [];
+  const next = async (index) => {
+    if (index >= items.length) {
+      return results;
+    }
+    results.push(await step(items[index], index));
+    return next(index + 1);
+  };
+  return next(0);
+}
+
+/**
+ * Call `probe` until it resolves truthy, waiting `intervalMs` between tries,
+ * for at most `attempts` tries. A probe that throws counts as a failed try.
+ *
+ * @param {() => Promise<unknown>} probe
+ * @param {{ attempts: number, intervalMs: number }} options
+ * @returns {Promise<boolean>} whether the probe ever succeeded
+ */
+export async function pollUntil(probe, { attempts, intervalMs }) {
+  const succeeded = await probe().then(Boolean, () => false);
+  if (succeeded) {
+    return true;
+  }
+  if (attempts <= 1) {
+    return false;
+  }
+  await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  return pollUntil(probe, { attempts: attempts - 1, intervalMs });
 }

@@ -15,7 +15,8 @@
  * installed — SVG is always the primary artefact.
  *
  * Env:
- *   BNG_ENGINE_DIR  Explicit path to the engine package, overriding discovery.
+ *   BNG_ENGINE_DIR  Explicit path to the bng-library checkout (or its
+ *                   src/metric directory), overriding discovery.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'

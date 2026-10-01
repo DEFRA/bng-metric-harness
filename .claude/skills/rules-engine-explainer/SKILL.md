@@ -66,10 +66,22 @@ Writes the engine's version, git provenance, public API, source inventory and
 reference tables (small ones verbatim, large ones hashed). Passing the same path to
 `--compare` diffs against the previous run before overwriting.
 
-**The engine moves.** It lives in `bng-metric-backend` today but is slated for
-`bng-library` (see `docs/move-engine-into-bng-lib.md`). The script searches known
-locations and honours `BNG_ENGINE_DIR`. If it cannot find the engine, add the new
-location to `CANDIDATE_DIRS` rather than working around it.
+**Where the engine lives.** It moved out of `bng-metric-backend` into
+`bng-library`, and is now the `bng-library/metric` entry point backed by
+`bng-library/src/metric`. The script searches known locations — the sibling
+checkout first, then the harness's own `node_modules` copy — and honours
+`BNG_ENGINE_DIR`, which may name either the library checkout or its `src/metric`
+directory. If it cannot find the engine, add the new location to
+`CANDIDATE_DIRS` rather than working around it.
+
+**Where the revision comes from.** `git.source` in the facts file says how the
+engine's commit was established: `git` when the library is a checkout, giving
+commit, date and subject; `lockfile` when it is the harness's own installed
+dependency, an installed copy having no history of its own, so the pinned commit
+is all that is known; `unavailable` otherwise — a linked library or an untracked
+copy behind `BNG_ENGINE_DIR` is at no knowable revision, and the pin does not
+describe it. Quote only what is there — never state a commit or a date the facts
+file does not carry.
 
 **In check mode, act on the diff:**
 
