@@ -112,11 +112,54 @@ Then `npm run dev` in this harness starts the two Node apps against those servic
 - Log what the script is doing as it does it.
 - **Always attempt to respect default SonarCloud conventions where possible** — write to them in the first draft rather than waiting for the scan to flag them. Code is scanned by SonarCloud (project key in `sonar-project.properties`); after pushing, run `/check-sonar-pr` to see PR-scoped issues. Rules most likely to be flagged: brace every single-line `if`/`for` body (S121), extract magic numbers to named constants (S109), keep nesting ≤ 3 levels (S134), keep cognitive complexity per function low (S3776), prefer `replaceAll` and template literals over `replace`/concat, and remove dead/commented-out code (S125).
 
+## `qgis-template/`: the QGIS templates and their tooling
+
+**This folder is not application code, so it lives in the harness.** It holds
+the QGIS habitat-mapping templates, a converter between them, a QGIS plugin
+that wraps the converter, and a generated test site. The conversion code is
+pure Python with the standard library only. Only the plugin needs QGIS.
+
+| Path | Contents |
+| --- | --- |
+| `templates/bng-service/` | The BNG Service template, its reference lists, and `HOW TO USE THIS TEMPLATE.md`, the guide for surveyors |
+| `templates/legacy-ne/` | The Natural England template, as Natural England publishes it |
+| `plugin/` | The QGIS plugin source, `build_plugin.py`, and `README.md`, the guide to install and use it |
+| `reference/` | The Statutory Metric workbooks, the Excel GIS import tool and the published guidance. The reference lists are checked against these. `reference/metric-user-guide/` is Defra's Statutory Biodiversity Metric User Guide (June 2026) in Markdown, one file per chapter; read its `README.md` index first and open only the chapter needed, or use the `/metric-guidance` skill. The service assumes every LPA has published its LNRS (strategic significance Low or High only) |
+| `scale-test-nsip/` | The NSIP-scale test site: the generator, the claim checks, `VERIFICATION.md` (the runbook) and the generated output |
+| `site-generator/` | Builds small synthetic sites (1 to 50 parcels) from user inputs, filling copies of the BNG Service template, both NE templates and the macro-enabled Metric; output in the gitignored `site-generator/output/`. Reuses the NSIP generator's code |
+| `development/tools/` | The tools that maintain the templates: action bodies, field and table renames and removal, filled and locked columns, paste-lineage defaults, drop-down resets, order and blank choices, and the shape constraint. Edit the `.qgz` only with these, never by saving from QGIS |
+
+**`plugin/bng_template_convert/` is the only copy of the conversion modules.**
+The build zips the package with `plugin/README.md` and a copy of each
+drop-down list the converter reads from `templates/*/CSV References`, and
+fails if one is missing. A change to a reference list of either template
+therefore needs a rebuild and a new distributed zip:
+
+```sh
+cd qgis-template/plugin && python3 build_plugin.py
+# -> plugin/dist/bng_template_convert.zip
+```
+
+**The test site is generated, not committed.** The generator rebuilds it in
+about seven seconds, with identical bytes on each run. The output is about
+100 MB and git ignores it. Each run copies the project file, the reference
+lists and the guide for surveyors from `templates/bng-service/`, so the site
+and the template stay the same.
+
+```sh
+cd qgis-template && python3 scale-test-nsip/generator/generate.py
+```
+
+`qgis-template/README.md` is the guide for maintainers. It tells why the
+buttons in the template must be edited with `development/tools/` and not saved
+from QGIS.
+
 ## Not in scope for this repo
 
 - ❌ Docker/compose files (siblings own theirs)
-- ❌ Shared source code, types, or application logic
+- ❌ Shared source code, types, or application logic **for the two apps** (the
+  QGIS tooling above is neither: it ships to surveyors, not to a server)
 - ❌ CI/CD for the sibling apps (each sibling owns its own pipeline; the harness's only workflow is `pages.yml`, which builds the docs site)
 - ❌ git hooks / husky that reach into siblings
-- ❌ npm workspaces, submodules, subtrees
+- ❌ npm workspaces, submodules and subtrees (`qgis-template/` is an ordinary tracked directory, needing no tooling and no client-side setup)
 - ❌ `CLAUDE.md` files in the sibling repos — they are responsible for their own

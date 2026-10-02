@@ -213,9 +213,54 @@ This repo contains scripts to generate example GeoPackage files for testing:
 
 See [docs/generate-test-data.md](docs/generate-test-data.md) and [docs/generate-scenarios.md](docs/generate-scenarios.md) for details.
 
+### NSIP-scale test site
+
+**`qgis-template/scale-test-nsip/` generates a site at the scale of a
+nationally significant infrastructure project.** It is a 56 km rail corridor
+of 3,184 hectares. It holds 11,554 baseline habitat parcels, 13,682
+post-intervention parcels, hedgerows, watercourses and trees. It tests the QGIS
+template, the converter plugin and the service at that scale.
+
+```sh
+cd qgis-template && python3 scale-test-nsip/generator/generate.py
+```
+
+The run takes about seven seconds and gives identical bytes each time. Git
+ignores the output. `scale-test-nsip/VERIFICATION.md` is the runbook for the
+checks against the site.
+
+### Small synthetic sites
+
+**`qgis-template/site-generator/` builds a small, realistic site from a few
+inputs.** Set the number of habitat parcels (1 to 50), the area, the location,
+the hedgerows and trees, the landscape and the scheme. It writes the baseline
+and post-intervention stages into the BNG Service template, both Natural
+England templates and the macro-enabled Statutory Metric. The same inputs give
+the same GeoPackages.
+
+```sh
+cd qgis-template && python3 site-generator/generate_site.py --habitats 10 --area-ha 3 --centre 451000,206000
+```
+
+See [qgis-template/site-generator/README.md](qgis-template/site-generator/README.md).
+
 ## Comparison with the metric
 
 `npm run compare:metric` imports every scenario in the corpus through the backend's upload pipeline and compares the service's figures (unit calculations per feature, totals, net gain, trading rules figures and statuses) with the metric's own, to within a tolerance too small to change any project's outcome. It writes an HTML report of every discrepancy, how far it is from the metric's value, and what the service does not implement yet. It runs the backend checked out beside the harness, in process (run `npm run install:be` first). This repo's pull-request check and weekly schedule produce the report as a CI artifact, leading with any difference nothing known explains; `-- --fail-on-unexplained` exits 1 on one (CI will pass it once the BMD-1042 branches have merged). See [docs/compare-metric.md](docs/compare-metric.md).
+
+## QGIS templates and the converter plugin
+
+`qgis-template/` holds the habitat-mapping templates, the converter
+between the BNG Service template and the Natural England template, the QGIS
+plugin that wraps the converter, and the test site above.
+
+```sh
+cd qgis-template/plugin && python3 build_plugin.py
+# -> plugin/dist/bng_template_convert.zip
+```
+
+To install, in QGIS select **Plugins → Manage and Install Plugins… → Install
+from ZIP**. See [qgis-template/README.md](qgis-template/README.md).
 
 ## Tilt
 
