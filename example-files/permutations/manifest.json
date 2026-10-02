@@ -2885,6 +2885,179 @@
       }
     },
     {
+      "id": "invalid-tree-advance-and-delay",
+      "purpose": "invalid-interventions",
+      "title": "Created tree — both advance and delay years",
+      "description": "T001 is planted 2 years in advance and also delayed by 3 years. The metric allows one or the other, never both, for a tree as for a habitat parcel.",
+      "size": 1,
+      "subject": {
+        "layer": "Urban Trees",
+        "ref": "T001",
+        "note": "created tree with advance and delay both set"
+      },
+      "files": {
+        "baseline": "invalid-interventions/invalid-tree-advance-and-delay-baseline.gpkg",
+        "postIntervention": "invalid-interventions/invalid-tree-advance-and-delay-post-intervention.gpkg",
+        "workbook": "invalid-interventions/invalid-tree-advance-and-delay.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "warning on T001",
+          "expected": "both advance and delayed",
+          "actual": "habitatCreation!R11",
+          "passed": true
+        }
+      ],
+      "workbookSource": "4538e88fa82398e9714672ead1c3babd1aec093968e05adb3f92999965f6c833",
+      "inputRows": {
+        "habitatBaseline": 1,
+        "habitatCreation": 1,
+        "habitatEnhancement": 0,
+        "hedgerowBaseline": 0,
+        "hedgerowCreation": 0,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 0,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 0
+      },
+      "rejectedInputs": [],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 242.909019399575,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "postInterventionUnits": {
+            "area": 242.909019399575,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netUnitChange": {
+            "area": 0,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netPercentChange": {
+            "area": 0,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netGainMessage": {
+            "area": "On-site net gain is less than target set ⚠",
+            "hedgerow": null,
+            "watercourse": null
+          },
+          "unitsRequired": {
+            "area": 267.199921339532,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "unitDeficit": {
+            "area": 24.2909019399575,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "Yes ✓",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": 0
+        },
+        "sheetWarnings": [],
+        "rowWarnings": [
+          {
+            "sheet": "habitatCreation",
+            "reference": "T001",
+            "message": "Error -both advance and delayed habitat creation ▲",
+            "cells": [
+              "R11"
+            ]
+          },
+          {
+            "sheet": "habitatCreation",
+            "reference": "T001",
+            "message": "Check Data ⚠",
+            "cells": [
+              "S11",
+              "T11"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "id": "invalid-hedgerow-condition-reduced",
       "purpose": "invalid-interventions",
       "title": "Hedgerow — enhancement that lowers condition",
@@ -7494,6 +7667,178 @@
             "message": "Low Difficulty - only applicable if all habitat created before losses ⚠",
             "cells": [
               "T12"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "advance-delay-created-trees",
+      "purpose": "advance-delay",
+      "title": "Created trees — advance and delay years",
+      "description": "Three identical newly planted trees on one retained parcel: T001 has neither advance nor delay, T002 is planted 5 years in advance and T003 is delayed by 5 years. The trees' units should differ, T002 highest and T003 lowest; a service that ignores the trees' advance and delay columns (BMD-1039) gives all three the same.",
+      "size": 1,
+      "subject": {
+        "layer": "Urban Trees",
+        "ref": "T002",
+        "note": "T001 neither, T002 5 years in advance, T003 5 years' delay"
+      },
+      "files": {
+        "baseline": "advance-delay/created-trees-baseline.gpkg",
+        "postIntervention": "advance-delay/created-trees-post-intervention.gpkg",
+        "workbook": "advance-delay/created-trees.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookSource": "74040d9bd11930d83c4a5a8492e2696147f81be0daa167181129fcdab9934a04",
+      "inputRows": {
+        "habitatBaseline": 1,
+        "habitatCreation": 3,
+        "habitatEnhancement": 0,
+        "hedgerowBaseline": 0,
+        "hedgerowCreation": 0,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 0,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 0
+      },
+      "rejectedInputs": [],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 189.297598719825,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "postInterventionUnits": {
+            "area": 189.947275667596,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netUnitChange": {
+            "area": 0.649676947771809,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netPercentChange": {
+            "area": 0.00343204009013021,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netGainMessage": {
+            "area": "On-site net gain is less than target set ⚠",
+            "hedgerow": null,
+            "watercourse": null
+          },
+          "unitsRequired": {
+            "area": 208.227358591807,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "unitDeficit": {
+            "area": 18.2800829242107,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "Yes ✓",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": 0.6496769477718
+        },
+        "sheetWarnings": [],
+        "rowWarnings": [
+          {
+            "sheet": "habitatCreation",
+            "reference": "T002",
+            "message": "Check details - Is there evidence habitat creation in place? ⚠",
+            "cells": [
+              "R12"
+            ]
+          },
+          {
+            "sheet": "habitatCreation",
+            "reference": "T003",
+            "message": "Check details- Delay in starting habitat in required condition? ⚠",
+            "cells": [
+              "R13"
             ]
           }
         ]

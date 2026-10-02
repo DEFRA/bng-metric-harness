@@ -105,17 +105,21 @@ function verifyPair(baselineFile, piFile) {
   }
 }
 
+// Every layer keys its features by "Parcel Ref" except individual trees.
+const REF_COLUMNS = { "Urban Trees": "Tree Ref" };
+
 /**
  * The scenario's subject feature must have landed. A hedgerow or watercourse
  * subject depends on the rejection sampler drawing enough lines, so fail
  * loudly rather than ship a fixture that silently misses its case.
  */
 function verifySubject(piFile, subject) {
+  const refColumn = REF_COLUMNS[subject.layer] ?? "Parcel Ref";
   const db = openGeoPackageReadonly(piFile);
   try {
     const found = db
       .prepare(
-        `SELECT count(*) AS n FROM "${subject.layer}" WHERE "Parcel Ref" = ?`,
+        `SELECT count(*) AS n FROM "${subject.layer}" WHERE "${refColumn}" = ?`,
       )
       .get(subject.ref).n;
     if (found === 0) {
@@ -227,6 +231,7 @@ function generateScenario(scenario, context) {
 
   generateOne(piFile, centre, {
     numParcels: scenario.size ?? PERMUTATION_DEFAULT_SIZE,
+    numTrees: scenario.treeCount,
     emptyLayers: new Set(scenario.emptyLayers ?? []),
     attributeOverrides: scenario.overrides ?? {},
     seed: derivePermutationSeed(seed, scenario.id),
