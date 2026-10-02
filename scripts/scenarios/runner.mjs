@@ -44,6 +44,7 @@ import {
   workbookFromGeoPackage,
 } from "#workbook-writer";
 import { header, info, warn } from "../_lib.mjs";
+import { refColumnFor } from "../gpkg-columns.mjs";
 import { readScenarioManifest } from "./manifest.mjs";
 import { loadEngine } from "./engine.mjs";
 import { meetsNetGain, priceHabitats } from "./engine-units.mjs";
@@ -105,16 +106,13 @@ function verifyPair(baselineFile, piFile) {
   }
 }
 
-// Every layer keys its features by "Parcel Ref" except individual trees.
-const REF_COLUMNS = { "Urban Trees": "Tree Ref" };
-
 /**
  * The scenario's subject feature must have landed. A hedgerow or watercourse
  * subject depends on the rejection sampler drawing enough lines, so fail
  * loudly rather than ship a fixture that silently misses its case.
  */
 function verifySubject(piFile, subject) {
-  const refColumn = REF_COLUMNS[subject.layer] ?? "Parcel Ref";
+  const refColumn = refColumnFor(subject.layer);
   const db = openGeoPackageReadonly(piFile);
   try {
     const found = db
