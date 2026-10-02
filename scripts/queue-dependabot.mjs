@@ -9,7 +9,15 @@
 //   npm run queue-deps -- --dry-run
 //   npm run queue-deps -- backend          # one repo only (name substring)
 
-import { color, error, header, info, runCapture, warn } from "./_lib.mjs";
+import {
+  color,
+  error,
+  header,
+  info,
+  mapInSequence,
+  runCapture,
+  warn,
+} from "./_lib.mjs";
 
 const OWNER = "DEFRA";
 const GITHUB_REPOS = [
@@ -133,7 +141,8 @@ async function processRepo(repo, dryRun) {
   if (prs.length === 0) {
     info("  no open Dependabot PRs");
   }
-  for (const pr of prs) {
+  // One PR at a time, so they join the merge queue in the order listed.
+  await mapInSequence(prs, async (pr) => {
     const reason = skipReason(pr);
     if (reason) {
       info(`  skipping #${pr.number} ${pr.title} — ${reason}`);
@@ -141,7 +150,7 @@ async function processRepo(repo, dryRun) {
     } else {
       counts[await enqueue(pr, dryRun)] += 1;
     }
-  }
+  });
   return counts;
 }
 
@@ -179,12 +188,14 @@ async function main() {
   }
   await ensureGhReady();
 
-  const totals = { enqueued: 0, failed: 0 };
-  for (const repo of repos) {
-    const { enqueued, failed } = await processRepo(repo, dryRun);
-    totals.enqueued += enqueued;
-    totals.failed += failed;
-  }
+  // One repo at a time, so each one's log reads together under its heading.
+  const perRepo = await mapInSequence(repos, (repo) =>
+    processRepo(repo, dryRun),
+  );
+  const totals = {
+    enqueued: perRepo.reduce((sum, r) => sum + r.enqueued, 0),
+    failed: perRepo.reduce((sum, r) => sum + r.failed, 0),
+  };
 
   header("summary", "green");
   console.log(
