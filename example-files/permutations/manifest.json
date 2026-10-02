@@ -7697,6 +7697,12 @@
           "passed": true
         },
         {
+          "check": "created units in order",
+          "expected": "T002 > T001 > T003",
+          "actual": "T002 0.2560695823836, T001 0.2142863759052, T003 0.179320989483",
+          "passed": true
+        },
+        {
           "check": "valid data (no metric errors or rejected inputs)",
           "expected": "none",
           "actual": "none",
