@@ -44,6 +44,7 @@ import {
   workbookFromGeoPackage,
 } from "#workbook-writer";
 import { header, info, warn } from "../_lib.mjs";
+import { refColumnFor } from "../gpkg-columns.mjs";
 import { readScenarioManifest } from "./manifest.mjs";
 import { loadEngine } from "./engine.mjs";
 import { meetsNetGain, priceHabitats } from "./engine-units.mjs";
@@ -111,11 +112,12 @@ function verifyPair(baselineFile, piFile) {
  * loudly rather than ship a fixture that silently misses its case.
  */
 function verifySubject(piFile, subject) {
+  const refColumn = refColumnFor(subject.layer);
   const db = openGeoPackageReadonly(piFile);
   try {
     const found = db
       .prepare(
-        `SELECT count(*) AS n FROM "${subject.layer}" WHERE "Parcel Ref" = ?`,
+        `SELECT count(*) AS n FROM "${subject.layer}" WHERE "${refColumn}" = ?`,
       )
       .get(subject.ref).n;
     if (found === 0) {
@@ -227,6 +229,7 @@ function generateScenario(scenario, context) {
 
   generateOne(piFile, centre, {
     numParcels: scenario.size ?? PERMUTATION_DEFAULT_SIZE,
+    numTrees: scenario.treeCount,
     emptyLayers: new Set(scenario.emptyLayers ?? []),
     attributeOverrides: scenario.overrides ?? {},
     seed: derivePermutationSeed(seed, scenario.id),

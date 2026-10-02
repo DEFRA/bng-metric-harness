@@ -42,7 +42,7 @@ import {
   resolveTemplate,
 } from "../../../scripts/scenarios/template.mjs";
 
-const KNOWN_LAYERS = new Set(["habitats", "hedgerows", "rivers"]);
+const KNOWN_LAYERS = new Set(["habitats", "hedgerows", "rivers", "trees"]);
 const TEMPLATE = process.env.METRIC_TEMPLATE;
 const hasTemplate = Boolean(TEMPLATE) && existsSync(TEMPLATE);
 // A full catalogue of GeoPackages takes a few seconds.

@@ -25,6 +25,11 @@ import { readdirSync, existsSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { openGeoPackageReadonly } from "#gpkg-io";
+import {
+  COL_PARCEL_REF,
+  COL_TREE_REF,
+  LAYER_URBAN_TREES,
+} from "./gpkg-columns.mjs";
 
 const { values: args, positionals } = parseArgs({
   options: {
@@ -35,8 +40,6 @@ const { values: args, positionals } = parseArgs({
 
 // Column names duplicated across the four layer schemas — keep them as named
 // constants so any rename only happens in one place.
-const COL_PARCEL_REF = "Parcel Ref";
-const COL_TREE_REF = "Tree Ref";
 const COL_PROPOSED_CONDITION = "Proposed Condition";
 const COL_PROPOSED_STRATEGIC_SIG = "Proposed Strategic Significance";
 const COL_PROPOSED_DISTINCTIVENESS = "Proposed Distinctiveness";
@@ -76,7 +79,7 @@ const LAYERS = [
     ],
   },
   {
-    table: "Urban Trees",
+    table: LAYER_URBAN_TREES,
     refCol: COL_TREE_REF,
     proposedCols: [
       "Proposed Tree Size",
