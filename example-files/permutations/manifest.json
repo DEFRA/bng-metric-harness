@@ -7848,12 +7848,12 @@
       "id": "advance-delay-created-advance-difficulty",
       "purpose": "advance-delay",
       "title": "Created habitat — difficulty when created in advance",
-      "description": "Three parcels created in advance, each testing one of the metric's difficulty rules (BMD-1041). H001: Reservoirs, Moderate (5 years to target, 1 to Poor), 4 years in advance — short of the target, so Medium (×0.67); counting the advance twice gives Low. H002: the same with 5 years — the target is reached, so Low (×1). H003: Ponds (non-priority habitat), Good, 2 years in advance — exempt from the switch to enhancement difficulty, so it keeps its Low creation difficulty (×1); without the exemption it gets Medium (×0.67).",
-      "size": 3,
+      "description": "Six parcels created in advance, testing the metric's difficulty rules (BMD-1041). H001: Reservoirs, Moderate (5 years to target, 1 to Poor), 4 years in advance — short of the target, so Medium (×0.67); counting the advance twice gives Low. H002: the same with 5 years — the target is reached, so Low (×1). H003–H006: four of the habitats exempt from the switch to enhancement difficulty — Ponds (non-priority habitat), Ornamental lake or pond, Ruderal/Ephemeral and Tall forbs — each created to Good (5 years, 1 to Poor) 2 years in advance. Each keeps its Low creation difficulty (×1); without the exemption H003, H005 and H006 get Medium (×0.67) and H004 High (×0.33). The other two exempt habitats are left out: Traditional orchards is High distinctiveness, outside the service's scope, and Developed land; sealed surface has Low creation and enhancement difficulty, so the exemption changes nothing.",
+      "size": 6,
       "subject": {
         "layer": "Habitats",
         "ref": "H001",
-        "note": "H001 Medium (×0.67), H002 Low (×1), H003 Low (×1, exempt)"
+        "note": "H001 Medium (×0.67), H002 Low (×1), H003–H006 Low (×1, exempt)"
       },
       "files": {
         "baseline": "advance-delay/created-advance-difficulty-baseline.gpkg",
@@ -7875,10 +7875,10 @@
           "passed": true
         }
       ],
-      "workbookSource": "eea31195c60a55b64753f5dbf526b4804571768b6d20089b0b2396b99257254a",
+      "workbookSource": "2cfd992a8d20ada2b29bdb16e5fe102ace3eadfb5410ed578ce42b34bcba92cf",
       "inputRows": {
-        "habitatBaseline": 3,
-        "habitatCreation": 3,
+        "habitatBaseline": 6,
+        "habitatCreation": 6,
         "habitatEnhancement": 0,
         "hedgerowBaseline": 0,
         "hedgerowCreation": 0,
@@ -7892,22 +7892,22 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 213.550988798262,
+            "area": 213.550988798267,
             "hedgerow": 0,
             "watercourse": 0
           },
           "postInterventionUnits": {
-            "area": 430.342596330026,
+            "area": 350.842788537609,
             "hedgerow": 0,
             "watercourse": 0
           },
           "netUnitChange": {
-            "area": 216.791607531764,
+            "area": 137.291799739341,
             "hedgerow": 0,
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": 1.01517491795163,
+            "area": 0.642899386755052,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -7917,7 +7917,7 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 234.906087678088,
+            "area": 234.906087678094,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -7993,7 +7993,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 216.791607531764
+          "areaCumulativeSurplus": 137.291799739341
         },
         "sheetWarnings": [],
         "rowWarnings": [
@@ -8027,6 +8027,30 @@
             "message": "Check details - Is there evidence habitat creation started and the threshold for Poor condition reached? ⚠",
             "cells": [
               "R13"
+            ]
+          },
+          {
+            "sheet": "habitatCreation",
+            "reference": "H004",
+            "message": "Check details - Is there evidence habitat creation started and the threshold for Poor condition reached? ⚠",
+            "cells": [
+              "R14"
+            ]
+          },
+          {
+            "sheet": "habitatCreation",
+            "reference": "H005",
+            "message": "Check details - Is there evidence habitat creation started and the threshold for Poor condition reached? ⚠",
+            "cells": [
+              "R15"
+            ]
+          },
+          {
+            "sheet": "habitatCreation",
+            "reference": "H006",
+            "message": "Check details - Is there evidence habitat creation started and the threshold for Poor condition reached? ⚠",
+            "cells": [
+              "R16"
             ]
           }
         ]
