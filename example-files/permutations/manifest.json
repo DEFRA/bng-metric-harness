@@ -7845,6 +7845,194 @@
       }
     },
     {
+      "id": "advance-delay-created-advance-difficulty",
+      "purpose": "advance-delay",
+      "title": "Created habitat — difficulty when created in advance",
+      "description": "Three parcels created in advance, each testing one of the metric's difficulty rules (BMD-1041). H001: Reservoirs, Moderate (5 years to target, 1 to Poor), 4 years in advance — short of the target, so Medium (×0.67); counting the advance twice gives Low. H002: the same with 5 years — the target is reached, so Low (×1). H003: Ponds (non-priority habitat), Good, 2 years in advance — exempt from the switch to enhancement difficulty, so it keeps its Low creation difficulty (×1); without the exemption it gets Medium (×0.67).",
+      "size": 3,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "H001 Medium (×0.67), H002 Low (×1), H003 Low (×1, exempt)"
+      },
+      "files": {
+        "baseline": "advance-delay/created-advance-difficulty-baseline.gpkg",
+        "postIntervention": "advance-delay/created-advance-difficulty-post-intervention.gpkg",
+        "workbook": "advance-delay/created-advance-difficulty.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookSource": "eea31195c60a55b64753f5dbf526b4804571768b6d20089b0b2396b99257254a",
+      "inputRows": {
+        "habitatBaseline": 3,
+        "habitatCreation": 3,
+        "habitatEnhancement": 0,
+        "hedgerowBaseline": 0,
+        "hedgerowCreation": 0,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 0,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 0
+      },
+      "rejectedInputs": [],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 213.550988798262,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "postInterventionUnits": {
+            "area": 430.342596330026,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netUnitChange": {
+            "area": 216.791607531764,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netPercentChange": {
+            "area": 1.01517491795163,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netGainMessage": {
+            "area": null,
+            "hedgerow": null,
+            "watercourse": null
+          },
+          "unitsRequired": {
+            "area": 234.906087678088,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "unitDeficit": {
+            "area": 0,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "Yes ✓",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": 216.791607531764
+        },
+        "sheetWarnings": [],
+        "rowWarnings": [
+          {
+            "sheet": "habitatCreation",
+            "reference": "H001",
+            "message": "Check details - Is there evidence habitat creation started and the threshold for Poor condition reached? ⚠",
+            "cells": [
+              "R11"
+            ]
+          },
+          {
+            "sheet": "habitatCreation",
+            "reference": "H002",
+            "message": "Check details - Is there evidence that habitat has reached target condition? ⚠",
+            "cells": [
+              "R12"
+            ]
+          },
+          {
+            "sheet": "habitatCreation",
+            "reference": "H002",
+            "message": "Low Difficulty - only applicable if all habitat created before losses ⚠",
+            "cells": [
+              "V12"
+            ]
+          },
+          {
+            "sheet": "habitatCreation",
+            "reference": "H003",
+            "message": "Check details - Is there evidence habitat creation started and the threshold for Poor condition reached? ⚠",
+            "cells": [
+              "R13"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "id": "data-complete",
       "purpose": "data-completeness",
       "title": "Complete post-intervention data",
