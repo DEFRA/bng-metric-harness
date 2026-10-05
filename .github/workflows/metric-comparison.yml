@@ -1,0 +1,197 @@
+name: Metric comparison
+
+# Compares the service with the Statutory Biodiversity Metric, figure by
+# figure, for every committed scenario (npm run compare:metric, BMD-1036).
+#
+# The answer depends on two things only: the backend commit (its upload
+# pipeline, and the bng-library engine it pins) and the harness inputs (the
+# scenarios, the comparison scripts and the comparator bng-library this repo
+# pins). The frontend plays no part, and a bng-library commit only reaches
+# the comparison once the backend bumps its pin, which is a backend commit.
+#
+# - Pull requests always compare, against the backend branch of the same name
+#   if there is one, otherwise the backend's main.
+# - On main (each merge, and every weekday morning to pick up backend merges)
+#   it compares only when the backend's main or the harness inputs have
+#   changed since the last comparison. Each comparison that ran to the end is
+#   recorded in the Actions cache under a key made of both; a key already
+#   there means the same inputs have been compared, so the run stops there.
+#   The cache drops a key unused for 7 days, which costs one extra comparison.
+# - Run it by hand (workflow_dispatch) with "force" to compare regardless.
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 6 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Compare even if nothing has changed since the last comparison
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# A newer push to a pull request supersedes the comparison in flight; on main,
+# runs queue instead, so each one's record is written.
+concurrency:
+  group: metric-comparison-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  BACKEND_URL: https://github.com/DEFRA/bng-metric-backend.git
+
+jobs:
+  changes:
+    name: Check for changes since the last comparison
+    runs-on: ubuntu-latest
+    outputs:
+      backend-ref: ${{ steps.backend.outputs.ref }}
+      backend-sha: ${{ steps.backend.outputs.sha }}
+      key: ${{ steps.key.outputs.key }}
+      compare: ${{ steps.decide.outputs.compare }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # Resolved to a commit here, and the compare job checks out that commit,
+      # so a backend merge landing mid-run cannot make the record name a
+      # commit other than the one compared.
+      - name: Resolve the backend commit
+        id: backend
+        env:
+          PR_BRANCH: ${{ github.head_ref }}
+        run: |
+          ref=main
+          if [ -n "$PR_BRANCH" ] && git ls-remote --exit-code --heads "$BACKEND_URL" "$PR_BRANCH" > /dev/null; then
+            ref="$PR_BRANCH"
+          fi
+          sha=$(git ls-remote --exit-code "$BACKEND_URL" "refs/heads/$ref" | cut -f1)
+          echo "bng-metric-backend@$ref is $sha"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      # Everything in the harness the comparison reads. A change anywhere else
+      # in the harness (the docs, other scripts) cannot change its answer.
+      - name: Key the comparison by its inputs
+        id: key
+        env:
+          BACKEND_SHA: ${{ steps.backend.outputs.sha }}
+          INPUTS_HASH: ${{ hashFiles('example-files/permutations/**', 'scripts/compare-metric.mjs', 'scripts/_lib.mjs', 'scripts/metric-comparison/**', 'package.json', 'package-lock.json', '.nvmrc', '.github/workflows/metric-comparison.yml') }}
+        run: |
+          key="metric-comparison-backend-$BACKEND_SHA-harness-$INPUTS_HASH"
+          echo "Comparison key: $key"
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+
+      - name: Look for a comparison of the same inputs
+        id: previous
+        if: github.event_name != 'pull_request' && !inputs.force
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: metric-comparison/report.json
+          key: ${{ steps.key.outputs.key }}
+          lookup-only: true
+
+      - name: Decide whether to compare
+        id: decide
+        env:
+          BACKEND_REF: ${{ steps.backend.outputs.ref }}
+          BACKEND_SHA: ${{ steps.backend.outputs.sha }}
+          ALREADY_COMPARED: ${{ steps.previous.outputs.cache-hit }}
+        run: |
+          if [ "$ALREADY_COMPARED" = "true" ]; then
+            echo "compare=false" >> "$GITHUB_OUTPUT"
+            message="Nothing has changed since the last comparison (bng-metric-backend@$BACKEND_REF ${BACKEND_SHA:0:7}, harness $GITHUB_SHA), so the comparison was skipped. Run this workflow by hand with **force** to compare anyway."
+          else
+            echo "compare=true" >> "$GITHUB_OUTPUT"
+            message="Comparing bng-metric-backend@$BACKEND_REF ${BACKEND_SHA:0:7} with the scenarios at harness $GITHUB_SHA."
+          fi
+          echo "$message"
+          echo "$message" >> "$GITHUB_STEP_SUMMARY"
+
+  # It fails the workflow on any difference from the metric that nothing
+  # known explains (scripts/metric-comparison/unexplained.mjs), as well as on
+  # a clone, install or import that fails.
+  compare:
+    name: Compare the service with the metric
+    needs: changes
+    if: needs.changes.outputs.compare == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      # The metric comparison runs the backend's upload pipeline in process,
+      # so it needs the backend checked out beside the harness, where a
+      # developer has it, and installed.
+      - name: Check out the backend beside the harness
+        env:
+          BACKEND_REF: ${{ needs.changes.outputs.backend-ref }}
+          BACKEND_SHA: ${{ needs.changes.outputs.backend-sha }}
+        run: |
+          backend="$GITHUB_WORKSPACE/../bng-metric-backend"
+          echo "Metric comparison runs bng-metric-backend@$BACKEND_REF ($BACKEND_SHA)"
+          git init --quiet "$backend"
+          cd "$backend"
+          git fetch --quiet --depth 1 "$BACKEND_URL" "$BACKEND_SHA"
+          git checkout --quiet FETCH_HEAD
+          # As the backend's own CI does: min-release-age collides with the
+          # git-dependency prepare step npm runs for bng-library
+          # (npm/cli#9005), and npm ci installs exact locked versions anyway.
+          sed -i '/^min-release-age=/d' .npmrc
+          npm ci
+
+      # Every committed scenario is imported through the backend's upload
+      # pipeline and compared, figure by figure, with the Statutory
+      # Biodiversity Metric's own answers. An unexplained difference fails the
+      # job, after the reports are written. A summary goes on the job summary,
+      # leading with any unexplained differences; the full report (report.html
+      # and report.xlsx) is in the artifact.
+      - name: Compare the service with the metric
+        id: compare-metric
+        run: npm run compare:metric -- --fail-on-unexplained
+
+      - name: Publish the metric comparison summary
+        if: ${{ !cancelled() && steps.compare-metric.outcome != 'skipped' }}
+        run: |
+          if [ -f metric-comparison/summary.md ]; then
+            cat metric-comparison/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload the metric comparison report
+        if: ${{ !cancelled() && steps.compare-metric.outcome != 'skipped' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: metric-comparison
+          path: metric-comparison/
+          if-no-files-found: warn
+
+      # Recorded whether or not it found an unexplained difference, so a
+      # regression fails one run per change rather than every morning. Not
+      # recorded when the comparison never finished (report.json is written
+      # only once every scenario has been compared), so a failed clone or
+      # install is retried on the next run.
+      - name: Record the comparison of these inputs
+        if: ${{ !cancelled() && github.event_name != 'pull_request' && hashFiles('metric-comparison/report.json') != '' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: metric-comparison/report.json
+          key: ${{ needs.changes.outputs.key }}
