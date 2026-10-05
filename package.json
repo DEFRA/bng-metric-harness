@@ -68,7 +68,7 @@
     "remark-stringify": "^11.0.0",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.0.0",
-    "vitest": "^5.0.2",
+    "vitest": "^5.0.3",
     "xlsx": "^0.18.5"
   },
   "overrides": {
