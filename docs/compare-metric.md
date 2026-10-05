@@ -156,21 +156,15 @@ does can skip the Sonar scan in `check-pull-request.yml`.
   either is merged. Otherwise, it's the backend's `main`. The summary goes on
   the job summary. The full report (`report.html` and `report.xlsx`) goes in
   the `metric-comparison` artifact.
-- **On `main`, only when something it reads has changed.** The workflow runs
-  on each harness merge and every weekday at 06:00 UTC, and first works out
-  what a comparison would read:
-  - the backend's `main` commit. That covers the engine too: the backend pins
-    bng-library to a commit, so a library change reaches the service, and the
-    comparison, only when the backend bumps the pin.
-  - a hash of the harness files the comparison reads: the scenarios
-    (`example-files/permutations/`), the comparison scripts, the lockfile
-    (which pins the comparator) and the workflow itself.
-
-  It compares only if that pair has not been compared before, so a backend
-  merge is in the next morning's report, and a run with nothing new (or a
-  harness merge that touches only the docs) stops after a few seconds and says
-  so on its job summary. The frontend plays no part in the comparison, so it
-  is not watched.
+- **On `main`, only when one of its two commits is new.** The workflow runs
+  on each harness merge and every weekday at 06:00 UTC, and compares only if
+  the pair of commits it would compare, the backend's `main` and the
+  harness's, has not been compared before. A harness merge always compares,
+  its commit being new; a backend merge is in the next morning's report; a
+  morning with nothing new stops after a few seconds and says so on its job
+  summary. Nothing else is watched: the backend commit covers the engine,
+  since the backend pins bng-library to a commit and a library change reaches
+  the service only when that pin moves, and the frontend plays no part.
 - Each comparison that ran to the end is recorded in the Actions cache, keyed
   by that pair, whether it passed or not: a regression fails one run, not
   every morning until it is fixed. A comparison that never finished (a failed

@@ -3,20 +3,22 @@ name: Metric comparison
 # Compares the service with the Statutory Biodiversity Metric, figure by
 # figure, for every committed scenario (npm run compare:metric, BMD-1036).
 #
-# The answer depends on two things only: the backend commit (its upload
-# pipeline, and the bng-library engine it pins) and the harness inputs (the
-# scenarios, the comparison scripts and the comparator bng-library this repo
-# pins). The frontend plays no part, and a bng-library commit only reaches
-# the comparison once the backend bumps its pin, which is a backend commit.
+# The answer depends on two commits only: the backend's (its upload pipeline,
+# and the bng-library engine it pins) and the harness's (the scenarios, the
+# comparison scripts and the comparator bng-library this repo pins). The
+# frontend plays no part, and a bng-library commit only reaches the
+# comparison once the backend bumps its pin, which is a backend commit.
 #
 # - Pull requests always compare, against the backend branch of the same name
 #   if there is one, otherwise the backend's main.
 # - On main (each merge, and every weekday morning to pick up backend merges)
-#   it compares only when the backend's main or the harness inputs have
-#   changed since the last comparison. Each comparison that ran to the end is
-#   recorded in the Actions cache under a key made of both; a key already
-#   there means the same inputs have been compared, so the run stops there.
-#   The cache drops a key unused for 7 days, which costs one extra comparison.
+#   it compares only when that pair of commits has not been compared before.
+#   Each comparison that ran to the end is recorded in the Actions cache under
+#   a key made of both commits; a key already there means the same pair has
+#   been compared, so the run stops there. A merge here always compares, its
+#   commit being new; the schedule compares only when the backend's main has
+#   moved. The cache drops a key unused for 7 days, which costs one extra
+#   comparison.
 # - Only those automatic runs ever skip, and only on their first attempt.
 #   Anything a person starts compares: a run by hand (workflow_dispatch), or a
 #   re-run of any run, whether "Re-run all jobs" or "Re-run failed jobs".
@@ -79,15 +81,15 @@ jobs:
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
-      # Everything in the harness the comparison reads. A change anywhere else
-      # in the harness (the docs, other scripts) cannot change its answer.
-      - name: Key the comparison by its inputs
+      # The two commits are the whole input: nothing is hand-listed, so a
+      # merge here that touches only the docs costs one comparison rather than
+      # a list that can fall behind what the comparison reads.
+      - name: Key the comparison by the two commits
         id: key
         env:
           BACKEND_SHA: ${{ steps.backend.outputs.sha }}
-          INPUTS_HASH: ${{ hashFiles('example-files/permutations/**', 'scripts/compare-metric.mjs', 'scripts/_lib.mjs', 'scripts/metric-comparison/**', 'package.json', 'package-lock.json', '.nvmrc', '.github/workflows/metric-comparison.yml') }}
         run: |
-          key="metric-comparison-backend-$BACKEND_SHA-harness-$INPUTS_HASH"
+          key="metric-comparison-backend-$BACKEND_SHA-harness-$GITHUB_SHA"
           echo "Comparison key: $key"
           echo "key=$key" >> "$GITHUB_OUTPUT"
 
@@ -112,10 +114,10 @@ jobs:
         run: |
           if [ "$ALREADY_COMPARED" = "true" ]; then
             echo "compare=false" >> "$GITHUB_OUTPUT"
-            message="Nothing has changed since the last comparison (bng-metric-backend@$BACKEND_REF ${BACKEND_SHA:0:7}, harness $GITHUB_SHA), so the comparison was skipped. Run this workflow by hand, or re-run this run, to compare anyway."
+            message="bng-metric-backend@$BACKEND_REF ${BACKEND_SHA:0:7} and harness ${GITHUB_SHA:0:7} have been compared already, so the comparison was skipped. Run this workflow by hand, or re-run this run, to compare anyway."
           else
             echo "compare=true" >> "$GITHUB_OUTPUT"
-            message="Comparing bng-metric-backend@$BACKEND_REF ${BACKEND_SHA:0:7} with the scenarios at harness $GITHUB_SHA."
+            message="Comparing bng-metric-backend@$BACKEND_REF ${BACKEND_SHA:0:7} with the scenarios at harness ${GITHUB_SHA:0:7}."
           fi
           echo "$message"
           echo "$message" >> "$GITHUB_STEP_SUMMARY"
