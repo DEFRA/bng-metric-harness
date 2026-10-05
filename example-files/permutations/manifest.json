@@ -8063,6 +8063,327 @@
       }
     },
     {
+      "id": "advance-delay-thirty-plus",
+      "purpose": "advance-delay",
+      "title": "\"30+\" years to target condition — no advance, advance and delay",
+      "description": "Every kind of feature the metric gives a \"30+\" standard time to target condition (more than 30 years), each with no advance or delay, 5 years in advance and 5 years' delay (BMD-1040). H001–H003: Other woodland; broadleaved created to Good. H004–H006: Other coniferous woodland enhanced from Moderate to Good. HG001–HG003: Line of trees created to Good. T001–T003: identical urban trees planted to Good; T004: a rural tree enhanced from Poor to Good. With no advance the final time to target is \"30+\" (×0.3197967361); a service that reads \"30+\" as 30 uses ×0.3434151104 and over-counts by 7.4%. With 5 years in advance the metric counts down from 30, to 25. With a delay it stays \"30+\".",
+      "size": 6,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "no advance → \"30+\", 5 years in advance → 25, 5 years' delay → \"30+\""
+      },
+      "files": {
+        "baseline": "advance-delay/thirty-plus-baseline.gpkg",
+        "postIntervention": "advance-delay/thirty-plus-post-intervention.gpkg",
+        "workbook": "advance-delay/thirty-plus.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "created units in order",
+          "expected": "T002 > T001",
+          "actual": "T002 0.3767259309498, T001 0.2935734037398",
+          "passed": true
+        },
+        {
+          "check": "created units equal",
+          "expected": "T001 = T003",
+          "actual": "T001 0.2935734037398, T003 0.2935734037398",
+          "passed": true
+        },
+        {
+          "check": "created time to target on H001",
+          "expected": "30+ (×0.3197967361)",
+          "actual": "30+ (×0.3197967361)",
+          "passed": true
+        },
+        {
+          "check": "created time to target on H003",
+          "expected": "30+ (×0.3197967361)",
+          "actual": "30+ (×0.3197967361)",
+          "passed": true
+        },
+        {
+          "check": "created time to target on HG001",
+          "expected": "30+ (×0.3197967361)",
+          "actual": "30+ (×0.3197967361)",
+          "passed": true
+        },
+        {
+          "check": "created time to target on HG003",
+          "expected": "30+ (×0.3197967361)",
+          "actual": "30+ (×0.3197967361)",
+          "passed": true
+        },
+        {
+          "check": "created time to target on T001",
+          "expected": "30+ (×0.3197967361)",
+          "actual": "30+ (×0.3197967361)",
+          "passed": true
+        },
+        {
+          "check": "created time to target on T003",
+          "expected": "30+ (×0.3197967361)",
+          "actual": "30+ (×0.3197967361)",
+          "passed": true
+        },
+        {
+          "check": "created time to target on H002",
+          "expected": "25 (×0.4103768311)",
+          "actual": "25 (×0.4103768311)",
+          "passed": true
+        },
+        {
+          "check": "created time to target on HG002",
+          "expected": "25 (×0.4103768311)",
+          "actual": "25 (×0.4103768311)",
+          "passed": true
+        },
+        {
+          "check": "created time to target on T002",
+          "expected": "25 (×0.4103768311)",
+          "actual": "25 (×0.4103768311)",
+          "passed": true
+        },
+        {
+          "check": "enhanced time to target on H004",
+          "expected": "30+ (×0.3197967361)",
+          "actual": "30+ (×0.3197967361)",
+          "passed": true
+        },
+        {
+          "check": "enhanced time to target on H006",
+          "expected": "30+ (×0.3197967361)",
+          "actual": "30+ (×0.3197967361)",
+          "passed": true
+        },
+        {
+          "check": "enhanced time to target on T004",
+          "expected": "30+ (×0.3197967361)",
+          "actual": "30+ (×0.3197967361)",
+          "passed": true
+        },
+        {
+          "check": "enhanced time to target on H005",
+          "expected": "25 (×0.4103768311)",
+          "actual": "25 (×0.4103768311)",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookSource": "d121c041bd8e963b72ab702dd498e1f626238f47248d03f7c69c9a5bd1e26a1a",
+      "inputRows": {
+        "habitatBaseline": 7,
+        "habitatCreation": 6,
+        "habitatEnhancement": 4,
+        "hedgerowBaseline": 0,
+        "hedgerowCreation": 3,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 0,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 0
+      },
+      "rejectedInputs": [],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 250.062871187918,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "postInterventionUnits": {
+            "area": 278.41654954377,
+            "hedgerow": 2.39551325985338,
+            "watercourse": 0
+          },
+          "netUnitChange": {
+            "area": 28.3536783558517,
+            "hedgerow": 2.39551325985338,
+            "watercourse": 0
+          },
+          "netPercentChange": {
+            "area": 0.113386198523428,
+            "hedgerow": "N/A",
+            "watercourse": 0
+          },
+          "netGainMessage": {
+            "area": null,
+            "hedgerow": "Zero baseline units - % cannot be calculated",
+            "watercourse": null
+          },
+          "unitsRequired": {
+            "area": 275.06915830671,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "unitDeficit": {
+            "area": 0,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "Yes ✓",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": 28.3536783558517
+        },
+        "sheetWarnings": [
+          {
+            "sheet": "habitatEnhancement",
+            "cell": "AD2",
+            "message": "Note; Habitat selected has a time to target condition greater than 30 years. Non standard agreement may be required ⚠"
+          },
+          {
+            "sheet": "hedgerowCreation",
+            "cell": "M3",
+            "message": "Note; Habitat selected has a time to target condition greater than 30 years. Non standard agreement may be required. ⚠"
+          }
+        ],
+        "rowWarnings": [
+          {
+            "sheet": "habitatCreation",
+            "reference": "H002",
+            "message": "Check details - Is there evidence habitat creation started and the threshold for Poor condition reached? ⚠",
+            "cells": [
+              "R12"
+            ]
+          },
+          {
+            "sheet": "habitatCreation",
+            "reference": "H003",
+            "message": "Check details- Delay in starting habitat in required condition? ⚠",
+            "cells": [
+              "R13"
+            ]
+          },
+          {
+            "sheet": "habitatCreation",
+            "reference": "T002",
+            "message": "Check details - Is there evidence habitat creation in place? ⚠",
+            "cells": [
+              "R15"
+            ]
+          },
+          {
+            "sheet": "habitatCreation",
+            "reference": "T003",
+            "message": "Check details- Delay in starting habitat in required condition? ⚠",
+            "cells": [
+              "R16"
+            ]
+          },
+          {
+            "sheet": "habitatEnhancement",
+            "reference": "H005",
+            "message": "Check details - Is there evidence habitat creation started/in place? ⚠",
+            "cells": [
+              "AG13"
+            ]
+          },
+          {
+            "sheet": "habitatEnhancement",
+            "reference": "H006",
+            "message": "Check details- Delay in starting habitat in required condition? ⚠",
+            "cells": [
+              "AG14"
+            ]
+          },
+          {
+            "sheet": "hedgerowCreation",
+            "reference": "HG002",
+            "message": "Check details - Is there evidence habitat creation started/in place? ⚠",
+            "cells": [
+              "P13"
+            ]
+          },
+          {
+            "sheet": "hedgerowCreation",
+            "reference": "HG003",
+            "message": "Check details- Delay in starting habitat in required condition? ⚠",
+            "cells": [
+              "P14"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "id": "data-complete",
       "purpose": "data-completeness",
       "title": "Complete post-intervention data",
