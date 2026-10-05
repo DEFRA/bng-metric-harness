@@ -352,8 +352,8 @@ and `--no-recalc` skip it.
 ### Scenario expectations
 
 The `invalid-interventions` and `trading-rules` scenarios isolate their subject
-feature by generating the other layers empty. They also declare what the
-metric should make of it:
+feature by generating the other layers empty. They, and the `advance-delay`
+scenarios, also declare what the metric should make of it:
 
 | Field | Meaning |
 | --- | --- |
@@ -361,6 +361,9 @@ metric should make of it:
 | `expectMetricWarnings` | Text of warnings the metric must raise on the subject feature; `invalid-` scenarios only |
 | `expectTrading` | Each distinctiveness band's trading-rule verdict, `met` or `breached`, per habitat type |
 | `expectRejectedInputs` | Subject inputs the workbook must not accept, as `sheet.field`; `invalid-` scenarios only |
+| `expectUnitOrder` | Features whose units at one stage must fall strictly in the order listed |
+| `expectUnitsEqual` | Features whose units at one stage must all be the same |
+| `expectTimeToTarget` | The final time to target condition (years, or `"30+"`) and its multiplier the metric must give each created or enhanced feature listed |
 
 If a check fails, the command exits non-zero. A scenario that no longer
 demonstrates what it claims to is caught before anyone compares a service run

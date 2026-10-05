@@ -8093,6 +8093,90 @@
           "passed": true
         },
         {
+          "check": "created units equal",
+          "expected": "T001 = T003",
+          "actual": "T001 0.2935734037398, T003 0.2935734037398",
+          "passed": true
+        },
+        {
+          "check": "created time to target on H001",
+          "expected": "30+ (×0.3197967361)",
+          "actual": "30+ (×0.3197967361)",
+          "passed": true
+        },
+        {
+          "check": "created time to target on H003",
+          "expected": "30+ (×0.3197967361)",
+          "actual": "30+ (×0.3197967361)",
+          "passed": true
+        },
+        {
+          "check": "created time to target on HG001",
+          "expected": "30+ (×0.3197967361)",
+          "actual": "30+ (×0.3197967361)",
+          "passed": true
+        },
+        {
+          "check": "created time to target on HG003",
+          "expected": "30+ (×0.3197967361)",
+          "actual": "30+ (×0.3197967361)",
+          "passed": true
+        },
+        {
+          "check": "created time to target on T001",
+          "expected": "30+ (×0.3197967361)",
+          "actual": "30+ (×0.3197967361)",
+          "passed": true
+        },
+        {
+          "check": "created time to target on T003",
+          "expected": "30+ (×0.3197967361)",
+          "actual": "30+ (×0.3197967361)",
+          "passed": true
+        },
+        {
+          "check": "created time to target on H002",
+          "expected": "25 (×0.4103768311)",
+          "actual": "25 (×0.4103768311)",
+          "passed": true
+        },
+        {
+          "check": "created time to target on HG002",
+          "expected": "25 (×0.4103768311)",
+          "actual": "25 (×0.4103768311)",
+          "passed": true
+        },
+        {
+          "check": "created time to target on T002",
+          "expected": "25 (×0.4103768311)",
+          "actual": "25 (×0.4103768311)",
+          "passed": true
+        },
+        {
+          "check": "enhanced time to target on H004",
+          "expected": "30+ (×0.3197967361)",
+          "actual": "30+ (×0.3197967361)",
+          "passed": true
+        },
+        {
+          "check": "enhanced time to target on H006",
+          "expected": "30+ (×0.3197967361)",
+          "actual": "30+ (×0.3197967361)",
+          "passed": true
+        },
+        {
+          "check": "enhanced time to target on T004",
+          "expected": "30+ (×0.3197967361)",
+          "actual": "30+ (×0.3197967361)",
+          "passed": true
+        },
+        {
+          "check": "enhanced time to target on H005",
+          "expected": "25 (×0.4103768311)",
+          "actual": "25 (×0.4103768311)",
+          "passed": true
+        },
+        {
           "check": "valid data (no metric errors or rejected inputs)",
           "expected": "none",
           "actual": "none",
