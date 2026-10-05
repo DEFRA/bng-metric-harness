@@ -17,7 +17,9 @@ name: Metric comparison
 #   recorded in the Actions cache under a key made of both; a key already
 #   there means the same inputs have been compared, so the run stops there.
 #   The cache drops a key unused for 7 days, which costs one extra comparison.
-# - Run it by hand (workflow_dispatch) with "force" to compare regardless.
+# - Only those automatic runs ever skip, and only on their first attempt.
+#   Anything a person starts compares: a run by hand (workflow_dispatch), or a
+#   re-run of any run, whether "Re-run all jobs" or "Re-run failed jobs".
 
 on:
   pull_request:
@@ -34,11 +36,6 @@ on:
   schedule:
     - cron: '0 6 * * 1-5'
   workflow_dispatch:
-    inputs:
-      force:
-        description: Compare even if nothing has changed since the last comparison
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -94,9 +91,12 @@ jobs:
           echo "Comparison key: $key"
           echo "key=$key" >> "$GITHUB_OUTPUT"
 
+      # Skipping is allowed, not the default: only an automatic run (a merge
+      # or the schedule) on its first attempt looks for a previous comparison.
+      # A pull request, a run by hand and every re-run always compare.
       - name: Look for a comparison of the same inputs
         id: previous
-        if: github.event_name != 'pull_request' && !inputs.force
+        if: (github.event_name == 'push' || github.event_name == 'schedule') && github.run_attempt == '1'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: metric-comparison/report.json
@@ -112,7 +112,7 @@ jobs:
         run: |
           if [ "$ALREADY_COMPARED" = "true" ]; then
             echo "compare=false" >> "$GITHUB_OUTPUT"
-            message="Nothing has changed since the last comparison (bng-metric-backend@$BACKEND_REF ${BACKEND_SHA:0:7}, harness $GITHUB_SHA), so the comparison was skipped. Run this workflow by hand with **force** to compare anyway."
+            message="Nothing has changed since the last comparison (bng-metric-backend@$BACKEND_REF ${BACKEND_SHA:0:7}, harness $GITHUB_SHA), so the comparison was skipped. Run this workflow by hand, or re-run this run, to compare anyway."
           else
             echo "compare=true" >> "$GITHUB_OUTPUT"
             message="Comparing bng-metric-backend@$BACKEND_REF ${BACKEND_SHA:0:7} with the scenarios at harness $GITHUB_SHA."

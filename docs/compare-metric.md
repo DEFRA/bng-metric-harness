@@ -176,9 +176,11 @@ does can skip the Sonar scan in `check-pull-request.yml`.
   every morning until it is fixed. A comparison that never finished (a failed
   clone or install) is not recorded, so the next run tries again. The cache
   forgets a key unused for 7 days, which costs one extra comparison.
-- **By hand**, run the workflow from the Actions tab with **force** to compare
-  even if nothing has changed. To see a backend branch's report, run it
-  locally with `BNG_BACKEND_DIR`, or open a harness pull request from a
+- **Anything a person starts always compares.** Only an automatic run (a
+  merge or the schedule) on its first attempt can skip. Running the workflow
+  by hand from the Actions tab, or re-running any run ("Re-run all jobs" or
+  "Re-run failed jobs"), always compares. To see a backend branch's report,
+  run it locally with `BNG_BACKEND_DIR`, or open a harness pull request from a
   branch of the same name.
 - An unexplained difference fails the job, and so the workflow; so does a
   comparison that cannot run (a failed clone or install, or a backend that
