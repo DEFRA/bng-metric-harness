@@ -80,7 +80,7 @@ flowchart LR
     corpus["example-files/permutations<br>GeoPackage pairs + workbooks<br>saved with their answers"]
     import["importGeoPackagePair<br>the backend's upload pipeline,<br>in process"]
     cli["npm run compare:metric<br>report.html / .xlsx / .md / .json"]
-    ci["CI: pull requests, and main<br>when an input changes<br>job summary + artifact"]
+    ci["CI: pull requests, and main<br>when a commit changes, with the<br>engine pinned and at library main"]
   end
   subgraph library[bng-library]
     reader["workbook-writer<br>readMetricResults: headline,<br>per-feature units, trading figures"]
@@ -155,27 +155,43 @@ does can skip the Sonar scan in `check-pull-request.yml`.
   scenario change here and a backend change can be tested together before
   either is merged. Otherwise, it's the backend's `main`. The summary goes on
   the job summary. The full report (`report.html` and `report.xlsx`) goes in
-  the `metric-comparison` artifact.
-- **On `main`, only when one of its two commits is new.** The workflow runs
-  on each harness merge and every weekday at 06:00 UTC, and compares only if
-  the pair of commits it would compare, the backend's `main` and the
-  harness's, has not been compared before. A harness merge always compares,
-  its commit being new; a backend merge is in the next morning's report; a
+  the `metric-comparison-library-pinned` artifact (`-main` for the other
+  leg, below).
+- **On `main`, with the engine tried twice.** The backend pins bng-library
+  to a commit, so a library change reaches the service, and the comparison,
+  only when that pin moves. So on `main` the comparison runs as two legs, one
+  job each, named by the engine they use:
+  - **library pinned**: the engine at the backend's pin, which is what the
+    service deploys. A failure is a regression in the service.
+  - **library main**: the same backend with the engine swapped, in its
+    `node_modules`, for bng-library's `main` (`npm install --no-save`, so
+    the backend's lockfile is untouched). A failure is a library change that
+    would regress the service when the backend next repins, caught before it
+    does. Pull requests don't run this leg: a library change the backend
+    hasn't adopted shouldn't block a change here.
+
+  The harness's own bng-library pin, the comparator and workbook reader, is
+  the measuring instrument and stays as it is on both legs. The frontend
+  plays no part, so it isn't watched.
+- **Only when one of its commits is new.** The workflow runs on each harness
+  merge and every weekday at 06:00 UTC, and each leg compares only if the
+  commits it would compare (the backend's `main`, the harness's and, for the
+  main leg, the library's `main`) have not been compared before. A harness
+  merge always compares both legs, its commit being new; a backend merge is
+  in the next morning's report, as is a library merge on the main leg; a
   morning with nothing new stops after a few seconds and says so on its job
-  summary. Nothing else is watched: the backend commit covers the engine,
-  since the backend pins bng-library to a commit and a library change reaches
-  the service only when that pin moves, and the frontend plays no part.
+  summary.
 - Each comparison that ran to the end is recorded in the Actions cache, keyed
-  by that pair, whether it passed or not: a regression fails one run, not
+  by its commits, whether it passed or not: a regression fails one run, not
   every morning until it is fixed. A comparison that never finished (a failed
   clone or install) is not recorded, so the next run tries again. The cache
   forgets a key unused for 7 days, which costs one extra comparison.
 - **Anything a person starts always compares.** Only an automatic run (a
   merge or the schedule) on its first attempt can skip. Running the workflow
   by hand from the Actions tab, or re-running any run ("Re-run all jobs" or
-  "Re-run failed jobs"), always compares. To see a backend branch's report,
-  run it locally with `BNG_BACKEND_DIR`, or open a harness pull request from a
-  branch of the same name.
+  "Re-run failed jobs"), always compares both legs. To see a backend
+  branch's report, run it locally with `BNG_BACKEND_DIR`, or open a harness
+  pull request from a branch of the same name.
 - An unexplained difference fails the job, and so the workflow; so does a
   comparison that cannot run (a failed clone or install, or a backend that
   predates its exports). The Sonar scan is in another workflow and still runs.
