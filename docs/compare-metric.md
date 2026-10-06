@@ -174,16 +174,17 @@ does can skip the Sonar scan in `check-pull-request.yml`.
   the measuring instrument and stays as it is on both legs. The frontend
   plays no part, so it isn't watched.
 - **Only when one of its commits is new.** The workflow runs on each harness
-  merge and every weekday at 06:00 UTC, and each leg compares only if the
+  merge and three times each weekday (06:17, 12:17 and 15:17 UTC), and each
+  leg compares only if the
   commits it would compare (the backend's `main`, the harness's and, for the
   main leg, the library's `main`) have not been compared before. A harness
   merge always compares both legs, its commit being new; a backend merge is
-  in the next morning's report, as is a library merge on the main leg; a
-  morning with nothing new stops after a few seconds and says so on its job
+  in the next scheduled run's report, as is a library merge on the main leg;
+  a run with nothing new stops after a few seconds and says so on its job
   summary.
 - Each comparison that ran to the end is recorded in the Actions cache, keyed
   by its commits, whether it passed or not: a regression fails one run, not
-  every morning until it is fixed. A comparison that never finished (a failed
+  on every run until it is fixed. A comparison that never finished (a failed
   clone or install) is not recorded, so the next run tries again. The cache
   forgets a key unused for 7 days, which costs one extra comparison.
 - **Anything a person starts always compares.** Only an automatic run (a

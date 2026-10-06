@@ -21,7 +21,7 @@ name: Metric comparison
 # - Pull requests compare the pinned engine only, against the backend branch
 #   of the same name if there is one, otherwise the backend's main. A library
 #   change the backend has not adopted should not block a change here.
-# - On main (each merge, and every weekday morning to pick up backend and
+# - On main (each merge, and three times each weekday to pick up backend and
 #   library merges) each leg compares only when the commits it would compare
 #   have not been compared before. Each comparison that ran to the end is
 #   recorded in the Actions cache under a key made of its commits; a key
@@ -47,8 +47,11 @@ on:
   push:
     branches:
       - main
+  # Weekday mornings, midday and mid-afternoon (UTC), to pick up backend and
+  # library merges within a few hours. Off the hour, since GitHub's schedule
+  # queue is busiest at :00 and runs there are delayed or dropped.
   schedule:
-    - cron: '0 6 * * 1-5'
+    - cron: '17 6,12,15 * * 1-5'
   workflow_dispatch:
 
 permissions:
@@ -271,7 +274,7 @@ jobs:
           if-no-files-found: warn
 
       # Recorded whether or not it found an unexplained difference, so a
-      # regression fails one run per change rather than every morning. Not
+      # regression fails one run per change rather than on every run. Not
       # recorded when the comparison never finished (report.json is written
       # only once every scenario has been compared), so a failed clone or
       # install is retried on the next run.
