@@ -75,8 +75,8 @@ describe("renderDifferences", () => {
     ]).split("\n");
 
     expect(lines[0]).toMatch(/^Differences from the metric/);
-    expect(lines[1]).toBe("  a/differs (discrepancies)");
-    expect(cells(lines[2])).toEqual([
+    expect(lines[2]).toBe("  a/differs (discrepancies)");
+    expect(cells(lines[3])).toEqual([
       "Figure",
       "Module",
       "Metric",
@@ -85,10 +85,10 @@ describe("renderDifferences", () => {
       "Unit",
       "Explained by",
     ]);
-    expect(lines[3]).toMatch(
+    expect(lines[4]).toMatch(
       /^ {6}\| -+ \| -+ \| -+ \| -+ \| -+ \| -+ \| -+ \|$/,
     );
-    expect(cells(lines[4])).toEqual([
+    expect(cells(lines[5])).toEqual([
       "H1 baseline units",
       "area",
       "1.1500",
@@ -97,7 +97,7 @@ describe("renderDifferences", () => {
       "habitat units",
       "Strategic significance not applied",
     ]);
-    expect(cells(lines[5])).toEqual([
+    expect(cells(lines[6])).toEqual([
       "Net change (%)",
       "area",
       "9.3000",
@@ -116,7 +116,7 @@ describe("renderDifferences", () => {
         { ...featureUnits("H1"), label: "A much longer figure label" },
       ]),
     ]).split("\n");
-    const [, , shortHeader, , shortRow, , longHeader, , longRow] = lines;
+    const [, , , shortHeader, , shortRow, , , longHeader, , longRow] = lines;
 
     expect(shortHeader).toBe(longHeader);
     expect(shortRow.length).toBe(longRow.length);
@@ -140,8 +140,8 @@ describe("renderDifferences", () => {
       result("a/derived", OUTCOME.discrepancies, [h1, baselineTotal]),
     ]).split("\n");
 
-    expect(cells(lines[4]).at(-1)).toBe("Strategic significance not applied");
-    expect(cells(lines[5]).at(-1)).toBe("From the features above");
+    expect(cells(lines[5]).at(-1)).toBe("Strategic significance not applied");
+    expect(cells(lines[6]).at(-1)).toBe("From the features above");
   });
 
   it("keys each explanation the tables use, with a sentence, and no other", () => {
@@ -174,10 +174,10 @@ describe("renderDifferences", () => {
       result("invalid/accepted", OUTCOME.acceptedInvalid, [verdict]),
     ]).split("\n");
 
-    expect(lines[1]).toBe(
+    expect(lines[2]).toBe(
       "  invalid/accepted (accepted-invalid): The service does not refuse this yet.",
     );
-    expect(cells(lines[4])).toEqual([
+    expect(cells(lines[5])).toEqual([
       "Trading rules",
       "area",
       "Met",
@@ -196,6 +196,6 @@ describe("renderDifferences", () => {
       ]),
     ]).split("\n");
 
-    expect(cells(lines[4]).slice(2, 5)).toEqual(["—", "1.0000", ""]);
+    expect(cells(lines[5]).slice(2, 5)).toEqual(["—", "1.0000", ""]);
   });
 });

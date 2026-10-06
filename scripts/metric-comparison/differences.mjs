@@ -203,6 +203,7 @@ export function renderDifferences(
   return [
     `Differences from the metric (${UNEXPLAINED_MARK} = no known explanation):`,
     ...tables.flatMap((t) => [
+      "",
       t.heading,
       ...(t.rows.length > 0 ? renderTable(t.rows, widths) : []),
     ]),
