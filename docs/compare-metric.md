@@ -80,7 +80,7 @@ flowchart LR
     corpus["example-files/permutations<br>GeoPackage pairs + workbooks<br>saved with their answers"]
     import["importGeoPackagePair<br>the backend's upload pipeline,<br>in process"]
     cli["npm run compare:metric<br>report.html / .xlsx / .md / .json"]
-    ci["CI: pull requests, and main on<br>each merge and thrice a weekday, with<br>the engine pinned and at library main"]
+    ci["CI: pull requests; main on each merge,<br>thrice a weekday and on each backend<br>publish, with the engine pinned and<br>at library main"]
   end
   subgraph library[bng-library]
     reader["workbook-writer<br>readMetricResults: headline,<br>per-feature units, trading figures"]
@@ -174,12 +174,20 @@ does can skip the Sonar scan in `check-pull-request.yml`.
   the measuring instrument and stays as it is on both legs. The frontend
   plays no part, so it isn't watched.
 - **Whenever it runs.** The workflow runs on each harness merge, three times
-  each weekday (07:17, 12:17 and 15:17 UTC) to pick up backend and library
-  merges within a few hours, and by hand from the Actions tab. The comparison
-  takes seconds, so it runs every time, whether or not anything has changed;
-  each job's summary names the backend commit and engine it compared. To see
-  a backend branch's report, run it locally with `BNG_BACKEND_DIR`, or open a
+  each weekday (07:17, 12:17 and 15:17 UTC) to pick up library merges within
+  a few hours, and by hand from the Actions tab. The comparison takes
+  seconds, so it runs every time, whether or not anything has changed; each
+  job's summary names the backend commit and engine it compared. To see a
+  backend branch's report, run it locally with `BNG_BACKEND_DIR`, or open a
   harness pull request from a branch of the same name.
+- **Straight after a backend publish.** The backend's own
+  `metric-comparison.yml` calls this workflow (`workflow_call`) on each push
+  to its `main`, passing the pushed commit, so a regression is seen with the
+  publish rather than on the next scheduled run. Both legs run. That run,
+  with its summary and report artifact, is in the backend's Actions tab, not
+  this repo's. The backend is public and so is this repo, so the call needs
+  no token. When called, the workflow checks this repo out at `main` by
+  name, since a called workflow's checkout, ref and sha are the caller's.
 - An unexplained difference fails the job, and so the workflow; so does a
   comparison that cannot run (a failed clone or install, or a backend that
   predates its exports). The Sonar scan is in another workflow and still runs.

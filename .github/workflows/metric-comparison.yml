@@ -25,6 +25,13 @@ name: Metric comparison
 #   up backend and library merges. The comparison takes seconds, so it runs
 #   every time whether or not anything has changed.
 # - By hand (workflow_dispatch): both legs.
+# - Called from the backend (workflow_call): the backend's own
+#   metric-comparison.yml calls this workflow on each push to its main, with
+#   the pushed commit, so a regression is seen straight after a publish
+#   rather than on the next scheduled run. That run, with its summary and
+#   report, is in the backend's Actions tab. The run's ref, sha and event are
+#   then the backend's, so the harness is checked out by name (at its main)
+#   and its commit read from that checkout, not from the run.
 
 on:
   pull_request:
@@ -44,6 +51,17 @@ on:
   schedule:
     - cron: '17 7,12,15 * * 1-5'
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      backend-sha:
+        description: The bng-metric-backend commit to compare, as a full sha
+        required: true
+        type: string
+      backend-ref:
+        description: What to call that commit in the summary (a branch name, say)
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -77,8 +95,14 @@ jobs:
         library: ${{ fromJSON(github.event_name == 'pull_request' && '["pinned"]' || '["pinned", "main"]') }}
     runs-on: ubuntu-latest
     steps:
+      # Named, since a called workflow's checkout defaults to the caller's
+      # repo. For the harness's own runs this is the triggering repo and
+      # checks out the event's ref as before; for a call from the backend it
+      # is another repo and so checks out its default branch, main.
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          repository: DEFRA/bng-metric-harness
 
       - name: Setup Node
         uses: actions/setup-node@v7.0.0
@@ -93,17 +117,25 @@ jobs:
       # first and that commit checked out, so the job summary names exactly
       # what was compared even if a merge lands mid-run. The branch is looked
       # up by its full ref: a bare name is a glob on the tail of a ref, so
-      # "fix" would match a backend branch "alice/fix" as well.
+      # "fix" would match a backend branch "alice/fix" as well. A caller
+      # names the commit instead, and nothing is resolved.
       - name: Check out the backend beside the harness
         id: backend
         env:
           PR_BRANCH: ${{ github.head_ref }}
+          INPUT_SHA: ${{ inputs.backend-sha }}
+          INPUT_REF: ${{ inputs.backend-ref }}
         run: |
-          ref=main
-          if [ -n "$PR_BRANCH" ] && git ls-remote --exit-code "$BACKEND_URL" "refs/heads/$PR_BRANCH" > /dev/null; then
-            ref="$PR_BRANCH"
+          if [ -n "$INPUT_SHA" ]; then
+            sha="$INPUT_SHA"
+            ref="${INPUT_REF:-$INPUT_SHA}"
+          else
+            ref=main
+            if [ -n "$PR_BRANCH" ] && git ls-remote --exit-code "$BACKEND_URL" "refs/heads/$PR_BRANCH" > /dev/null; then
+              ref="$PR_BRANCH"
+            fi
+            sha=$(git ls-remote --exit-code "$BACKEND_URL" "refs/heads/$ref" | cut -f1)
           fi
-          sha=$(git ls-remote --exit-code "$BACKEND_URL" "refs/heads/$ref" | cut -f1)
           if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
             echo "Could not resolve bng-metric-backend@$ref to a single commit: '$sha'"
             exit 1
@@ -147,8 +179,11 @@ jobs:
         run: |
           engine=$(node -p "require('./node_modules/.package-lock.json').packages['node_modules/bng-library'].resolved")
           echo "Engine: $engine"
+          # From the checkout, not the run: when the backend calls this
+          # workflow the run's sha is the backend's.
+          harness=$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)
           {
-            echo "Compared bng-metric-backend@$BACKEND_REF \`${BACKEND_SHA:0:7}\` with the scenarios at harness \`${GITHUB_SHA:0:7}\`."
+            echo "Compared bng-metric-backend@$BACKEND_REF \`${BACKEND_SHA:0:7}\` with the scenarios at harness \`${harness:0:7}\`."
             echo ""
             echo "Engine (library $LIBRARY): \`$engine\`"
             echo ""
