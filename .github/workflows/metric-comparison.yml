@@ -51,7 +51,7 @@ on:
   # library merges within a few hours. Off the hour, since GitHub's schedule
   # queue is busiest at :00 and runs there are delayed or dropped.
   schedule:
-    - cron: '17 6,12,15 * * 1-5'
+    - cron: '17 7,12,15 * * 1-5'
   workflow_dispatch:
 
 permissions:

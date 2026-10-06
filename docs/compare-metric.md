@@ -174,7 +174,7 @@ does can skip the Sonar scan in `check-pull-request.yml`.
   the measuring instrument and stays as it is on both legs. The frontend
   plays no part, so it isn't watched.
 - **Only when one of its commits is new.** The workflow runs on each harness
-  merge and three times each weekday (06:17, 12:17 and 15:17 UTC), and each
+  merge and three times each weekday (07:17, 12:17 and 15:17 UTC), and each
   leg compares only if the
   commits it would compare (the backend's `main`, the harness's and, for the
   main leg, the library's `main`) have not been compared before. A harness
