@@ -80,7 +80,7 @@ flowchart LR
     corpus["example-files/permutations<br>GeoPackage pairs + workbooks<br>saved with their answers"]
     import["importGeoPackagePair<br>the backend's upload pipeline,<br>in process"]
     cli["npm run compare:metric<br>report.html / .xlsx / .md / .json"]
-    ci["CI: pull requests, and main<br>when a commit changes, with the<br>engine pinned and at library main"]
+    ci["CI: pull requests, and main on<br>each merge and thrice a weekday, with<br>the engine pinned and at library main"]
   end
   subgraph library[bng-library]
     reader["workbook-writer<br>readMetricResults: headline,<br>per-feature units, trading figures"]
@@ -173,26 +173,13 @@ does can skip the Sonar scan in `check-pull-request.yml`.
   The harness's own bng-library pin, the comparator and workbook reader, is
   the measuring instrument and stays as it is on both legs. The frontend
   plays no part, so it isn't watched.
-- **Only when one of its commits is new.** The workflow runs on each harness
-  merge and three times each weekday (07:17, 12:17 and 15:17 UTC), and each
-  leg compares only if the
-  commits it would compare (the backend's `main`, the harness's and, for the
-  main leg, the library's `main`) have not been compared before. A harness
-  merge always compares both legs, its commit being new; a backend merge is
-  in the next scheduled run's report, as is a library merge on the main leg;
-  a run with nothing new stops after a few seconds and says so on its job
-  summary.
-- Each comparison that ran to the end is recorded in the Actions cache, keyed
-  by its commits, whether it passed or not: a regression fails one run, not
-  on every run until it is fixed. A comparison that never finished (a failed
-  clone or install) is not recorded, so the next run tries again. The cache
-  forgets a key unused for 7 days, which costs one extra comparison.
-- **Anything a person starts always compares.** Only an automatic run (a
-  merge or the schedule) on its first attempt can skip. Running the workflow
-  by hand from the Actions tab, or re-running any run ("Re-run all jobs" or
-  "Re-run failed jobs"), always compares both legs. To see a backend
-  branch's report, run it locally with `BNG_BACKEND_DIR`, or open a harness
-  pull request from a branch of the same name.
+- **Whenever it runs.** The workflow runs on each harness merge, three times
+  each weekday (07:17, 12:17 and 15:17 UTC) to pick up backend and library
+  merges within a few hours, and by hand from the Actions tab. The comparison
+  takes seconds, so it runs every time, whether or not anything has changed;
+  each job's summary names the backend commit and engine it compared. To see
+  a backend branch's report, run it locally with `BNG_BACKEND_DIR`, or open a
+  harness pull request from a branch of the same name.
 - An unexplained difference fails the job, and so the workflow; so does a
   comparison that cannot run (a failed clone or install, or a backend that
   predates its exports). The Sonar scan is in another workflow and still runs.
