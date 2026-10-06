@@ -68,9 +68,15 @@ on:
 permissions:
   contents: read
 
-# A newer push to a pull request supersedes the comparison in flight.
+# A newer push to a pull request supersedes the comparison in flight, so a
+# pull request's group is its ref. Everything else is grouped by commit, so
+# that every merge and every backend publish is compared: a group holds one
+# running and one pending run, and a newer pending run replaces the older
+# whatever cancel-in-progress says, so merges or a schedule landing in quick
+# succession on main would otherwise drop a commit's comparison. When the
+# backend calls this workflow, both are the backend's.
 concurrency:
-  group: metric-comparison-${{ github.ref }}
+  group: metric-comparison-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
