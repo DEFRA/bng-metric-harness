@@ -20,9 +20,14 @@ const UNEXPLAINED_MARK = "✗";
 const NO_VALUE = "—";
 const NO_EXPLANATION = `${UNEXPLAINED_MARK} no known explanation`;
 /** The scenario holds invalid data the service accepts; the heading says why. */
-const INVALID_DATA = "Invalid data; see the scenario's gap";
-/** A derived figure that moves by what its features' differences account for. */
-const FOLLOWS_FROM_FEATURES = "Follows from the feature differences";
+const INVALID_DATA = "Invalid data";
+/**
+ * A figure derived from the feature rows above it (a total, the net change
+ * percentage and verdict, a trading figure) that moves by exactly what those
+ * rows' differences add up to. Nothing is wrong with the figure itself: fix
+ * the feature rows' cause and it follows.
+ */
+const FOLLOWS_FROM_FEATURES = "From the features above";
 const SCENARIO_INDENT = "  ";
 const TABLE_INDENT = "      ";
 
@@ -65,8 +70,8 @@ function difference(d) {
 /**
  * What explains a figure: ✗ when nothing does; the scenario's validation gap
  * when its data is invalid; a feature's causes; else, for a figure derived
- * from the features, the feature differences it follows from (see
- * unexplained.mjs for what that means).
+ * from the features, that it follows from them (unexplained.mjs checks it
+ * moves by exactly what they account for).
  */
 function explanation(d, { unexplained, invalidData }) {
   if (unexplained) {

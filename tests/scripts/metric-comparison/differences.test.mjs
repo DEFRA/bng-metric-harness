@@ -141,7 +141,7 @@ describe("renderDifferences", () => {
     ]).split("\n");
 
     expect(cells(lines[4]).at(-1)).toBe("Strategic significance not applied");
-    expect(cells(lines[5]).at(-1)).toBe("Follows from the feature differences");
+    expect(cells(lines[5]).at(-1)).toBe("From the features above");
   });
 
   it("marks a figure nothing explains, and a scenario the comparison fails", () => {
@@ -171,7 +171,7 @@ describe("renderDifferences", () => {
       "Not met",
       "",
       "Met / Not met",
-      "Invalid data; see the scenario's gap",
+      "Invalid data",
     ]);
     expect(lines.slice(1).some((line) => line.includes("✗"))).toBe(false);
   });
