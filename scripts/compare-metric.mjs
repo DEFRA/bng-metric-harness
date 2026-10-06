@@ -93,7 +93,6 @@ if (!existsSync(corpusDir)) {
   process.exit(1);
 }
 
-/** The backend commit under test, for the report. */
 /** The short commit checked out in `dir`, or "unknown" outside a checkout. */
 async function commitOf(dir) {
   const { code, stdout } = await runCapture(
