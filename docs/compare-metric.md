@@ -180,14 +180,17 @@ does can skip the Sonar scan in `check-pull-request.yml`.
   job's summary names the backend commit and engine it compared. To see a
   backend branch's report, run it locally with `BNG_BACKEND_DIR`, or open a
   harness pull request from a branch of the same name.
-- **Straight after a backend publish.** The backend's own
-  `metric-comparison.yml` calls this workflow (`workflow_call`) on each push
-  to its `main`, passing the pushed commit, so a regression is seen with the
-  publish rather than on the next scheduled run. Both legs run. That run,
-  with its summary and report artifact, is in the backend's Actions tab, not
-  this repo's. The backend is public and so is this repo, so the call needs
-  no token. When called, the workflow checks this repo out at `main` by
-  name, since a called workflow's checkout, ref and sha are the caller's.
+- **On each backend pull request, and again on its publish.** The backend's
+  own `metric-comparison.yml` calls this workflow (`workflow_call`) with the
+  commit to test: on each backend pull request, the branch's head, with the
+  pinned leg only, so a backend change is checked against the metric before
+  it is merged; and on each push to its `main`, the pushed commit, with both
+  legs, so a regression is seen with the publish rather than on the next
+  scheduled run. Those runs, with their summaries and report artifacts, are
+  in the backend's Actions tab, not this repo's. The backend is public and
+  so is this repo, so the call needs no token. When called, the workflow
+  checks this repo out at `main` by name, since a called workflow's
+  checkout, ref and sha are the caller's.
 - An unexplained difference fails the job, and so the workflow; so does a
   comparison that cannot run (a failed clone or install, or a backend that
   predates its exports). The Sonar scan is in another workflow and still runs.

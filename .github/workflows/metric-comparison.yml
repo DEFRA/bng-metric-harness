@@ -26,12 +26,14 @@ name: Metric comparison
 #   every time whether or not anything has changed.
 # - By hand (workflow_dispatch): both legs.
 # - Called from the backend (workflow_call): the backend's own
-#   metric-comparison.yml calls this workflow on each push to its main, with
-#   the pushed commit, so a regression is seen straight after a publish
-#   rather than on the next scheduled run. That run, with its summary and
-#   report, is in the backend's Actions tab. The run's ref, sha and event are
-#   then the backend's, so the harness is checked out by name (at its main)
-#   and its commit read from that checkout, not from the run.
+#   metric-comparison.yml calls this workflow with the commit to test, on
+#   each of its pull requests (pinned leg only, as for a pull request here)
+#   and on each push to its main (both legs), so a regression is seen on
+#   the backend change itself and again with the publish, rather than on
+#   the next scheduled run. That run, with its summary and report, is in the
+#   backend's Actions tab. The run's ref, sha and event are then the
+#   backend's, so the harness is checked out by name (at its main) and its
+#   commit read from that checkout, not from the run.
 
 on:
   pull_request:
