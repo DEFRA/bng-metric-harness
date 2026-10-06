@@ -21,6 +21,18 @@ const featureUnits = (ref, causes = []) => ({
   ...(causes.length > 0 ? { causes } : {}),
 });
 
+const percentage = {
+  key: "net-gain|area|percentage",
+  category: "net-gain",
+  module: "area",
+  label: "Net change (%)",
+  unit: "% of baseline units",
+  differenceUnit: "percentage points",
+  expected: 9.3,
+  actual: 17.5,
+  difference: 8.2,
+};
+
 const verdict = {
   key: "trading-status|area|overall",
   category: "trading-status",
@@ -41,23 +53,75 @@ const result = (id, outcome, discrepancies = []) => ({
 const render = (results) =>
   renderDifferences(results, findUnexplained(results, GAPS), GAPS);
 
+/** A table row's cells, trimmed, so a test need not care about the padding. */
+const cells = (line) =>
+  line
+    .trim()
+    .slice(1, -1)
+    .split("|")
+    .map((c) => c.trim());
+
 describe("renderDifferences", () => {
   it("renders nothing when every scenario matches", () => {
     expect(render([result("a/matched", OUTCOME.matched)])).toBe("");
   });
 
-  it("lists each figure that differs, with both values and the difference", () => {
+  it("tables each figure that differs: both values, the difference, the unit and the cause", () => {
     const lines = render([
       result("a/differs", OUTCOME.discrepancies, [
         featureUnits("H1", [CAUSES.strategicSignificance.id]),
+        percentage,
       ]),
     ]).split("\n");
 
     expect(lines[0]).toMatch(/^Differences from the metric/);
     expect(lines[1]).toBe("  a/differs (discrepancies)");
-    expect(lines[2]).toBe(
-      "      H1 baseline units [area]: metric 1.1500 habitat units → service 1.0000 habitat units (-0.1500 habitat units) — Strategic significance not applied",
+    expect(cells(lines[2])).toEqual([
+      "Figure",
+      "Module",
+      "Metric",
+      "Service",
+      "Difference",
+      "Unit",
+      "Explained by",
+    ]);
+    expect(lines[3]).toMatch(
+      /^ {6}\| -+ \| -+ \| -+ \| -+ \| -+ \| -+ \| -+ \|$/,
     );
+    expect(cells(lines[4])).toEqual([
+      "H1 baseline units",
+      "area",
+      "1.1500",
+      "1.0000",
+      "-0.1500",
+      "habitat units",
+      "Strategic significance not applied",
+    ]);
+    expect(cells(lines[5])).toEqual([
+      "Net change (%)",
+      "area",
+      "9.3000",
+      "17.5000",
+      "+8.2000 percentage points",
+      "% of baseline units",
+      // Without the metric's totals, nothing explains a percentage.
+      "✗ no known explanation",
+    ]);
+  });
+
+  it("pads every table to the same widths, with numbers aligned on the right", () => {
+    const lines = render([
+      result("a/short", OUTCOME.discrepancies, [featureUnits("H1")]),
+      result("a/long", OUTCOME.discrepancies, [
+        { ...featureUnits("H1"), label: "A much longer figure label" },
+      ]),
+    ]).split("\n");
+    const [, , shortHeader, , shortRow, , longHeader, , longRow] = lines;
+
+    expect(shortHeader).toBe(longHeader);
+    expect(shortRow.length).toBe(longRow.length);
+    expect(shortRow).toContain("| H1 baseline units          |");
+    expect(shortRow).toContain("| 1.1500 |");
   });
 
   it("marks a figure nothing explains, and a scenario the comparison fails", () => {
@@ -66,36 +130,39 @@ describe("renderDifferences", () => {
       result("a/refused", OUTCOME.rejected),
     ]);
 
-    expect(text).toContain(
-      "      H1 baseline units [area]: metric 1.1500 habitat units → service 1.0000 habitat units (-0.1500 habitat units) ✗ no known explanation",
-    );
+    expect(text).toContain("| ✗ no known explanation |");
     expect(text).toContain(
       "  ✗ a/refused (rejected): The service refused a scenario whose data is valid.",
     );
   });
 
   it("frames an accepted invalid scenario with the gap that explains it", () => {
-    const text = render([
+    const lines = render([
       result("invalid/accepted", OUTCOME.acceptedInvalid, [verdict]),
-    ]);
+    ]).split("\n");
 
-    expect(text).toContain(
+    expect(lines[1]).toBe(
       "  invalid/accepted (accepted-invalid): The service does not refuse this yet.",
     );
-    expect(text).toContain(
-      "      Trading rules [area]: metric Met → service Not met",
-    );
-    const [, ...lines] = text.split("\n");
-    expect(lines.some((line) => line.includes("✗"))).toBe(false);
+    expect(cells(lines[4])).toEqual([
+      "Trading rules",
+      "area",
+      "Met",
+      "Not met",
+      "",
+      "Met / Not met",
+      "",
+    ]);
+    expect(lines.slice(1).some((line) => line.includes("✗"))).toBe(false);
   });
 
   it("shows a value one side lacks as —", () => {
-    const text = render([
+    const lines = render([
       result("a/missing", OUTCOME.discrepancies, [
         { ...featureUnits("H1"), expected: null, difference: null },
       ]),
-    ]);
+    ]).split("\n");
 
-    expect(text).toContain("metric — → service 1.0000 habitat units ✗");
+    expect(cells(lines[4]).slice(2, 5)).toEqual(["—", "1.0000", ""]);
   });
 });

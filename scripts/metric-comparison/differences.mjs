@@ -3,10 +3,13 @@
  * a CI log shows what differed without opening the report.
  *
  * One block per scenario that differs, or that the comparison fails whatever
- * its figures (refused, crashed, or accepted invalid data no gap names), and
- * one line per figure: the metric's value, the service's, the difference
- * where both are numbers, and what explains it. A figure nothing explains is
- * marked ✗, as is a scenario; these are what --fail-on-unexplained fails on.
+ * its figures (refused, crashed, or accepted invalid data no gap names): a
+ * heading, then a padded, pipe-separated table with a row per figure, giving
+ * the metric's value, the service's, the difference where both are numbers,
+ * the unit, and what explains it. The columns are sized across every
+ * scenario, so the tables line up with each other. A figure nothing explains
+ * is marked ✗, as is a scenario; these are what --fail-on-unexplained fails
+ * on.
  */
 
 import { CAUSES_BY_ID, OUTCOME } from "#metric-compare";
@@ -15,49 +18,99 @@ import { VALIDATION_GAPS } from "./unexplained.mjs";
 const DECIMAL_PLACES = 4;
 const UNEXPLAINED_MARK = "✗";
 const NO_VALUE = "—";
+const NO_EXPLANATION = `${UNEXPLAINED_MARK} no known explanation`;
 const SCENARIO_INDENT = "  ";
-const FIGURE_INDENT = "      ";
+const TABLE_INDENT = "      ";
 
-/** A value to 4 decimal places with its unit; a verdict or marker as is. */
-function value(v, unit) {
+const HEADER = [
+  "Figure",
+  "Module",
+  "Metric",
+  "Service",
+  "Difference",
+  "Unit",
+  "Explained by",
+];
+/** The columns padded on the left, so their numbers line up at the point. */
+const NUMERIC_COLUMNS = new Set([2, 3, 4]);
+
+/** A value to 4 decimal places; a verdict or marker as is. */
+function value(v) {
   if (typeof v === "number") {
-    return `${v.toFixed(DECIMAL_PLACES)} ${unit}`;
+    return v.toFixed(DECIMAL_PLACES);
   }
   return v ?? NO_VALUE;
 }
 
-/** The service's value less the metric's, signed, when both are numbers. */
+/**
+ * The service's value less the metric's, signed, when both are numbers, with
+ * its unit when that differs from the figure's (percentage points, say).
+ */
 function difference(d) {
   if (typeof d.difference !== "number") {
     return "";
   }
   const sign = d.difference > 0 ? "+" : "";
-  const unit = d.differenceUnit ?? d.unit;
-  return ` (${sign}${d.difference.toFixed(DECIMAL_PLACES)} ${unit})`;
+  const unit =
+    d.differenceUnit && d.differenceUnit !== d.unit
+      ? ` ${d.differenceUnit}`
+      : "";
+  return `${sign}${d.difference.toFixed(DECIMAL_PLACES)}${unit}`;
 }
 
 /** What explains a figure: ✗ when nothing does, else its causes if any. */
 function explanation(d, unexplained) {
   if (unexplained) {
-    return ` ${UNEXPLAINED_MARK} no known explanation`;
+    return NO_EXPLANATION;
   }
   const titles = (d.causes ?? []).map((id) => CAUSES_BY_ID[id]?.title ?? id);
-  return titles.length > 0 ? ` — ${titles.join("; ")}` : "";
+  return titles.join("; ");
 }
 
-function figureLine(d, unexplained) {
-  const values = `metric ${value(d.expected, d.unit)} → service ${value(d.actual, d.unit)}`;
-  return `${FIGURE_INDENT}${d.label} [${d.module}]: ${values}${difference(d)}${explanation(d, unexplained)}`;
+function row(d, unexplained) {
+  return [
+    d.label,
+    d.module,
+    value(d.expected),
+    value(d.actual),
+    difference(d),
+    d.unit ?? "",
+    explanation(d, unexplained),
+  ];
 }
 
 /** The scenario's heading: its outcome, and the gap or problem that frames it. */
-function scenarioLine(result, problem, gap) {
+function heading(result, problem, gap) {
   if (problem) {
     return `${SCENARIO_INDENT}${UNEXPLAINED_MARK} ${result.id} (${result.outcome}): ${problem}`;
   }
   const suffix =
     result.outcome === OUTCOME.acceptedInvalid && gap ? `: ${gap}` : "";
   return `${SCENARIO_INDENT}${result.id} (${result.outcome})${suffix}`;
+}
+
+/** Column widths that fit the header and every row of every table. */
+function columnWidths(tables) {
+  const rows = [HEADER, ...tables.flatMap((t) => t.rows)];
+  return HEADER.map((_, i) => Math.max(...rows.map((r) => r[i].length)));
+}
+
+function renderRow(cells, widths) {
+  const padded = cells.map((cell, i) =>
+    NUMERIC_COLUMNS.has(i) ? cell.padStart(widths[i]) : cell.padEnd(widths[i]),
+  );
+  return `${TABLE_INDENT}| ${padded.join(" | ")} |`;
+}
+
+function renderTable(rows, widths) {
+  return [
+    renderRow(HEADER, widths),
+    renderRow(
+      widths.map((w) => "-".repeat(w)),
+      widths,
+    ),
+    ...rows.map((r) => renderRow(r, widths)),
+  ];
 }
 
 /**
@@ -76,23 +129,29 @@ export function renderDifferences(
   const unexplainedKeys = new Set(
     unexplained.discrepancies.map((d) => `${d.id}\n${d.key}`),
   );
-  const lines = [];
+  const tables = [];
   for (const result of results) {
     const discrepancies = result.discrepancies ?? [];
     const problem = problems.get(result.id);
     if (discrepancies.length === 0 && !problem) {
       continue;
     }
-    lines.push(scenarioLine(result, problem, validationGaps[result.id]));
-    for (const d of discrepancies) {
-      lines.push(figureLine(d, unexplainedKeys.has(`${result.id}\n${d.key}`)));
-    }
+    tables.push({
+      heading: heading(result, problem, validationGaps[result.id]),
+      rows: discrepancies.map((d) =>
+        row(d, unexplainedKeys.has(`${result.id}\n${d.key}`)),
+      ),
+    });
   }
-  if (lines.length === 0) {
+  if (tables.length === 0) {
     return "";
   }
+  const widths = columnWidths(tables);
   return [
     `Differences from the metric (${UNEXPLAINED_MARK} = no known explanation):`,
-    ...lines,
+    ...tables.flatMap((t) => [
+      t.heading,
+      ...(t.rows.length > 0 ? renderTable(t.rows, widths) : []),
+    ]),
   ].join("\n");
 }
