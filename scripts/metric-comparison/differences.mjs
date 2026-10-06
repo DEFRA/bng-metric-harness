@@ -72,7 +72,9 @@ const HEADER = [
   "Explained by",
 ];
 /** The columns padded on the left, so their numbers line up at the point. */
-const NUMERIC_COLUMNS = new Set([2, 3, 4]);
+const NUMERIC_COLUMNS = new Set(
+  ["Metric", "Service", "Difference"].map((name) => HEADER.indexOf(name)),
+);
 
 /** A value to 4 decimal places; a verdict or marker as is. */
 function value(v) {
