@@ -30,7 +30,7 @@ worktree of a backend branch, say). The report is written to
 **It singles out what nothing explains.** Every difference is reported, and
 the reports lead with the *unexplained* ones. With `--fail-on-unexplained`, an
 unexplained difference also makes the command exit non-zero, after the reports
-are written. CI does not pass that flag yet; see
+are written. CI passes that flag; see
 [What fails the build](#what-fails-the-build). A scenario the service throws an
 error on is reported too, as *Import failed in the service* with the error,
 and the run carries on with the rest: a crash in the service is a finding like
@@ -80,7 +80,7 @@ flowchart LR
     corpus["example-files/permutations<br>GeoPackage pairs + workbooks<br>saved with their answers"]
     import["importGeoPackagePair<br>the backend's upload pipeline,<br>in process"]
     cli["npm run compare:metric<br>report.html / .xlsx / .md / .json"]
-    ci["CI: pull requests and weekly<br>job summary + artifact"]
+    ci["CI: pull requests; main on each merge,<br>thrice a weekday and on each backend<br>publish, with the engine pinned and<br>at library main"]
   end
   subgraph library[bng-library]
     reader["workbook-writer<br>readMetricResults: headline,<br>per-feature units, trading figures"]
@@ -146,22 +146,54 @@ committed and the siblings checked out beside it, so the comparison lives here
 and imports the backend rather than the backend fetching the scenarios. The
 backend keeps only the few exports the import needs.
 
-- **Every pull request** here (`check-pull-request.yml`) checks the backend
-  out beside the harness, installs it, and runs `npm run compare:metric -- --fail-on-unexplained`, in a
-  job of its own beside the Sonar scan. A
+All of it is `metric-comparison.yml`, a workflow of its own, so nothing it
+does can skip the Sonar scan in `check-pull-request.yml`.
+
+- **Every pull request** here checks the backend out beside the harness,
+  installs it, and runs `npm run compare:metric -- --fail-on-unexplained`. A
   pull request whose branch also exists in the backend uses that branch, so a
   scenario change here and a backend change can be tested together before
   either is merged. Otherwise, it's the backend's `main`. The summary goes on
   the job summary. The full report (`report.html` and `report.xlsx`) goes in
-  the `metric-comparison` artifact.
-- **Every Monday** the same workflow's schedule re-runs it against the
-  backend's `main`, so a change that reached the service since is in that
-  week's report. A backend change does not trigger it; to see a backend
-  branch's report, run it locally with `BNG_BACKEND_DIR`, or open a harness
-  pull request from a branch of the same name.
+  the `metric-comparison-library-pinned` artifact (`-main` for the other
+  leg, below).
+- **On `main`, with the engine tried twice.** The backend pins bng-library
+  to a commit, so a library change reaches the service, and the comparison,
+  only when that pin moves. So on `main` the comparison runs as two legs, one
+  job each, named by the engine they use:
+  - **library pinned**: the engine at the backend's pin, which is what the
+    service deploys. A failure is a regression in the service.
+  - **library main**: the same backend with the engine swapped, in its
+    `node_modules`, for bng-library's `main` (`npm install --no-save`, so
+    the backend's lockfile is untouched). A failure is a library change that
+    would regress the service when the backend next repins, caught before it
+    does. Pull requests don't run this leg: a library change the backend
+    hasn't adopted shouldn't block a change here.
+
+  The harness's own bng-library pin, the comparator and workbook reader, is
+  the measuring instrument and stays as it is on both legs. The frontend
+  plays no part, so it isn't watched.
+- **Whenever it runs.** The workflow runs on each harness merge, three times
+  each weekday (07:17, 12:17 and 15:17 UTC) to pick up library merges within
+  a few hours, and by hand from the Actions tab. The comparison takes
+  seconds, so it runs every time, whether or not anything has changed; each
+  job's summary names the backend commit and engine it compared. To see a
+  backend branch's report, run it locally with `BNG_BACKEND_DIR`, or open a
+  harness pull request from a branch of the same name.
+- **On each backend pull request, and again on its publish.** The backend's
+  own `metric-comparison.yml` calls this workflow (`workflow_call`) with the
+  commit to test: on each backend pull request, the branch's head, with the
+  pinned leg only, so a backend change is checked against the metric before
+  it is merged; and on each push to its `main`, the pushed commit, with both
+  legs, so a regression is seen with the publish rather than on the next
+  scheduled run. Those runs, with their summaries and report artifacts, are
+  in the backend's Actions tab, not this repo's. The backend is public and
+  so is this repo, so the call needs no token. When called, the workflow
+  checks this repo out at `main` by name, since a called workflow's
+  checkout, ref and sha are the caller's.
 - An unexplained difference fails the job, and so the workflow; so does a
   comparison that cannot run (a failed clone or install, or a backend that
-  predates its exports). The Sonar scan is in a separate job and still runs.
+  predates its exports). The Sonar scan is in another workflow and still runs.
   Unexplained differences lead the job summary: see below.
 - `npm run test:scripts` checks that the comparison itself runs, and the rules
   for what is explained (`tests/scripts/metric-comparison/unexplained.test.mjs`).

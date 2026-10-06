@@ -1,0 +1,228 @@
+name: Metric comparison
+
+# Compares the service with the Statutory Biodiversity Metric, figure by
+# figure, for every committed scenario (npm run compare:metric, BMD-1036).
+#
+# The answer depends on three commits: the backend's (validation, sizing and
+# the enrichment that drives the engine and derives the trading-rule
+# statuses), the engine's in bng-library (the unit calculations, multipliers
+# and trading-rule arithmetic the backend imports from `bng-library/metric`)
+# and the harness's (the scenarios, the comparison scripts and the comparator
+# bng-library this repo pins). The frontend plays no part.
+#
+# The engine is tried twice, since the backend pins bng-library to a commit
+# and a library change reaches the service only when that pin moves:
+# - library "pinned": the engine at the backend's pin, which is what the
+#   service deploys. A failure is a regression in the service.
+# - library "main": the engine at bng-library's main, with everything else
+#   as pinned. A failure is a library change that would regress the service
+#   when the backend next repins, caught before it does.
+#
+# - Pull requests compare the pinned engine only, against the backend branch
+#   of the same name if there is one, otherwise the backend's main. A library
+#   change the backend has not adopted should not block a change here.
+# - On main, both legs: on each merge, and three times each weekday to pick
+#   up backend and library merges. The comparison takes seconds, so it runs
+#   every time whether or not anything has changed.
+# - By hand (workflow_dispatch): both legs.
+# - Called from the backend (workflow_call): the backend's own
+#   metric-comparison.yml calls this workflow with the commit to test, on
+#   each of its pull requests (pinned leg only, as for a pull request here)
+#   and on each push to its main (both legs), so a regression is seen on
+#   the backend change itself and again with the publish, rather than on
+#   the next scheduled run. That run, with its summary and report, is in the
+#   backend's Actions tab. The run's ref, sha and event are then the
+#   backend's, so the harness is checked out by name (at its main) and its
+#   commit read from that checkout, not from the run.
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+  push:
+    branches:
+      - main
+  # Weekday mornings, midday and mid-afternoon (UTC), to pick up backend and
+  # library merges within a few hours. Off the hour, since GitHub's schedule
+  # queue is busiest at :00 and runs there are delayed or dropped.
+  schedule:
+    - cron: '17 7,12,15 * * 1-5'
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      backend-sha:
+        description: The bng-metric-backend commit to compare, as a full sha
+        required: true
+        type: string
+      backend-ref:
+        description: What to call that commit in the summary (a branch name, say)
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+# A newer push to a pull request supersedes the comparison in flight, so a
+# pull request's group is its ref. Everything else is grouped by commit, so
+# that every merge and every backend publish is compared: a group holds one
+# running and one pending run, and a newer pending run replaces the older
+# whatever cancel-in-progress says, so merges or a schedule landing in quick
+# succession on main would otherwise drop a commit's comparison. When the
+# backend calls this workflow, both are the backend's.
+concurrency:
+  group: metric-comparison-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  BACKEND_URL: https://github.com/DEFRA/bng-metric-backend.git
+  LIBRARY_URL: https://github.com/DEFRA/bng-library.git
+
+# Explicit bash runs every step with -o pipefail as well as -e, so a
+# git ls-remote that finds nothing fails its step rather than handing an
+# empty commit to the cut after it.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # One job per leg. It fails the workflow on any difference from the metric
+  # that nothing known explains (scripts/metric-comparison/unexplained.mjs),
+  # as well as on a clone, install or import that fails.
+  compare:
+    name: Compare the service with the metric (library ${{ matrix.library }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # A pull request tries the pinned engine only; everything else both.
+        library: ${{ fromJSON(github.event_name == 'pull_request' && '["pinned"]' || '["pinned", "main"]') }}
+    runs-on: ubuntu-latest
+    env:
+      # Named once: the upload step gives it to the artifact and the
+      # comparison names it in the job summary.
+      METRIC_COMPARISON_ARTIFACT: metric-comparison-library-${{ matrix.library }}
+    steps:
+      # Named, since a called workflow's checkout defaults to the caller's
+      # repo. For the harness's own runs this is the triggering repo and
+      # checks out the event's ref as before; for a call from the backend it
+      # is another repo and so checks out its default branch, main.
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          repository: DEFRA/bng-metric-harness
+
+      - name: Setup Node
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      # The metric comparison runs the backend's upload pipeline in process,
+      # so it needs the backend checked out beside the harness, where a
+      # developer has it, and installed. The branch is resolved to a commit
+      # first and that commit checked out, so the job summary names exactly
+      # what was compared even if a merge lands mid-run. The branch is looked
+      # up by its full ref: a bare name is a glob on the tail of a ref, so
+      # "fix" would match a backend branch "alice/fix" as well. A caller
+      # names the commit instead, and nothing is resolved.
+      - name: Check out the backend beside the harness
+        id: backend
+        env:
+          PR_BRANCH: ${{ github.head_ref }}
+          INPUT_SHA: ${{ inputs.backend-sha }}
+          INPUT_REF: ${{ inputs.backend-ref }}
+        run: |
+          if [ -n "$INPUT_SHA" ]; then
+            sha="$INPUT_SHA"
+            ref="${INPUT_REF:-$INPUT_SHA}"
+          else
+            ref=main
+            if [ -n "$PR_BRANCH" ] && git ls-remote --exit-code "$BACKEND_URL" "refs/heads/$PR_BRANCH" > /dev/null; then
+              ref="$PR_BRANCH"
+            fi
+            sha=$(git ls-remote --exit-code "$BACKEND_URL" "refs/heads/$ref" | cut -f1)
+          fi
+          if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Could not resolve bng-metric-backend@$ref to a single commit: '$sha'"
+            exit 1
+          fi
+          echo "Metric comparison runs bng-metric-backend@$ref ($sha)"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          backend="$GITHUB_WORKSPACE/../bng-metric-backend"
+          git init --quiet "$backend"
+          cd "$backend"
+          git fetch --quiet --depth 1 "$BACKEND_URL" "$sha"
+          git checkout --quiet FETCH_HEAD
+          # As the backend's own CI does: min-release-age collides with the
+          # git-dependency prepare step npm runs for bng-library
+          # (npm/cli#9005), and npm ci installs exact locked versions anyway.
+          sed -i '/^min-release-age=/d' .npmrc
+          npm ci
+
+      # The main leg swaps the engine in the backend's node_modules for the
+      # library's main, leaving the backend's lockfile as it is. The library's
+      # postinstall already does nothing when it is installed as a dependency,
+      # and the backend's .npmrc ignores install scripts anyway.
+      - name: Swap the engine for the library's main
+        if: matrix.library == 'main'
+        working-directory: ../bng-metric-backend
+        run: |
+          sha=$(git ls-remote --exit-code "$LIBRARY_URL" refs/heads/main | cut -f1)
+          if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Could not resolve bng-library@main to a single commit: '$sha'"
+            exit 1
+          fi
+          echo "bng-library@main is $sha"
+          npm install --no-save "github:DEFRA/bng-library#$sha"
+
+      - name: Say what is under test
+        env:
+          BACKEND_REF: ${{ steps.backend.outputs.ref }}
+          BACKEND_SHA: ${{ steps.backend.outputs.sha }}
+          LIBRARY: ${{ matrix.library }}
+        working-directory: ../bng-metric-backend
+        run: |
+          engine=$(node -p "require('./node_modules/.package-lock.json').packages['node_modules/bng-library'].resolved")
+          echo "Engine: $engine"
+          # From the checkout, not the run: when the backend calls this
+          # workflow the run's sha is the backend's.
+          harness=$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)
+          {
+            echo "Compared bng-metric-backend@$BACKEND_REF \`${BACKEND_SHA:0:7}\` with the scenarios at harness \`${harness:0:7}\`."
+            echo ""
+            echo "Engine (library $LIBRARY): \`$engine\`"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Every committed scenario is imported through the backend's upload
+      # pipeline and compared, figure by figure, with the Statutory
+      # Biodiversity Metric's own answers. An unexplained difference fails the
+      # job, after the reports are written. The log lists every difference;
+      # a summary goes on the job summary, leading with any unexplained
+      # differences; the full report (report.html and report.xlsx) is in the
+      # artifact.
+      - name: Compare the service with the metric
+        id: compare-metric
+        run: npm run compare:metric -- --fail-on-unexplained
+
+      - name: Publish the metric comparison summary
+        if: ${{ !cancelled() && steps.compare-metric.outcome != 'skipped' }}
+        run: |
+          if [ -f metric-comparison/summary.md ]; then
+            cat metric-comparison/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload the metric comparison report
+        if: ${{ !cancelled() && steps.compare-metric.outcome != 'skipped' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ env.METRIC_COMPARISON_ARTIFACT }}
+          path: metric-comparison/
+          if-no-files-found: warn
