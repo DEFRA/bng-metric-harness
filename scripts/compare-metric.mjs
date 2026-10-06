@@ -94,13 +94,26 @@ if (!existsSync(corpusDir)) {
 }
 
 /** The backend commit under test, for the report. */
-async function backendCommit() {
+/** The short commit checked out in `dir`, or "unknown" outside a checkout. */
+async function commitOf(dir) {
   const { code, stdout } = await runCapture(
     "git",
     ["rev-parse", `--short=${SHORT_SHA_LENGTH}`, "HEAD"],
-    { cwd: backend },
+    { cwd: dir },
   );
   return code === 0 ? stdout.trim() : "unknown";
+}
+
+/**
+ * Where the summary should send its reader for the full report. In CI the
+ * workflow names the artifact it uploads the reports to, which differs per
+ * leg; elsewhere the reports are beside the summary.
+ */
+function fullReportLocation() {
+  const artifact = process.env.METRIC_COMPARISON_ARTIFACT;
+  return artifact
+    ? `in this job's \`${artifact}\` artifact`
+    : `beside it in \`${OUT_DIR}\``;
 }
 
 const onlySuffix = only.length ? ` (${only.join(", ")})` : "";
@@ -124,11 +137,11 @@ for (const workbook of unmatched) {
   warn(`skipped ${workbook}: no GeoPackage pair beside it`);
 }
 
-const harnessCommit = process.env.GITHUB_SHA?.slice(0, SHORT_SHA_LENGTH);
-const harnessSuffix = harnessCommit ? `, harness ${harnessCommit}` : "";
+// Both commits from their checkouts. Not the run's sha: when the backend
+// calls the workflow, that is the backend's.
 const context = [
   `Scenarios from ${corpusDir}.`,
-  `Generated ${new Date().toISOString()} for backend ${await backendCommit()}${harnessSuffix}.`,
+  `Generated ${new Date().toISOString()} for backend ${await commitOf(backend)}, harness ${await commitOf(HARNESS_ROOT)}.`,
 ];
 
 const unexplained = findUnexplained(results);
@@ -146,7 +159,7 @@ write(
   renderComparisonReport(results, {
     preamble: [
       ...context,
-      "The full report, with every discrepancy, is `report.html` (and `report.xlsx`) in the `metric-comparison` artifact.",
+      `The full report, with every discrepancy, is \`report.html\` (and \`report.xlsx\`) ${fullReportLocation()}.`,
       unexplainedReport,
     ].filter(Boolean),
     details: false,
