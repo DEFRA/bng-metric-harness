@@ -15,7 +15,9 @@
  * Writes, to metric-comparison/ in this repo, report.html (a short,
  * self-contained summary), report.xlsx (every difference at full precision,
  * one row each), report.md, summary.md (the report without each scenario's
- * detail, for a CI job summary) and report.json.
+ * detail, for a CI job summary) and report.json. The console gets each
+ * scenario's outcome as it runs, then every difference figure by figure, so
+ * a CI log shows what differed without opening the report.
  *
  * Every report leads with the differences nothing known explains (see
  * scripts/metric-comparison/unexplained.mjs). With --fail-on-unexplained, any
@@ -48,6 +50,7 @@ import {
   backendDir,
   isBackendInstalled,
 } from "./metric-comparison/backend.mjs";
+import { renderDifferences } from "./metric-comparison/differences.mjs";
 import {
   DEFAULT_CORPUS_DIR,
   runMetricComparison,
@@ -168,6 +171,12 @@ for (const r of failed) {
 const failedSuffix = failed.length
   ? `; the service failed to import ${failed.length}, so they were not compared`
   : "";
+// Every difference, figure by figure, so a CI log shows what differed
+// without opening the report.
+const differences = renderDifferences(results, unexplained);
+if (differences) {
+  console.log(`\n${differences}\n`);
+}
 console.log(
   `${differing} of ${results.length} scenarios differ from the metric${unreadableSuffix}${failedSuffix}. Reports → ${path.join(OUT_DIR, "report.html")} and report.xlsx`,
 );
