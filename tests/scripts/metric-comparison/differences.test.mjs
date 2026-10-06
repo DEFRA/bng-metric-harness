@@ -144,6 +144,19 @@ describe("renderDifferences", () => {
     expect(cells(lines[5]).at(-1)).toBe("From the features above");
   });
 
+  it("keys each explanation the tables use, with a sentence, and no other", () => {
+    const text = render([
+      result("a/derived", OUTCOME.discrepancies, [
+        featureUnits("H1", [CAUSES.strategicSignificance.id]),
+      ]),
+    ]);
+    const key = text.slice(text.indexOf("\nExplained by:\n"));
+
+    expect(key).toBe(
+      "\nExplained by:\n  Strategic significance not applied: The service priced the feature at a strategic significance multiplier of 1 where the metric applied 1.1 (location ecologically desirable) or 1.15 (formally identified in a local strategy).",
+    );
+  });
+
   it("marks a figure nothing explains, and a scenario the comparison fails", () => {
     const text = render([
       result("a/unexplained", OUTCOME.discrepancies, [featureUnits("H1")]),

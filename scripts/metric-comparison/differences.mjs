@@ -29,6 +29,37 @@ const INVALID_DATA = "Invalid data";
  */
 const FOLLOWS_FROM_FEATURES = "From the features above";
 const SCENARIO_INDENT = "  ";
+const KEY_INDENT = "  ";
+const EXPLANATION_SEPARATOR = "; ";
+
+/**
+ * One sentence on each explanation, for the key under the tables. A known
+ * cause's sentence is the first of bng-library's description of it, so the
+ * key cannot drift from the report.
+ */
+const EXPLANATION_MEANINGS = new Map([
+  [
+    NO_EXPLANATION,
+    "Nothing known explains this difference, so the comparison fails on it.",
+  ],
+  [
+    INVALID_DATA,
+    "The scenario holds invalid data the service accepts, so the metric's figures for it mean nothing; the heading names the check the service lacks.",
+  ],
+  [
+    FOLLOWS_FROM_FEATURES,
+    "The figure is off only because the feature rows above it are off, by the same amount, so there is nothing to fix in it.",
+  ],
+  ...Object.values(CAUSES_BY_ID).map((c) => [
+    c.title,
+    firstSentence(c.description),
+  ]),
+]);
+
+function firstSentence(text) {
+  const end = text.indexOf(". ");
+  return end === -1 ? text : text.slice(0, end + 1);
+}
 const TABLE_INDENT = "      ";
 
 const HEADER = [
@@ -81,7 +112,9 @@ function explanation(d, { unexplained, invalidData }) {
     return INVALID_DATA;
   }
   const titles = (d.causes ?? []).map((id) => CAUSES_BY_ID[id]?.title ?? id);
-  return titles.length > 0 ? titles.join("; ") : FOLLOWS_FROM_FEATURES;
+  return titles.length > 0
+    ? titles.join(EXPLANATION_SEPARATOR)
+    : FOLLOWS_FROM_FEATURES;
 }
 
 function row(d, status) {
@@ -173,5 +206,21 @@ export function renderDifferences(
       t.heading,
       ...(t.rows.length > 0 ? renderTable(t.rows, widths) : []),
     ]),
+    ...renderKey(tables),
   ].join("\n");
+}
+
+/** The explanations the tables use, each with its sentence, in order of use. */
+function renderKey(tables) {
+  const used = new Set(
+    tables
+      .flatMap((t) => t.rows)
+      .flatMap((r) => r.at(-1).split(EXPLANATION_SEPARATOR)),
+  );
+  const lines = [...used]
+    .filter((label) => EXPLANATION_MEANINGS.has(label))
+    .map(
+      (label) => `${KEY_INDENT}${label}: ${EXPLANATION_MEANINGS.get(label)}`,
+    );
+  return lines.length > 0 ? ["", "Explained by:", ...lines] : [];
 }
