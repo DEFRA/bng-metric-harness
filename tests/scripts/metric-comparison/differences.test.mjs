@@ -124,6 +124,26 @@ describe("renderDifferences", () => {
     expect(shortRow).toContain("| 1.1500 |");
   });
 
+  it("says a derived figure follows from the feature differences", () => {
+    const h1 = featureUnits("H1", [CAUSES.strategicSignificance.id]);
+    const baselineTotal = {
+      key: "totals|area|baseline",
+      category: "totals",
+      module: "area",
+      label: "Baseline units",
+      unit: "habitat units",
+      expected: 2.15,
+      actual: 2,
+      difference: -0.15,
+    };
+    const lines = render([
+      result("a/derived", OUTCOME.discrepancies, [h1, baselineTotal]),
+    ]).split("\n");
+
+    expect(cells(lines[4]).at(-1)).toBe("Strategic significance not applied");
+    expect(cells(lines[5]).at(-1)).toBe("Follows from the feature differences");
+  });
+
   it("marks a figure nothing explains, and a scenario the comparison fails", () => {
     const text = render([
       result("a/unexplained", OUTCOME.discrepancies, [featureUnits("H1")]),
@@ -151,7 +171,7 @@ describe("renderDifferences", () => {
       "Not met",
       "",
       "Met / Not met",
-      "",
+      "Invalid data; see the scenario's gap",
     ]);
     expect(lines.slice(1).some((line) => line.includes("✗"))).toBe(false);
   });

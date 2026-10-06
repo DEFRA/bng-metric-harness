@@ -19,6 +19,10 @@ const DECIMAL_PLACES = 4;
 const UNEXPLAINED_MARK = "✗";
 const NO_VALUE = "—";
 const NO_EXPLANATION = `${UNEXPLAINED_MARK} no known explanation`;
+/** The scenario holds invalid data the service accepts; the heading says why. */
+const INVALID_DATA = "Invalid data; see the scenario's gap";
+/** A derived figure that moves by what its features' differences account for. */
+const FOLLOWS_FROM_FEATURES = "Follows from the feature differences";
 const SCENARIO_INDENT = "  ";
 const TABLE_INDENT = "      ";
 
@@ -58,16 +62,24 @@ function difference(d) {
   return `${sign}${d.difference.toFixed(DECIMAL_PLACES)}${unit}`;
 }
 
-/** What explains a figure: ✗ when nothing does, else its causes if any. */
-function explanation(d, unexplained) {
+/**
+ * What explains a figure: ✗ when nothing does; the scenario's validation gap
+ * when its data is invalid; a feature's causes; else, for a figure derived
+ * from the features, the feature differences it follows from (see
+ * unexplained.mjs for what that means).
+ */
+function explanation(d, { unexplained, invalidData }) {
   if (unexplained) {
     return NO_EXPLANATION;
   }
+  if (invalidData) {
+    return INVALID_DATA;
+  }
   const titles = (d.causes ?? []).map((id) => CAUSES_BY_ID[id]?.title ?? id);
-  return titles.join("; ");
+  return titles.length > 0 ? titles.join("; ") : FOLLOWS_FROM_FEATURES;
 }
 
-function row(d, unexplained) {
+function row(d, status) {
   return [
     d.label,
     d.module,
@@ -75,7 +87,7 @@ function row(d, unexplained) {
     value(d.actual),
     difference(d),
     d.unit ?? "",
-    explanation(d, unexplained),
+    explanation(d, status),
   ];
 }
 
@@ -139,7 +151,10 @@ export function renderDifferences(
     tables.push({
       heading: heading(result, problem, validationGaps[result.id]),
       rows: discrepancies.map((d) =>
-        row(d, unexplainedKeys.has(`${result.id}\n${d.key}`)),
+        row(d, {
+          unexplained: unexplainedKeys.has(`${result.id}\n${d.key}`),
+          invalidData: result.outcome === OUTCOME.acceptedInvalid,
+        }),
       ),
     });
   }
