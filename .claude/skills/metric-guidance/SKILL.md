@@ -2,8 +2,8 @@
 name: metric-guidance
 description: >-
   Answer questions from Defra's Statutory Biodiversity Metric User Guide (June
-  2026), held word for word in qgis-template/reference/metric-user-guide/, one
-  file per chapter. Use when asked what the metric guidance says, what a rule,
+  2026), held word for word in reference/metric-user-guide/, one file per
+  chapter. Use when asked what the metric guidance says, what a rule,
   band, multiplier or definition is (strategic significance, distinctiveness,
   condition, retention/enhancement/creation, advance or delay, spatial risk,
   watercourse or riparian encroachment, trees, IGGI, mosaics, trading rules,
@@ -18,7 +18,7 @@ arguments: "<question>  — what to look up, or a template/service behaviour to 
 Answer from the guide, not from memory. The guide is the authority for the
 template's columns and the service's checks.
 
-**Where it is:** `qgis-template/reference/metric-user-guide/` in the harness.
+**Where it is:** `reference/metric-user-guide/` in the harness.
 `README.md` there is the index: what each chapter covers, how useful it is for
 the template or the service, and every section heading.
 
@@ -40,13 +40,14 @@ the template or the service, and every section heading.
    - Quote only short phrases. Do not paste whole sections.
 4. **If asked to check the template or the service**, find the matching
    implementation and compare:
-   - template drop-down lists:
-     `qgis-template/templates/bng-service/CSV References/`
+   - template drop-down lists (the `template` symlink points at the
+     bng-metric-template sibling repo):
+     `template/templates/bng-service/CSV References/`
    - template defaults and locked columns:
-     `qgis-template/development/tools/set_field_rules.py`,
+     `template/development/tools/set_field_rules.py`,
      `reset_stale_dropdowns.py`, `paste_lineage.py`
    - conversion to Natural England and the Metric:
-     `qgis-template/plugin/bng_template_convert/`
+     `template/plugin/bng_template_convert/`
    - service checks: `backend/src/validation/`
 
    State whether they agree. Name any gap with the file and line on each side.

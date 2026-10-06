@@ -43,3 +43,8 @@ mkdocs.generated.yml
 
 # npm run compare:metric output
 /metric-comparison/
+
+# The QGIS template moved to the bng-metric-template sibling repo (reached via
+# the `template` symlink). An old checkout may still hold its generated sites
+# and plugin builds here; they are local leftovers, safe to delete.
+/qgis-template/
