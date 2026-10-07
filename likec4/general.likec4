@@ -2,8 +2,8 @@
 // General — cross-cutting platform, data & validation views
 //
 // Views with no LPA-specific variant: some genuinely span both phases (CI/CD,
-// infrastructure change process, observability, environment alignment, audit
-// stream, data linkage); others are completer-facing data/validation flows
+// infrastructure change process, observability, environment alignment, data
+// linkage); others are completer-facing data/validation flows
 // that simply have no LPA counterpart (GeoPackage upload pipeline, GIS data
 // serving).
 //
@@ -12,19 +12,6 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 views 'General' {
-
-  // Audit Event Stream to GIO Platform
-  view dataSyncFlow {
-    title "Audit Event Stream to GIO Platform"
-    description "BNG Core API pushes audit events to AWS Kinesis Data Firehose, which delivers them to a dedicated S3 bucket (not accessible to the BNG service). The GIO Data Platform in Azure reads from this S3 bucket to ingest data into its data lake."
-
-    autoLayout LeftRight
-
-    include awsEuWest2.privateBoundaryCDP.backendApi
-    include awsEuWest2.privateBoundaryCDP.firehoseStream
-    include awsEuWest2.privateBoundaryCDP.bngProjectDataS3
-    include azureUkSouth.azureDataPlatform.dynamicsPlatform
-  }
 
   // PostgreSQL Data Linkage Model
   view dataLinkage {

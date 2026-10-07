@@ -1,22 +1,23 @@
 // ─────────────────────────────────────────────────────────────────────────
-// MVS — Minimum Viable Service
+// MVP — Minimum Viable Product
 //
 // Views describing the service as it ships first: the BNG Completer journey
-// with NO LPA login / LPA assessment capability. These are the MVS twins of
+// with NO LPA login / LPA assessment capability and NO GIO Data Platform
+// (Power BI) integration. These are the MVP twins of
 // the combined diagrams, plus the completer user journey.
 //
 // All elements are defined in shared.likec4; these views only include subsets.
-// The `views 'MVS'` prefix nests every view below under an "MVS" folder in the
+// The `views 'MVP'` prefix nests every view below under an "MVP" folder in the
 // LikeC4 explorer.
 // ─────────────────────────────────────────────────────────────────────────
 
-views 'MVS' {
+views 'MVP' {
 
-  // Default landing view (id `index` is LikeC4's special home view) — the MVS
+  // Default landing view (id `index` is LikeC4's special home view) — the MVP
   // complete flow: completer front-end + core API, no LPA app / identity
   view index {
     title "Complete Flow (no LPA)"
-    description "MVS complete flow (the default landing view): the BNG completer front-end and core API without the LPA assessment front-end or LPA identity. Shows completer authentication, backend processing, virus scanning, file storage, the database, external API calls, and the output BNG PDF document (external to CDP) for planning portal submission."
+    description "MVP complete flow (the default landing view): the BNG completer front-end and core API without the LPA assessment front-end or LPA identity. Shows completer authentication, backend processing, virus scanning, file storage, the database, external API calls, and the output BNG PDF document (external to CDP) for planning portal submission."
 
     include defraCustomerId
     include awsEuWest2.publicBoundaryCDP.publicApp
@@ -28,10 +29,10 @@ views 'MVS' {
     include bngPdfDocument
   }
 
-  // MVS twin of `systemOverview` — no LPA officer
-  view systemOverviewMvs {
+  // MVP twin of `systemOverview` — no LPA officer, no GIO Data Platform
+  view systemOverviewMvp {
     title "System Overview (no LPA)"
-    description "MVS system context: the land developer / ecologist submits BNG metric data to the BNG Service, data is stored, and audit events flow to the GIO Data Platform. No LPA officer review in the MVS."
+    description "MVP system context: the land developer / ecologist submits BNG metric data to the BNG Service, and data is stored. No LPA officer review and no GIO Data Platform (Power BI) integration in the MVP."
 
     autoLayout LeftRight
 
@@ -39,11 +40,9 @@ views 'MVS' {
     include awsEuWest2.bngService
     include awsEuWest2.privateBoundaryCDP.postgresDb
     include awsEuWest2.privateBoundaryCDP.fileStorageS3
-    include azureUkSouth.azureDataPlatform.dynamicsPlatform
-    include naturalEngland
   }
 
-  // BNG Completer user journey (no LPA login) — core to the MVS
+  // BNG Completer user journey (no LPA login) — core to the MVP
   view completerContext {
     title "BNG Completer – User Journey"
     description "Linear user journey showing the step-by-step flow a BNG completer follows from sign-in to submission on the Planning Portal"
