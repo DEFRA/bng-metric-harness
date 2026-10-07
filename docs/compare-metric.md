@@ -241,6 +241,16 @@ bng-metric-backend#439 (hedgerows read their proposed value) has merged, no
 difference has that cause. bng-library should then stop treating it as *not
 implemented yet*, so a strategic significance difference fails like any other.
 
+The service deliberately departs from the metric on strategic significance in
+two ways (BMD-1051), neither of which the corpus exercises: Medium (×1.10) is
+not supported, and a created or enhanced feature whose Proposed Strategic
+Significance is blank, Medium or otherwise not Low or High is saved with a
+null value and zero units. A scenario with such a value would price at zero
+where the metric prices normally; the catalogue refuses Medium, and the one
+blank (`data-completeness/invalid-data-incomplete`) is already excused in
+`VALIDATION_GAPS`. Should either become a corpus case, it needs its own cause,
+not the *Strategic significance not applied* one.
+
 To accept a new kind of expected difference, explain it in `unexplained.mjs`
 (or, for a feature's units, as a cause in bng-library's
 `metric-compare/causes.mjs` with `notImplemented: true`). Do not record it as
