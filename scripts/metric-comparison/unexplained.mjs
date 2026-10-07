@@ -52,7 +52,7 @@ export const VALIDATION_GAPS = Object.freeze({
   "invalid-interventions/invalid-watercourse-encroachment-worsened":
     "The service does not refuse a watercourse enhancement that delivers fewer units than the baseline.",
   "data-completeness/invalid-data-incomplete":
-    "The service does not refuse an enhancement with no proposed condition or strategic significance.",
+    "The service does not refuse an enhancement with no proposed condition or strategic significance; it saves the feature Incomplete, with the strategic significance nulled and zero units (BMD-1051).",
 });
 
 /** Outcomes that fail a scenario whatever its figures. */
