@@ -298,6 +298,8 @@ The harness ships shared slash commands under `.claude/commands/`:
 
 `.claude/settings.json` defines a narrow tool allowlist for a Node.js / DEFRA project — explicit rather than permissive. Destructive git operations are denied by default.
 
+The `/metric-guidance` skill answers questions from Defra's Statutory Biodiversity Metric User Guide (June 2026), held in Markdown, one file per chapter, under `reference/metric-user-guide/`. It reads the guide's `README.md` index first and opens only the chapters it needs, and can check the QGIS template or the service against the guidance.
+
 The sibling repos own their own `.claude/` configuration; the harness does not reach into them.
 
 ### `@`-mention file picker and the sibling symlinks

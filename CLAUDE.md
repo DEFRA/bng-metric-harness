@@ -9,12 +9,14 @@ This repo is a **meta-repo / harness** that orchestrates two sibling repos check
 │   ├── backend        →  ../bng-metric-backend          (symlink)
 │   ├── journey-tests  →  ../bng-metric-journey-tests    (symlink)
 │   ├── library        →  ../bng-library                 (symlink)
-│   └── perf-tests     →  ../bng-perf-tests              (symlink)
+│   ├── perf-tests     →  ../bng-perf-tests              (symlink)
+│   └── template       →  ../bng-metric-template         (symlink)
 ├── bng-metric-frontend/            ← Hapi + Nunjucks + GOV.UK, port 3000
 ├── bng-metric-backend/             ← Hapi API, port 3001
 ├── bng-metric-journey-tests/       ← Playwright suite, triggered from Tilt
 ├── bng-library/                    ← shared BNG library (engine, gen-gpkg, etc.)
-└── bng-perf-tests/                 ← JMeter performance-test suite, run from the CDP Portal
+├── bng-perf-tests/                 ← JMeter performance-test suite, run from the CDP Portal
+└── bng-metric-template/            ← QGIS habitat-mapping template and converter plugin
 ```
 
 The harness owns no application code. Its only job is to give a developer a single place to run `npm install`, `npm run dev`, `npm run test`, `npm run status`, etc. across the pair.
@@ -28,6 +30,7 @@ Symlinks live in the harness root so the siblings are reachable from a Claude Co
 - `./journey-tests` → `../bng-metric-journey-tests`
 - `./library` → `../bng-library`
 - `./perf-tests` → `../bng-perf-tests`
+- `./template` → `../bng-metric-template`
 
 Read and edit sibling files through those symlinks — e.g. `frontend/src/server/index.js`, `backend/src/api/routes.js`, `journey-tests/test/...`. The `.claude/settings.json` also lists each sibling under `permissions.additionalDirectories`, so tool permissions resolve correctly against the real paths (symlinks alone wouldn't be enough because the trust boundary checks canonical paths).
 
@@ -111,6 +114,18 @@ Then `npm run dev` in this harness starts the two Node apps against those servic
 - If a sibling repo is missing, print a message pointing the user at `npm run bootstrap` and exit 1.
 - Log what the script is doing as it does it.
 - **Always attempt to respect default SonarCloud conventions where possible** — write to them in the first draft rather than waiting for the scan to flag them. Code is scanned by SonarCloud (project key in `sonar-project.properties`); after pushing, run `/check-sonar-pr` to see PR-scoped issues. Rules most likely to be flagged: brace every single-line `if`/`for` body (S121), extract magic numbers to named constants (S109), keep nesting ≤ 3 levels (S134), keep cognitive complexity per function low (S3776), prefer `replaceAll` and template literals over `replace`/concat, and remove dead/commented-out code (S125).
+
+## `reference/metric-user-guide/`: the Statutory Metric guidance
+
+**Defra's Statutory Biodiversity Metric User Guide (June 2026), in Markdown,
+one file per chapter.** Read its `README.md` index first and open only the
+chapter needed, or use the `/metric-guidance` skill
+(`.claude/skills/metric-guidance/`), which answers questions from it and can
+check the QGIS template (the `bng-metric-template` repo, via the `template`
+symlink)
+or the service against it. The service assumes every LPA has published its
+LNRS (strategic significance Low or High only). Crown copyright, Open
+Government Licence v3.0.
 
 ## Not in scope for this repo
 
