@@ -61,9 +61,9 @@ reported with both values, the difference (service less metric), and that
 difference as a share of the metric's value.
 
 **What the service does not do yet** is reported separately from the
-discrepancies, with the metric's value. These are hedgerow trading rules, and
-the Very High and High band trading rules. Once the service produces one of
-those figures, it is compared like any other.
+discrepancies, with the metric's value. These are the hedgerow trading
+statuses, and the Very High and High trading band statuses. Once the service
+produces one of those figures, it is compared like any other.
 
 **Known causes.** A feature's units are its size times its multipliers. So
 where the service's figure is exactly the metric's rescaled to the service's
@@ -129,6 +129,13 @@ flowchart LR
   `node_modules` at the version the backend pins. Nothing is copied, so the
   comparison measures what the service would deploy. It returns the body
   `GET /projects/{id}` would return. The whole corpus runs in a few seconds.
+  - **Nothing is really uploaded.** The files are read from disk and handed
+    straight to that code. There is no HTTP request to the Hapi server, so no
+    authentication or route validation; no CDP Uploader, so no S3 and no virus
+    scan; no worker pool; and no database, so nothing is persisted. The
+    comparison tests what the service calculates from a file, not the upload
+    journey. The journey tests (bng-metric-journey-tests) drive that journey
+    through the CDP Uploader against a running stack.
   - The backend exports what the import calls (`runDataQualityChecks`,
     `layersForUpload`, `extractAndValidateDocument`, `saveHandlersForConfig`,
     DEFRA/bng-metric-backend#417). A backend that predates them fails with a
@@ -254,12 +261,13 @@ npm run compare:metric               # compares the new corpus at once
 
 ### What the comparison finds
 
-On the seed-1 corpus of 37 scenarios, against the backend with
-bng-metric-backend#426 (sizes measured, unrounded) and #439 (hedgerows read
-their proposed strategic significance):
+On the seed-1 corpus of 42 scenarios, against the backend's main on
+2026-10-07 (with bng-metric-backend#426, sizes measured unrounded, and #439,
+hedgerows read their proposed strategic significance):
 
-- **All 29 valid scenarios match the metric**, in every figure compared.
-- `invalid-area-advance-and-delay` is refused by the service, as expected.
+- **All 33 valid scenarios match the metric**, in every figure compared.
+- `invalid-area-advance-and-delay` and `invalid-tree-advance-and-delay` are
+  refused by the service, as expected.
 - The other 7 scenarios built on invalid data are accepted by the service. They
   are reported as "Accepted, though its data is invalid", because the service
   should have refused them; each is listed in `VALIDATION_GAPS`. Two of them
@@ -268,9 +276,10 @@ their proposed strategic significance):
     enhancement (it breaks the trading-down rule), while the service prices it.
   - **`invalid-watercourse-encroachment-worsened`**: the metric reports *Check
     Data* and *N/A*, while the service computes its totals.
-- 1,793 of 1,804 comparable figures match: 1,589 exactly and 204 within the
+- 2,292 of 2,303 comparable figures match: 2,041 exactly and 251 within the
   tolerance. The 11 that differ are all in those two scenarios.
-- 544 figures are not implemented in the service yet.
+- 240 figures are not implemented in the service yet: the hedgerow trading
+  statuses, and the Very High and High trading band statuses.
 
 How it got here:
 
