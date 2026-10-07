@@ -61,9 +61,9 @@ reported with both values, the difference (service less metric), and that
 difference as a share of the metric's value.
 
 **What the service does not do yet** is reported separately from the
-discrepancies, with the metric's value. These are hedgerow trading rules, and
-the Very High and High band trading rules. Once the service produces one of
-those figures, it is compared like any other.
+discrepancies, with the metric's value. These are the hedgerow trading
+statuses, and the Very High and High trading band statuses. Once the service
+produces one of those figures, it is compared like any other.
 
 **Known causes.** A feature's units are its size times its multipliers. So
 where the service's figure is exactly the metric's rescaled to the service's
