@@ -6409,6 +6409,189 @@
       }
     },
     {
+      "id": "trading-lost-trees",
+      "purpose": "trading-rules",
+      "title": "Trading rules — individual trees lost, nothing in their place",
+      "description": "Area: one Low grassland retained. Trees: T001, a large rural tree, and T002, a medium urban tree, are lost; T003, the same tree as T001, is retained. Individual trees are Medium distinctiveness area habitats, so the metric keeps the lost trees' baseline rows and shows a Medium deficit under the Individual trees broad habitat that nothing covers: the Medium area rule is breached and the Low rule met. The service drops a lost tree when it extracts the post-intervention file, so this checks its baseline, post-intervention and trading figures still agree with the metric.",
+      "size": 1,
+      "subject": {
+        "layer": "Urban Trees",
+        "ref": "T001",
+        "note": "T001 and T002 lost, T003 retained; the Individual trees (Medium) deficit nothing covers"
+      },
+      "files": {
+        "baseline": "trading-rules/trading-lost-trees-baseline.gpkg",
+        "postIntervention": "trading-rules/trading-lost-trees-post-intervention.gpkg",
+        "workbook": "trading-rules/trading-lost-trees.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "area trading rule, Medium",
+          "expected": "breached",
+          "actual": "breached",
+          "passed": true
+        },
+        {
+          "check": "area trading rule, Low",
+          "expected": "met",
+          "actual": "met",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookSource": "9541cb8383aee8dfee0faedfb5453a2a799419b9674be2b42992a57af1674530",
+      "inputRows": {
+        "habitatBaseline": 4,
+        "habitatCreation": 0,
+        "habitatEnhancement": 0,
+        "hedgerowBaseline": 0,
+        "hedgerowCreation": 0,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 0,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 0
+      },
+      "rejectedInputs": [],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 184.414078435776,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "postInterventionUnits": {
+            "area": 184.056078435776,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netUnitChange": {
+            "area": -0.358000000000004,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netPercentChange": {
+            "area": -0.00194128345859823,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netGainMessage": {
+            "area": "On-site net gain is less than target set ⚠",
+            "hedgerow": null,
+            "watercourse": null
+          },
+          "unitsRequired": {
+            "area": 202.855486279353,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "unitDeficit": {
+            "area": 18.7994078435776,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "No - Check Trading Summaries ▲",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "No ▲"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": 0
+        },
+        "sheetWarnings": [
+          {
+            "sheet": "habitatBaseline",
+            "cell": "L5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "habitatCreation",
+            "cell": "K5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "habitatEnhancement",
+            "cell": "T5",
+            "message": "No - check trading summaries ▲"
+          }
+        ],
+        "rowWarnings": []
+      }
+    },
+    {
       "id": "trading-lower-deficit-covered-from-above",
       "purpose": "trading-rules",
       "title": "Trading rules — a Low deficit made good by a Medium surplus",

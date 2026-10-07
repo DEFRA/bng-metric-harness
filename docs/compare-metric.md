@@ -254,12 +254,13 @@ npm run compare:metric               # compares the new corpus at once
 
 ### What the comparison finds
 
-On the seed-1 corpus of 37 scenarios, against the backend with
-bng-metric-backend#426 (sizes measured, unrounded) and #439 (hedgerows read
-their proposed strategic significance):
+On the seed-1 corpus of 42 scenarios, against the backend's main on
+2026-10-07 (with bng-metric-backend#426, sizes measured unrounded, and #439,
+hedgerows read their proposed strategic significance):
 
-- **All 29 valid scenarios match the metric**, in every figure compared.
-- `invalid-area-advance-and-delay` is refused by the service, as expected.
+- **All 33 valid scenarios match the metric**, in every figure compared.
+- `invalid-area-advance-and-delay` and `invalid-tree-advance-and-delay` are
+  refused by the service, as expected.
 - The other 7 scenarios built on invalid data are accepted by the service. They
   are reported as "Accepted, though its data is invalid", because the service
   should have refused them; each is listed in `VALIDATION_GAPS`. Two of them
@@ -268,9 +269,10 @@ their proposed strategic significance):
     enhancement (it breaks the trading-down rule), while the service prices it.
   - **`invalid-watercourse-encroachment-worsened`**: the metric reports *Check
     Data* and *N/A*, while the service computes its totals.
-- 1,793 of 1,804 comparable figures match: 1,589 exactly and 204 within the
+- 2,292 of 2,303 comparable figures match: 2,041 exactly and 251 within the
   tolerance. The 11 that differ are all in those two scenarios.
-- 544 figures are not implemented in the service yet.
+- 240 figures are not implemented in the service yet: the hedgerow trading
+  statuses, and the Very High and High trading band statuses.
 
 How it got here:
 
