@@ -40,14 +40,14 @@ the template or the service, and every section heading.
    - Quote only short phrases. Do not paste whole sections.
 4. **If asked to check the template or the service**, find the matching
    implementation and compare:
-   - template drop-down lists, in the bng-metric-template repo checked out
-     beside the harness:
-     `../bng-metric-template/templates/bng-service/CSV References/`
+   - template drop-down lists (the `template` symlink points at the
+     bng-metric-template sibling repo):
+     `template/templates/bng-service/CSV References/`
    - template defaults and locked columns:
-     `../bng-metric-template/development/tools/set_field_rules.py`,
+     `template/development/tools/set_field_rules.py`,
      `reset_stale_dropdowns.py`, `paste_lineage.py`
    - conversion to Natural England and the Metric:
-     `../bng-metric-template/plugin/bng_template_convert/`
+     `template/plugin/bng_template_convert/`
    - service checks: `backend/src/validation/`
 
    State whether they agree. Name any gap with the file and line on each side.

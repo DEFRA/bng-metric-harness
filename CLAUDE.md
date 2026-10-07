@@ -9,13 +9,14 @@ This repo is a **meta-repo / harness** that orchestrates two sibling repos check
 │   ├── backend        →  ../bng-metric-backend          (symlink)
 │   ├── journey-tests  →  ../bng-metric-journey-tests    (symlink)
 │   ├── library        →  ../bng-library                 (symlink)
-│   └── perf-tests     →  ../bng-perf-tests              (symlink)
+│   ├── perf-tests     →  ../bng-perf-tests              (symlink)
+│   └── template       →  ../bng-metric-template         (symlink)
 ├── bng-metric-frontend/            ← Hapi + Nunjucks + GOV.UK, port 3000
 ├── bng-metric-backend/             ← Hapi API, port 3001
 ├── bng-metric-journey-tests/       ← Playwright suite, triggered from Tilt
 ├── bng-library/                    ← shared BNG library (engine, gen-gpkg, etc.)
 ├── bng-perf-tests/                 ← JMeter performance-test suite, run from the CDP Portal
-└── bng-metric-template/            ← QGIS habitat-mapping template and converter plugin (no symlink; read by the /metric-guidance skill)
+└── bng-metric-template/            ← QGIS habitat-mapping template and converter plugin
 ```
 
 The harness owns no application code. Its only job is to give a developer a single place to run `npm install`, `npm run dev`, `npm run test`, `npm run status`, etc. across the pair.
@@ -29,8 +30,9 @@ Symlinks live in the harness root so the siblings are reachable from a Claude Co
 - `./journey-tests` → `../bng-metric-journey-tests`
 - `./library` → `../bng-library`
 - `./perf-tests` → `../bng-perf-tests`
+- `./template` → `../bng-metric-template`
 
-Read and edit sibling files through those symlinks — e.g. `frontend/src/server/index.js`, `backend/src/api/routes.js`, `journey-tests/test/...`. The `.claude/settings.json` also lists each sibling, and `../bng-metric-template`, under `permissions.additionalDirectories`, so tool permissions resolve correctly against the real paths (symlinks alone wouldn't be enough because the trust boundary checks canonical paths).
+Read and edit sibling files through those symlinks — e.g. `frontend/src/server/index.js`, `backend/src/api/routes.js`, `journey-tests/test/...`. The `.claude/settings.json` also lists each sibling under `permissions.additionalDirectories`, so tool permissions resolve correctly against the real paths (symlinks alone wouldn't be enough because the trust boundary checks canonical paths).
 
 The orchestration scripts (`scripts/*.mjs`) resolve sibling paths by name (`bng-metric-frontend`, `bng-metric-backend`), not through the symlinks — so the symlinks are purely for interactive access, not for the build/dev pipeline.
 
@@ -119,7 +121,8 @@ Then `npm run dev` in this harness starts the two Node apps against those servic
 one file per chapter.** Read its `README.md` index first and open only the
 chapter needed, or use the `/metric-guidance` skill
 (`.claude/skills/metric-guidance/`), which answers questions from it and can
-check the QGIS template (the `bng-metric-template` repo, beside the harness)
+check the QGIS template (the `bng-metric-template` repo, via the `template`
+symlink)
 or the service against it. The service assumes every LPA has published its
 LNRS (strategic significance Low or High only). Crown copyright, Open
 Government Licence v3.0.
