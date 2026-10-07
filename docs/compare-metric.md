@@ -129,6 +129,13 @@ flowchart LR
   `node_modules` at the version the backend pins. Nothing is copied, so the
   comparison measures what the service would deploy. It returns the body
   `GET /projects/{id}` would return. The whole corpus runs in a few seconds.
+  - **Nothing is really uploaded.** The files are read from disk and handed
+    straight to that code. There is no HTTP request to the Hapi server, so no
+    authentication or route validation; no CDP Uploader, so no S3 and no virus
+    scan; no worker pool; and no database, so nothing is persisted. The
+    comparison tests what the service calculates from a file, not the upload
+    journey. The journey tests (bng-metric-journey-tests) drive that journey
+    through the CDP Uploader against a running stack.
   - The backend exports what the import calls (`runDataQualityChecks`,
     `layersForUpload`, `extractAndValidateDocument`, `saveHandlersForConfig`,
     DEFRA/bng-metric-backend#417). A backend that predates them fails with a
