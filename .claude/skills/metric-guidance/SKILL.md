@@ -24,8 +24,8 @@ the template or the service, and every section heading.
 
 ## Steps
 
-1. **Read the index**, `metric-user-guide/README.md`. Pick the chapter or
-   chapters from the table and the section list.
+1. **Read the index**, `reference/metric-user-guide/README.md`. Pick the
+   chapter or chapters from the table and the section list.
 2. **Search before opening.** Grep the folder for the key terms of the
    question (for example `encroachment`, `strategic significance`,
    `tree helper`), with a few lines of context. Then read only the matching

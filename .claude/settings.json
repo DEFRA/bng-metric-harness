@@ -6,7 +6,8 @@
       "../bng-metric-digital-prototype",
       "../bng-metric-journey-tests",
       "../bng-library",
-      "../bng-perf-tests"
+      "../bng-perf-tests",
+      "../bng-metric-template"
     ],
     "allow": [
       "Read",
