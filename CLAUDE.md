@@ -112,6 +112,17 @@ Then `npm run dev` in this harness starts the two Node apps against those servic
 - Log what the script is doing as it does it.
 - **Always attempt to respect default SonarCloud conventions where possible** — write to them in the first draft rather than waiting for the scan to flag them. Code is scanned by SonarCloud (project key in `sonar-project.properties`); after pushing, run `/check-sonar-pr` to see PR-scoped issues. Rules most likely to be flagged: brace every single-line `if`/`for` body (S121), extract magic numbers to named constants (S109), keep nesting ≤ 3 levels (S134), keep cognitive complexity per function low (S3776), prefer `replaceAll` and template literals over `replace`/concat, and remove dead/commented-out code (S125).
 
+## `reference/metric-user-guide/`: the Statutory Metric guidance
+
+**Defra's Statutory Biodiversity Metric User Guide (June 2026), in Markdown,
+one file per chapter.** Read its `README.md` index first and open only the
+chapter needed, or use the `/metric-guidance` skill
+(`.claude/skills/metric-guidance/`), which answers questions from it and can
+check the QGIS template (the `bng-metric-template` repo, beside the harness)
+or the service against it. The service assumes every LPA has published its
+LNRS (strategic significance Low or High only). Crown copyright, Open
+Government Licence v3.0.
+
 ## Not in scope for this repo
 
 - ❌ Docker/compose files (siblings own theirs)
