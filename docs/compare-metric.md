@@ -174,8 +174,8 @@ does can skip the Sonar scan in `check-pull-request.yml`.
     `node_modules`, for bng-library's `main` (`npm install --no-save`, so
     the backend's lockfile is untouched). A failure is a library change that
     would regress the service when the backend next repins, caught before it
-    does. Pull requests don't run this leg: a library change the backend
-    hasn't adopted shouldn't block a change here.
+    does. Pull requests and merge groups don't run this leg: a library
+    change the backend hasn't adopted shouldn't block a change here.
 
   The harness's own bng-library pin, the comparator and workbook reader, is
   the measuring instrument and stays as it is on both legs. The frontend
@@ -191,7 +191,11 @@ does can skip the Sonar scan in `check-pull-request.yml`.
   own `metric-comparison.yml` calls this workflow (`workflow_call`) with the
   commit to test: on each backend pull request, the branch's head, with the
   pinned leg only, so a backend change is checked against the metric before
-  it is merged; and on each push to its `main`, the pushed commit, with both
+  it is merged; on each merge group in its merge queue, the queue's merge
+  commit, again with the pinned leg only, so the check can be made a required
+  one on the backend's `main` ruleset (its name there is
+  `Compare the service with the metric / Compare the service with the metric (library pinned)`);
+  and on each push to its `main`, the pushed commit, with both
   legs, so a regression is seen with the publish rather than on the next
   scheduled run. Those runs, with their summaries and report artifacts, are
   in the backend's Actions tab, not this repo's. The backend is public and

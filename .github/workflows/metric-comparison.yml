@@ -99,8 +99,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # A pull request tries the pinned engine only; everything else both.
-        library: ${{ fromJSON(github.event_name == 'pull_request' && '["pinned"]' || '["pinned", "main"]') }}
+        # A pull request, or a backend merge group (the caller's event, when
+        # called), tries the pinned engine only; everything else both.
+        library: ${{ fromJSON((github.event_name == 'pull_request' || github.event_name == 'merge_group') && '["pinned"]' || '["pinned", "main"]') }}
     runs-on: ubuntu-latest
     env:
       # Named once: the upload step gives it to the artifact and the
