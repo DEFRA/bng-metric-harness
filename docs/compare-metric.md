@@ -212,12 +212,16 @@ does can skip the Sonar scan in `check-pull-request.yml`.
   `metric-comparison.yml` calls this workflow with `library-sha`, the library
   commit to test: the pull request's head, or the queue's merge commit. That
   runs one leg, **library candidate** (artifact
-  `metric-comparison-library-candidate`): the backend, at the branch of the
-  same name as the library's pull request if there is one and otherwise its
-  `main`, with the engine swapped for that commit, as the main leg does for
-  bng-library's `main`. So a library change that would regress the service
-  is caught before it merges, not when the backend next repins. Its check
-  there is
+  `metric-comparison-library-candidate`): the backend, with the engine
+  swapped for that commit, as the main leg does for bng-library's `main`. For
+  a pull request the backend is the branch of the same name if there is one,
+  otherwise its `main`; for a merge group it is always the backend's `main`,
+  which has no head branch to match. So a library change that needs a paired
+  backend branch passes in the library's queue only once that branch is
+  merged: merge the backend change first, pinned to the library pull
+  request's head commit. A library change that would regress the service is
+  caught before it merges, not when the backend next repins. Its check there
+  is
   `Compare the service with the metric / Compare the service with the metric (library candidate)`.
 - An unexplained difference fails the job, and so the workflow; so does a
   comparison that cannot run (a failed clone or install, or a backend that
