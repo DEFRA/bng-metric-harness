@@ -80,7 +80,7 @@ flowchart LR
     corpus["example-files/permutations<br>GeoPackage pairs + workbooks<br>saved with their answers"]
     import["importGeoPackagePair<br>the backend's upload pipeline,<br>in process"]
     cli["npm run compare:metric<br>report.html / .xlsx / .md / .json"]
-    ci["CI: pull requests; main on each merge,<br>thrice a weekday and on each backend<br>publish, with the engine pinned and<br>at library main"]
+    ci["CI: pull requests; main on each merge,<br>thrice a weekday and on each backend<br>publish, with the engine pinned and<br>at library main; library pull<br>requests with their engine"]
   end
   subgraph library[bng-library]
     reader["workbook-writer<br>readMetricResults: headline,<br>per-feature units, trading figures"]
@@ -164,6 +164,12 @@ does can skip the Sonar scan in `check-pull-request.yml`.
   the job summary. The full report (`report.html` and `report.xlsx`) goes in
   the `metric-comparison-library-pinned` artifact (`-main` for the other
   leg, below).
+- **Every merge group** in this repo's merge queue runs as a pull request
+  does, against the backend's `main`, since a merge group has no branch name
+  to match. So a harness change that needs a backend branch passes only once
+  that branch is merged. The trigger is what lets the check
+  (`Compare the service with the metric (library pinned)`) be a required one
+  on this repo's `main` ruleset.
 - **On `main`, with the engine tried twice.** The backend pins bng-library
   to a commit, so a library change reaches the service, and the comparison,
   only when that pin moves. So on `main` the comparison runs as two legs, one
@@ -202,6 +208,17 @@ does can skip the Sonar scan in `check-pull-request.yml`.
   so is this repo, so the call needs no token. When called, the workflow
   checks this repo out at `main` by name, since a called workflow's
   checkout, ref and sha are the caller's.
+- **On each bng-library pull request and merge group.** The library's own
+  `metric-comparison.yml` calls this workflow with `library-sha`, the library
+  commit to test: the pull request's head, or the queue's merge commit. That
+  runs one leg, **library candidate** (artifact
+  `metric-comparison-library-candidate`): the backend, at the branch of the
+  same name as the library's pull request if there is one and otherwise its
+  `main`, with the engine swapped for that commit, as the main leg does for
+  bng-library's `main`. So a library change that would regress the service
+  is caught before it merges, not when the backend next repins. Its check
+  there is
+  `Compare the service with the metric / Compare the service with the metric (library candidate)`.
 - An unexplained difference fails the job, and so the workflow; so does a
   comparison that cannot run (a failed clone or install, or a backend that
   predates its exports). The Sonar scan is in another workflow and still runs.

@@ -131,7 +131,7 @@ Government Licence v3.0.
 
 - ❌ Docker/compose files (siblings own theirs)
 - ❌ Shared source code, types, or application logic
-- ❌ CI/CD for the sibling apps (each sibling owns its own pipeline). The harness's workflows are its own PR checks, `pages.yml` for the docs site, and `metric-comparison.yml`, which the backend calls (`workflow_call`) on each push to its `main` — see `docs/compare-metric.md`
+- ❌ CI/CD for the sibling apps (each sibling owns its own pipeline). The harness's workflows are its own PR checks, `pages.yml` for the docs site, and `metric-comparison.yml`, which the backend calls (`workflow_call`) on its pull requests, merge groups and pushes to `main`, and bng-library on its pull requests and merge groups — see `docs/compare-metric.md`
 - ❌ git hooks / husky that reach into siblings
 - ❌ npm workspaces, submodules, subtrees
 - ❌ `CLAUDE.md` files in the sibling repos — they are responsible for their own
