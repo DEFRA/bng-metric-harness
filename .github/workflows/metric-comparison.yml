@@ -107,6 +107,17 @@ jobs:
       # comparison names it in the job summary.
       METRIC_COMPARISON_ARTIFACT: metric-comparison-library-${{ matrix.library }}
     steps:
+      # Where the backend under test is checked out. The comparison reads
+      # this (scripts/metric-comparison/backend.mjs) in place of the sibling
+      # a developer has beside the harness. It is under the runner's temp
+      # directory, not beside the workspace: the workspace is named after
+      # the repo whose run this is, so when the backend calls this workflow
+      # a "../bng-metric-backend" beside it is the workspace itself, and the
+      # backend checkout would overwrite the harness's. Set by a step, since
+      # a job's env cannot read the runner context.
+      - name: Locate the backend checkout
+        run: echo "BNG_BACKEND_DIR=$RUNNER_TEMP/bng-metric-backend" >> "$GITHUB_ENV"
+
       # Named, since a called workflow's checkout defaults to the caller's
       # repo. For the harness's own runs this is the triggering repo and
       # checks out the event's ref as before; for a call from the backend it
@@ -124,14 +135,14 @@ jobs:
       - run: npm ci
 
       # The metric comparison runs the backend's upload pipeline in process,
-      # so it needs the backend checked out beside the harness, where a
-      # developer has it, and installed. The branch is resolved to a commit
-      # first and that commit checked out, so the job summary names exactly
-      # what was compared even if a merge lands mid-run. The branch is looked
-      # up by its full ref: a bare name is a glob on the tail of a ref, so
-      # "fix" would match a backend branch "alice/fix" as well. A caller
-      # names the commit instead, and nothing is resolved.
-      - name: Check out the backend beside the harness
+      # so it needs the backend checked out, at BNG_BACKEND_DIR, and
+      # installed. The branch is resolved to a commit first and that commit
+      # checked out, so the job summary names exactly what was compared even
+      # if a merge lands mid-run. The branch is looked up by its full ref: a
+      # bare name is a glob on the tail of a ref, so "fix" would match a
+      # backend branch "alice/fix" as well. A caller names the commit
+      # instead, and nothing is resolved.
+      - name: Check out the backend under test
         id: backend
         env:
           PR_BRANCH: ${{ github.head_ref }}
@@ -155,9 +166,8 @@ jobs:
           echo "Metric comparison runs bng-metric-backend@$ref ($sha)"
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          backend="$GITHUB_WORKSPACE/../bng-metric-backend"
-          git init --quiet "$backend"
-          cd "$backend"
+          git init --quiet "$BNG_BACKEND_DIR"
+          cd "$BNG_BACKEND_DIR"
           git fetch --quiet --depth 1 "$BACKEND_URL" "$sha"
           git checkout --quiet FETCH_HEAD
           # As the backend's own CI does: min-release-age collides with the
@@ -172,7 +182,7 @@ jobs:
       # and the backend's .npmrc ignores install scripts anyway.
       - name: Swap the engine for the library's main
         if: matrix.library == 'main'
-        working-directory: ../bng-metric-backend
+        working-directory: ${{ env.BNG_BACKEND_DIR }}
         run: |
           sha=$(git ls-remote --exit-code "$LIBRARY_URL" refs/heads/main | cut -f1)
           if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
@@ -187,7 +197,7 @@ jobs:
           BACKEND_REF: ${{ steps.backend.outputs.ref }}
           BACKEND_SHA: ${{ steps.backend.outputs.sha }}
           LIBRARY: ${{ matrix.library }}
-        working-directory: ../bng-metric-backend
+        working-directory: ${{ env.BNG_BACKEND_DIR }}
         run: |
           engine=$(node -p "require('./node_modules/.package-lock.json').packages['node_modules/bng-library'].resolved")
           echo "Engine: $engine"
