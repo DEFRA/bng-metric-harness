@@ -41,9 +41,9 @@ name: Metric comparison
 # - Called from bng-library (workflow_call with library-sha): the library's
 #   metric-comparison.yml calls this workflow with the library commit to
 #   test, on each of its pull requests and merge groups. One leg,
-#   "candidate": the backend (the branch of the same name as the library's
-#   pull request if there is one, otherwise its main) with the engine
-#   swapped for that commit, so a library change that would regress the
+#   "candidate": the backend (for a pull request, the branch of the same
+#   name if there is one, otherwise its main; for a merge group, its main)
+#   with the engine swapped for that commit, so a library change that would regress the
 #   service is caught before it merges rather than when the backend repins.
 
 on:
