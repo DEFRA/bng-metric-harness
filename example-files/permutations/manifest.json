@@ -1426,6 +1426,206 @@
       }
     },
     {
+      "id": "intervention-hedgerow-condition-lowered",
+      "purpose": "intervention",
+      "title": "Hedgerow — condition lowered, recorded as lost and recreated",
+      "description": "HG001, a native hedgerow in Good condition, cannot be kept in that condition, so, as the metric user guide says, it is recorded as lost and HG002 is created on the same line, the same length and type, in Moderate condition, with \"created in advance\" set to 30+ years. HG002 does not point to HG001: it is a new hedgerow at post-intervention, not an enhancement, which the metric would reject (invalid-hedgerow-condition-reduced). HG003 is retained as it is.",
+      "size": 2,
+      "subject": {
+        "layer": "Hedgerows",
+        "ref": "HG002",
+        "note": "the hedgerow recreated in a lower condition in place of HG001"
+      },
+      "files": {
+        "baseline": "intervention/hedgerow-condition-lowered-baseline.gpkg",
+        "postIntervention": "intervention/hedgerow-condition-lowered-post-intervention.gpkg",
+        "workbook": "intervention/hedgerow-condition-lowered.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "hedgerow trading rule, Low",
+          "expected": "breached",
+          "actual": "breached",
+          "passed": true
+        },
+        {
+          "check": "created time to target on HG002",
+          "expected": "0 (×1)",
+          "actual": "0 (×1)",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookSource": "91abf5974fab4f37bd02352baabae6acdf37ad6528dfa2dc9f97d37c3202246b",
+      "inputRows": {
+        "habitatBaseline": 2,
+        "habitatCreation": 0,
+        "habitatEnhancement": 0,
+        "hedgerowBaseline": 2,
+        "hedgerowCreation": 1,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 0,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 0
+      },
+      "rejectedInputs": [],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 416.234516218527,
+            "hedgerow": 3.58770397670477,
+            "watercourse": 0
+          },
+          "postInterventionUnits": {
+            "area": 416.234516218527,
+            "hedgerow": 2.80107651823674,
+            "watercourse": 0
+          },
+          "netUnitChange": {
+            "area": 0,
+            "hedgerow": -0.786627458468033,
+            "watercourse": 0
+          },
+          "netPercentChange": {
+            "area": 0,
+            "hedgerow": -0.219256511567193,
+            "watercourse": 0
+          },
+          "netGainMessage": {
+            "area": "On-site net gain is less than target set ⚠",
+            "hedgerow": "On-site net gain is less than target set ⚠",
+            "watercourse": null
+          },
+          "unitsRequired": {
+            "area": 457.85796784038,
+            "hedgerow": 3.94647437437525,
+            "watercourse": 0
+          },
+          "unitDeficit": {
+            "area": 41.6234516218527,
+            "hedgerow": 1.14539785613851,
+            "watercourse": 0
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "No - Check Trading Summaries ▲",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "No ▲"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": 0
+        },
+        "sheetWarnings": [
+          {
+            "sheet": "hedgerowBaseline",
+            "cell": "J5",
+            "message": "No - check trading summary ▲"
+          },
+          {
+            "sheet": "hedgerowCreation",
+            "cell": "I5",
+            "message": "No - check trading summary ▲"
+          },
+          {
+            "sheet": "hedgerowEnhancement",
+            "cell": "O5",
+            "message": "No - check trading summary ▲"
+          }
+        ],
+        "rowWarnings": [
+          {
+            "sheet": "hedgerowCreation",
+            "reference": "HG002",
+            "message": "Check details - Is there evidence that habitat has reached target condition? ⚠",
+            "cells": [
+              "P12"
+            ]
+          },
+          {
+            "sheet": "hedgerowCreation",
+            "reference": "HG002",
+            "message": "Low Difficulty - only applicable if all habitat created before losses ⚠",
+            "cells": [
+              "T12"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "id": "intervention-watercourse-retained",
       "purpose": "intervention",
       "title": "Watercourse — Retained",
