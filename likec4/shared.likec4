@@ -3,7 +3,7 @@
 //
 // Single source of truth for the specification and ALL model elements and
 // relationships. This file declares NO views — the views live in the
-// perspective files (mvs / later / security / general), which merely include
+// perspective files (mvp / later / security / general), which merely include
 // subsets of the elements defined here. LikeC4 merges every .likec4 file into
 // one model, so a view in any file can reference anything declared below.
 //

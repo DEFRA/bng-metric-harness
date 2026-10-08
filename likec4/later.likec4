@@ -1,9 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────
-// Later — roadmap (LPA assessment capability)
+// Later — roadmap (LPA assessment capability, GIO Data Platform integration)
 //
-// Views that include the LPA login / LPA assessment capability layered on top
-// of the MVS. These are the combined diagrams (completer + LPA) plus the
-// LPA-only officer journey.
+// Views that include capability layered on top of the MVP: the LPA login /
+// LPA assessment capability and the GIO Data Platform (Power BI) integration.
+// These are the combined diagrams (completer + LPA), the LPA-only officer
+// journey, and the audit event stream to GIO.
 //
 // All elements are defined in shared.likec4; these views only include subsets.
 // The `views 'Later'` prefix nests every view below under a "Later" folder.
@@ -12,7 +13,7 @@
 views 'Later' {
 
   // Full complete flow — completer front-end AND LPA assessment front-end
-  // (the MVS complete flow is the `index` landing view; this is the roadmap superset)
+  // (the MVP complete flow is the `index` landing view; this is the roadmap superset)
   view indexLater {
     title "Complete Flow (with LPA)"
     description "Complete view showing all components and their connections, including the LPA assessment front-end and LPA identity"
@@ -31,7 +32,7 @@ views 'Later' {
   // Full system overview — includes the LPA officer reviewing submissions
   view systemOverview {
     title "System Overview (with LPA)"
-    description "High-level system context showing actors (including the LPA officer), BNG Service, data stores, and the GIO Data Platform"
+    description "High-level system context showing actors (including the LPA officer), BNG Service, data stores, and the GIO Data Platform (Power BI) integration"
 
     autoLayout LeftRight
 
@@ -59,5 +60,18 @@ views 'Later' {
     include lpaPhaseDecision.*
     include govukNotifyRequest
     include govukNotifyDecision
+  }
+
+  // Audit Event Stream to GIO Platform
+  view dataSyncFlow {
+    title "Audit Event Stream to GIO Platform"
+    description "BNG Core API pushes audit events to AWS Kinesis Data Firehose, which delivers them to a dedicated S3 bucket (not accessible to the BNG service). The GIO Data Platform in Azure reads from this S3 bucket to ingest data into its data lake."
+
+    autoLayout LeftRight
+
+    include awsEuWest2.privateBoundaryCDP.backendApi
+    include awsEuWest2.privateBoundaryCDP.firehoseStream
+    include awsEuWest2.privateBoundaryCDP.bngProjectDataS3
+    include azureUkSouth.azureDataPlatform.dynamicsPlatform
   }
 }
