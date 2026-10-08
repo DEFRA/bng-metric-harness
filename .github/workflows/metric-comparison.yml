@@ -21,6 +21,10 @@ name: Metric comparison
 # - Pull requests compare the pinned engine only, against the backend branch
 #   of the same name if there is one, otherwise the backend's main. A library
 #   change the backend has not adopted should not block a change here.
+# - Merge queue (merge_group): as for a pull request, against the backend's
+#   main, since a merge group has no branch name to match. The trigger is
+#   what lets the comparison be a required check: without it the queue
+#   would wait for a status that never arrives.
 # - On main, both legs: on each merge, and three times each weekday to pick
 #   up backend and library merges. The comparison takes seconds, so it runs
 #   every time whether or not anything has changed.
@@ -34,6 +38,13 @@ name: Metric comparison
 #   backend's Actions tab. The run's ref, sha and event are then the
 #   backend's, so the harness is checked out by name (at its main) and its
 #   commit read from that checkout, not from the run.
+# - Called from bng-library (workflow_call with library-sha): the library's
+#   metric-comparison.yml calls this workflow with the library commit to
+#   test, on each of its pull requests and merge groups. One leg,
+#   "candidate": the backend (the branch of the same name as the library's
+#   pull request if there is one, otherwise its main) with the engine
+#   swapped for that commit, so a library change that would regress the
+#   service is caught before it merges rather than when the backend repins.
 
 on:
   pull_request:
@@ -44,6 +55,9 @@ on:
       - reopened
       - synchronize
       - ready_for_review
+  merge_group:
+    branches:
+      - main
   push:
     branches:
       - main
@@ -55,12 +69,25 @@ on:
   workflow_dispatch:
   workflow_call:
     inputs:
+      # The backend's caller names its commit; the library's leaves it out,
+      # and the backend is resolved as for a pull request here.
       backend-sha:
-        description: The bng-metric-backend commit to compare, as a full sha
-        required: true
+        description: The bng-metric-backend commit to compare, as a full sha (default resolved from the branch)
+        required: false
         type: string
+        default: ''
       backend-ref:
         description: What to call that commit in the summary (a branch name, say)
+        required: false
+        type: string
+        default: ''
+      library-sha:
+        description: A bng-library commit to swap in as the engine, as a full sha; runs the candidate leg only
+        required: false
+        type: string
+        default: ''
+      library-ref:
+        description: What to call that library commit in the summary (a branch name, say)
         required: false
         type: string
         default: ''
@@ -99,8 +126,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # A pull request tries the pinned engine only; everything else both.
-        library: ${{ fromJSON(github.event_name == 'pull_request' && '["pinned"]' || '["pinned", "main"]') }}
+        # A library commit to test (from bng-library's caller) runs the
+        # candidate leg only. Otherwise a pull request or a merge group (the
+        # caller's event, when called) tries the pinned engine only, and
+        # everything else both.
+        library: ${{ fromJSON(inputs.library-sha && '["candidate"]' || ((github.event_name == 'pull_request' || github.event_name == 'merge_group') && '["pinned"]' || '["pinned", "main"]')) }}
     runs-on: ubuntu-latest
     env:
       # Named once: the upload step gives it to the artifact and the
@@ -120,8 +150,9 @@ jobs:
 
       # Named, since a called workflow's checkout defaults to the caller's
       # repo. For the harness's own runs this is the triggering repo and
-      # checks out the event's ref as before; for a call from the backend it
-      # is another repo and so checks out its default branch, main.
+      # checks out the event's ref as before; for a call from the backend or
+      # the library it is another repo and so checks out its default branch,
+      # main.
       - name: Checkout code
         uses: actions/checkout@v7
         with:
@@ -140,8 +171,9 @@ jobs:
       # checked out, so the job summary names exactly what was compared even
       # if a merge lands mid-run. The branch is looked up by its full ref: a
       # bare name is a glob on the tail of a ref, so "fix" would match a
-      # backend branch "alice/fix" as well. A caller names the commit
-      # instead, and nothing is resolved.
+      # backend branch "alice/fix" as well. The backend's caller names the
+      # commit instead, and nothing is resolved. A merge group has no head
+      # branch, so it compares against the backend's main.
       - name: Check out the backend under test
         id: backend
         env:
@@ -176,20 +208,30 @@ jobs:
           sed -i '/^min-release-age=/d' .npmrc
           npm ci
 
-      # The main leg swaps the engine in the backend's node_modules for the
-      # library's main, leaving the backend's lockfile as it is. The library's
-      # postinstall already does nothing when it is installed as a dependency,
-      # and the backend's .npmrc ignores install scripts anyway.
-      - name: Swap the engine for the library's main
-        if: matrix.library == 'main'
+      # The main and candidate legs swap the engine in the backend's
+      # node_modules, for the library's main or for the commit the library's
+      # caller names, leaving the backend's lockfile as it is. The library's
+      # postinstall already does nothing when it is installed as a
+      # dependency, and the backend's .npmrc ignores install scripts anyway.
+      - name: Swap the engine for the library under test
+        if: matrix.library != 'pinned'
         working-directory: ${{ env.BNG_BACKEND_DIR }}
+        env:
+          INPUT_SHA: ${{ inputs.library-sha }}
+          INPUT_REF: ${{ inputs.library-ref }}
         run: |
-          sha=$(git ls-remote --exit-code "$LIBRARY_URL" refs/heads/main | cut -f1)
+          if [ -n "$INPUT_SHA" ]; then
+            sha="$INPUT_SHA"
+            ref="${INPUT_REF:-$INPUT_SHA}"
+          else
+            ref=main
+            sha=$(git ls-remote --exit-code "$LIBRARY_URL" refs/heads/main | cut -f1)
+          fi
           if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "Could not resolve bng-library@main to a single commit: '$sha'"
+            echo "Could not resolve bng-library@$ref to a single commit: '$sha'"
             exit 1
           fi
-          echo "bng-library@main is $sha"
+          echo "bng-library@$ref is $sha"
           npm install --no-save "github:DEFRA/bng-library#$sha"
 
       - name: Say what is under test
