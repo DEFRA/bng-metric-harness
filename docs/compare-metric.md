@@ -216,10 +216,12 @@ does can skip the Sonar scan in `check-pull-request.yml`.
   swapped for that commit, as the main leg does for bng-library's `main`. For
   a pull request the backend is the branch of the same name if there is one,
   otherwise its `main`; for a merge group it is always the backend's `main`,
-  which has no head branch to match. So a library change that needs a paired
-  backend branch passes in the library's queue only once that branch is
-  merged: merge the backend change first, pinned to the library pull
-  request's head commit. A library change that would regress the service is
+  since a merge group has no head branch to match. So a library change that
+  needs a paired backend branch passes in the library's queue only once that
+  branch is merged: merge the backend change first, pinned to the library
+  pull request's head commit. Once the library pull request merges, repin
+  the backend to the library's merge commit on `main`; until then it depends
+  on a commit that's only on the pull request. A library change that would regress the service is
   caught before it merges, not when the backend next repins. Its check there
   is
   `Compare the service with the metric / Compare the service with the metric (library candidate)`.
