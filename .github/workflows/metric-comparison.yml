@@ -106,15 +106,18 @@ jobs:
       # Named once: the upload step gives it to the artifact and the
       # comparison names it in the job summary.
       METRIC_COMPARISON_ARTIFACT: metric-comparison-library-${{ matrix.library }}
+    steps:
       # Where the backend under test is checked out. The comparison reads
       # this (scripts/metric-comparison/backend.mjs) in place of the sibling
       # a developer has beside the harness. It is under the runner's temp
       # directory, not beside the workspace: the workspace is named after
       # the repo whose run this is, so when the backend calls this workflow
       # a "../bng-metric-backend" beside it is the workspace itself, and the
-      # backend checkout would overwrite the harness's.
-      BNG_BACKEND_DIR: ${{ runner.temp }}/bng-metric-backend
-    steps:
+      # backend checkout would overwrite the harness's. Set by a step, since
+      # a job's env cannot read the runner context.
+      - name: Locate the backend checkout
+        run: echo "BNG_BACKEND_DIR=$RUNNER_TEMP/bng-metric-backend" >> "$GITHUB_ENV"
+
       # Named, since a called workflow's checkout defaults to the caller's
       # repo. For the harness's own runs this is the triggering repo and
       # checks out the event's ref as before; for a call from the backend it
