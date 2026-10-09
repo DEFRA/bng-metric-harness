@@ -433,11 +433,11 @@ function passReasons(results, stale) {
       ? `${scenarios(refused, "built on invalid data was", "built on invalid data were")} refused by the service, as expected.`
       : null,
     accepted > 0
-      ? `${scenarios(accepted, "built on invalid data was", "built on invalid data were")} accepted by the service, each for a known reason (unexplained.mjs).`
+      ? `${scenarios(accepted, "built on invalid data was", "built on invalid data were")} accepted by the service, ${accepted === 1 ? "for" : "each for"} a known reason.`
       : null,
     ...stale.map(
       (id) =>
-        `${id} is refused now, so its entry in VALIDATION_GAPS or INCOMPLETE_FEATURES can go.`,
+        `${id} is now refused by the service, so the exception that lets it be accepted can be removed.`,
     ),
   ].filter(Boolean);
 }

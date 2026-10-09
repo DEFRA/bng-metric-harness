@@ -440,6 +440,28 @@ describe("comparisonVerdict", () => {
     ]);
   });
 
+  it("says why invalid scenarios pass, in words rather than code", () => {
+    const results = [
+      result([], { id: "purpose/accepted", outcome: OUTCOME.acceptedInvalid }),
+      { id: "purpose/now-refused", outcome: OUTCOME.rejectedAsExpected },
+    ];
+    const gaps = {
+      "purpose/accepted": "The service does not check this yet.",
+      "purpose/now-refused": "The service does not check this yet.",
+    };
+    const { reasons } = comparisonVerdict(
+      results,
+      findUnexplained(results, gaps, {}),
+    );
+    expect(reasons).toContain(
+      "1 scenario built on invalid data was accepted by the service, for a known reason.",
+    );
+    expect(reasons).toContain(
+      "purpose/now-refused is now refused by the service, so the exception that lets it be accepted can be removed.",
+    );
+    expect(reasons.join(" ")).not.toMatch(/\.mjs|[A-Z]+_[A-Z_]+/);
+  });
+
   it("lists at most 10 failing scenarios, and counts the rest", () => {
     const verdict = verdictOf(
       Array.from({ length: 12 }, (_, i) =>
