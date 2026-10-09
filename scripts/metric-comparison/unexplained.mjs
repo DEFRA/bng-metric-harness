@@ -19,7 +19,11 @@
  * - the scenario holds invalid data the service does not refuse yet, and
  *   VALIDATION_GAPS says which check the service lacks. The metric computes
  *   nothing meaningful for invalid rows, so none of that scenario's figures
- *   can fail it.
+ *   can fail it;
+ * - it is a feature's units in a scenario INCOMPLETE_FEATURES names, the
+ *   metric has none and the service has zero: a feature the service saves
+ *   Incomplete. Only those features are excused; every other figure in the
+ *   scenario is held to the rules above.
  *
  * Anything else fails: a figure that differs for no known reason, a figure
  * one side has and the other does not, a valid scenario the service refuses,
@@ -51,8 +55,19 @@ export const VALIDATION_GAPS = Object.freeze({
     "The service does not refuse a culvert enhanced in place, which the metric does not offer.",
   "invalid-interventions/invalid-watercourse-encroachment-worsened":
     "The service does not refuse a watercourse enhancement that delivers fewer units than the baseline.",
+});
+
+/**
+ * Scenarios with features the service accepts by design but saves Incomplete,
+ * with zero units, where the metric prices nothing: why. The service does not
+ * mean to refuse these, so unlike a validation gap the scenario is still
+ * compared; only a feature the metric has no units for and the service prices
+ * at zero is excused (isIncompleteFeature). An entry is reported as stale
+ * once the service refuses the scenario.
+ */
+export const INCOMPLETE_FEATURES = Object.freeze({
   "data-completeness/invalid-data-incomplete":
-    "The service does not refuse an enhancement with no proposed condition or strategic significance; it saves the feature Incomplete, with the strategic significance nulled and zero units (BMD-1051).",
+    "The service accepts an enhancement with no proposed condition or strategic significance and saves it Incomplete, with the strategic significance nulled and zero units, where the metric prices nothing (BMD-1051).",
 });
 
 /** Outcomes that fail a scenario whatever its figures. */
@@ -61,6 +76,18 @@ const FAILED_OUTCOMES = Object.freeze({
   [OUTCOME.importFailed]: "The service failed to import the scenario.",
   [OUTCOME.workbookUnreadable]: "The metric workbook could not be read.",
 });
+
+/**
+ * A feature the metric has no units for and the service prices at zero: what
+ * the service does with a feature it saves Incomplete.
+ */
+export function isIncompleteFeature(discrepancy) {
+  return (
+    discrepancy.category === CATEGORY.featureUnits &&
+    discrepancy.expected === null &&
+    discrepancy.actual === 0
+  );
+}
 
 function isNotImplementedYet(discrepancy) {
   return (
@@ -266,8 +293,10 @@ function explainNetGain(explained, derived, percentage) {
   }
 }
 
-function unexplainedDiscrepancies(result) {
-  const discrepancies = result.discrepancies ?? [];
+function unexplainedDiscrepancies(result, incomplete) {
+  const discrepancies = (result.discrepancies ?? []).filter(
+    (d) => !(incomplete && isIncompleteFeature(d)),
+  );
   const derived = derivedExplanations(discrepancies, result.metricTotals);
   return discrepancies.filter((d) =>
     d.category === CATEGORY.featureUnits
@@ -295,7 +324,7 @@ export function metricTotalsOf(figures) {
   return totals;
 }
 
-function addResult(found, result, gap) {
+function addResult(found, result, { gap, incomplete }) {
   if (FAILED_OUTCOMES[result.outcome]) {
     found.scenarios.push({
       id: result.id,
@@ -303,20 +332,22 @@ function addResult(found, result, gap) {
     });
     return;
   }
-  if (result.outcome === OUTCOME.acceptedInvalid) {
-    if (!gap) {
-      found.scenarios.push({
-        id: result.id,
-        problem:
-          "The service accepted a scenario built on invalid data, and no validation gap explains it.",
-      });
-    }
+  const acceptedInvalid = result.outcome === OUTCOME.acceptedInvalid;
+  if (acceptedInvalid && gap) {
     return;
   }
-  if (gap) {
+  if (acceptedInvalid && !incomplete) {
+    found.scenarios.push({
+      id: result.id,
+      problem:
+        "The service accepted a scenario built on invalid data, and no validation gap explains it.",
+    });
+    return;
+  }
+  if (!acceptedInvalid && (gap || incomplete)) {
     found.stale.push(result.id);
   }
-  for (const d of unexplainedDiscrepancies(result)) {
+  for (const d of unexplainedDiscrepancies(result, incomplete)) {
     found.discrepancies.push({ id: result.id, ...d });
   }
 }
@@ -324,17 +355,26 @@ function addResult(found, result, gap) {
 /**
  * @param {object[]} results compareScenario results
  * @param {Record<string, string>} [validationGaps]
+ * @param {Record<string, string>} [incompleteFeatures]
  * @returns {{
  *   scenarios: Array<{ id: string, problem: string }>,
  *   discrepancies: Array<{ id: string } & object>,
  *   stale: string[]
  * }} `scenarios` fail outright; `discrepancies` are the figures nothing
- *   explains; `stale` names validation gaps the run did not need
+ *   explains; `stale` names validation gaps and incomplete-feature entries
+ *   the run did not need
  */
-export function findUnexplained(results, validationGaps = VALIDATION_GAPS) {
+export function findUnexplained(
+  results,
+  validationGaps = VALIDATION_GAPS,
+  incompleteFeatures = INCOMPLETE_FEATURES,
+) {
   const found = { scenarios: [], discrepancies: [], stale: [] };
   for (const result of results) {
-    addResult(found, result, validationGaps[result.id]);
+    addResult(found, result, {
+      gap: validationGaps[result.id],
+      incomplete: incompleteFeatures[result.id],
+    });
   }
   return found;
 }
@@ -385,7 +425,7 @@ export function renderUnexplained({ scenarios, discrepancies, stale }) {
     lines.push(
       "## Stale validation gaps",
       "",
-      "The service now refuses these scenarios, so their entries in `VALIDATION_GAPS` can go:",
+      "The service now refuses these scenarios, so their entries in `VALIDATION_GAPS` or `INCOMPLETE_FEATURES` can go:",
       "",
       ...stale.map((id) => `- ${id}`),
       "",

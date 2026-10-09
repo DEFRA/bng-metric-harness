@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { CAUSES, OUTCOME } from "#metric-compare";
 import {
+  INCOMPLETE_FEATURES,
   VALIDATION_GAPS,
   findUnexplained,
   hasUnexplained,
@@ -305,6 +306,65 @@ describe("findUnexplained", () => {
   it("names only invalid scenarios in its validation gaps", () => {
     for (const id of Object.keys(VALIDATION_GAPS)) {
       expect(id.split("/").at(-1)).toMatch(/^invalid-/);
+    }
+  });
+});
+
+describe("findUnexplained, for features the service saves Incomplete", () => {
+  const INCOMPLETE = {
+    "purpose/site": "The service saves this feature Incomplete.",
+  };
+  // The metric prices nothing for the row; the service saves it at zero.
+  const savedIncomplete = (ref) => ({
+    ...featureUnits("area", ref, [], "enhanced"),
+    expected: null,
+    actual: 0,
+  });
+  const accepted = (discrepancies) =>
+    result(discrepancies, { outcome: OUTCOME.acceptedInvalid });
+  const find = (results, incomplete = INCOMPLETE) =>
+    findUnexplained(results, {}, incomplete);
+
+  it("explains a feature the metric has no units for and the service prices at zero", () => {
+    const found = find([accepted([savedIncomplete("H4")])]);
+    expect(hasUnexplained(found)).toBe(false);
+  });
+
+  it("still fails any other difference in the scenario", () => {
+    const found = find([
+      accepted([
+        savedIncomplete("H4"),
+        featureUnits("area", "H1"),
+        total("area"),
+      ]),
+    ]);
+    expect(found.discrepancies.map((d) => d.key)).toEqual([
+      "feature-units|area|baseline|H1",
+      "totals|area|baseline",
+    ]);
+  });
+
+  it("does not explain a feature the service prices above zero where the metric has none", () => {
+    const found = find([accepted([{ ...savedIncomplete("H4"), actual: 1 }])]);
+    expect(found.discrepancies).toHaveLength(1);
+  });
+
+  it("does not explain a feature the metric has no units for in a scenario it does not name", () => {
+    const found = find([result([savedIncomplete("H4")])], {});
+    expect(found.discrepancies).toHaveLength(1);
+  });
+
+  it("reports an entry the service no longer needs as stale, without failing", () => {
+    const found = find([
+      { id: "purpose/site", outcome: OUTCOME.rejectedAsExpected },
+    ]);
+    expect(found.stale).toEqual(["purpose/site"]);
+    expect(hasUnexplained(found)).toBe(false);
+  });
+
+  it("names no scenario that also has a validation gap", () => {
+    for (const id of Object.keys(INCOMPLETE_FEATURES)) {
+      expect(VALIDATION_GAPS).not.toHaveProperty(id);
     }
   });
 });

@@ -251,6 +251,7 @@ known explanation. A difference is explained when:
 | The net change percentage and net gain verdict | The module's totals all reconcile as above, and the service's percentage is the metric's recomputed on totals moved by that much. The verdict is explained only where that percentage differs, since the service's verdict follows from its percentage. |
 | A trading rules figure or status | The module's totals all reconcile as above. The feature figures do not say which habitat or band a feature is in, so trading figures cannot yet be reconciled feature by feature; this is the weakest of the checks. |
 | Any figure in a scenario built on invalid data that the service accepts | `VALIDATION_GAPS` names the scenario and the check the service does not make yet. The metric computes nothing meaningful for invalid rows. |
+| A feature's units the metric has none for and the service prices at zero | `INCOMPLETE_FEATURES` names the scenario: the service accepts the feature by design and saves it Incomplete, with zero units (BMD-1051). Only those features are excused (*Saved Incomplete*); every other figure in the scenario is held to the rules above. |
 
 Everything else is unexplained:
 - a figure that differs for no known reason;
@@ -258,10 +259,12 @@ Everything else is unexplained:
 - a valid scenario the service refuses;
 - an import that crashes;
 - a workbook that cannot be read;
-- an invalid scenario the service accepts with no entry in `VALIDATION_GAPS`.
+- an invalid scenario the service accepts with no entry in `VALIDATION_GAPS`
+  or `INCOMPLETE_FEATURES`.
 
-When the service starts refusing an invalid scenario, its `VALIDATION_GAPS`
-entry is reported as stale (a warning, not a failure), so it can be removed.
+When the service starts refusing an invalid scenario, its `VALIDATION_GAPS` or
+`INCOMPLETE_FEATURES` entry is reported as stale (a warning, not a failure), so
+it can be removed.
 Strategic significance should soon explain nothing. The corpus follows the
 LNRS guidance (Low baselines; Low or High proposed values), and once
 bng-metric-backend#439 (hedgerows read their proposed value) has merged, no
@@ -277,9 +280,9 @@ where the metric prices normally. Neither can arise by accident: bng-library's
 scenario catalogue (`src/permutations/catalogue.mjs`, `checkOverrideValue`)
 rejects any `proposedStrategicSignificance` other than Low or High, so a
 scenario pinning Medium fails to load, and the one blank
-(`data-completeness/invalid-data-incomplete`) is already excused in
-`VALIDATION_GAPS`. Should either become a corpus case, it needs its own cause,
-not the *Strategic significance not applied* one.
+(`data-completeness/invalid-data-incomplete`) is excused, feature by feature,
+in `INCOMPLETE_FEATURES`. Should either become a corpus case, it needs its own
+cause, not the *Strategic significance not applied* one.
 
 To accept a new kind of expected difference, explain it in `unexplained.mjs`
 (or, for a feature's units, as a cause in bng-library's
@@ -302,22 +305,28 @@ npm run compare:metric               # compares the new corpus at once
 ### What the comparison finds
 
 On the seed-1 corpus of 43 scenarios, against the backend's main on
-2026-10-08 (with bng-metric-backend#426, sizes measured unrounded, and #439,
+2026-10-09 (with bng-metric-backend#426, sizes measured unrounded, and #439,
 hedgerows read their proposed strategic significance):
 
 - **All 34 valid scenarios match the metric**, in every figure compared.
 - `invalid-area-advance-and-delay` and `invalid-tree-advance-and-delay` are
   refused by the service, as expected.
 - The other 7 scenarios built on invalid data are accepted by the service. They
-  are reported as "Accepted, though its data is invalid", because the service
-  should have refused them; each is listed in `VALIDATION_GAPS`. Two of them
-  are the only scenarios with differing figures:
+  are reported as "Accepted, though its data is invalid". Six are listed in
+  `VALIDATION_GAPS`, because the service should have refused them;
+  `invalid-data-incomplete` is listed in `INCOMPLETE_FEATURES`, because the
+  service accepts it by design. Three of them are the only scenarios with
+  differing figures:
   - **`invalid-area-trading-down`** H001: the metric computes nothing for this
     enhancement (it breaks the trading-down rule), while the service prices it.
   - **`invalid-watercourse-encroachment-worsened`**: the metric reports *Check
     Data* and *N/A*, while the service computes its totals.
-- 2,333 of 2,344 comparable figures match: 2,077 exactly and 256 within the
-  tolerance. The 11 that differ are all in those two scenarios.
+  - **`invalid-data-incomplete`** H004 to H006: the metric prices nothing for
+    these enhancements with no proposed condition or strategic significance,
+    while the service saves them Incomplete at zero units. Its other figures
+    all match.
+- 2,330 of 2,344 comparable figures match: 2,074 exactly and 256 within the
+  tolerance. The 14 that differ are all in those three scenarios.
 - 246 figures are not implemented in the service yet: the hedgerow trading
   statuses, and the Very High and High trading band statuses.
 

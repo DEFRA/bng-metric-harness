@@ -7,6 +7,9 @@ import { renderDifferences } from "../../../scripts/metric-comparison/difference
 import { findUnexplained } from "../../../scripts/metric-comparison/unexplained.mjs";
 
 const GAPS = { "invalid/accepted": "The service does not refuse this yet." };
+const INCOMPLETE = {
+  "invalid/incomplete": "The service saves this Incomplete.",
+};
 
 const featureUnits = (ref, causes = []) => ({
   key: `feature-units|area|baseline|${ref}`,
@@ -51,7 +54,12 @@ const result = (id, outcome, discrepancies = []) => ({
 });
 
 const render = (results) =>
-  renderDifferences(results, findUnexplained(results, GAPS), GAPS);
+  renderDifferences(
+    results,
+    findUnexplained(results, GAPS, INCOMPLETE),
+    GAPS,
+    INCOMPLETE,
+  );
 
 /** A table row's cells, trimmed, so a test need not care about the padding. */
 const cells = (line) =>
@@ -187,6 +195,21 @@ describe("renderDifferences", () => {
       "Invalid data",
     ]);
     expect(lines.slice(1).some((line) => line.includes("✗"))).toBe(false);
+  });
+
+  it("says a feature the service saves Incomplete is explained, and holds the rest to the rules", () => {
+    const lines = render([
+      result("invalid/incomplete", OUTCOME.acceptedInvalid, [
+        { ...featureUnits("H4"), expected: null, actual: 0, difference: null },
+        featureUnits("H1"),
+      ]),
+    ]).split("\n");
+
+    expect(lines[2]).toBe(
+      "  invalid/incomplete (accepted-invalid): The service saves this Incomplete.",
+    );
+    expect(cells(lines[5]).at(-1)).toBe("Saved Incomplete");
+    expect(cells(lines[6]).at(-1)).toBe("✗ no known explanation");
   });
 
   it("shows a value one side lacks as —", () => {
