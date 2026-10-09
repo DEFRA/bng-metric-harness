@@ -390,7 +390,7 @@ const SCENARIOS_LISTED = 10;
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 /** "1 scenario was", "2 scenarios were": a count with its verb. */
-const scenarios = (n, singular, pluralVerb) =>
+const scenariosWithVerb = (n, singular, pluralVerb) =>
   `${plural(n, "scenario")} ${n === 1 ? singular : pluralVerb}`;
 
 /** A scenario's unexplained figures, the first few by name. */
@@ -427,13 +427,13 @@ function passReasons(results, stale) {
   return [
     `${matched} of ${plural(results.length, "scenario")} match the metric in every value.`,
     explained.length > 0
-      ? `${scenarios(explained.length, "differs", "differ")} only for known reasons: ${explained.join(", ")}.`
+      ? `${scenariosWithVerb(explained.length, "differs", "differ")} only for known reasons: ${explained.join(", ")}.`
       : null,
     refused > 0
-      ? `${scenarios(refused, "built on invalid data was", "built on invalid data were")} refused by the service, as expected.`
+      ? `${scenariosWithVerb(refused, "built on invalid data was", "built on invalid data were")} refused by the service, as expected.`
       : null,
     accepted > 0
-      ? `${scenarios(accepted, "built on invalid data was", "built on invalid data were")} accepted by the service, ${accepted === 1 ? "for" : "each for"} a known reason.`
+      ? `${scenariosWithVerb(accepted, "built on invalid data was", "built on invalid data were")} accepted by the service, ${accepted === 1 ? "for" : "each for"} a known reason.`
       : null,
     ...stale.map(
       (id) =>
