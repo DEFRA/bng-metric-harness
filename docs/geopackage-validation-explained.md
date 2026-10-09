@@ -2,7 +2,7 @@
 
 Every rule the BNG Metric service applies to an uploaded GeoPackage: what each one checks, and which example file demonstrates it.
 
-**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `400fc7a`, frontend `d9c2df3` and bng-library `5d2b589`, all on `main`, and was generated on 2026-10-09.
+**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `400fc7a`, frontend `aba2c32` and bng-library `5d2b589`, all on `main`, and was generated on 2026-10-09.
 
 For how biodiversity units are calculated once a file is accepted, see [rules-engine-explained.md](rules-engine-explained.md).
 
@@ -13,7 +13,7 @@ Every rule below **rejects the upload**: nothing is saved and the file must be c
 Two things worth knowing before using the table:
 
 - **The structural rules run first and stop the upload.** Nothing in the geometry or habitat-data groups is reached until the file format, layer, column and coordinate-system rules all pass. Expect to fix a file in two rounds rather than one.
-- **What you see on screen often does not identify the rule.** Of 57 rules, 17 have a message of their own, 5 show a placeholder, and 35 fall back to a generic message about layer and column names. Each row records which applies.
+- **What you see on screen often does not identify the rule.** Of 57 rules, 19 have a message of their own, 5 show a placeholder, and 33 fall back to a generic message about layer and column names. Each row records which applies.
 
 Example files are paths under `example-files/` in this repository, worked out by running the real validation gate over every fixture and recording which rule it reports. That directory is a reference corpus for people, not something the service reads, and `journey-tests` and `backend` keep their own separate copies — so a rule with an example file here is not necessarily covered by an automated test.
 
@@ -121,8 +121,8 @@ Example files are paths under `example-files/` in this repository, worked out by
 | Rule and example file | What it checks |
 | --- | --- |
 | `HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE` — *attribute-problems/Baseline - habitat distinctiveness out of scope.gpkg* | A habitat falls in the High or Very High distinctiveness band, which this service does not yet handle. Applies to area habitats, hedgerows and watercourses, and to habitats proposed as well as existing. Around half of all area habitat types are affected, and an ordinary river or stream always is. The user sees its own message. |
-| `HABITAT_REF_MISSING` — *no geopackage fixture* | A habitat on the area habitat, hedgerow or watercourse layer has no parcel reference, or one made up only of spaces. Every such habitat is reported together as one error rather than one each. Urban trees are not checked, as they carry a tree reference instead. Habitats may share a reference, and a reference longer than the service keeps is shortened on save rather than rejected. The user sees a generic message. |
-| `HABITAT_REF_INVALID_CHARACTERS` — *no geopackage fixture* | A parcel reference on the area habitat, hedgerow or watercourse layer contains bytes that are not valid UTF-8 text, or is stored as raw bytes rather than text. It is detected after the text is decoded, so a reference that genuinely contains the Unicode replacement character is rejected too. Every such habitat is reported together as one error. The user sees a generic message. |
+| `HABITAT_REF_MISSING` — *no geopackage fixture* | A habitat on the area habitat, hedgerow or watercourse layer has no parcel reference, or one made up only of spaces. Every such habitat is reported together as one error rather than one each. Urban trees are not checked, as they carry a tree reference instead. Habitats may share a reference, and a reference longer than the service keeps is shortened on save rather than rejected. The user sees its own message. |
+| `HABITAT_REF_INVALID_CHARACTERS` — *no geopackage fixture* | A parcel reference on the area habitat, hedgerow or watercourse layer contains bytes that are not valid UTF-8 text, or is stored as raw bytes rather than text. It is detected after the text is decoded, so a reference that genuinely contains the Unicode replacement character is rejected too. Every such habitat is reported together as one error. The user sees its own message. |
 | `ADVANCE_AND_DELAY_BOTH_SET` — *attribute-problems/Post-intervention - advance and delay both set.gpkg* | One feature carries both advance years and delay years, which the statutory metric forbids as they are opposite directions on the same timeline. Applies to area habitats, hedgerows and watercourses; urban trees are excluded because the service does not read those columns on that layer. The user sees its own message. |
 | `TREE_COUNT_NOT_WHOLE` — *no geopackage fixture* | An individual tree point's Count, the number of trees it stands for, is filled in with something other than a whole number of one or more. A blank Count passes, and is read as one tree. The user sees its own message. |
 
@@ -140,9 +140,9 @@ Example files are paths under `example-files/` in this repository, worked out by
 | Measure | Count |
 | --- | --- |
 | Rules that can reject an upload | 57 |
-| With a message written for them | 17 |
+| With a message written for them | 19 |
 | Showing a placeholder message | 5 |
-| Falling back to a generic message | 35 |
+| Falling back to a generic message | 33 |
 | With an example .gpkg in this repository | 24 |
 | With a generator flaw that reproduces them | 18 |
 
@@ -165,7 +165,7 @@ Example files are paths under `example-files/` in this repository, worked out by
 | Repository | Commit | Supplies |
 | --- | --- | --- |
 | bng-metric-backend | `400fc7a` | The rules, and the message each one raises |
-| bng-metric-frontend | `d9c2df3` | What the user is shown for each rule |
+| bng-metric-frontend | `aba2c32` | What the user is shown for each rule |
 | bng-library | `5d2b589` | The generator flaws that reproduce fixtures |
 
 Rule descriptions are held in `references/rule-descriptions.json` in the skill; the rule list, message status and fixture mapping are extracted from the three repositories on every run.
