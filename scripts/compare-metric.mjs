@@ -194,7 +194,9 @@ console.log(
 );
 
 for (const id of unexplained.stale) {
-  warn(`${id} is refused now, so its entry in VALIDATION_GAPS can go`);
+  warn(
+    `${id} is refused now, so its entry in VALIDATION_GAPS or INCOMPLETE_FEATURES can go`,
+  );
 }
 if (hasUnexplained(unexplained)) {
   const count = unexplained.scenarios.length + unexplained.discrepancies.length;

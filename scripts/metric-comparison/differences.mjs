@@ -13,7 +13,11 @@
  */
 
 import { CAUSES_BY_ID, OUTCOME } from "#metric-compare";
-import { VALIDATION_GAPS } from "./unexplained.mjs";
+import {
+  INCOMPLETE_FEATURES,
+  VALIDATION_GAPS,
+  isIncompleteFeature,
+} from "./unexplained.mjs";
 
 const DECIMAL_PLACES = 4;
 const UNEXPLAINED_MARK = "✗";
@@ -21,6 +25,8 @@ const NO_VALUE = "—";
 const NO_EXPLANATION = `${UNEXPLAINED_MARK} no known explanation`;
 /** The scenario holds invalid data the service accepts; the heading says why. */
 const INVALID_DATA = "Invalid data";
+/** A feature the service saves Incomplete, in a scenario INCOMPLETE_FEATURES names. */
+const SAVED_INCOMPLETE = "Saved Incomplete";
 /**
  * A figure derived from the feature rows above it (a total, the net change
  * percentage and verdict, a trading figure) that moves by exactly what those
@@ -45,6 +51,10 @@ const EXPLANATION_MEANINGS = new Map([
   [
     INVALID_DATA,
     "The scenario holds invalid data the service accepts, so the metric's figures for it mean nothing; the heading names the check the service lacks.",
+  ],
+  [
+    SAVED_INCOMPLETE,
+    "The service saves the feature Incomplete, with zero units, where the metric prices nothing; the heading says why.",
   ],
   [
     FOLLOWS_FROM_FEATURES,
@@ -102,16 +112,20 @@ function difference(d) {
 
 /**
  * What explains a figure: ✗ when nothing does; the scenario's validation gap
- * when its data is invalid; a feature's causes; else, for a figure derived
- * from the features, that it follows from them (unexplained.mjs checks it
- * moves by exactly what they account for).
+ * when its data is invalid; a feature the service saves Incomplete; a
+ * feature's causes; else, for a figure derived from the features, that it
+ * follows from them (unexplained.mjs checks it moves by exactly what they
+ * account for).
  */
-function explanation(d, { unexplained, invalidData }) {
+function explanation(d, { unexplained, invalidData, incomplete }) {
   if (unexplained) {
     return NO_EXPLANATION;
   }
   if (invalidData) {
     return INVALID_DATA;
+  }
+  if (incomplete && isIncompleteFeature(d)) {
+    return SAVED_INCOMPLETE;
   }
   const titles = (d.causes ?? []).map((id) => CAUSES_BY_ID[id]?.title ?? id);
   return titles.length > 0
@@ -131,13 +145,16 @@ function row(d, status) {
   ];
 }
 
-/** The scenario's heading: its outcome, and the gap or problem that frames it. */
-function heading(result, problem, gap) {
+/**
+ * The scenario's heading: its outcome, and the gap, incomplete features or
+ * problem that frames it.
+ */
+function heading(result, problem, reason) {
   if (problem) {
     return `${SCENARIO_INDENT}${UNEXPLAINED_MARK} ${result.id} (${result.outcome}): ${problem}`;
   }
   const suffix =
-    result.outcome === OUTCOME.acceptedInvalid && gap ? `: ${gap}` : "";
+    result.outcome === OUTCOME.acceptedInvalid && reason ? `: ${reason}` : "";
   return `${SCENARIO_INDENT}${result.id} (${result.outcome})${suffix}`;
 }
 
@@ -170,12 +187,14 @@ function renderTable(rows, widths) {
  * @param {{ scenarios: object[], discrepancies: object[] }} unexplained
  *   findUnexplained's answer for the same results
  * @param {Record<string, string>} [validationGaps]
+ * @param {Record<string, string>} [incompleteFeatures]
  * @returns {string} the lines, or "" when nothing differs
  */
 export function renderDifferences(
   results,
   unexplained,
   validationGaps = VALIDATION_GAPS,
+  incompleteFeatures = INCOMPLETE_FEATURES,
 ) {
   const problems = new Map(unexplained.scenarios.map((s) => [s.id, s.problem]));
   const unexplainedKeys = new Set(
@@ -188,12 +207,19 @@ export function renderDifferences(
     if (discrepancies.length === 0 && !problem) {
       continue;
     }
+    const incomplete = incompleteFeatures[result.id];
     tables.push({
-      heading: heading(result, problem, validationGaps[result.id]),
+      heading: heading(
+        result,
+        problem,
+        validationGaps[result.id] ?? incomplete,
+      ),
       rows: discrepancies.map((d) =>
         row(d, {
           unexplained: unexplainedKeys.has(`${result.id}\n${d.key}`),
-          invalidData: result.outcome === OUTCOME.acceptedInvalid,
+          invalidData:
+            result.outcome === OUTCOME.acceptedInvalid && !incomplete,
+          incomplete,
         }),
       ),
     });
