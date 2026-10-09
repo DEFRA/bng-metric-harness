@@ -7,6 +7,7 @@ import { CAUSES, OUTCOME } from "#metric-compare";
 import {
   INCOMPLETE_FEATURES,
   VALIDATION_GAPS,
+  comparisonVerdict,
   findUnexplained,
   hasUnexplained,
   metricTotalsOf,
@@ -395,6 +396,59 @@ describe("renderUnexplained", () => {
     expect(markdown).toContain("Unexplained differences");
     expect(markdown).toContain(
       "| purpose/site | H1 baseline units | 1.15 | 1 | — |",
+    );
+  });
+});
+
+describe("comparisonVerdict", () => {
+  const verdictOf = (results) =>
+    comparisonVerdict(results, findUnexplained(results, {}, {}));
+
+  it("passes when everything is explained, and says what it found", () => {
+    const verdict = verdictOf([
+      result([]),
+      result([featureUnits("area", "H1", [NOT_IMPLEMENTED])], {
+        id: "purpose/explained",
+      }),
+      { id: "purpose/refused", outcome: OUTCOME.rejectedAsExpected },
+    ]);
+    expect(verdict).toEqual({
+      passed: true,
+      summary: "Every difference from the metric has a known explanation.",
+      reasons: [
+        "1 of 3 scenarios match the metric in every value.",
+        "1 scenario differs only for known reasons: purpose/explained.",
+        "1 scenario built on invalid data was refused by the service, as expected.",
+      ],
+    });
+  });
+
+  it("fails on anything unexplained, naming the scenarios and figures", () => {
+    const verdict = verdictOf([
+      result(
+        ["H1", "H2", "H3", "H4", "H5"].map((ref) => featureUnits("area", ref)),
+      ),
+      { id: "purpose/broken", outcome: OUTCOME.importFailed },
+    ]);
+    expect(verdict.passed).toBe(false);
+    expect(verdict.summary).toBe(
+      "6 differences from the metric have no known explanation.",
+    );
+    expect(verdict.reasons).toEqual([
+      "purpose/broken: The service failed to import the scenario.",
+      "purpose/site: 5 values with no known explanation (H1 baseline units, H2 baseline units, H3 baseline units and 2 more)",
+    ]);
+  });
+
+  it("lists at most 10 failing scenarios, and counts the rest", () => {
+    const verdict = verdictOf(
+      Array.from({ length: 12 }, (_, i) =>
+        result([featureUnits("area", "H1")], { id: `purpose/site-${i}` }),
+      ),
+    );
+    expect(verdict.reasons).toHaveLength(11);
+    expect(verdict.reasons.at(-1)).toBe(
+      "and 2 more scenarios: see the table below.",
     );
   });
 });
