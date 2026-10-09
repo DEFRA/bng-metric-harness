@@ -237,13 +237,16 @@ function extractFixtures(libraryDir) {
 
 // ------------------------------------------------------------------ tolerances
 
-const POSTGIS_INDEX = path.join(
-  'src',
-  'validation',
-  'geopackage',
-  'postgis',
-  'index.js'
-)
+/**
+ * Where the spatial checks' thresholds are declared, newest layout first. The
+ * GEOS migration moved them out of postgis/index.js, which no longer exists,
+ * into geometry-constants.js as exports; the old path is kept so a checkout
+ * from before then still extracts.
+ */
+const TOLERANCE_FILES = [
+  path.join('src', 'validation', 'geopackage', 'geometry-constants.js'),
+  path.join('src', 'validation', 'geopackage', 'postgis', 'index.js')
+]
 
 /**
  * The numeric thresholds the spatial checks compare against.
@@ -257,12 +260,15 @@ const POSTGIS_INDEX = path.join(
  * `100 * 1000 * 1000`. Anything else is left out rather than guessed at.
  */
 function extractTolerances(backendDir) {
-  const file = path.join(backendDir, POSTGIS_INDEX)
-  if (!existsSync(file)) {
+  const file = TOLERANCE_FILES.map((name) => path.join(backendDir, name)).find(
+    (candidate) => existsSync(candidate)
+  )
+  if (!file) {
     return {}
   }
   const tolerances = {}
-  const pattern = /^const ([A-Z][A-Z0-9_]*)\s*=\s*([\d.\s*]+?)\s*$/gm
+  const pattern =
+    /^(?:export )?const ([A-Z][A-Z0-9_]*)\s*=\s*([\d.\s*]+?)\s*$/gm
   for (const [, name, expression] of readTextFile(file).matchAll(pattern)) {
     const factors = expression.split('*').map((part) => Number(part.trim()))
     if (factors.some(Number.isNaN)) {

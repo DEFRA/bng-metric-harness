@@ -228,6 +228,26 @@
   },
   "INVALID_FILENAME": {
     "group": "File name",
-    "checks": "The name of the uploaded file contains a character the service does not accept, or is longer than the allowed length. Letters, numbers, spaces, full stops, underscores, hyphens and round brackets all pass, and the name has to begin with a letter or number; nothing inside the file is looked at."
+    "checks": "The name of the uploaded file contains a character the service does not accept. Letters, numbers, spaces, full stops, underscores, hyphens and round brackets all pass, and the name has to begin with a letter or number; nothing inside the file is looked at."
+  },
+  "GPKG_TOO_MANY_FEATURES": {
+    "group": "Shapes present and of the right kind",
+    "checks": "The file holds more features, counted across all its layers, than the service can check in one upload. Nothing is wrong with the features themselves; the limit is set by the service's configuration rather than by the metric."
+  },
+  "TREE_COUNT_NOT_WHOLE": {
+    "group": "Habitat data",
+    "checks": "An individual tree point's Count, the number of trees it stands for, is filled in with something other than a whole number of one or more. A blank Count passes, and is read as one tree."
+  },
+  "FILENAME_TOO_LONG": {
+    "group": "File name",
+    "checks": "The name of the uploaded file is longer than the service accepts. Nothing inside the file is looked at."
+  },
+  "VALIDATION_BUSY": {
+    "group": "Service faults, not your file",
+    "checks": "Every part of the service that checks file shapes was busy with other uploads, so this file was never looked at. Nothing about the upload was wrong, and the condition is temporary."
+  },
+  "VALIDATION_UNAVAILABLE": {
+    "group": "Service faults, not your file",
+    "checks": "The part of the service that checks file shapes has stopped working and cannot restart itself, so no file can be checked until it is fixed. Nothing about the upload was wrong, and trying again straight away meets the same fault."
   }
 }
