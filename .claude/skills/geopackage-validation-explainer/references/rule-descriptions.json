@@ -196,9 +196,13 @@
     "group": "Habitat data",
     "checks": "A habitat falls in the High or Very High distinctiveness band, which this service does not yet handle. Applies to area habitats, hedgerows and watercourses, and to habitats proposed as well as existing. Around half of all area habitat types are affected, and an ordinary river or stream always is."
   },
-  "DUPLICATE_HABITAT_REF": {
+  "HABITAT_REF_MISSING": {
     "group": "Habitat data",
-    "checks": "Two rows in the Habitats layer share a parcel reference. Blank references are ignored, and matching is exact, so references differing only by capitalisation or a trailing space are treated as distinct."
+    "checks": "A habitat on the area habitat, hedgerow or watercourse layer has no parcel reference, or one made up only of spaces. Every such habitat is reported together as one error rather than one each. Urban trees are not checked, as they carry a tree reference instead. Habitats may share a reference, and a reference longer than the service keeps is shortened on save rather than rejected."
+  },
+  "HABITAT_REF_INVALID_CHARACTERS": {
+    "group": "Habitat data",
+    "checks": "A parcel reference on the area habitat, hedgerow or watercourse layer contains bytes that are not valid UTF-8 text, or is stored as raw bytes rather than text. It is detected after the text is decoded, so a reference that genuinely contains the Unicode replacement character is rejected too. Every such habitat is reported together as one error."
   },
   "ADVANCE_AND_DELAY_BOTH_SET": {
     "group": "Habitat data",
