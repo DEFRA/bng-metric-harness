@@ -383,6 +383,92 @@ export function hasUnexplained({ scenarios, discrepancies }) {
   return scenarios.length > 0 || discrepancies.length > 0;
 }
 
+/** How many of a scenario's unexplained figures the verdict names. */
+const FIGURES_NAMED = 3;
+/** How many failing scenarios the verdict lists; the table has the rest. */
+const SCENARIOS_LISTED = 10;
+
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+/** "1 scenario was", "2 scenarios were": a count with its verb. */
+const scenariosWithVerb = (n, singular, pluralVerb) =>
+  `${plural(n, "scenario")} ${n === 1 ? singular : pluralVerb}`;
+
+/** A scenario's unexplained figures, the first few by name. */
+function figuresText(labels) {
+  const named = labels.slice(0, FIGURES_NAMED).join(", ");
+  const more = labels.length - FIGURES_NAMED;
+  return more > 0 ? `${named} and ${more} more` : named;
+}
+
+function failureReasons({ scenarios, discrepancies }) {
+  const byScenario = Map.groupBy(discrepancies, (d) => d.id);
+  const reasons = [
+    ...scenarios.map((s) => `${s.id}: ${s.problem}`),
+    ...[...byScenario].map(
+      ([id, found]) =>
+        `${id}: ${plural(found.length, "value")} with no known explanation (${figuresText(found.map((d) => d.label))})`,
+    ),
+  ];
+  const more = reasons.length - SCENARIOS_LISTED;
+  return more > 0
+    ? [
+        ...reasons.slice(0, SCENARIOS_LISTED),
+        `and ${plural(more, "more scenario")}: see the table below.`,
+      ]
+    : reasons;
+}
+
+function passReasons(results, stale) {
+  const count = (outcome) => results.filter((r) => r.outcome === outcome);
+  const matched = count(OUTCOME.matched).length;
+  const explained = count(OUTCOME.discrepancies).map((r) => r.id);
+  const refused = count(OUTCOME.rejectedAsExpected).length;
+  const accepted = count(OUTCOME.acceptedInvalid).length;
+  const eachFor = accepted === 1 ? "for" : "each for";
+  return [
+    `${matched} of ${plural(results.length, "scenario")} match the metric in every value.`,
+    explained.length > 0
+      ? `${scenariosWithVerb(explained.length, "differs", "differ")} only for known reasons: ${explained.join(", ")}.`
+      : null,
+    refused > 0
+      ? `${scenariosWithVerb(refused, "built on invalid data was", "built on invalid data were")} refused by the service, as expected.`
+      : null,
+    accepted > 0
+      ? `${scenariosWithVerb(accepted, "built on invalid data was", "built on invalid data were")} accepted by the service, ${eachFor} a known reason.`
+      : null,
+    ...stale.map(
+      (id) =>
+        `${id} is now refused by the service, so the exception that lets it be accepted can be removed.`,
+    ),
+  ].filter(Boolean);
+}
+
+/**
+ * Whether the run passes --fail-on-unexplained, and why, for the box at the
+ * top of the HTML report.
+ *
+ * @param {object[]} results compareScenario results
+ * @param {ReturnType<typeof findUnexplained>} unexplained findUnexplained's
+ *   answer for the same results
+ * @returns {{ passed: boolean, summary: string, reasons: string[] }}
+ */
+export function comparisonVerdict(results, unexplained) {
+  if (hasUnexplained(unexplained)) {
+    const count =
+      unexplained.scenarios.length + unexplained.discrepancies.length;
+    return {
+      passed: false,
+      summary: `${plural(count, "difference")} from the metric ${count === 1 ? "has" : "have"} no known explanation.`,
+      reasons: failureReasons(unexplained),
+    };
+  }
+  return {
+    passed: true,
+    summary: "Every difference from the metric has a known explanation.",
+    reasons: passReasons(results, unexplained.stale),
+  };
+}
+
 const cell = (value) =>
   String(value ?? "—")
     .replaceAll("|", String.raw`\|`)

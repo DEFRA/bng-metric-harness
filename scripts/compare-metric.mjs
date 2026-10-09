@@ -56,6 +56,7 @@ import {
   runMetricComparison,
 } from "./metric-comparison/run-metric-comparison.mjs";
 import {
+  comparisonVerdict,
   findUnexplained,
   hasUnexplained,
   renderUnexplained,
@@ -150,7 +151,14 @@ mkdirSync(OUT_DIR, { recursive: true });
 const write = (name, content) =>
   writeFileSync(path.join(OUT_DIR, name), content);
 
-write("report.html", renderComparisonHtml(results, { context }));
+// A bng-library that predates the verdict option ignores it.
+write(
+  "report.html",
+  renderComparisonHtml(results, {
+    context,
+    verdict: comparisonVerdict(results, unexplained),
+  }),
+);
 write("report.xlsx", renderComparisonXlsx(results, { context }));
 write("report.md", renderComparisonReport(results, { preamble: context }));
 write(
