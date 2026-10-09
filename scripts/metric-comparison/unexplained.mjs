@@ -424,6 +424,7 @@ function passReasons(results, stale) {
   const explained = count(OUTCOME.discrepancies).map((r) => r.id);
   const refused = count(OUTCOME.rejectedAsExpected).length;
   const accepted = count(OUTCOME.acceptedInvalid).length;
+  const eachFor = accepted === 1 ? "for" : "each for";
   return [
     `${matched} of ${plural(results.length, "scenario")} match the metric in every value.`,
     explained.length > 0
@@ -433,7 +434,7 @@ function passReasons(results, stale) {
       ? `${scenariosWithVerb(refused, "built on invalid data was", "built on invalid data were")} refused by the service, as expected.`
       : null,
     accepted > 0
-      ? `${scenariosWithVerb(accepted, "built on invalid data was", "built on invalid data were")} accepted by the service, ${accepted === 1 ? "for" : "each for"} a known reason.`
+      ? `${scenariosWithVerb(accepted, "built on invalid data was", "built on invalid data were")} accepted by the service, ${eachFor} a known reason.`
       : null,
     ...stale.map(
       (id) =>
