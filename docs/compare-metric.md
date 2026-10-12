@@ -251,7 +251,7 @@ known explanation. A difference is explained when:
 | The net change percentage and net gain verdict | The module's totals all reconcile as above, and the service's percentage is the metric's recomputed on totals moved by that much. The verdict is explained only where that percentage differs, since the service's verdict follows from its percentage. |
 | A trading rules figure or status | The module's totals all reconcile as above. The feature figures do not say which habitat or band a feature is in, so trading figures cannot yet be reconciled feature by feature; this is the weakest of the checks. |
 | Any figure in a scenario built on invalid data that the service accepts | `VALIDATION_GAPS` names the scenario and the check the service does not make yet. The metric computes nothing meaningful for invalid rows. |
-| A feature's units the metric has none for and the service prices at zero | `INCOMPLETE_FEATURES` names the scenario: the service accepts the feature by design and saves it Incomplete, with zero units (BMD-1051). Only those features are excused (*Saved Incomplete*); every other figure in the scenario is held to the rules above. |
+| A feature's units the metric has none for and the service prices at zero | `INCOMPLETE_FEATURES` names the scenario: the service accepts the feature by design and saves it Incomplete, with zero units: a blank or invalid strategic significance (BMD-1051), or an enhancement that breaks the enhancement rules, whose proposed attributes are nulled (BMD-820). Only those features are excused (*Saved Incomplete*); every other figure in the scenario is held to the rules above. |
 
 Everything else is unexplained:
 - a figure that differs for no known reason;
@@ -306,27 +306,35 @@ npm run compare:metric               # compares the new corpus at once
 
 On the seed-1 corpus of 43 scenarios, against the backend's main on
 2026-10-09 (with bng-metric-backend#426, sizes measured unrounded, and #439,
-hedgerows read their proposed strategic significance):
+hedgerows read their proposed strategic significance), and BMD-820's
+enhancement rules on 2026-10-12:
 
 - **All 34 valid scenarios match the metric**, in every figure compared.
 - `invalid-area-advance-and-delay` and `invalid-tree-advance-and-delay` are
   refused by the service, as expected.
 - The other 7 scenarios built on invalid data are accepted by the service. They
-  are reported as "Accepted, though its data is invalid". Six are listed in
-  `VALIDATION_GAPS`, because the service should have refused them;
-  `invalid-data-incomplete` is listed in `INCOMPLETE_FEATURES`, because the
-  service accepts it by design. Three of them are the only scenarios with
+  are reported as "Accepted, though its data is invalid". Two are listed in
+  `VALIDATION_GAPS`, because the service does not make the check:
+  `invalid-watercourse-culvert-enhanced` and
+  `invalid-watercourse-encroachment-worsened`. Five are listed in
+  `INCOMPLETE_FEATURES`, because the service accepts them by design:
+  `invalid-data-incomplete`, and the four enhancements that break the
+  enhancement rules (BMD-820). Six of them are the only scenarios with
   differing figures:
-  - **`invalid-area-trading-down`** H001: the metric computes nothing for this
-    enhancement (it breaks the trading-down rule), while the service prices it.
+  - **`invalid-area-condition-reduced`**, **`invalid-area-no-enhancement`** and
+    **`invalid-area-trading-down`** H001, and
+    **`invalid-hedgerow-condition-reduced`** HG001 to HG003: the metric
+    computes nothing for these enhancements, while the service nulls their
+    proposed attributes and saves them Incomplete at zero units. Their other
+    figures all match.
   - **`invalid-watercourse-encroachment-worsened`**: the metric reports *Check
     Data* and *N/A*, while the service computes its totals.
   - **`invalid-data-incomplete`** H004 to H006: the metric prices nothing for
     these enhancements with no proposed condition or strategic significance,
     while the service saves them Incomplete at zero units. Its other figures
     all match.
-- 2,330 of 2,344 comparable figures match: 2,074 exactly and 256 within the
-  tolerance. The 14 that differ are all in those three scenarios.
+- 2,330 of 2,343 comparable figures match: 2,073 exactly and 257 within the
+  tolerance. The 13 that differ are all in those six scenarios.
 - 246 figures are not implemented in the service yet: the hedgerow trading
   statuses, and the Very High and High trading band statuses.
 
@@ -342,3 +350,8 @@ How it got here:
 
 Until #439 merges, a run against the backend's `main` or #426 alone shows the
 hedgerow differences, explained as *Strategic significance not applied*.
+
+Until the backend's enhancement rules (BMD-820) merge, a run against its
+`main` fails: the service prices the four enhancements that break them
+(111.3409 units for `invalid-area-trading-down` H001, say), and
+`INCOMPLETE_FEATURES` excuses only a feature it saves at zero.
