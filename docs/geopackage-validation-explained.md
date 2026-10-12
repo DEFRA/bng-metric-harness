@@ -2,7 +2,7 @@
 
 Every rule the BNG Metric service applies to an uploaded GeoPackage: what each one checks, and which example file demonstrates it.
 
-**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `400fc7a`, frontend `aba2c32` and bng-library `5d2b589`, all on `main`, and was generated on 2026-10-09.
+**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `400fc7a`, frontend `aba2c32` and bng-library `5d2b589`, all on `main`, and was generated on 2026-10-12.
 
 For how biodiversity units are calculated once a file is accepted, see [rules-engine-explained.md](rules-engine-explained.md).
 
@@ -121,8 +121,8 @@ Example files are paths under `example-files/` in this repository, worked out by
 | Rule and example file | What it checks |
 | --- | --- |
 | `HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE` — *attribute-problems/Baseline - habitat distinctiveness out of scope.gpkg* | A habitat falls in the High or Very High distinctiveness band, which this service does not yet handle. Applies to area habitats, hedgerows and watercourses, and to habitats proposed as well as existing. Around half of all area habitat types are affected, and an ordinary river or stream always is. The user sees its own message. |
-| `HABITAT_REF_MISSING` — *no geopackage fixture* | A habitat on the area habitat, hedgerow or watercourse layer has no parcel reference, or one made up only of spaces. Every such habitat is reported together as one error rather than one each. Urban trees are not checked, as they carry a tree reference instead. Habitats may share a reference, and a reference longer than the service keeps is shortened on save rather than rejected. The user sees its own message. |
-| `HABITAT_REF_INVALID_CHARACTERS` — *no geopackage fixture* | A parcel reference on the area habitat, hedgerow or watercourse layer contains bytes that are not valid UTF-8 text, or is stored as raw bytes rather than text. It is detected after the text is decoded, so a reference that genuinely contains the Unicode replacement character is rejected too. Every such habitat is reported together as one error. The user sees its own message. |
+| `HABITAT_REF_MISSING` — *attribute-problems/Baseline - missing habitat ref.gpkg; attribute-problems/Baseline - missing habitat refs on every layer.gpkg; attribute-problems/Post-intervention - missing habitat ref.gpkg* | A habitat on the area habitat, hedgerow or watercourse layer has no parcel reference, or one made up only of spaces. Every such habitat is reported together as one error rather than one each. Urban trees are not checked, as they carry a tree reference instead. Habitats may share a reference, and a reference longer than the service keeps is shortened on save rather than rejected. The user sees its own message. |
+| `HABITAT_REF_INVALID_CHARACTERS` — *attribute-problems/Baseline - habitat ref invalid UTF-8 bytes.gpkg; attribute-problems/Baseline - habitat ref invalid characters.gpkg* | A parcel reference on the area habitat, hedgerow or watercourse layer contains bytes that are not valid UTF-8 text, or is stored as raw bytes rather than text. It is detected after the text is decoded, so a reference that genuinely contains the Unicode replacement character is rejected too. Every such habitat is reported together as one error. The user sees its own message. |
 | `ADVANCE_AND_DELAY_BOTH_SET` — *attribute-problems/Post-intervention - advance and delay both set.gpkg* | One feature carries both advance years and delay years, which the statutory metric forbids as they are opposite directions on the same timeline. Applies to area habitats, hedgerows and watercourses; urban trees are excluded because the service does not read those columns on that layer. The user sees its own message. |
 | `TREE_COUNT_NOT_WHOLE` — *no geopackage fixture* | An individual tree point's Count, the number of trees it stands for, is filled in with something other than a whole number of one or more. A blank Count passes, and is read as one tree. The user sees its own message. |
 
@@ -143,12 +143,12 @@ Example files are paths under `example-files/` in this repository, worked out by
 | With a message written for them | 19 |
 | Showing a placeholder message | 5 |
 | Falling back to a generic message | 33 |
-| With an example .gpkg in this repository | 24 |
+| With an example .gpkg in this repository | 26 |
 | With a generator flaw that reproduces them | 18 |
 
-**33 of 57 rules have no example file.** Almost all are structural — the file format, layer, column and coordinate-system rules — which is also the group the user is told least about. The generator has no schema flaw family, so those fixtures cannot be produced with `npm run generate:gpkg` and would have to be built by hand.
+**31 of 57 rules have no example file.** Almost all are structural — the file format, layer, column and coordinate-system rules — which is also the group the user is told least about. The generator has no schema flaw family, so those fixtures cannot be produced with `npm run generate:gpkg` and would have to be built by hand.
 
-118 `.gpkg` files in `example-files/` are not mapped to any rule. Most are valid fixtures or real survey data rather than rule demonstrations, so that is expected rather than a gap.
+120 `.gpkg` files in `example-files/` are not mapped to any rule. Most are valid fixtures or real survey data rather than rule demonstrations, so that is expected rather than a gap.
 
 ## Known gaps recorded by this run
 
