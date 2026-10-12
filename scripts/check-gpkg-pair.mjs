@@ -10,7 +10,9 @@
  *      to the baseline file's (byte-for-byte).
  *   3. Every post-intervention Parcel Ref / Tree Ref either matches a
  *      baseline ref exactly, is a letter-suffixed variant of one (e.g. H001
- *      → H001a), or is a fresh ref for a Created row.
+ *      → H001a), or is a fresh ref for a Created row. Parcel Refs are
+ *      compared as the backend stores them (cleanParcelRef), since that is
+ *      what it matches a post-intervention feature to its baseline on.
  *
  * Usage:
  *   node scripts/check-gpkg-pair.mjs <baseline.gpkg> <post-intervention.gpkg>
@@ -121,6 +123,22 @@ function checkRedlineMatches(baseDb, postDb) {
   return [];
 }
 
+// The backend's MAX_HABITAT_REF_LENGTH (validation/geopackage/habitat-ref-check.js).
+const MAX_PARCEL_REF_LENGTH = 100;
+
+/**
+ * A Parcel Ref as the backend stores it (cleanHabitatRef, BMD-1058): trimmed,
+ * cut to MAX_PARCEL_REF_LENGTH code points, then trimmed again. Tree Refs are
+ * not cleaned, so are compared as they are.
+ */
+function cleanParcelRef(ref) {
+  if (typeof ref !== "string" && typeof ref !== "number") {
+    return ref;
+  }
+  const characters = Array.from(String(ref).trim());
+  return characters.slice(0, MAX_PARCEL_REF_LENGTH).join("").trimEnd();
+}
+
 function stripSuffix(ref) {
   // H001a → H001, HG003b → HG003, R012 → R012 (no change), T007 → T007
   return ref.replace(/([a-z])$/i, "");
@@ -144,12 +162,14 @@ function checkPostRowRef(row, baseRefs, table, failures) {
 function checkRefsTraceBack(baseDb, postDb) {
   const failures = [];
   for (const layer of LAYERS) {
+    const clean = layer.refCol === COL_PARCEL_REF ? cleanParcelRef : (ref) => ref;
     const baseRefs = new Set(
-      baseDb.prepare(`SELECT "${layer.refCol}" AS r FROM "${layer.table}"`).all().map((x) => x.r),
+      baseDb.prepare(`SELECT "${layer.refCol}" AS r FROM "${layer.table}"`).all().map((x) => clean(x.r)),
     );
     const postRows = postDb
       .prepare(`SELECT "${layer.refCol}" AS r, "Retention Category" AS rc FROM "${layer.table}"`)
-      .all();
+      .all()
+      .map((row) => ({ ...row, r: clean(row.r) }));
     for (const row of postRows) {
       checkPostRowRef(row, baseRefs, layer.table, failures);
     }

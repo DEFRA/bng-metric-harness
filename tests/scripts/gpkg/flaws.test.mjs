@@ -61,6 +61,28 @@ describe("resolveFlawSelection — happy paths", () => {
     expect(refs[0]).toBe(refs[1]);
   });
 
+  it("routes the missing-habitat-ref flaw and pins a blank ref on one row", () => {
+    const sel = resolveFlawSelection({
+      bad: false,
+      flaws: ["missing-habitat-ref"],
+    });
+    expect(sel.attributeFlawNames).toEqual(["missing-habitat-ref"]);
+    expect(Object.keys(sel.attributeOverrides)).toEqual(["habitats"]);
+    expect(sel.attributeOverrides.habitats).toHaveLength(1);
+    expect(sel.attributeOverrides.habitats[0].parcelRef.trim()).toBe("");
+  });
+
+  it("routes the habitat-ref-invalid-characters flaw and pins a replacement character on one row", () => {
+    const sel = resolveFlawSelection({
+      bad: false,
+      flaws: ["habitat-ref-invalid-characters"],
+    });
+    expect(sel.attributeFlawNames).toEqual(["habitat-ref-invalid-characters"]);
+    expect(Object.keys(sel.attributeOverrides)).toEqual(["habitats"]);
+    expect(sel.attributeOverrides.habitats).toHaveLength(1);
+    expect(sel.attributeOverrides.habitats[0].parcelRef).toContain("�");
+  });
+
   it("routes the advance-delay-both-set flaw and pins both years on a created row", () => {
     const sel = resolveFlawSelection({
       bad: false,
