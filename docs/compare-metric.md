@@ -322,7 +322,6 @@ stay a culvert):
   `invalid-data-incomplete`, and the five enhancements that break the
   enhancement rules (BMD-820). These seven are the only scenarios with
   differing figures:
-  figures:
   - **`invalid-area-condition-reduced`**, **`invalid-area-no-enhancement`** and
     **`invalid-area-trading-down`** H001,
     **`invalid-hedgerow-condition-reduced`** HG001 to HG003, and
