@@ -306,8 +306,8 @@ npm run compare:metric               # compares the new corpus at once
 
 On the seed-1 corpus of 43 scenarios, against the backend's main on
 2026-10-09 (with bng-metric-backend#426, sizes measured unrounded, and #439,
-hedgerows read their proposed strategic significance), and BMD-820's
-enhancement rules on 2026-10-12:
+hedgerows read their proposed strategic significance), and on its main on
+2026-10-12 with bng-metric-backend#477, the enhancement rules (BMD-820):
 
 - **All 34 valid scenarios match the metric**, in every figure compared.
 - `invalid-area-advance-and-delay` and `invalid-tree-advance-and-delay` are
@@ -350,8 +350,3 @@ How it got here:
 
 Until #439 merges, a run against the backend's `main` or #426 alone shows the
 hedgerow differences, explained as *Strategic significance not applied*.
-
-Until the backend's enhancement rules (BMD-820) merge, a run against its
-`main` fails: the service prices the four enhancements that break them
-(111.3409 units for `invalid-area-trading-down` H001, say), and
-`INCOMPLETE_FEATURES` excuses only a feature it saves at zero.
