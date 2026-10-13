@@ -43,8 +43,6 @@ import {
  * refuses the scenario; an entry it no longer needs is reported as stale.
  */
 export const VALIDATION_GAPS = Object.freeze({
-  "invalid-interventions/invalid-watercourse-culvert-enhanced":
-    "The service does not refuse a culvert enhanced in place, which the metric does not offer.",
   "invalid-interventions/invalid-watercourse-encroachment-worsened":
     "The service does not refuse a watercourse enhancement that delivers fewer units than the baseline.",
 });
@@ -68,6 +66,8 @@ export const INCOMPLETE_FEATURES = Object.freeze({
     "The service accepts a habitat enhancement to a lower distinctiveness and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
   "invalid-interventions/invalid-hedgerow-condition-reduced":
     "The service accepts a hedgerow enhancement that reduces condition and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-watercourse-culvert-enhanced":
+    "The service accepts a culvert enhanced in place, which the metric does not offer, and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
 });
 
 /** Outcomes that fail a scenario whatever its figures. */
