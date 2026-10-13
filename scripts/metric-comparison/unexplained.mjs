@@ -43,14 +43,6 @@ import {
  * refuses the scenario; an entry it no longer needs is reported as stale.
  */
 export const VALIDATION_GAPS = Object.freeze({
-  "invalid-interventions/invalid-area-condition-reduced":
-    "The service does not refuse a habitat enhancement that reduces condition.",
-  "invalid-interventions/invalid-area-no-enhancement":
-    "The service does not refuse a habitat enhancement with the same habitat and condition as the baseline.",
-  "invalid-interventions/invalid-area-trading-down":
-    "The service does not refuse a habitat enhancement to a lower distinctiveness.",
-  "invalid-interventions/invalid-hedgerow-condition-reduced":
-    "The service does not refuse a hedgerow enhancement that reduces condition.",
   "invalid-interventions/invalid-watercourse-culvert-enhanced":
     "The service does not refuse a culvert enhanced in place, which the metric does not offer.",
   "invalid-interventions/invalid-watercourse-encroachment-worsened":
@@ -68,6 +60,14 @@ export const VALIDATION_GAPS = Object.freeze({
 export const INCOMPLETE_FEATURES = Object.freeze({
   "data-completeness/invalid-data-incomplete":
     "The service accepts an enhancement with no proposed condition or strategic significance and saves it Incomplete, with the strategic significance nulled and zero units, where the metric prices nothing (BMD-1051).",
+  "invalid-interventions/invalid-area-condition-reduced":
+    "The service accepts a habitat enhancement that reduces condition and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-area-no-enhancement":
+    "The service accepts a habitat enhancement with the same habitat and condition as the baseline and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-area-trading-down":
+    "The service accepts a habitat enhancement to a lower distinctiveness and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-hedgerow-condition-reduced":
+    "The service accepts a hedgerow enhancement that reduces condition and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
 });
 
 /** Outcomes that fail a scenario whatever its figures. */
