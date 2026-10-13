@@ -62,6 +62,10 @@ export const INCOMPLETE_FEATURES = Object.freeze({
     "The service accepts a habitat enhancement that reduces condition and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
   "invalid-interventions/invalid-area-no-enhancement":
     "The service accepts a habitat enhancement with the same habitat and condition as the baseline and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-area-low-condition-na-not-possible":
+    "The service accepts an enhancement of a Low habitat in Condition Assessment N/A whose time to target the metric gives as Not Possible, and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-area-medium-condition-na-not-possible":
+    "The service accepts an enhancement of a Medium habitat in Condition Assessment N/A whose time to target the metric gives as Not Possible, and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
   "invalid-interventions/invalid-area-trading-down":
     "The service accepts a habitat enhancement to a lower distinctiveness and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
   "invalid-interventions/invalid-hedgerow-condition-reduced":

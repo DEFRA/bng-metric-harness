@@ -2319,6 +2319,334 @@
       }
     },
     {
+      "id": "area-enhanced-medium-condition-na",
+      "purpose": "intervention",
+      "title": "Area habitat — enhancement of a Medium habitat in Condition Assessment N/A",
+      "description": "H001, Bramble scrub in Condition Assessment N/A, is enhanced to Hawthorn scrub in Moderate condition: a Medium habitat with an enhancement time to target from \"CA N/A\" (5 years), so a valid enhancement (BMD-820 AC2).",
+      "size": 2,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "enhanced parcel whose baseline condition cannot be assessed"
+      },
+      "files": {
+        "baseline": "intervention/area-enhanced-medium-condition-na-baseline.gpkg",
+        "postIntervention": "intervention/area-enhanced-medium-condition-na-post-intervention.gpkg",
+        "workbook": "intervention/area-enhanced-medium-condition-na.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "enhanced time to target on H001",
+          "expected": "5 (×0.8368287006)",
+          "actual": "5 (×0.8368287006)",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookSource": "fdb6db15ec78327392ea97222ecfa331e21be0c2d9821fa58cfa1904ea93af86",
+      "inputRows": {
+        "habitatBaseline": 2,
+        "habitatCreation": 0,
+        "habitatEnhancement": 1,
+        "hedgerowBaseline": 0,
+        "hedgerowCreation": 0,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 0,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 0
+      },
+      "rejectedInputs": [],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 305.181693736674,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "postInterventionUnits": {
+            "area": 408.12889747474,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netUnitChange": {
+            "area": 102.947203738066,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netPercentChange": {
+            "area": 0.337330861748522,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netGainMessage": {
+            "area": null,
+            "hedgerow": null,
+            "watercourse": null
+          },
+          "unitsRequired": {
+            "area": 335.699863110342,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "unitDeficit": {
+            "area": 0,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "Yes ✓",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": 102.947203738066
+        },
+        "sheetWarnings": [],
+        "rowWarnings": []
+      }
+    },
+    {
+      "id": "area-enhanced-low-condition-na",
+      "purpose": "intervention",
+      "title": "Area habitat — enhancement of a Low habitat in Condition Assessment N/A",
+      "description": "H001, Cereal crops in Condition Assessment N/A, is enhanced to Other neutral grassland in Poor condition: a Medium habitat with an enhancement time to target from a lower distinctiveness (1 year), so a valid enhancement (BMD-820 AC5).",
+      "size": 2,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "enhanced parcel whose baseline condition cannot be assessed"
+      },
+      "files": {
+        "baseline": "intervention/area-enhanced-low-condition-na-baseline.gpkg",
+        "postIntervention": "intervention/area-enhanced-low-condition-na-post-intervention.gpkg",
+        "workbook": "intervention/area-enhanced-low-condition-na.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "enhanced time to target on H001",
+          "expected": "1 (×0.965)",
+          "actual": "1 (×0.965)",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookSource": "f738e1d1e7da72524a0697bfcb39196b480de688eaf7d8b8b0f0dbe5ea12c0bc",
+      "inputRows": {
+        "habitatBaseline": 2,
+        "habitatCreation": 0,
+        "habitatEnhancement": 1,
+        "hedgerowBaseline": 0,
+        "hedgerowCreation": 0,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 0,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 0
+      },
+      "rejectedInputs": [],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 225.662658188665,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "postInterventionUnits": {
+            "area": 291.437473016626,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netUnitChange": {
+            "area": 65.7748148279602,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netPercentChange": {
+            "area": 0.29147407619815,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netGainMessage": {
+            "area": null,
+            "hedgerow": null,
+            "watercourse": null
+          },
+          "unitsRequired": {
+            "area": 248.228924007532,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "unitDeficit": {
+            "area": 0,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "Yes ✓",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": 65.7748148279602
+        },
+        "sheetWarnings": [
+          {
+            "sheet": "habitatEnhancement",
+            "cell": "AD5",
+            "message": "Change in broad habitat type detected. Check compliance with guidance ⚠"
+          }
+        ],
+        "rowWarnings": []
+      }
+    },
+    {
       "id": "invalid-area-condition-reduced",
       "purpose": "invalid-interventions",
       "title": "Area habitat — enhancement that lowers condition",
@@ -3891,6 +4219,411 @@
           }
         ],
         "rowWarnings": []
+      }
+    },
+    {
+      "id": "invalid-area-medium-condition-na-not-possible",
+      "purpose": "invalid-interventions",
+      "title": "Area habitat — enhancement of a Medium habitat in Condition Assessment N/A that the metric does not allow",
+      "description": "H001, Bramble scrub in Condition Assessment N/A, is \"enhanced\" to Bramble scrub in Moderate condition. Its enhancement time to target from \"CA N/A\" is Not Possible, so it is not a valid enhancement (BMD-820 AC2).",
+      "size": 2,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "enhanced parcel with no time to target"
+      },
+      "files": {
+        "baseline": "invalid-interventions/invalid-area-medium-condition-na-not-possible-baseline.gpkg",
+        "postIntervention": "invalid-interventions/invalid-area-medium-condition-na-not-possible-post-intervention.gpkg",
+        "workbook": "invalid-interventions/invalid-area-medium-condition-na-not-possible.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "input rejected on H001",
+          "expected": "habitatEnhancement.condition",
+          "actual": "Moderate (not-in-list)",
+          "passed": true
+        }
+      ],
+      "workbookSource": "1cd3732792ea627293e993f5e63f135109cd674d04f7af32766c07b3b316d7f8",
+      "inputRows": {
+        "habitatBaseline": 2,
+        "habitatCreation": 0,
+        "habitatEnhancement": 1,
+        "hedgerowBaseline": 0,
+        "hedgerowCreation": 0,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 0,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 0
+      },
+      "rejectedInputs": [
+        {
+          "sheet": "habitatEnhancement",
+          "index": 0,
+          "reference": "H001",
+          "field": "condition",
+          "value": "Moderate",
+          "problem": "not-in-list"
+        }
+      ],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 336.135644824774,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "postInterventionUnits": {
+            "area": 177.360170229585,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netUnitChange": {
+            "area": -158.775474595189,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netPercentChange": {
+            "area": -0.472355363198563,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netGainMessage": {
+            "area": "On-site net gain is less than target set ⚠",
+            "hedgerow": null,
+            "watercourse": null
+          },
+          "unitsRequired": {
+            "area": 369.749209307251,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "unitDeficit": {
+            "area": 192.389039077667,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "No - Check Trading Summaries ▲",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "No ▲"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": 0
+        },
+        "sheetWarnings": [
+          {
+            "sheet": "habitatBaseline",
+            "cell": "L5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "habitatCreation",
+            "cell": "K5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "habitatEnhancement",
+            "cell": "T5",
+            "message": "No - check trading summaries ▲"
+          }
+        ],
+        "rowWarnings": [
+          {
+            "sheet": "habitatEnhancement",
+            "reference": "H001",
+            "message": "Not Possible ▲",
+            "cells": [
+              "Z12",
+              "AD12"
+            ]
+          },
+          {
+            "sheet": "habitatEnhancement",
+            "reference": "H001",
+            "message": "Check Data ⚠",
+            "cells": [
+              "AH12",
+              "AI12",
+              "AM12"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "invalid-area-low-condition-na-not-possible",
+      "purpose": "invalid-interventions",
+      "title": "Area habitat — enhancement of a Low habitat in Condition Assessment N/A that the metric does not allow",
+      "description": "H001, Cereal crops in Condition Assessment N/A, is \"enhanced\" to Bramble scrub in Moderate condition. Its enhancement time to target from a lower distinctiveness is Not Possible, so it is not a valid enhancement (BMD-820 AC5).",
+      "size": 2,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "enhanced parcel with no time to target"
+      },
+      "files": {
+        "baseline": "invalid-interventions/invalid-area-low-condition-na-not-possible-baseline.gpkg",
+        "postIntervention": "invalid-interventions/invalid-area-low-condition-na-not-possible-post-intervention.gpkg",
+        "workbook": "invalid-interventions/invalid-area-low-condition-na-not-possible.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "input rejected on H001",
+          "expected": "habitatEnhancement.condition",
+          "actual": "Moderate (not-in-list)",
+          "passed": true
+        }
+      ],
+      "workbookSource": "7903889ae13b30d2d9f2350f70c46a8392abebdc1b9ef3e59270d7f7a9612539",
+      "inputRows": {
+        "habitatBaseline": 2,
+        "habitatCreation": 0,
+        "habitatEnhancement": 1,
+        "hedgerowBaseline": 0,
+        "hedgerowCreation": 0,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 0,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 0
+      },
+      "rejectedInputs": [
+        {
+          "sheet": "habitatEnhancement",
+          "index": 0,
+          "reference": "H001",
+          "field": "condition",
+          "value": "Moderate",
+          "problem": "not-in-list"
+        }
+      ],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 237.941130662249,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "postInterventionUnits": {
+            "area": 209.387389216645,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netUnitChange": {
+            "area": -28.5537414456039,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netPercentChange": {
+            "area": -0.120003386409621,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netGainMessage": {
+            "area": "On-site net gain is less than target set ⚠",
+            "hedgerow": null,
+            "watercourse": null
+          },
+          "unitsRequired": {
+            "area": 261.735243728474,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "unitDeficit": {
+            "area": 52.3478545118288,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "No - Check Trading Summaries ▲",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "No ▲"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": -28.5537414456039
+        },
+        "sheetWarnings": [
+          {
+            "sheet": "habitatBaseline",
+            "cell": "L5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "habitatCreation",
+            "cell": "K5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "habitatEnhancement",
+            "cell": "T5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "habitatEnhancement",
+            "cell": "AD5",
+            "message": "Change in broad habitat type detected. Check compliance with guidance ⚠"
+          }
+        ],
+        "rowWarnings": [
+          {
+            "sheet": "habitatEnhancement",
+            "reference": "H001",
+            "message": "Not Possible ▲",
+            "cells": [
+              "Z12",
+              "AD12"
+            ]
+          },
+          {
+            "sheet": "habitatEnhancement",
+            "reference": "H001",
+            "message": "Check Data ⚠",
+            "cells": [
+              "AH12",
+              "AI12",
+              "AM12"
+            ]
+          }
+        ]
       }
     },
     {
