@@ -304,30 +304,33 @@ npm run compare:metric               # compares the new corpus at once
 
 ### What the comparison finds
 
-On the seed-1 corpus of 47 scenarios, against the backend's main on
+On the seed-1 corpus of 50 scenarios, against the backend's main on
 2026-10-09 (with bng-metric-backend#426, sizes measured unrounded, and #439,
 hedgerows read their proposed strategic significance), and on its main on
 2026-10-12 with bng-metric-backend#477, the enhancement rules (BMD-820), and
 on 2026-10-13 with the enhancement rules as revised (a culvert can no longer
-stay a culvert, and an area in Condition Assessment N/A enhances only where
-the metric gives a time to target):
+stay a culvert, and every enhancement needs a time to target the metric does
+not give as Not Possible):
 
 - **All 36 valid scenarios match the metric**, in every figure compared.
 - `invalid-area-advance-and-delay` and `invalid-tree-advance-and-delay` are
   refused by the service, as expected.
-- The other 9 scenarios built on invalid data are accepted by the service. They
+- The other 12 scenarios built on invalid data are accepted by the service. They
   are reported as "Accepted, though its data is invalid". One is listed in
   `VALIDATION_GAPS`, because the service does not make the check:
-  `invalid-watercourse-encroachment-worsened`. Eight are listed in
+  `invalid-watercourse-encroachment-worsened`. Eleven are listed in
   `INCOMPLETE_FEATURES`, because the service accepts them by design:
-  `invalid-data-incomplete`, and the seven enhancements that break the
-  enhancement rules (BMD-820). These nine are the only scenarios with
+  `invalid-data-incomplete`, and the ten enhancements that break the
+  enhancement rules (BMD-820). These twelve are the only scenarios with
   differing figures:
   - **`invalid-area-condition-reduced`**, **`invalid-area-no-enhancement`**,
     **`invalid-area-trading-down`**,
-    **`invalid-area-medium-condition-na-not-possible`** and
-    **`invalid-area-low-condition-na-not-possible`** H001,
-    **`invalid-hedgerow-condition-reduced`** HG001 to HG003, and
+    **`invalid-area-medium-condition-na-not-possible`**,
+    **`invalid-area-low-condition-na-not-possible`**,
+    **`invalid-area-low-not-possible`** and
+    **`invalid-area-very-low-not-possible`** H001,
+    **`invalid-hedgerow-condition-reduced`** HG001 to HG003,
+    **`invalid-hedgerow-low-not-possible`** HG001, and
     **`invalid-watercourse-culvert-enhanced`** R001: the metric computes
     nothing for these enhancements, while the service nulls their proposed
     attributes and saves them Incomplete at zero units. Their other figures
@@ -338,9 +341,9 @@ the metric gives a time to target):
     these enhancements with no proposed condition or strategic significance,
     while the service saves them Incomplete at zero units. Its other figures
     all match.
-- 2,466 of 2,482 comparable figures match: 2,206 exactly and 260 within the
-  tolerance. The 16 that differ are all in those nine scenarios.
-- 254 figures are not implemented in the service yet: the hedgerow trading
+- 2,572 of 2,591 comparable figures match: 2,310 exactly and 262 within the
+  tolerance. The 19 that differ are all in those twelve scenarios.
+- 263 figures are not implemented in the service yet: the hedgerow trading
   statuses, and the Very High and High trading band statuses.
 
 How it got here:
