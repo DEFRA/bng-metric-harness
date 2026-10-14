@@ -33,6 +33,20 @@ export const REPOS = [
   },
 ];
 
+// The other siblings the harness symlinks to. Only `npm run bootstrap` clones
+// these; the dev, lint, test and git commands run against REPOS alone.
+export const SUPPORT_REPOS = [
+  "bng-library",
+  "bng-metric-journey-tests",
+  "bng-perf-tests",
+  "bng-metric-template",
+  "bng-metric-digital-prototype",
+].map((name) => ({
+  name,
+  remote: `git@github.com:DEFRA/${name}.git`,
+  color: "blue",
+}));
+
 export const HARNESS_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",

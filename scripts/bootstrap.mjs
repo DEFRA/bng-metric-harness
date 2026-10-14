@@ -1,5 +1,6 @@
 import {
   REPOS,
+  SUPPORT_REPOS,
   WORKSPACE_ROOT,
   exists,
   header,
@@ -10,7 +11,7 @@ import {
 
 let failures = 0;
 
-for (const repo of REPOS) {
+for (const repo of [...REPOS, ...SUPPORT_REPOS]) {
   header(`bootstrap: ${repo.name}`, repo.color);
   if (exists(repo.name)) {
     info(`  already present, skipping clone`);

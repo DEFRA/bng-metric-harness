@@ -28,7 +28,7 @@ cd bng-metric-harness
 # 2. Install harness deps
 npm install
 
-# 3. Clone the two sibling repos beside this one
+# 3. Clone the sibling repos beside this one
 npm run bootstrap
 
 # 4. Install deps in all three repos
