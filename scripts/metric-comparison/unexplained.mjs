@@ -62,6 +62,10 @@ export const INCOMPLETE_FEATURES = Object.freeze({
     "The service accepts a habitat enhancement that reduces condition and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
   "invalid-interventions/invalid-area-no-enhancement":
     "The service accepts a habitat enhancement with the same habitat and condition as the baseline and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-area-intertidal-no-enhancement":
+    "The service accepts an enhancement of an intertidal habitat with the same habitat and condition as the baseline, and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-area-low-no-enhancement":
+    "The service accepts an enhancement of a Low habitat with the same habitat and condition as the baseline, and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
   "invalid-interventions/invalid-area-low-not-possible":
     "The service accepts an enhancement of a Low habitat whose time to target the metric gives as Not Possible, and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
   "invalid-interventions/invalid-area-low-condition-na-not-possible":
@@ -76,8 +80,14 @@ export const INCOMPLETE_FEATURES = Object.freeze({
     "The service accepts a hedgerow enhancement that reduces condition and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
   "invalid-interventions/invalid-hedgerow-low-not-possible":
     "The service accepts an enhancement of a Low hedgerow whose time to target the metric gives as Not Possible, and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-hedgerow-medium-trading-down":
+    "The service accepts an enhancement of a Medium hedgerow to a Low one, and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-hedgerow-very-low-enhanced":
+    "The service accepts an enhancement of a Very Low hedgerow, which the metric does not allow, and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
   "invalid-interventions/invalid-watercourse-culvert-enhanced":
     "The service accepts a culvert enhanced in place, which the metric does not offer, and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-watercourse-medium-condition-reduced":
+    "The service accepts a watercourse enhancement that reduces condition, and saves it Incomplete, with its proposed attributes nulled and zero units, where the metric prices nothing (BMD-820).",
 });
 
 /** Outcomes that fail a scenario whatever its figures. */
