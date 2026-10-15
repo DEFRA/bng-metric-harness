@@ -158,6 +158,16 @@ describe("gen-gpkg --format bng-service", () => {
     expect(count(file, "Hedgerows Post-Intervention")).toBe(0);
   });
 
+  it("lists the BNG Service flaws in --help", () => {
+    const result = spawnSync(process.execPath, [GEN_GPKG, "--help"], {
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/lineage-parent-unknown/);
+    expect(result.stdout).toMatch(/version-record-missing/);
+    expect(result.stdout).toMatch(/tree-count-not-whole.*legacy only/);
+  });
+
   it.each([
     [
       ["--format", "bng-service", "--pair"],

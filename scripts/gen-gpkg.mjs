@@ -69,12 +69,14 @@ import {
 import { splitFlaws } from "./gen-gpkg-flaws.mjs";
 import { runFromList, runFromWorkbook } from "./gen-gpkg-workbook.mjs";
 import {
+  BNG_SERVICE_FLAWS,
   CURRENT_TEMPLATE_VERSION,
   FEATURE_REF_PAD,
   FEATURE_REF_PAD_CHAR,
   FORMAT_BNG_SERVICE,
   FORMAT_LEGACY,
   FlawSelectionError,
+  LEGACY_ONLY_FLAWS,
   MODE_BOTH,
   STAGE_BASELINE,
   STAGE_POST_INTERVENTION,
