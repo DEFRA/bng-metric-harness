@@ -4,10 +4,19 @@ A meta-repo that orchestrates the two BNG Metric services so a developer can run
 
 ```
 <workspace>/
-├── bng-metric-harness/      ← this repo
-├── bng-metric-frontend/     ← Hapi + Nunjucks + GOV.UK, port 3000
-└── bng-metric-backend/      ← Hapi API, port 3001
+├── bng-metric-harness/             ← this repo
+├── bng-metric-frontend/            ← Hapi + Nunjucks + GOV.UK, port 3000
+├── bng-metric-backend/             ← Hapi API, port 3001
+│
+│   optional support repos:
+├── bng-library/                    ← shared BNG library
+├── bng-metric-journey-tests/       ← Playwright suite
+├── bng-perf-tests/                 ← JMeter performance tests
+├── bng-metric-template/            ← QGIS habitat-mapping template
+└── bng-metric-digital-prototype/   ← GOV.UK Prototype Kit prototype
 ```
+
+`npm run bootstrap` clones all of them, but only frontend and backend are required: a support repo that can't be cloned is reported, not treated as a failure. Only the commands that use one (journey tests, `npm run perf`, `npm run uploads:burst`) need it.
 
 This repo contains no application code — just scripts and Claude Code config. No git submodules, no npm workspaces, no shared lockfiles. The sibling repos remain fully independent.
 
@@ -28,10 +37,10 @@ cd bng-metric-harness
 # 2. Install harness deps
 npm install
 
-# 3. Clone the two sibling repos beside this one
+# 3. Clone the sibling repos beside this one
 npm run bootstrap
 
-# 4. Install deps in all three repos
+# 4. Install deps in the harness, frontend and backend
 npm run install:all
 
 # 5. Start supporting services (postgres, redis, localstack, defra-id-stub)

@@ -10,12 +10,14 @@ This repo is a **meta-repo / harness** that orchestrates two sibling repos check
 │   ├── journey-tests  →  ../bng-metric-journey-tests    (symlink)
 │   ├── library        →  ../bng-library                 (symlink)
 │   ├── perf-tests     →  ../bng-perf-tests              (symlink)
+│   ├── prototype      →  ../bng-metric-digital-prototype (symlink)
 │   └── template       →  ../bng-metric-template         (symlink)
 ├── bng-metric-frontend/            ← Hapi + Nunjucks + GOV.UK, port 3000
 ├── bng-metric-backend/             ← Hapi API, port 3001
 ├── bng-metric-journey-tests/       ← Playwright suite, triggered from Tilt
 ├── bng-library/                    ← shared BNG library (engine, gen-gpkg, etc.)
 ├── bng-perf-tests/                 ← JMeter performance-test suite, run from the CDP Portal
+├── bng-metric-digital-prototype/   ← GOV.UK Prototype Kit prototype of the service
 └── bng-metric-template/            ← QGIS habitat-mapping template and converter plugin
 ```
 
@@ -30,6 +32,7 @@ Symlinks live in the harness root so the siblings are reachable from a Claude Co
 - `./journey-tests` → `../bng-metric-journey-tests`
 - `./library` → `../bng-library`
 - `./perf-tests` → `../bng-perf-tests`
+- `./prototype` → `../bng-metric-digital-prototype`
 - `./template` → `../bng-metric-template`
 
 Read and edit sibling files through those symlinks — e.g. `frontend/src/server/index.js`, `backend/src/api/routes.js`, `journey-tests/test/...`. The `.claude/settings.json` also lists each sibling under `permissions.additionalDirectories`, so tool permissions resolve correctly against the real paths (symlinks alone wouldn't be enough because the trust boundary checks canonical paths).
