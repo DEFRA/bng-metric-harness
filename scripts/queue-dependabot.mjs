@@ -20,6 +20,7 @@ import {
 } from "./_lib.mjs";
 
 const OWNER = "DEFRA";
+// The repos with a merge queue. bng-metric-template has none, so it is left out.
 const GITHUB_REPOS = [
   "bng-metric-harness",
   "bng-metric-frontend",
