@@ -311,6 +311,19 @@ function splitFlaws(names) {
       versionFlawNames.push(name);
     }
   }
+  // As bng-library's partitionFlaws: each version flaw says what the whole
+  // record is, and each lineage flaw restamps the same feature, so a second
+  // of either would be named in the file but not written to it.
+  if (versionFlawNames.length > 1) {
+    throw new FlawSelectionError(
+      `Only one template-version flaw at a time; got ${versionFlawNames.join(", ")}`,
+    );
+  }
+  if (lineageFlawNames.length > 1) {
+    throw new FlawSelectionError(
+      `Only one lineage flaw at a time, as each restamps the same feature; got ${lineageFlawNames.join(", ")}`,
+    );
+  }
   return { legacy, lineageFlawNames, versionFlawNames };
 }
 

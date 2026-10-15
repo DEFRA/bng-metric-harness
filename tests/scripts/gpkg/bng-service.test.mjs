@@ -125,6 +125,28 @@ describe("gen-gpkg --format bng-service", () => {
       ["--format", "bng-service", "--flaw", "tree-count-not-whole"],
       /no Count column/,
     ],
+    [
+      [
+        "--format",
+        "bng-service",
+        "--flaw",
+        "version-record-missing",
+        "--flaw",
+        "version-unsupported",
+      ],
+      /Only one template-version flaw at a time/,
+    ],
+    [
+      [
+        "--format",
+        "bng-service",
+        "--flaw",
+        "lineage-parent-missing",
+        "--flaw",
+        "lineage-parent-wrong",
+      ],
+      /Only one lineage flaw at a time/,
+    ],
     [["--stage", "baseline"], /need --format bng-service/],
     [["--format", "qgis"], /--format must be one of/],
   ])("refuses %j", (args, message) => {
