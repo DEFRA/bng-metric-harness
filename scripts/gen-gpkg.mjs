@@ -324,6 +324,13 @@ function splitFlaws(names) {
       `Only one lineage flaw at a time, as each restamps the same feature; got ${lineageFlawNames.join(", ")}`,
     );
   }
+  // Each lineage flaw changes a post-intervention feature, and the
+  // baseline-stage file leaves those tables empty.
+  if (args.stage === STAGE_BASELINE && lineageFlawNames.length > 0) {
+    throw new FlawSelectionError(
+      `Lineage flaws change post-intervention features, which the baseline-stage file leaves empty; drop --stage ${STAGE_BASELINE}`,
+    );
+  }
   return { legacy, lineageFlawNames, versionFlawNames };
 }
 

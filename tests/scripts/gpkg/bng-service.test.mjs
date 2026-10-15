@@ -147,6 +147,17 @@ describe("gen-gpkg --format bng-service", () => {
       ],
       /Only one lineage flaw at a time/,
     ],
+    [
+      [
+        "--format",
+        "bng-service",
+        "--stage",
+        "baseline",
+        "--flaw",
+        "lineage-parent-unknown",
+      ],
+      /baseline-stage file leaves empty/,
+    ],
     [["--stage", "baseline"], /need --format bng-service/],
     [["--format", "qgis"], /--format must be one of/],
   ])("refuses %j", (args, message) => {
