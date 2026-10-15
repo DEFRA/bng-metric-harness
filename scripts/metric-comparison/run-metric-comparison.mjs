@@ -23,6 +23,10 @@ import {
 import { HARNESS_ROOT, mapInSequence } from "../_lib.mjs";
 import { importGeoPackagePair } from "./import-geopackage-pair.mjs";
 import { metricTotalsOf } from "./unexplained.mjs";
+import {
+  readImportExpectations,
+  assertExpectedImport,
+} from "./import-expectations.mjs";
 
 /** The committed scenarios, each GeoPackage pair beside its workbook. */
 export const DEFAULT_CORPUS_DIR = path.join(
@@ -55,9 +59,10 @@ function isSelected(scenario, only) {
  *
  * @returns {Promise<{ service?: object, serviceError?: string }>}
  */
-async function importScenario(scenario, importPair) {
+async function importScenario(scenario, importPair, expectedImport) {
   try {
     const imported = await importPair(scenario.files);
+    assertExpectedImport(imported, expectedImport);
     return {
       service: imported.accepted
         ? { accepted: true, figures: figuresFromProject(imported.project) }
@@ -79,14 +84,32 @@ export async function compareCorpusScenario(
   scenario,
   answers,
   importPair = importGeoPackagePair,
+  expectedImport,
 ) {
   if (answers.error) {
     return compareScenario({ scenario, workbookError: answers.error });
   }
-  const { service, serviceError } = await importScenario(scenario, importPair);
+  const { service, serviceError } = await importScenario(
+    scenario,
+    importPair,
+    expectedImport,
+  );
+  // Raw-invalid imports with explicit acceptance/attribute assertions are
+  // compared numerically against the cleansed workbook, in full.
+  const comparedScenario = expectedImport
+    ? { ...scenario, invalidData: false }
+    : scenario;
   const expected = figuresFromWorkbook(answers.results);
   return {
-    ...compareScenario({ scenario, expected, service, serviceError }),
+    ...compareScenario({
+      scenario: comparedScenario,
+      expected,
+      service,
+      serviceError,
+    }),
+    ...(expectedImport
+      ? { expectedImport, rawInvalidData: scenario.invalidData }
+      : {}),
     metricTotals: metricTotalsOf(expected),
   };
 }
@@ -111,6 +134,7 @@ export async function runMetricComparison(options = {}) {
   } = options;
   const { scenarios, unmatched } = findScenarios(corpusDir);
   const selected = scenarios.filter((s) => isSelected(s, only));
+  const expectations = readImportExpectations(corpusDir);
   const answers = await readWorkbookAnswers(
     selected.map((s) => s.files.workbook),
   );
@@ -121,6 +145,7 @@ export async function runMetricComparison(options = {}) {
       scenario,
       answers[i],
       importPair,
+      expectations.get(path.resolve(scenario.files.postIntervention)),
     );
     onResult?.(result);
     return result;

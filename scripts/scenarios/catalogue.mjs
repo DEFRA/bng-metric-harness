@@ -1,0 +1,144 @@
+import { PERMUTATION_PURPOSES, PERMUTATION_SCENARIOS } from "#bng-lib";
+
+const LOW = "Area/compensation not in local strategy/ no local strategy";
+const TABLES = ["Habitats", "Hedgerows", "Rivers", "Urban Trees"];
+const REFS = {
+  Habitats: "H001",
+  Hedgerows: "HG001",
+  Rivers: "R001",
+  "Urban Trees": "T001",
+};
+
+function identity(retention) {
+  return {
+    retention,
+    baselineCondition: "Moderate",
+    proposedCondition: "Good",
+    baselineStrategicSignificance: LOW,
+    proposedStrategicSignificance: LOW,
+  };
+}
+function overrides(retentions) {
+  return {
+    habitats: retentions.map((retention) => ({
+      ...identity(retention),
+      habitatFullName: "Grassland - Modified grassland",
+      proposedHabitatFullName: "Grassland - Modified grassland",
+    })),
+    hedgerows: retentions.map((retention) => ({
+      ...identity(retention),
+      hedgeType: "Native hedgerow",
+      proposedHedgeType: "Native hedgerow",
+    })),
+    rivers: retentions.map((retention) => ({
+      ...identity(retention),
+      riverType: "Ditches",
+      proposedRiverType: "Ditches",
+      baselineWaterEncroachment: "No Encroachment",
+      baselineRiparianEncroachment: "No Encroachment/No Encroachment",
+      proposedWaterEncroachment: "No Encroachment",
+      proposedRiparianEncroachment: "No Encroachment/No Encroachment",
+    })),
+    trees: retentions.map((retention) => ({
+      ...identity(retention),
+      treeSize: "Small",
+      treeType: "Park/garden tree",
+      ruralOrUrban: "Urban",
+    })),
+  };
+}
+function cases(retentions, advance, delay) {
+  return TABLES.flatMap((layer) =>
+    retentions.map((retention, index) => ({
+      layer,
+      ref: REFS[layer].replace("001", String(index + 1).padStart(3, "0")),
+      retention,
+      advance,
+      delay,
+    })),
+  );
+}
+function timingScenario(id, title, description, retentions, advance, delay) {
+  return {
+    id,
+    purpose: "import-timing",
+    title,
+    description,
+    size: 2,
+    treeCount: 2,
+    overrides: overrides(retentions),
+    importCases: cases(retentions, advance, delay),
+    subject: {
+      layer: "Habitats",
+      ref: "H001",
+      note: "Raw timing remains on the GeoPackage; saved timing must be null.",
+    },
+  };
+}
+const additions = [
+  timingScenario(
+    "invalid-timing-conflicting-created-enhanced",
+    "Created and Enhanced: conflicting timing is cleared",
+    "AC3: both timing values are positive on Created/Enhanced features in all four layers. Import succeeds and saves null timing; the workbook prices the cleansed inputs.",
+    ["Created", "Enhanced"],
+    "2",
+    "3",
+  ),
+  timingScenario(
+    "null-timing-created-enhanced",
+    "Created and Enhanced: null timing stays null",
+    "AC4: both timing values are null on Created/Enhanced features in all four layers. Import succeeds and preserves nulls.",
+    ["Created", "Enhanced"],
+    null,
+    null,
+  ),
+  timingScenario(
+    "invalid-timing-retained-lost",
+    "Retained and Lost: redundant timing is cleared",
+    "AC5: populated timing is cleared on Retained/Lost features. Lost linear features and trees remain absent from the PI document; the baseline is preserved.",
+    ["Retained", "Lost"],
+    "4",
+    "0",
+  ),
+];
+const existingTiming = new Map([
+  [
+    "invalid-area-advance-and-delay",
+    [
+      {
+        layer: "Habitats",
+        ref: "H001",
+        retention: "Created",
+        advance: "2",
+        delay: "3",
+      },
+    ],
+  ],
+  [
+    "invalid-tree-advance-and-delay",
+    [
+      {
+        layer: "Urban Trees",
+        ref: "T001",
+        retention: "Created",
+        advance: "2",
+        delay: "3",
+      },
+    ],
+  ],
+]);
+
+export const HARNESS_SCENARIOS = [
+  ...PERMUTATION_SCENARIOS.map((scenario) =>
+    existingTiming.has(scenario.id)
+      ? {
+          ...scenario,
+          expectMetricWarnings: [],
+          importCases: existingTiming.get(scenario.id),
+          description: `${scenario.description} BMD-1060 AC3 accepts the import and clears both values before pricing.`,
+        }
+      : scenario,
+  ),
+  ...additions,
+];
+export const HARNESS_PURPOSES = [...PERMUTATION_PURPOSES, "import-timing"];

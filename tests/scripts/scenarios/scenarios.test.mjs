@@ -14,11 +14,13 @@ import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   PERMUTATION_DEFAULT_SIZE as DEFAULT_SIZE,
-  PERMUTATION_PURPOSES as PURPOSES,
-  PERMUTATION_SCENARIOS as SCENARIOS,
   generateOne,
   setMode,
 } from "#bng-lib";
+import {
+  HARNESS_PURPOSES as PURPOSES,
+  HARNESS_SCENARIOS as SCENARIOS,
+} from "../../../scripts/scenarios/catalogue.mjs";
 import { HARNESS_ROOT } from "../../../scripts/_lib.mjs";
 import { DEFAULT_CENTRE } from "../../../scripts/centre.mjs";
 import {
