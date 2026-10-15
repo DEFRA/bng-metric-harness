@@ -5,6 +5,7 @@ import {
   exists,
   header,
   info,
+  mapInSequence,
   run,
   warn,
 } from "./_lib.mjs";
@@ -28,14 +29,10 @@ async function ensureCloned(repo) {
   return true;
 }
 
+// Clones one repo at a time so each clone's output stays readable.
 async function failedClones(repos) {
-  const failed = [];
-  for (const repo of repos) {
-    if (!(await ensureCloned(repo))) {
-      failed.push(repo.name);
-    }
-  }
-  return failed;
+  const present = await mapInSequence(repos, ensureCloned);
+  return repos.filter((_, index) => !present[index]).map((repo) => repo.name);
 }
 
 // Only the core repos decide the exit code: install, dev, lint and test need
