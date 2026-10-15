@@ -1,4 +1,4 @@
-import Database from "better-sqlite3";
+import { openGeoPackage, openGeoPackageReadonly } from "#gpkg-io";
 import { realpathSync, statSync } from "node:fs";
 import path from "node:path";
 
@@ -40,7 +40,7 @@ function existingGeoPackage(file) {
   return canonical;
 }
 function attributeDatabase(file) {
-  const db = new Database(existingGeoPackage(file), { fileMustExist: true });
+  const db = openGeoPackage(existingGeoPackage(file));
   // Attribute-only edits must never execute a geometry-changing rtree trigger.
   for (const name of [
     "ST_IsEmpty",
@@ -100,10 +100,7 @@ export function metricTiming(retention, advanceYears, delayYears) {
 }
 
 export function readTimingInputs(file) {
-  const db = new Database(existingGeoPackage(file), {
-    readonly: true,
-    fileMustExist: true,
-  });
+  const db = openGeoPackageReadonly(existingGeoPackage(file));
   const inputs = [];
   try {
     for (const [table, layer] of Object.entries(TIMING_LAYERS)) {
