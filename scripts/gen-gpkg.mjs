@@ -66,17 +66,15 @@ import {
   HABITATS_LAYER,
   resolveHabitatPins,
 } from "./gen-gpkg-habitat-pins.mjs";
+import { splitFlaws } from "./gen-gpkg-flaws.mjs";
 import { runFromList, runFromWorkbook } from "./gen-gpkg-workbook.mjs";
 import {
-  BNG_SERVICE_FLAWS,
-  CATEGORY_LINEAGE,
   CURRENT_TEMPLATE_VERSION,
   FEATURE_REF_PAD,
   FEATURE_REF_PAD_CHAR,
   FORMAT_BNG_SERVICE,
   FORMAT_LEGACY,
   FlawSelectionError,
-  LEGACY_ONLY_FLAWS,
   MODE_BOTH,
   STAGE_BASELINE,
   STAGE_POST_INTERVENTION,
@@ -291,65 +289,6 @@ async function clearExistingSyntheticOutput(outPath, isBatch) {
   unlinkSync(outPath);
 }
 
-/**
- * Split --flaw into the legacy flaws, which the legacy generator draws, and
- * the BNG Service format's own lineage and template-version flaws, which are
- * applied to the converted file. A flaw the template cannot carry is refused.
- */
-function splitFlaws(names) {
-  const legacy = [];
-  const lineageFlawNames = [];
-  const versionFlawNames = [];
-  for (const name of names) {
-    const flaw = BNG_SERVICE_FLAWS[name];
-    if (bngService && LEGACY_ONLY_FLAWS.has(name)) {
-      throw new FlawSelectionError(
-        `Flaw "${name}" cannot be written in the BNG Service template (it has no Count column).`,
-      );
-    }
-    if (!flaw) {
-      legacy.push(name);
-    } else if (!bngService) {
-      throw new FlawSelectionError(
-        `Flaw "${name}" is a BNG Service template flaw; add --format ${FORMAT_BNG_SERVICE}.`,
-      );
-    } else if (flaw.category === CATEGORY_LINEAGE) {
-      lineageFlawNames.push(name);
-    } else {
-      versionFlawNames.push(name);
-    }
-  }
-  assertBngServiceFlawsWritable(lineageFlawNames, versionFlawNames);
-  return { legacy, lineageFlawNames, versionFlawNames };
-}
-
-/**
- * Refuse a BNG Service flaw selection the file could not hold, so a file is
- * never named for a flaw it does not carry.
- */
-function assertBngServiceFlawsWritable(lineageFlawNames, versionFlawNames) {
-  // As bng-library's partitionFlaws: each version flaw says what the whole
-  // record is, and each lineage flaw restamps the same feature, so a second
-  // of either would be named in the file but not written to it.
-  if (versionFlawNames.length > 1) {
-    throw new FlawSelectionError(
-      `Only one template-version flaw at a time; got ${versionFlawNames.join(", ")}`,
-    );
-  }
-  if (lineageFlawNames.length > 1) {
-    throw new FlawSelectionError(
-      `Only one lineage flaw at a time, as each restamps the same feature; got ${lineageFlawNames.join(", ")}`,
-    );
-  }
-  // Each lineage flaw changes a post-intervention feature, and the
-  // baseline-stage file leaves those tables empty.
-  if (args.stage === STAGE_BASELINE && lineageFlawNames.length > 0) {
-    throw new FlawSelectionError(
-      `Lineage flaws change post-intervention features, which the baseline-stage file leaves empty; drop --stage ${STAGE_BASELINE}`,
-    );
-  }
-}
-
 // --format bng-service writes one file holding both stages, named for the
 // format and, for the baseline-stage file, the stage.
 function bngServiceFilename(flawSuffix, extraFlaws, suffix, stamp) {
@@ -375,7 +314,10 @@ async function runSynthetic(centre, seed) {
     1,
     Number.parseInt(args.count, PARSE_INT_BASE_10) || DEFAULT_RUN_COUNT,
   );
-  const { legacy, lineageFlawNames, versionFlawNames } = splitFlaws(args.flaw);
+  const { legacy, lineageFlawNames, versionFlawNames } = splitFlaws(args.flaw, {
+    bngService,
+    stage: args.stage,
+  });
   const selection = resolveFlawSelection({
     bad: args.bad,
     flaws: legacy,
