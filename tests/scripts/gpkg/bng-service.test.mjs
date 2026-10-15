@@ -158,6 +158,24 @@ describe("gen-gpkg --format bng-service", () => {
     expect(count(file, "Hedgerows Post-Intervention")).toBe(0);
   });
 
+  it("writes one numbered file per run in a --count batch", () => {
+    const dir = outDir();
+    const result = run(
+      dir,
+      "--format",
+      "bng-service",
+      "--size",
+      "4",
+      "--count",
+      "2",
+    );
+    expect(result.status).toBe(0);
+    const files = readdirSync(dir).sort((a, b) => a.localeCompare(b));
+    expect(files).toHaveLength(2);
+    expect(files[0]).toMatch(/^bng-service-test-data-001-/);
+    expect(files[1]).toMatch(/^bng-service-test-data-002-/);
+  });
+
   it("lists the BNG Service flaws in --help", () => {
     const result = spawnSync(process.execPath, [GEN_GPKG, "--help"], {
       encoding: "utf8",

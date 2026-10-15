@@ -228,9 +228,7 @@ function syntheticPairFilenames(flawSuffix, suffix, stamp) {
  * the redline, the parcel partition and every feature ref identical across
  * the pair.
  */
-async function writeSyntheticPair(paths, centre, plan, isBatch) {
-  await clearExistingSyntheticOutput(paths.postIntervention, isBatch);
-  await clearExistingSyntheticOutput(paths.baseline, isBatch);
+function writeSyntheticPair(paths, centre, plan) {
   generateOne(paths.postIntervention, centre, plan);
   const cleared = deriveBaselineFromSynthetic(
     paths.postIntervention,
@@ -273,22 +271,26 @@ function buildFlawFilenameSuffix({ selection, flagBad }) {
   return `-bad-${sortFlawNames(geometricFlawNames).join("-")}`;
 }
 
-async function clearExistingSyntheticOutput(outPath, isBatch) {
-  if (!existsSync(outPath)) {
+// Remove the files a run would overwrite, asking first unless it is a batch:
+// one question covers them all.
+async function clearExistingSyntheticOutput(outPaths, isBatch) {
+  const existing = outPaths.filter((outPath) => existsSync(outPath));
+  if (existing.length === 0) {
     return;
   }
-  if (isBatch) {
+  if (!isBatch) {
+    const verb = existing.length === 1 ? "exists" : "exist";
+    const overwrite = await confirm(
+      `${existing.join(" and ")} already ${verb}. Overwrite? (y/N) `,
+    );
+    if (!overwrite) {
+      console.log("Aborted.");
+      process.exit(0);
+    }
+  }
+  for (const outPath of existing) {
     unlinkSync(outPath);
-    return;
   }
-  const overwrite = await confirm(
-    `${outPath} already exists. Overwrite? (y/N) `,
-  );
-  if (!overwrite) {
-    console.log("Aborted.");
-    process.exit(0);
-  }
-  unlinkSync(outPath);
 }
 
 // --format bng-service writes one file holding both stages, named for the
@@ -299,14 +301,6 @@ function bngServiceFilename(flawSuffix, extraFlaws, suffix, stamp) {
     : "";
   const stage = args.stage === STAGE_BASELINE ? "-baseline" : "";
   return `bng-service-test-data${flawSuffix}${extra}${stage}${suffix}-${stamp}.gpkg`;
-}
-
-async function writeBngServiceSynthetic(outPath, centre, plan, isBatch) {
-  await clearExistingSyntheticOutput(outPath, isBatch);
-  generateBngServiceSynthetic(outPath, centre, plan, {
-    stage: args.stage,
-    templateVersion: args["template-version"],
-  });
 }
 
 async function runSynthetic(centre, seed) {
@@ -337,64 +331,63 @@ async function runSynthetic(centre, seed) {
   if (!existsSync(OUT_DIR)) {
     mkdirSync(OUT_DIR, { recursive: true });
   }
+  const runs = [];
   for (let i = 1; i <= total; i++) {
     const suffix =
       total > 1
         ? `-${String(i).padStart(FEATURE_REF_PAD, FEATURE_REF_PAD_CHAR)}`
         : "";
-    const stamp = timestampSuffix();
     // Each file in a --count batch gets its own seed so the batch stays varied
     // yet reproducible: same --seed always yields the same N files.
-    const iterationPlan =
-      seed === null ? plan : { ...plan, seed: seed + (i - 1) };
-    // One file at a time: an existing file may prompt before it is
-    // overwritten, and the library's seed and clock are module-wide.
-    await writeSyntheticIteration(centre, iterationPlan, {
-      flawSuffix,
-      suffix,
-      stamp,
-      isBatch: total > 1,
+    runs.push({
+      plan: seed === null ? plan : { ...plan, seed: seed + (i - 1) },
+      paths: syntheticOutPaths(plan, flawSuffix, suffix, timestampSuffix()),
     });
+  }
+  // Clear everything the batch would overwrite before writing any of it, so
+  // the writes run in order without stopping to ask.
+  await clearExistingSyntheticOutput(
+    runs.flatMap((run) => Object.values(run.paths)),
+    total > 1,
+  );
+  for (const run of runs) {
+    writeSyntheticRun(centre, run);
   }
 }
 
-// Write one synthetic run in the format and layout asked for.
-async function writeSyntheticIteration(
-  centre,
-  plan,
-  { flawSuffix, suffix, stamp, isBatch },
-) {
+// The files one synthetic run writes, in the format and layout asked for.
+function syntheticOutPaths(plan, flawSuffix, suffix, stamp) {
   if (bngService) {
-    const name = bngServiceFilename(
-      flawSuffix,
-      [...plan.lineageFlawNames, ...plan.versionFlawNames],
-      suffix,
-      stamp,
-    );
-    await writeBngServiceSynthetic(
-      path.join(OUT_DIR, name),
-      centre,
-      plan,
-      isBatch,
-    );
-  } else if (args.pair) {
+    const extraFlaws = [...plan.lineageFlawNames, ...plan.versionFlawNames];
+    return {
+      bngService: path.join(
+        OUT_DIR,
+        bngServiceFilename(flawSuffix, extraFlaws, suffix, stamp),
+      ),
+    };
+  }
+  if (args.pair) {
     const names = syntheticPairFilenames(flawSuffix, suffix, stamp);
-    await writeSyntheticPair(
-      {
-        baseline: path.join(OUT_DIR, names.baseline),
-        postIntervention: path.join(OUT_DIR, names.postIntervention),
-      },
-      centre,
-      plan,
-      isBatch,
-    );
+    return {
+      baseline: path.join(OUT_DIR, names.baseline),
+      postIntervention: path.join(OUT_DIR, names.postIntervention),
+    };
+  }
+  return {
+    legacy: path.join(OUT_DIR, syntheticFilename(flawSuffix, suffix, stamp)),
+  };
+}
+
+function writeSyntheticRun(centre, { plan, paths }) {
+  if (paths.bngService) {
+    generateBngServiceSynthetic(paths.bngService, centre, plan, {
+      stage: args.stage,
+      templateVersion: args["template-version"],
+    });
+  } else if (paths.baseline) {
+    writeSyntheticPair(paths, centre, plan);
   } else {
-    const outPath = path.join(
-      OUT_DIR,
-      syntheticFilename(flawSuffix, suffix, stamp),
-    );
-    await clearExistingSyntheticOutput(outPath, isBatch);
-    generateOne(outPath, centre, plan);
+    generateOne(paths.legacy, centre, plan);
   }
 }
 
