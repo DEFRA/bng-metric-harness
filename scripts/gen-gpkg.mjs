@@ -319,6 +319,15 @@ function splitFlaws(names) {
       versionFlawNames.push(name);
     }
   }
+  assertBngServiceFlawsWritable(lineageFlawNames, versionFlawNames);
+  return { legacy, lineageFlawNames, versionFlawNames };
+}
+
+/**
+ * Refuse a BNG Service flaw selection the file could not hold, so a file is
+ * never named for a flaw it does not carry.
+ */
+function assertBngServiceFlawsWritable(lineageFlawNames, versionFlawNames) {
   // As bng-library's partitionFlaws: each version flaw says what the whole
   // record is, and each lineage flaw restamps the same feature, so a second
   // of either would be named in the file but not written to it.
@@ -339,7 +348,6 @@ function splitFlaws(names) {
       `Lineage flaws change post-intervention features, which the baseline-stage file leaves empty; drop --stage ${STAGE_BASELINE}`,
     );
   }
-  return { legacy, lineageFlawNames, versionFlawNames };
 }
 
 // --format bng-service writes one file holding both stages, named for the
@@ -395,40 +403,54 @@ async function runSynthetic(centre, seed) {
     // yet reproducible: same --seed always yields the same N files.
     const iterationPlan =
       seed === null ? plan : { ...plan, seed: seed + (i - 1) };
-    if (bngService) {
-      const name = bngServiceFilename(
-        flawSuffix,
-        [...lineageFlawNames, ...versionFlawNames],
-        suffix,
-        stamp,
-      );
-      await writeBngServiceSynthetic(
-        path.join(OUT_DIR, name),
-        centre,
-        iterationPlan,
-        total > 1,
-      );
-      continue;
-    }
-    if (args.pair) {
-      const names = syntheticPairFilenames(flawSuffix, suffix, stamp);
-      await writeSyntheticPair(
-        {
-          baseline: path.join(OUT_DIR, names.baseline),
-          postIntervention: path.join(OUT_DIR, names.postIntervention),
-        },
-        centre,
-        iterationPlan,
-        total > 1,
-      );
-      continue;
-    }
+    // One file at a time: an existing file may prompt before it is
+    // overwritten, and the library's seed and clock are module-wide.
+    await writeSyntheticIteration(centre, iterationPlan, {
+      flawSuffix,
+      suffix,
+      stamp,
+      isBatch: total > 1,
+    });
+  }
+}
+
+// Write one synthetic run in the format and layout asked for.
+async function writeSyntheticIteration(
+  centre,
+  plan,
+  { flawSuffix, suffix, stamp, isBatch },
+) {
+  if (bngService) {
+    const name = bngServiceFilename(
+      flawSuffix,
+      [...plan.lineageFlawNames, ...plan.versionFlawNames],
+      suffix,
+      stamp,
+    );
+    await writeBngServiceSynthetic(
+      path.join(OUT_DIR, name),
+      centre,
+      plan,
+      isBatch,
+    );
+  } else if (args.pair) {
+    const names = syntheticPairFilenames(flawSuffix, suffix, stamp);
+    await writeSyntheticPair(
+      {
+        baseline: path.join(OUT_DIR, names.baseline),
+        postIntervention: path.join(OUT_DIR, names.postIntervention),
+      },
+      centre,
+      plan,
+      isBatch,
+    );
+  } else {
     const outPath = path.join(
       OUT_DIR,
       syntheticFilename(flawSuffix, suffix, stamp),
     );
-    await clearExistingSyntheticOutput(outPath, total > 1);
-    generateOne(outPath, centre, iterationPlan);
+    await clearExistingSyntheticOutput(outPath, isBatch);
+    generateOne(outPath, centre, plan);
   }
 }
 
