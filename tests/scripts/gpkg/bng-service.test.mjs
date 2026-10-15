@@ -160,6 +160,14 @@ describe("gen-gpkg --format bng-service", () => {
     ],
     [["--stage", "baseline"], /need --format bng-service/],
     [["--format", "qgis"], /--format must be one of/],
+    [
+      ["--format", "bng-service", "--template-version", "2"],
+      /--template-version must be "<major>.<minor>"/,
+    ],
+    [
+      ["--format", "bng-service", "--template-version", "abc"],
+      /--template-version must be "<major>.<minor>"/,
+    ],
   ])("refuses %j", (args, message) => {
     const dir = outDir();
     const result = run(dir, ...args);

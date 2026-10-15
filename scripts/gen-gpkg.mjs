@@ -155,6 +155,14 @@ if (!args.help && !VALID_STAGES.has(args.stage)) {
   );
   process.exit(1);
 }
+// As bng-library's own check: a template version is "<major>.<minor>".
+const TEMPLATE_VERSION_PATTERN = /^\d+\.\d+$/;
+if (!args.help && !TEMPLATE_VERSION_PATTERN.test(args["template-version"])) {
+  console.error(
+    `--template-version must be "<major>.<minor>", such as "${CURRENT_TEMPLATE_VERSION}" (got: ${args["template-version"]})`,
+  );
+  process.exit(1);
+}
 const bngService = args.format === FORMAT_BNG_SERVICE;
 
 const HARNESS_ROOT = path.resolve(import.meta.dirname, "..");
