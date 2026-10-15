@@ -33,8 +33,10 @@ export const REPOS = [
   },
 ];
 
-// The other siblings the harness symlinks to. Only `npm run bootstrap` clones
-// these; the dev, lint, test and git commands run against REPOS alone.
+// The other siblings the harness symlinks to. `npm run bootstrap` clones these
+// but does not fail when it cannot; install, dev, lint, test, fe/be and the git
+// commands (status, pull, branch) work on REPOS alone. The commands that use
+// one of these (journey tests, perf, uploads:burst) check for it themselves.
 export const SUPPORT_REPOS = [
   "bng-library",
   "bng-metric-journey-tests",
