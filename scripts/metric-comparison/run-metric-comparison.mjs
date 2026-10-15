@@ -13,6 +13,7 @@
  */
 
 import path from "node:path";
+import { realpathSync } from "node:fs";
 import {
   compareScenario,
   figuresFromProject,
@@ -83,8 +84,8 @@ async function importScenario(scenario, importPair, expectedImport) {
 export async function compareCorpusScenario(
   scenario,
   answers,
-  importPair = importGeoPackagePair,
   expectedImport,
+  importPair = importGeoPackagePair,
 ) {
   if (answers.error) {
     return compareScenario({ scenario, workbookError: answers.error });
@@ -144,8 +145,8 @@ export async function runMetricComparison(options = {}) {
     const result = await compareCorpusScenario(
       scenario,
       answers[i],
+      expectations.get(realpathSync(scenario.files.postIntervention)),
       importPair,
-      expectations.get(path.resolve(scenario.files.postIntervention)),
     );
     onResult?.(result);
     return result;

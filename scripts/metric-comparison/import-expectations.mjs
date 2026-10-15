@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 
 const DOCUMENT_LAYERS = new Set([
@@ -33,9 +33,31 @@ function validateFeature(expected) {
     );
   }
 }
+function insideCorpus(root, file) {
+  const relative = path.relative(root, file);
+  if (
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  ) {
+    throw new Error(`Import expectation path escapes the corpus: ${file}`);
+  }
+  return file;
+}
+
+function corpusFile(root, relative) {
+  if (path.isAbsolute(relative)) {
+    throw new Error("Import expectation paths must be relative to the corpus");
+  }
+  const target = insideCorpus(root, path.resolve(root, relative));
+  return existsSync(target) ? insideCorpus(root, realpathSync(target)) : target;
+}
 /** Optional manifest assertions are additional checks, never numerical exemptions. */
 export function readImportExpectations(corpusDir) {
-  const file = path.join(corpusDir, "manifest.json");
+  // --corpus may intentionally name any local directory. Confine every file
+  // to that canonical, explicitly selected root, including symlink targets.
+  const root = realpathSync(path.resolve(corpusDir));
+  const file = corpusFile(root, "manifest.json");
   if (!existsSync(file)) {
     return new Map();
   }
@@ -52,7 +74,7 @@ export function readImportExpectations(corpusDir) {
       throw new Error(`Invalid import expectations for ${entry.id}`);
     }
     entry.expectedImport.features.forEach(validateFeature);
-    const piFile = path.resolve(corpusDir, entry.files.postIntervention);
+    const piFile = corpusFile(root, entry.files.postIntervention);
     if (expectations.has(piFile)) {
       throw new Error(`Duplicate import expectations for ${piFile}`);
     }

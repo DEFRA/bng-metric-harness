@@ -1,5 +1,6 @@
 import { PERMUTATION_PURPOSES, PERMUTATION_SCENARIOS } from "#bng-lib";
 
+const REFERENCE_NUMBER_WIDTH = 3;
 const LOW = "Area/compensation not in local strategy/ no local strategy";
 const TABLES = ["Habitats", "Hedgerows", "Rivers", "Urban Trees"];
 const REFS = {
@@ -51,7 +52,10 @@ function cases(retentions, advance, delay) {
   return TABLES.flatMap((layer) =>
     retentions.map((retention, index) => ({
       layer,
-      ref: REFS[layer].replace("001", String(index + 1).padStart(3, "0")),
+      ref: REFS[layer].replace(
+        "001",
+        String(index + 1).padStart(REFERENCE_NUMBER_WIDTH, "0"),
+      ),
       retention,
       advance,
       delay,

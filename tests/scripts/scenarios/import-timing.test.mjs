@@ -225,3 +225,13 @@ describe("generator net-gain checks use the expected import timing", () => {
     );
   });
 });
+
+describe("timing fixture databases use existing local files", () => {
+  it.each([
+    ":memory:",
+    "file:timing?mode=memory",
+    path.join(tmpdir(), "nonexistent-timing.gpkg"),
+  ])("refuses database URI or nonexistent filename %s", (file) => {
+    expect(() => readTimingInputs(file)).toThrow();
+  });
+});

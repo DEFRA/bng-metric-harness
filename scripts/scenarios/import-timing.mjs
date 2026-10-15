@@ -1,11 +1,15 @@
 import Database from "better-sqlite3";
+import { realpathSync, statSync } from "node:fs";
+import path from "node:path";
+
+const PARCEL_REF = "Parcel Ref";
 
 export const TIMING_LAYERS = Object.freeze({
-  Habitats: { document: "habitats", ref: "Parcel Ref", prefix: "habitat" },
-  Hedgerows: { document: "hedgerows", ref: "Parcel Ref", prefix: "hedgerow" },
+  Habitats: { document: "habitats", ref: PARCEL_REF, prefix: "habitat" },
+  Hedgerows: { document: "hedgerows", ref: PARCEL_REF, prefix: "hedgerow" },
   Rivers: {
     document: "watercourses",
-    ref: "Parcel Ref",
+    ref: PARCEL_REF,
     prefix: "watercourse",
   },
   "Urban Trees": { document: "trees", ref: "Tree Ref", prefix: "habitat" },
@@ -23,8 +27,20 @@ function timingColumns(layer) {
       ];
 }
 
+function existingGeoPackage(file) {
+  // SQLite receives a canonical, existing filesystem filename, never a URI,
+  // connection string or a name that can create an unintended database.
+  const canonical = realpathSync(path.resolve(file));
+  if (
+    path.extname(canonical).toLowerCase() !== ".gpkg" ||
+    !statSync(canonical).isFile()
+  ) {
+    throw new Error("Timing fixtures must be existing local GeoPackage files");
+  }
+  return canonical;
+}
 function attributeDatabase(file) {
-  const db = new Database(file);
+  const db = new Database(existingGeoPackage(file), { fileMustExist: true });
   // Attribute-only edits must never execute a geometry-changing rtree trigger.
   for (const name of [
     "ST_IsEmpty",
@@ -84,7 +100,10 @@ export function metricTiming(retention, advanceYears, delayYears) {
 }
 
 export function readTimingInputs(file) {
-  const db = new Database(file, { readonly: true });
+  const db = new Database(existingGeoPackage(file), {
+    readonly: true,
+    fileMustExist: true,
+  });
   const inputs = [];
   try {
     for (const [table, layer] of Object.entries(TIMING_LAYERS)) {

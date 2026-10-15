@@ -188,12 +188,12 @@ describe.skipIf(!isBackendInstalled())(
       return compareCorpusScenario(
         selected,
         answers,
+        expectation,
         async (files) => {
           const result = await importGeoPackagePair(files);
           mutate(result);
           return result;
         },
-        expectation,
       );
     }
     it(

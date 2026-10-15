@@ -1,5 +1,11 @@
 import { describe, expect, it, afterEach } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+  readFileSync,
+  symlinkSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
@@ -130,5 +136,35 @@ describe("manifest acceptance contracts", () => {
     expect(() =>
       readImportExpectations(manifestDirectory(expected, true)),
     ).toThrow("Duplicate");
+  });
+});
+
+describe("expectation files stay inside the selected corpus", () => {
+  it.each(["../escape.gpkg", path.resolve(tmpdir(), "absolute.gpkg")])(
+    "refuses an escaped expectation path: %s",
+    (piFile) => {
+      const directory = manifestDirectory(expected);
+      const file = path.join(directory, "manifest.json");
+      const manifest = JSON.parse(readFileSync(file, "utf8"));
+      manifest.scenarios[0].files.postIntervention = piFile;
+      writeFileSync(file, JSON.stringify(manifest));
+      expect(() => readImportExpectations(directory)).toThrow(
+        /escapes|relative/,
+      );
+    },
+  );
+  it("refuses a directory link whose target escapes the selected corpus", () => {
+    const directory = manifestDirectory(expected);
+    const outside = mkdtempSync(path.join(tmpdir(), "timing-outside-"));
+    scratch.push(outside);
+    writeFileSync(path.join(outside, "external.gpkg"), "fixture placeholder");
+    symlinkSync(outside, path.join(directory, "escape"), "junction");
+    const file = path.join(directory, "manifest.json");
+    const manifest = JSON.parse(readFileSync(file, "utf8"));
+    manifest.scenarios[0].files.postIntervention = "escape/external.gpkg";
+    writeFileSync(file, JSON.stringify(manifest));
+    expect(() => readImportExpectations(directory)).toThrow(
+      "escapes the corpus",
+    );
   });
 });

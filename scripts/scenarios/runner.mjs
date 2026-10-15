@@ -227,6 +227,20 @@ function writeWorkbook(entry, piFile, outDir, workbook, saved) {
   return keep;
 }
 
+function importContractFields(scenario) {
+  return scenario.importCases
+    ? { expectedImport: expectedImport(scenario.importCases) }
+    : {};
+}
+function syntheticOptions(scenario, seed) {
+  return {
+    numParcels: scenario.size ?? PERMUTATION_DEFAULT_SIZE,
+    numTrees: scenario.treeCount,
+    emptyLayers: new Set(scenario.emptyLayers ?? []),
+    attributeOverrides: scenario.overrides ?? {},
+    seed: derivePermutationSeed(seed, scenario.id),
+  };
+}
 function generateScenario(scenario, context) {
   const { outDir, centre, seed, engine, workbook, saved, kept } = context;
   const files = scenarioFiles(scenario);
@@ -237,13 +251,7 @@ function generateScenario(scenario, context) {
   const baselineFile = path.join(outDir, files.baseline);
   mkdirSync(path.dirname(piFile), { recursive: true });
 
-  generateOne(piFile, centre, {
-    numParcels: scenario.size ?? PERMUTATION_DEFAULT_SIZE,
-    numTrees: scenario.treeCount,
-    emptyLayers: new Set(scenario.emptyLayers ?? []),
-    attributeOverrides: scenario.overrides ?? {},
-    seed: derivePermutationSeed(seed, scenario.id),
-  });
+  generateOne(piFile, centre, syntheticOptions(scenario, seed));
   deriveBaselineFromSynthetic(piFile, baselineFile);
   prepareImportTiming(piFile, scenario.importCases);
   verifyPair(baselineFile, piFile);
@@ -257,9 +265,7 @@ function generateScenario(scenario, context) {
     size: scenario.size ?? PERMUTATION_DEFAULT_SIZE,
     subject: scenario.subject,
     files,
-    ...(scenario.importCases
-      ? { expectedImport: expectedImport(scenario.importCases) }
-      : {}),
+    ...importContractFields(scenario),
     gain: null,
     checks: [],
   };
