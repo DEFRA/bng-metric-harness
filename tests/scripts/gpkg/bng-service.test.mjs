@@ -10,6 +10,11 @@ const GEN_GPKG = path.resolve(
   import.meta.dirname,
   "../../../scripts/gen-gpkg.mjs",
 );
+// A small metric workbook from the scenario catalogue.
+const WORKBOOK = path.resolve(
+  import.meta.dirname,
+  "../../../example-files/permutations/intervention/hedgerow-created.xlsx",
+);
 
 function run(outDir, ...args) {
   return spawnSync(process.execPath, [GEN_GPKG, "--outdir", outDir, ...args], {
@@ -115,6 +120,44 @@ describe("gen-gpkg --format bng-service", () => {
     db.close();
   });
 
+  it("writes one file holding both stages from a workbook", () => {
+    const dir = outDir();
+    const result = run(dir, "--from", WORKBOOK, "--format", "bng-service");
+    expect(result.status).toBe(0);
+    const file = onlyFile(dir);
+    expect(path.basename(file)).toMatch(
+      /^hedgerow-created-bng-service-\d{8}-\d{4}-\d{2}\.gpkg$/,
+    );
+    expect(checkTemplateValues(file)).toEqual([]);
+    expect(count(file, "Area Habitats Baseline")).toBeGreaterThan(0);
+    expect(count(file, "Hedgerows Post-Intervention")).toBeGreaterThan(0);
+    const db = openGeoPackageReadonly(file);
+    expect(readVersionRecords(db)).toEqual([
+      { format: "bng-service", version: "1.0" },
+    ]);
+    db.close();
+  });
+
+  it("writes the baseline-stage file from a workbook", () => {
+    const dir = outDir();
+    const result = run(
+      dir,
+      "--from",
+      WORKBOOK,
+      "--format",
+      "bng-service",
+      "--stage",
+      "baseline",
+    );
+    expect(result.status).toBe(0);
+    const file = onlyFile(dir);
+    expect(path.basename(file)).toMatch(
+      /^hedgerow-created-bng-service-baseline-\d{8}-\d{4}-\d{2}\.gpkg$/,
+    );
+    expect(count(file, "Area Habitats Baseline")).toBeGreaterThan(0);
+    expect(count(file, "Hedgerows Post-Intervention")).toBe(0);
+  });
+
   it.each([
     [
       ["--format", "bng-service", "--pair"],
@@ -158,6 +201,18 @@ describe("gen-gpkg --format bng-service", () => {
       ],
       /baseline-stage file leaves empty/,
     ],
+    [
+      [
+        "--from",
+        WORKBOOK,
+        "--format",
+        "bng-service",
+        "--flaw",
+        "version-record-missing",
+      ],
+      /--bad and --flaw are synthetic-mode only/,
+    ],
+    [["--from", WORKBOOK, "--bad"], /--bad and --flaw are synthetic-mode only/],
     [["--stage", "baseline"], /need --format bng-service/],
     [["--format", "qgis"], /--format must be one of/],
     [

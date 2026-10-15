@@ -517,8 +517,9 @@ Options:
                       parcel to "<Broad habitat type> - <Habitat type>".
                       Repeatable — the Nth --habitat pins the Nth parcel; the
                       rest stay randomised. Pinned rows are Retained.
-  --bad               Apply every composable geometric flaw at once.
-  --flaw NAME         Emit a fixture targeting one flaw. Repeatable; see below.
+  --bad               Synthetic mode: apply every composable geometric flaw at once.
+  --flaw NAME         Synthetic mode: emit a fixture targeting one flaw.
+                      Repeatable; see below.
   --from PATH|URL     Generate from a Defra metric workbook (xlsx/xlsm).
   --from-list FILE    Generate from every workbook path/URL listed in FILE.
   --mode MODE         ${[...VALID_MODES].join(" | ")} (workbook mode; default ${MODE_BOTH}).
@@ -566,12 +567,23 @@ function assertInspectHasSource() {
 }
 
 function assertSyntheticFlagsOutsideWorkbookMode() {
-  const syntheticOnlyFlags = args.pair || args.habitat.length > 0;
   const workbookMode = args.from || args["from-list"];
-  if (syntheticOnlyFlags && workbookMode) {
+  if (!workbookMode) {
+    return;
+  }
+  if (args.pair || args.habitat.length > 0) {
     error(
       "--pair and --habitat are synthetic-mode only; workbook mode already emits a " +
         "pair and takes its habitats from the workbook (see --mode)",
+    );
+    process.exit(1);
+  }
+  // Workbook mode writes what the workbook describes; it applies no flaws, so
+  // a flaw asked for would be silently left out.
+  if (args.bad || args.flaw.length > 0) {
+    error(
+      "--bad and --flaw are synthetic-mode only; workbook mode writes what the " +
+        "workbook describes and applies no flaws",
     );
     process.exit(1);
   }
