@@ -21,25 +21,22 @@ function restoreAreaBaseline(rows, baselineRows, inputs) {
 }
 
 function applyRowTiming(row, input, sheet, changes) {
-  const timing = metricTiming(
-    input.retention,
-    row.advanceYears,
-    row.delayYears,
-  );
-  if (
-    timing.advanceYears === row.advanceYears &&
-    timing.delayYears === row.delayYears
-  ) {
+  const timing = metricTiming(input.retention, input.advance, input.delay);
+  if (timing.advanceYears === null || timing.delayYears === null) {
+    // The workbook treats blank timing as zero. A blank required condition
+    // makes its own formulas leave this row unpriced, while keeping positional
+    // enhancement pairing and all baseline allocations intact.
+    changes.push({
+      sheet,
+      reference: input.ref,
+      retention: input.retention,
+      raw: { advanceYears: input.advance, delayYears: input.delay },
+      metric: { ...timing, condition: null },
+      excludedFromCalculation: true,
+    });
+    Object.assign(row, timing, { condition: null });
     return;
   }
-  changes.push({
-    sheet,
-    reference: input.ref,
-    retention: input.retention,
-    raw: { advanceYears: row.advanceYears, delayYears: row.delayYears },
-    metric: timing,
-  });
-  Object.assign(row, timing);
 }
 
 function applyInputTiming(rows, input, changes) {
@@ -72,4 +69,23 @@ export function importWorkbookRows(baselineFile, piFile) {
   restoreAreaBaseline(rows, baseline.rows, inputs);
   const timingChanges = applyTiming(rows, inputs);
   return { rows, notes, timingChanges };
+}
+
+/** Keep vocabulary checking for every input except the declared null projection. */
+export function filterProjectedInputIssues(issues, timingChanges = []) {
+  const projected = new Set();
+  for (const change of timingChanges.filter(
+    (item) => item.excludedFromCalculation,
+  )) {
+    for (const [field, value] of Object.entries(change.metric)) {
+      if (value === null) {
+        projected.add(`${change.sheet}|${change.reference}|${field}`);
+      }
+    }
+  }
+  return issues.filter(
+    (issue) =>
+      issue.value !== null ||
+      !projected.has(`${issue.sheet}|${issue.reference}|${issue.field}`),
+  );
 }

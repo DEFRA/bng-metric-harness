@@ -32,11 +32,6 @@ function fullName(broad, type) {
   return `${broad} - ${type}`;
 }
 
-function toYears(value) {
-  const n = Number.parseFloat(value);
-  return Number.isFinite(n) ? n : 0;
-}
-
 /**
  * Post-intervention units for a single area-habitat row, dispatched on its
  * gpkg retention category. Returns null if the engine cannot price the row
@@ -57,8 +52,8 @@ function postInterventionUnits(engine, row) {
   const retention = row["Retention Category"];
   const { advanceYears: advance, delayYears: delay } = metricTiming(
     retention,
-    toYears(row["Habitat created in advance/years"]),
-    toYears(row["Delay in starting habitat creation/years"]),
+    row["Habitat created in advance/years"],
+    row["Delay in starting habitat creation/years"],
   );
 
   if (retention === RETAINED) {
@@ -67,6 +62,9 @@ function postInterventionUnits(engine, row) {
       baseline,
       baselineCondition,
     ).units;
+  }
+  if (advance === null || delay === null) {
+    return null;
   }
   if (retention === ENHANCED) {
     return engine.calculateEnhancedAreaHabitatPostIntervention(
@@ -132,13 +130,13 @@ export function priceHabitats(engine, file) {
   for (const row of rows) {
     const pi = safePrice(() => postInterventionUnits(engine, row));
     const base = safePrice(() => baselineUnits(engine, row));
+    baselineTotal += base ?? 0;
+    postInterventionTotal += pi ?? 0;
     if (pi === null || base === null) {
       skipped += 1;
-      continue;
+    } else {
+      priced += 1;
     }
-    baselineTotal += base;
-    postInterventionTotal += pi;
-    priced += 1;
   }
 
   const { habitatsNetUnitChange, habitatsNetUnitChangePercentage } =

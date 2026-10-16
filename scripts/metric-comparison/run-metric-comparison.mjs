@@ -27,6 +27,7 @@ import { metricTotalsOf } from "./unexplained.mjs";
 import {
   readImportExpectations,
   assertExpectedImport,
+  assertCalculatedHabitatUnits,
 } from "./import-expectations.mjs";
 
 /** The committed scenarios, each GeoPackage pair beside its workbook. */
@@ -63,6 +64,7 @@ function isSelected(scenario, only) {
 async function importScenario(scenario, importPair, expectedImport) {
   try {
     const imported = await importPair(scenario.files);
+    assertCalculatedHabitatUnits(imported);
     assertExpectedImport(imported, expectedImport);
     return {
       service: imported.accepted

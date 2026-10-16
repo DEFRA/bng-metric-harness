@@ -83,7 +83,7 @@ const additions = [
   timingScenario(
     "invalid-timing-conflicting-created-enhanced",
     "Created and Enhanced: conflicting timing is cleared",
-    "AC3: both timing values are positive on Created/Enhanced features in all four layers. Import succeeds and saves null timing; the workbook prices the cleansed inputs.",
+    "AC3: both timing values are positive on Created/Enhanced features in all four layers. Import succeeds and saves null timing; BMD-1070 leaves these incomplete habitats unpriced in the workbook.",
     ["Created", "Enhanced"],
     "2",
     "3",

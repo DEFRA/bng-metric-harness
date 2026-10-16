@@ -50,7 +50,10 @@ import { readScenarioManifest } from "./manifest.mjs";
 import { loadEngine } from "./engine.mjs";
 import { meetsNetGain, priceHabitats } from "./engine-units.mjs";
 import { prepareImportTiming, expectedImport } from "./import-timing.mjs";
-import { importWorkbookRows } from "./import-workbook-rows.mjs";
+import {
+  importWorkbookRows,
+  filterProjectedInputIssues,
+} from "./import-workbook-rows.mjs";
 
 // Report recalculation progress every this many workbooks.
 const PROGRESS_EVERY = 5;
@@ -328,7 +331,10 @@ function attachResults(entry, scenario, results) {
         ? { ...scenario, id: `cleansed-${scenario.id}` }
         : scenario,
       results,
-      entry.rejectedInputs,
+      filterProjectedInputIssues(
+        entry.rejectedInputs,
+        entry.workbookTimingChanges,
+      ),
     ),
   );
 }

@@ -384,3 +384,19 @@ How it got here:
 
 Until #439 merges, a run against the backend's `main` or #426 alone shows the
 hedgerow differences, explained as *Strategic significance not applied*.
+
+### BMD-1070: incomplete habitat calculations
+
+The import timing scenarios retain their raw GeoPackage values. Their manifest
+contracts assert both saved null timing and null units with Incomplete status
+for Created/Enhanced habitats, including Lost area rows represented as Created.
+Retained habitats still calculate units without timing.
+
+The workbook treats blank timing cells as zero, so an incomplete Created or
+Enhanced row is left unpriced by blanking its required condition in the workbook
+input projection. The row remains in position so enhancement pairing is preserved;
+its baseline row and loss/allocation remain. The manifest records this projection.
+This is an independent input policy,
+not a copied service result or a discrepancy exemption. Numerical comparisons
+still cover every calculated figure; regression tests reject fabricated zero
+units and perturb a separate valid feature to check comparison sensitivity.

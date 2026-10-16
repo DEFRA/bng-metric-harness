@@ -22,6 +22,7 @@ function validateFeature(expected) {
   if (expected.absent === true && expected.proposed === undefined) {
     return;
   }
+  validateUnitExpectations(expected);
   const fields = Object.entries(expected.proposed ?? {});
   if (
     expected.absent ||
@@ -33,6 +34,23 @@ function validateFeature(expected) {
     );
   }
 }
+function validateUnitExpectations(expected) {
+  if (
+    expected.status !== undefined &&
+    !["Complete", "Incomplete"].includes(expected.status)
+  ) {
+    throw new Error("Import expectations require a known habitat status");
+  }
+  if (
+    Object.hasOwn(expected, "units") &&
+    (expected.status !== "Incomplete" || expected.units !== null)
+  ) {
+    throw new Error(
+      "Import unit expectations require null units and Incomplete status",
+    );
+  }
+}
+
 function insideCorpus(root, file) {
   const relative = path.relative(root, file);
   if (
@@ -105,6 +123,25 @@ function checkFeature(document, expected) {
     );
   }
   assertProposedTiming(matches[0], expected);
+  assertUnitsAndStatus(matches[0], expected);
+}
+
+function assertUnitsAndStatus(feature, expected) {
+  if (expected.status !== undefined && feature.status !== expected.status) {
+    throw new Error(
+      `${expected.layer}/${expected.ref}.status: expected ${expected.status}, got ${feature.status}`,
+    );
+  }
+  if (Object.hasOwn(expected, "units") && feature.units !== expected.units) {
+    throw new Error(
+      `${expected.layer}/${expected.ref}.units: expected null, got ${JSON.stringify(feature.units)}`,
+    );
+  }
+  if (expected.status === "Complete" && !Number.isFinite(feature.units)) {
+    throw new Error(
+      `${expected.layer}/${expected.ref}.units: Complete requires calculated units`,
+    );
+  }
 }
 
 function assertProposedTiming(feature, expected) {
@@ -128,4 +165,30 @@ export function assertExpectedImport(imported, expected) {
   for (const feature of expected.features) {
     checkFeature(imported.project.project.postIntervention, feature);
   }
+}
+
+/** BMD-1070 invariant, independent of workbook figures and scenario exceptions. */
+export function assertCalculatedHabitatUnits(imported) {
+  if (!imported.accepted) {
+    return;
+  }
+  const project = imported.project.project;
+  for (const documentKey of ["baseline", "postIntervention"]) {
+    for (const layer of DOCUMENT_LAYERS) {
+      for (const feature of project[documentKey]?.[layer] ?? []) {
+        assertHabitatUnits(feature, `${documentKey}.${layer}/${feature.ref}`);
+      }
+    }
+  }
+}
+function assertHabitatUnits(feature, context) {
+  if (feature.units === null && feature.status === "Incomplete") {
+    return;
+  }
+  if (Number.isFinite(feature.units) && feature.status === "Complete") {
+    return;
+  }
+  throw new Error(
+    `${context}: expected null units with Incomplete or calculated units with Complete, got ${JSON.stringify(feature.units)}/${feature.status}`,
+  );
 }
