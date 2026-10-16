@@ -127,9 +127,9 @@ const { values: args } = parseArgs({
     format: { type: "string", default: FORMAT_LEGACY },
     // BNG Service format only: "baseline" leaves the post-intervention
     // tables empty — the file an ecologist has before mapping them.
-    stage: { type: "string", default: STAGE_POST_INTERVENTION },
+    stage: { type: "string" },
     // BNG Service format only: the version the template version record names.
-    "template-version": { type: "string", default: CURRENT_TEMPLATE_VERSION },
+    "template-version": { type: "string" },
     help: { type: "boolean", short: "h", default: false },
   },
   allowPositionals: false,
@@ -149,17 +149,22 @@ if (!args.help && !VALID_FORMATS.has(args.format)) {
   );
   process.exit(1);
 }
-if (!args.help && !VALID_STAGES.has(args.stage)) {
+// --stage and --template-version carry no parseArgs default, so
+// assertFormatFlagsValid can tell a flag the user passed from one they did not.
+const selectedStage = args.stage ?? STAGE_POST_INTERVENTION;
+if (!args.help && !VALID_STAGES.has(selectedStage)) {
   console.error(
-    `--stage must be one of: ${[...VALID_STAGES].join(", ")} (got: ${args.stage})`,
+    `--stage must be one of: ${[...VALID_STAGES].join(", ")} (got: ${selectedStage})`,
   );
   process.exit(1);
 }
 // As bng-library's own check: a template version is "<major>.<minor>".
 const TEMPLATE_VERSION_PATTERN = /^\d+\.\d+$/;
-if (!args.help && !TEMPLATE_VERSION_PATTERN.test(args["template-version"])) {
+const selectedTemplateVersion =
+  args["template-version"] ?? CURRENT_TEMPLATE_VERSION;
+if (!args.help && !TEMPLATE_VERSION_PATTERN.test(selectedTemplateVersion)) {
   console.error(
-    `--template-version must be "<major>.<minor>", such as "${CURRENT_TEMPLATE_VERSION}" (got: ${args["template-version"]})`,
+    `--template-version must be "<major>.<minor>", such as "${CURRENT_TEMPLATE_VERSION}" (got: ${selectedTemplateVersion})`,
   );
   process.exit(1);
 }
@@ -299,7 +304,7 @@ function bngServiceFilename(flawSuffix, extraFlaws, suffix, stamp) {
   const extra = extraFlaws.length
     ? `-${sortFlawNames(extraFlaws).join("-")}`
     : "";
-  const stage = args.stage === STAGE_BASELINE ? "-baseline" : "";
+  const stage = selectedStage === STAGE_BASELINE ? "-baseline" : "";
   return `bng-service-test-data${flawSuffix}${extra}${stage}${suffix}-${stamp}.gpkg`;
 }
 
@@ -312,7 +317,7 @@ async function runSynthetic(centre, seed) {
   );
   const { legacy, lineageFlawNames, versionFlawNames } = splitFlaws(args.flaw, {
     bngService,
-    stage: args.stage,
+    stage: selectedStage,
   });
   const selection = resolveFlawSelection({
     bad: args.bad,
@@ -381,8 +386,8 @@ function syntheticOutPaths(plan, flawSuffix, suffix, stamp) {
 function writeSyntheticRun(centre, { plan, paths }) {
   if (paths.bngService) {
     generateBngServiceSynthetic(paths.bngService, centre, plan, {
-      stage: args.stage,
-      templateVersion: args["template-version"],
+      stage: selectedStage,
+      templateVersion: selectedTemplateVersion,
     });
   } else if (paths.baseline) {
     writeSyntheticPair(paths, centre, plan);
@@ -570,8 +575,7 @@ function assertFormatFlagsValid() {
     process.exit(1);
   }
   const bngServiceOnly =
-    args.stage !== STAGE_POST_INTERVENTION ||
-    args["template-version"] !== CURRENT_TEMPLATE_VERSION;
+    args.stage !== undefined || args["template-version"] !== undefined;
   if (!bngService && bngServiceOnly) {
     error(`--stage and --template-version need --format ${FORMAT_BNG_SERVICE}`);
     process.exit(1);
@@ -588,8 +592,8 @@ function assertFlagCombinationsValid() {
 function formatOptions() {
   return {
     format: args.format,
-    stage: args.stage,
-    templateVersion: args["template-version"],
+    stage: selectedStage,
+    templateVersion: selectedTemplateVersion,
   };
 }
 

@@ -242,6 +242,10 @@ describe("gen-gpkg --format bng-service", () => {
     ],
     [["--from", WORKBOOK, "--bad"], /--bad and --flaw are synthetic-mode only/],
     [["--stage", "baseline"], /need --format bng-service/],
+    // Refused even when the value is the default: passing the flag at all
+    // without --format bng-service is the mistake.
+    [["--stage", "post-intervention"], /need --format bng-service/],
+    [["--template-version", "1.0"], /need --format bng-service/],
     [["--format", "qgis"], /--format must be one of/],
     [
       ["--format", "bng-service", "--template-version", "2"],
