@@ -89,13 +89,13 @@ export function prepareImportTiming(file, cases = []) {
 
 /** Independent input policy from BMD-1060 and BMD-1070; no service results. */
 export function metricTiming(retention, rawAdvance, rawDelay) {
-  if (retention === "Retained") {
+  if (retention === "Retained" || retention === "Lost") {
     return { advanceYears: 0, delayYears: 0 };
   }
   const advanceYears = timingValue(rawAdvance);
   const delayYears = timingValue(rawDelay);
   const conflicting = advanceYears > 0 && delayYears > 0;
-  return retention === "Lost" || conflicting
+  return conflicting
     ? { advanceYears: null, delayYears: null }
     : { advanceYears, delayYears };
 }
@@ -150,8 +150,12 @@ export function expectedImport(cases) {
         ? { absent: true }
         : {
             proposed: { advanceYears: null, delayYears: null },
-            status: item.retention === "Retained" ? "Complete" : "Incomplete",
-            ...(item.retention === "Retained" ? {} : { units: null }),
+            status: ["Retained", "Lost"].includes(item.retention)
+              ? "Complete"
+              : "Incomplete",
+            ...(["Retained", "Lost"].includes(item.retention)
+              ? {}
+              : { units: null }),
           }),
     })),
   };

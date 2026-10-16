@@ -139,7 +139,7 @@ export const HARNESS_SCENARIOS = [
           ...scenario,
           expectMetricWarnings: [],
           importCases: existingTiming.get(scenario.id),
-          description: `${scenario.description} BMD-1060 AC3 accepts the import and clears both values before pricing.`,
+          description: `${scenario.description} BMD-1060 AC3 clears both timing values; BMD-1070 saves null units and Incomplete status.`,
         }
       : scenario,
   ),

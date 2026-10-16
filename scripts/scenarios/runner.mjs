@@ -220,7 +220,14 @@ function writeWorkbook(entry, piFile, outDir, workbook, saved) {
     keep ? prior.buffer : buffer,
   );
   entry.inputRows = countRows(rows);
-  entry.rejectedInputs = issues.map(({ allowed: _allowed, ...issue }) => issue);
+  const inputIssues = issues.map(({ allowed: _allowed, ...issue }) => issue);
+  entry.rejectedInputs = filterProjectedInputIssues(inputIssues, timingChanges);
+  const projectedInputs = inputIssues.filter(
+    (issue) => !entry.rejectedInputs.includes(issue),
+  );
+  if (projectedInputs.length > 0) {
+    entry.projectedInputs = projectedInputs;
+  }
   entry.notes = notes;
   const lint = lintWorkbook(buffer);
   entry.checks.push(lintCheck(lint));
@@ -326,15 +333,15 @@ function attachResults(entry, scenario, results) {
     rowWarnings: groupWarnings(results.rowWarnings),
   };
   entry.checks.push(
+    // The pinned library identifies invalid scenarios by their id prefix and
+    // has no explicit validity option. This projection must still run its valid
+    // input checks; only the declared projected blanks have been separated out.
     ...checkScenarioExpectations(
       scenario.importCases
         ? { ...scenario, id: `cleansed-${scenario.id}` }
         : scenario,
       results,
-      filterProjectedInputIssues(
-        entry.rejectedInputs,
-        entry.workbookTimingChanges,
-      ),
+      entry.rejectedInputs,
     ),
   );
 }

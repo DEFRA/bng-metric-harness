@@ -90,13 +90,12 @@ PI labels to `Created` after deriving the separate baseline half. Baseline
 attributes, geometry and valid advance/delay values remain intact.
 
 The workbook reads both halves of the pair so that changing a PI label does not
-remove the original baseline loss. For explicit cleansing cases it receives the
-expected calculation inputs after AC3/AC5, independently of the backend: both
-positive timing values on Created/Enhanced rows, and redundant timing on
-Retained/Lost rows, are priced as zero timing. AC4 null timing is also priced as
-zero by the existing calculation contract. The geopackage keeps its raw values.
-These workbook input changes are recorded as `workbookTimingChanges` in the
-manifest. No calculated service result is written into the workbook.
+remove the original baseline loss. Expected calculation inputs follow AC3/AC5
+independently of the backend. Under BMD-1070, missing or conflicting timing on
+actual Created/Enhanced rows leaves those rows unpriced. Retained/Lost timing is
+redundant: it is saved null and pricing uses no advance/delay credit. The
+GeoPackage keeps its raw values. The workbook projection is recorded in
+`workbookTimingChanges`; no calculated service result is copied into it.
 
 `expectedImport` separately requires acceptance and the saved null attributes
 (or the existing exclusion of Lost hedgerows, watercourses and trees). The
@@ -439,8 +438,8 @@ workbooks for download.
 
 The import timing scenarios retain their raw GeoPackage values. Their manifest
 contracts assert both saved null timing and null units with Incomplete status
-for Created/Enhanced habitats, including Lost area rows represented as Created.
-Retained habitats still calculate units without timing.
+for actual Created/Enhanced habitats. Retained habitats and original Lost area
+replacements still calculate without timing credit.
 
 The workbook treats blank timing cells as zero, so an incomplete Created or
 Enhanced row is left unpriced by blanking its required condition in the workbook
@@ -450,3 +449,8 @@ This is an independent input policy,
 not a copied service result or a discrepancy exemption. Numerical comparisons
 still cover every calculated figure; regression tests reject fabricated zero
 units and perturb a separate valid feature to check comparison sensitivity.
+
+Projected blanks are recorded separately from rejected inputs in the manifest
+and index. Only the exact declared null projection cells are excluded from
+vocabulary errors; unexpected missing values and populated invalid values still
+fail the scenario checks.

@@ -35,7 +35,15 @@ function applyRowTiming(row, input, sheet, changes) {
       excludedFromCalculation: true,
     });
     Object.assign(row, timing, { condition: null });
-    return;
+  } else if (input.retention === "Lost") {
+    changes.push({
+      sheet,
+      reference: input.ref,
+      retention: input.retention,
+      raw: { advanceYears: input.advance, delayYears: input.delay },
+      metric: timing,
+    });
+    Object.assign(row, timing);
   }
 }
 

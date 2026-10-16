@@ -59,7 +59,7 @@ describe("independent AC3-AC5 workbook timing inputs", () => {
     ["Enhanced", 0, null, 0, null],
     ["Created", " ", "0", null, 0],
     ["Retained", 4, 0, 0, 0],
-    ["Lost", 0, 4, null, null],
+    ["Lost", 0, 4, 0, 0],
   ])(
     "%s timing %s/%s becomes %s/%s only in workbook inputs",
     (retention, advance, delay, a, d) => {
@@ -125,15 +125,15 @@ describe("independent AC3-AC5 workbook timing inputs", () => {
     expect(timingChanges).toEqual([]);
   });
 
-  it("excludes the unpriceable Lost replacement but retains its baseline loss", () => {
+  it("prices Lost replacements without timing credit and retains the baseline loss", () => {
     const { baseline, pi } = pair("invalid-timing-retained-lost");
     const { rows, timingChanges } = importWorkbookRows(baseline, pi);
     expect(rows.habitatCreation).toEqual([
       expect.objectContaining({
         reference: "H002",
-        condition: null,
-        advanceYears: null,
-        delayYears: null,
+        condition: "Good",
+        advanceYears: 0,
+        delayYears: 0,
       }),
     ]);
     expect(rows.habitatBaseline.map((r) => r.reference)).toContain("H002");
@@ -141,8 +141,7 @@ describe("independent AC3-AC5 workbook timing inputs", () => {
     expect(timingChanges[0]).toMatchObject({
       retention: "Lost",
       raw: { advanceYears: "4", delayYears: "0" },
-      metric: { advanceYears: null, delayYears: null },
-      excludedFromCalculation: true,
+      metric: { advanceYears: 0, delayYears: 0 },
     });
   });
 
@@ -224,6 +223,14 @@ describe("generator net-gain checks use the expected import timing", () => {
       "Grassland - Modified grassland",
       "Moderate",
     ).units;
+    const lostReplacementUnits =
+      engine.calculateCreatedAreaHabitatPostIntervention(
+        areas[1].area / 10000,
+        "Grassland - Modified grassland",
+        "Good",
+        0,
+        0,
+      ).units;
     const expectedBaseline = areas.reduce(
       (total, row) =>
         total +
@@ -239,7 +246,7 @@ describe("generator net-gain checks use the expected import timing", () => {
       10,
     );
     expect(priceHabitats(engine, pi).postInterventionTotal).toBeCloseTo(
-      expectedUnits,
+      expectedUnits + lostReplacementUnits,
       10,
     );
   });

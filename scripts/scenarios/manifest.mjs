@@ -82,6 +82,7 @@ function columns(recalculated) {
         "Trading rules not met",
         "Warnings",
         "Rejected inputs",
+        "Projected blanks",
       ]
     : [];
   return [
@@ -110,6 +111,7 @@ function renderRow(entry, recalculated) {
       breachesCell(trading),
       rowWarnings.length || NONE,
       entry.rejectedInputs.length || NONE,
+      entry.projectedInputs?.length || NONE,
     );
   }
   cells.push(checksCell(entry.checks));
@@ -141,7 +143,7 @@ function describeRun({ entries, seed, templatePath, recalculated }) {
   } else if (recalculated) {
     lines.push(
       "",
-      `Each scenario also has a metric workbook, written into \`${path.basename(templatePath)}\` and recalculated. Its figures are the metric's own, from Defra's formulas, except that the metric's known bugs are corrected: \`corrections\` in \`manifest.json\` lists each one. *Warnings* counts distinct warnings the metric shows on feature rows; *Rejected inputs* counts values the workbook's own drop-down lists do not offer.`,
+      `Each scenario also has a metric workbook, written into \`${path.basename(templatePath)}\` and recalculated. Its figures are the metric's own, from Defra's formulas, except that the metric's known bugs are corrected: \`corrections\` in \`manifest.json\` lists each one. *Warnings* counts distinct warnings the metric shows on feature rows; *Rejected inputs* counts unexpected values the workbook's own drop-down lists do not offer. *Projected blanks* counts deliberately blank required cells used to leave incomplete timing rows unpriced; the manifest records them separately.`,
     );
   } else {
     lines.push(

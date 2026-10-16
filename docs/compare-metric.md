@@ -387,16 +387,10 @@ hedgerow differences, explained as *Strategic significance not applied*.
 
 ### BMD-1070: incomplete habitat calculations
 
-The import timing scenarios retain their raw GeoPackage values. Their manifest
-contracts assert both saved null timing and null units with Incomplete status
-for Created/Enhanced habitats, including Lost area rows represented as Created.
-Retained habitats still calculate units without timing.
-
-The workbook treats blank timing cells as zero, so an incomplete Created or
-Enhanced row is left unpriced by blanking its required condition in the workbook
-input projection. The row remains in position so enhancement pairing is preserved;
-its baseline row and loss/allocation remain. The manifest records this projection.
-This is an independent input policy,
-not a copied service result or a discrepancy exemption. Numerical comparisons
-still cover every calculated figure; regression tests reject fabricated zero
-units and perturb a separate valid feature to check comparison sensitivity.
+See [the generator's incomplete-calculation policy](generate-scenarios.md#bmd-1070-incomplete-habitat-calculations)
+for the independent workbook projection and its manifest records. The comparison
+checks null units with Incomplete status for every baseline and PI feature before
+applying any scenario explanations. Both repositories must include BMD-1070;
+merge the harness companion before rerunning the backend workflow, which checks
+out the harness's main branch. The harness PR's own workflow pairs matching
+backend branch names while those changes are under review.
