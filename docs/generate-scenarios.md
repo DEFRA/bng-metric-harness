@@ -81,6 +81,39 @@ identifiers renumbered, and the references it leaves to parts it dropped
 removed — so Excel has nothing to repair on opening. The workbooks are about
 3.7 MB each on disk.
 
+### Imported timing validation (BMD-1060)
+
+The harness extends the library catalogue in `scripts/scenarios/catalogue.mjs`
+with import-specific timing cases. Its synthetic generator uses the legacy
+`Lost` label for Created area replacements; the harness changes those generated
+PI labels to `Created` after deriving the separate baseline half. Baseline
+attributes, geometry and valid advance/delay values remain intact.
+This is a temporary adapter for the pinned library. Follow-up work should fix
+its generator label, move the timing recipes into its catalogue, and remove the
+harness relabel/overrides together. Until then, genuine raw `Lost` area coverage
+is confined to `import-timing/invalid-timing-retained-lost`, which explicitly
+restores Lost rows across all four layers and asserts their saved behaviour.
+
+The workbook reads both halves of the pair so that changing a PI label does not
+remove the original baseline loss. For every generated PI row it receives the
+expected calculation inputs after AC3/AC5, independently of the backend: both
+positive timing values on Created/Enhanced rows, and redundant timing on
+Retained/Lost rows, are priced as zero timing. AC4 null timing is also priced as
+zero by the existing calculation contract. The geopackage keeps its raw values.
+These workbook input changes are recorded as `workbookTimingChanges` in the
+manifest. No calculated service result is written into the workbook.
+
+`expectedImport` separately requires acceptance and the saved null attributes
+(or the existing exclusion of Lost hedgerows, watercourses and trees). The
+comparison fails if those assertions fail, then compares every workbook figure
+normally. Raw-invalid filenames remain `invalid-...`; their successful cleansing
+is an explicit contract rather than a blanket exception.
+
+The `import-timing` purpose covers Created/Enhanced conflicting timing, null
+timing, and Retained/Lost redundant timing across all four layers. The existing
+advance/difficulty scenarios retain genuine Created controls with advance
+credit, and the raw conflicting area/tree scenarios now expect acceptance.
+
 ### Why the answers can be trusted
 
 A corpus built by writing *our* numbers into spreadsheets would only prove
@@ -120,7 +153,7 @@ service does. The published formula reports it breached. That was checked
 over six seeds.
 
 One scenario, both artefacts: the workbook is written from the
-post-intervention GeoPackage, not from a separate description, so the two
+GeoPackage pair, not from a separate description, so the two
 cannot drift apart. The mapping follows what the service does with the same
 file:
 

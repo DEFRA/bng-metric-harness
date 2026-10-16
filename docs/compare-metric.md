@@ -103,7 +103,7 @@ flowchart LR
   reads the answers straight from the workbook, with bng-library's own reader:
   the headline figures, every feature's units (with the size and strategic
   significance multiplier they were priced on), and the trading summaries'
-  figures. It needs no manifest, and neither LibreOffice nor the Defra template.
+  figures. It needs neither LibreOffice nor the Defra template. Hand-built corpora need no manifest; generated import-cleansing cases also use the explicit attribute assertions described below.
 - **The scenarios.** They're any folder of files named
   `<name>-baseline.gpkg`, `<name>-post-intervention.gpkg` and `<name>.xlsx`, side
   by side, including hand-built test spreadsheets, not just generated ones.
@@ -143,6 +143,31 @@ flowchart LR
   - **Without an installed backend** the command stops with a pointer to
     `npm run bootstrap` and `npm run install:be`, and the comparison's tests
     (`tests/scripts/metric-comparison/`) skip.
+
+### Cleansed import expectations
+
+For BMD-1060 timing cases, `manifest.json` declares `expectedImport`: the service
+must accept the file and save both timing fields as null on the named features.
+Lost linear features and trees must remain absent from PI, as in the existing
+importer. A rejection, missing/duplicate feature, or zero instead of null fails
+the comparison before any numerical checks. Malformed contracts, missing PI
+files and directories used as files also fail. A full run additionally rejects
+contracts whose PI file does not belong to a discovered scenario (a complete
+GeoPackage pair and workbook). Filtered `--only` runs allow contracts for
+unselected scenarios; their referenced files must still exist.
+
+The corresponding workbook is recalculated from independently prepared expected
+inputs: AC3/AC5 clear timing, and the existing calculation treats null timing as
+zero. Raw geopackages retain the entered values. After the attribute assertions
+pass, every feature unit, total and trading figure is compared normally. No new
+entries are added to `VALIDATION_GAPS` or `INCOMPLETE_FEATURES`. The JSON result
+retains `rawInvalidData` and the contract even when the cleansed scenario matches.
+
+The pair adapter uses the explicit baseline file as the arithmetic comparison
+baseline. It does not test the combined upload route's replacement/derivation
+of the project baseline or database persistence; backend integration tests cover
+that route. Correcting a legacy PI label must not silently remove baseline
+losses from the paired workbook or its arithmetic comparison.
 
 ### Why it lives in the harness
 

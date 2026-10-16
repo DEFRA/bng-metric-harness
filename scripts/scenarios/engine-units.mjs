@@ -15,6 +15,7 @@
  */
 
 import { openGeoPackageReadonly } from "#gpkg-io";
+import { metricTiming } from "./import-timing.mjs";
 
 // PostGIS/synthetic areas are square metres; the engine expects hectares.
 const SQ_METRES_PER_HECTARE = 10000;
@@ -25,13 +26,14 @@ const RETAINED = "Retained";
 const ENHANCED = "Enhanced";
 // A "Lost" area habitat is accounted as Created (see module comment).
 const LOST = "Lost";
+const CREATED = "Created";
 
 function fullName(broad, type) {
   return `${broad} - ${type}`;
 }
 
 function toYears(value) {
-  const n = Number.parseInt(value, 10);
+  const n = Number.parseFloat(value);
   return Number.isFinite(n) ? n : 0;
 }
 
@@ -52,9 +54,12 @@ function postInterventionUnits(engine, row) {
   );
   const baselineCondition = row["Baseline Condition"];
   const proposedCondition = row["Proposed Condition"];
-  const advance = toYears(row["Habitat created in advance/years"]);
-  const delay = toYears(row["Delay in starting habitat creation/years"]);
   const retention = row["Retention Category"];
+  const { advanceYears: advance, delayYears: delay } = metricTiming(
+    retention,
+    toYears(row["Habitat created in advance/years"]),
+    toYears(row["Delay in starting habitat creation/years"]),
+  );
 
   if (retention === RETAINED) {
     return engine.calculateRetainedAreaHabitatPostIntervention(
@@ -74,7 +79,7 @@ function postInterventionUnits(engine, row) {
       delay,
     ).units;
   }
-  if (retention === LOST) {
+  if (retention === LOST || retention === CREATED) {
     return engine.calculateCreatedAreaHabitatPostIntervention(
       sizeHa,
       proposed,

@@ -260,6 +260,9 @@ jobs:
       # a summary goes on the job summary, leading with any unexplained
       # differences; the full report (report.html and report.xlsx) is in the
       # artifact.
+      - name: Test comparison and import assertions
+        run: npx vitest run tests/scripts/metric-comparison tests/scripts/scenarios/import-timing.test.mjs
+
       - name: Compare the service with the metric
         id: compare-metric
         run: npm run compare:metric -- --fail-on-unexplained

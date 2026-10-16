@@ -13,10 +13,13 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { OUTCOME, findScenarios } from "#metric-compare";
+import { OUTCOME, findScenarios, readWorkbookAnswers } from "#metric-compare";
+import { readImportExpectations } from "../../../scripts/metric-comparison/import-expectations.mjs";
+import { findUnexplained } from "../../../scripts/metric-comparison/unexplained.mjs";
 import { isBackendInstalled } from "../../../scripts/metric-comparison/backend.mjs";
 import { importGeoPackagePair } from "../../../scripts/metric-comparison/import-geopackage-pair.mjs";
 import {
+  compareCorpusScenario,
   DEFAULT_CORPUS_DIR,
   runMetricComparison,
 } from "../../../scripts/metric-comparison/run-metric-comparison.mjs";
@@ -61,16 +64,19 @@ describe.skipIf(!isBackendInstalled())("importGeoPackagePair", () => {
     }
   });
 
-  it("reports the data-quality errors of a refused post-intervention file", async () => {
+  it("accepts conflicting timing and preserves saved nulls (AC3)", async () => {
     const result = await importGeoPackagePair(
       scenario("invalid-interventions/invalid-area-advance-and-delay").files,
     );
 
-    expect(result).toMatchObject({
-      accepted: false,
-      rejectedFile: "postIntervention",
+    expect(result.accepted).toBe(true);
+    const habitat = result.project.project.postIntervention.habitats.find(
+      (h) => h.ref === "H001",
+    );
+    expect(habitat.proposed).toMatchObject({
+      advanceYears: null,
+      delayYears: null,
     });
-    expect(result.errors.length).toBeGreaterThan(0);
   });
 
   it("refuses a baseline that is not a GeoPackage at the format gate", async () => {
@@ -117,13 +123,17 @@ describe.skipIf(!isBackendInstalled())("runMetricComparison", () => {
     ]);
   });
 
-  it("reports a scenario built on invalid data that the service refuses as expected", async () => {
-    const { results } = await runMetricComparison({
-      only: ["invalid-area-advance-and-delay"],
-    });
+  it.each(["invalid-area-advance-and-delay", "invalid-tree-advance-and-delay"])(
+    "compares cleansed %s in full with its explicit contract",
+    async (id) => {
+      const { results } = await runMetricComparison({ only: [id] });
 
-    expect(results[0].outcome).toBe(OUTCOME.rejectedAsExpected);
-  });
+      expect(results[0].outcome).toBe(OUTCOME.matched);
+      expect(results[0].expectedImport?.accepted).toBe(true);
+      expect(results[0].rawInvalidData).toBe(true);
+      expect(results[0].compared).toBeGreaterThan(0);
+    },
+  );
 });
 
 // A stand-in for the backend's import, so these run without a backend
@@ -164,3 +174,68 @@ describe("runMetricComparison when the service's import throws", () => {
     });
   });
 });
+
+describe.skipIf(!isBackendInstalled())(
+  "cleansing contracts preserve comparison sensitivity",
+  () => {
+    const selected = scenario(
+      "invalid-interventions/invalid-area-advance-and-delay",
+    );
+    async function compareMutation(mutate) {
+      const [answers] = await readWorkbookAnswers([selected.files.workbook]);
+      const expectation = readImportExpectations(DEFAULT_CORPUS_DIR).get(
+        path.resolve(selected.files.postIntervention),
+      );
+      expect(expectation).toBeDefined();
+      return compareCorpusScenario(
+        selected,
+        answers,
+        expectation,
+        async (files) => {
+          const result = await importGeoPackagePair(files);
+          mutate(result);
+          return result;
+        },
+      );
+    }
+    it(
+      "fails when timing is zero rather than saved null even if units still match",
+      async () => {
+        const result = await compareMutation((imported) => {
+          const habitat =
+            imported.project.project.postIntervention.habitats.find(
+              (f) => f.ref === "H001",
+            );
+          habitat.proposed.advanceYears = 0;
+          habitat.proposed.delayYears = 0;
+        });
+        expect(result.outcome).toBe(OUTCOME.importFailed);
+        expect(result.errors[0].message).toContain("expected null");
+      },
+      CORPUS_TIMEOUT_MS,
+    );
+    it(
+      "fails when a calculated unit differs after all cleansing assertions pass",
+      async () => {
+        const result = await compareMutation((imported) => {
+          const habitat =
+            imported.project.project.postIntervention.habitats.find(
+              (f) => f.ref === "H001",
+            );
+          habitat.units += 1;
+        });
+        expect(result.outcome).toBe(OUTCOME.discrepancies);
+        expect(
+          result.discrepancies.some(
+            (d) =>
+              d.category === "feature-units" && Math.abs(d.difference) > 0.9,
+          ),
+        ).toBe(true);
+        expect(findUnexplained([result]).discrepancies.length).toBeGreaterThan(
+          0,
+        );
+      },
+      CORPUS_TIMEOUT_MS,
+    );
+  },
+);

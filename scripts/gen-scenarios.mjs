@@ -23,7 +23,10 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { randomInt } from "node:crypto";
-import { PERMUTATION_PURPOSES, PERMUTATION_SCENARIOS } from "#bng-lib";
+import {
+  HARNESS_PURPOSES as PERMUTATION_PURPOSES,
+  HARNESS_SCENARIOS as PERMUTATION_SCENARIOS,
+} from "./scenarios/catalogue.mjs";
 import { isLibreOfficeAvailable } from "#workbook-writer";
 import {
   HARNESS_ROOT,
