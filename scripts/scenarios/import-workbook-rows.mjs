@@ -35,7 +35,9 @@ function applyRowTiming(row, input, sheet, changes) {
       excludedFromCalculation: true,
     });
     Object.assign(row, timing, { condition: null });
-  } else if (input.retention === "Lost") {
+    return;
+  }
+  if (input.retention === "Lost") {
     changes.push({
       sheet,
       reference: input.ref,
