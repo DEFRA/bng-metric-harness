@@ -3722,7 +3722,7 @@
       "id": "invalid-area-advance-and-delay",
       "purpose": "invalid-interventions",
       "title": "Created habitat — both advance and delay years",
-      "description": "H001 is created 2 years in advance and also delayed by 3 years. The metric allows one or the other, never both.",
+      "description": "H001 is created 2 years in advance and also delayed by 3 years. The metric allows one or the other, never both. BMD-1060 AC3 clears both timing values; BMD-1070 saves null units and Incomplete status.",
       "size": 2,
       "subject": {
         "layer": "Habitats",
@@ -3734,6 +3734,21 @@
         "postIntervention": "invalid-interventions/invalid-area-advance-and-delay-post-intervention.gpkg",
         "workbook": "invalid-interventions/invalid-area-advance-and-delay.xlsx"
       },
+      "expectedImport": {
+        "accepted": true,
+        "features": [
+          {
+            "layer": "habitats",
+            "ref": "H001",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Incomplete",
+            "units": null
+          }
+        ]
+      },
       "gain": null,
       "checks": [
         {
@@ -3743,13 +3758,30 @@
           "passed": true
         },
         {
-          "check": "warning on H001",
-          "expected": "both advance and delayed",
-          "actual": "habitatCreation!R11",
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
           "passed": true
         }
       ],
-      "workbookSource": "e9ac05adab630a64f86e4397fe0fef0cce5ad3292f3e1cc750b5cee6efe31086",
+      "workbookTimingChanges": [
+        {
+          "sheet": "habitatCreation",
+          "reference": "H001",
+          "retention": "Created",
+          "raw": {
+            "advanceYears": "2",
+            "delayYears": "3"
+          },
+          "metric": {
+            "advanceYears": null,
+            "delayYears": null,
+            "condition": null
+          },
+          "excludedFromCalculation": true
+        }
+      ],
+      "workbookSource": "6d2cc4609966f697615bde1f2772d73b5492e18941567fc6f343e39beff20737",
       "inputRows": {
         "habitatBaseline": 2,
         "habitatCreation": 1,
@@ -3762,6 +3794,32 @@
         "watercourseEnhancement": 0
       },
       "rejectedInputs": [],
+      "projectedInputs": [
+        {
+          "sheet": "habitatCreation",
+          "index": 0,
+          "reference": "H001",
+          "field": "condition",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatCreation",
+          "index": 0,
+          "reference": "H001",
+          "field": "advanceYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatCreation",
+          "index": 0,
+          "reference": "H001",
+          "field": "delayYears",
+          "value": null,
+          "problem": "missing"
+        }
+      ],
       "notes": [],
       "metric": {
         "headline": {
@@ -3890,7 +3948,7 @@
           {
             "sheet": "habitatCreation",
             "reference": "H001",
-            "message": "Error -both advance and delayed habitat creation ▲",
+            "message": "Check details - Is there evidence that habitat has reached target condition? ⚠",
             "cells": [
               "R11"
             ]
@@ -3898,10 +3956,9 @@
           {
             "sheet": "habitatCreation",
             "reference": "H001",
-            "message": "Check Data ⚠",
+            "message": "Low Difficulty - only applicable if all habitat created before losses ⚠",
             "cells": [
-              "S11",
-              "T11"
+              "V11"
             ]
           }
         ]
@@ -3911,7 +3968,7 @@
       "id": "invalid-tree-advance-and-delay",
       "purpose": "invalid-interventions",
       "title": "Created tree — both advance and delay years",
-      "description": "T001 is planted 2 years in advance and also delayed by 3 years. The metric allows one or the other, never both, for a tree as for a habitat parcel.",
+      "description": "T001 is planted 2 years in advance and also delayed by 3 years. The metric allows one or the other, never both, for a tree as for a habitat parcel. BMD-1060 AC3 clears both timing values; BMD-1070 saves null units and Incomplete status.",
       "size": 1,
       "subject": {
         "layer": "Urban Trees",
@@ -3923,6 +3980,21 @@
         "postIntervention": "invalid-interventions/invalid-tree-advance-and-delay-post-intervention.gpkg",
         "workbook": "invalid-interventions/invalid-tree-advance-and-delay.xlsx"
       },
+      "expectedImport": {
+        "accepted": true,
+        "features": [
+          {
+            "layer": "trees",
+            "ref": "T001",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Incomplete",
+            "units": null
+          }
+        ]
+      },
       "gain": null,
       "checks": [
         {
@@ -3932,13 +4004,30 @@
           "passed": true
         },
         {
-          "check": "warning on T001",
-          "expected": "both advance and delayed",
-          "actual": "habitatCreation!R11",
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
           "passed": true
         }
       ],
-      "workbookSource": "4538e88fa82398e9714672ead1c3babd1aec093968e05adb3f92999965f6c833",
+      "workbookTimingChanges": [
+        {
+          "sheet": "habitatCreation",
+          "reference": "T001",
+          "retention": "Created",
+          "raw": {
+            "advanceYears": "2",
+            "delayYears": "3"
+          },
+          "metric": {
+            "advanceYears": null,
+            "delayYears": null,
+            "condition": null
+          },
+          "excludedFromCalculation": true
+        }
+      ],
+      "workbookSource": "0202af1b828a0f5b4921289e40987b434d5ac371cde048880b08d3c976fb2017",
       "inputRows": {
         "habitatBaseline": 1,
         "habitatCreation": 1,
@@ -3951,6 +4040,32 @@
         "watercourseEnhancement": 0
       },
       "rejectedInputs": [],
+      "projectedInputs": [
+        {
+          "sheet": "habitatCreation",
+          "index": 0,
+          "reference": "T001",
+          "field": "condition",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatCreation",
+          "index": 0,
+          "reference": "T001",
+          "field": "advanceYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatCreation",
+          "index": 0,
+          "reference": "T001",
+          "field": "delayYears",
+          "value": null,
+          "problem": "missing"
+        }
+      ],
       "notes": [],
       "metric": {
         "headline": {
@@ -4063,7 +4178,7 @@
           {
             "sheet": "habitatCreation",
             "reference": "T001",
-            "message": "Error -both advance and delayed habitat creation ▲",
+            "message": "Check details - Is there evidence that habitat has reached target condition? ⚠",
             "cells": [
               "R11"
             ]
@@ -4071,10 +4186,9 @@
           {
             "sheet": "habitatCreation",
             "reference": "T001",
-            "message": "Check Data ⚠",
+            "message": "Low Difficulty - only applicable if all habitat created before losses ⚠",
             "cells": [
-              "S11",
-              "T11"
+              "V11"
             ]
           }
         ]
@@ -11530,6 +11644,185 @@
       }
     },
     {
+      "id": "trees-count-above-one",
+      "purpose": "trees",
+      "title": "Individual trees — a point that stands for several trees",
+      "description": "Each tree point carries a \"Count\": the number of trees it stands for. The metric sizes the point as its size band's area times that count, so a Medium point with a count of 3 is three Medium trees (0.0489 ha, not 0.0163 ha). Three pairs of trees are identical but for their count, one pair on each pricing path: T001 and T002 are retained Medium urban trees with counts of 3 and 1, T003 and T005 created Large urban trees with counts of 2 and 1, and T004 and T006 Small rural trees enhanced from Poor to Good with counts of 4 and 1. Each pair's units must stand in exactly the ratio of its counts, so a service that prices every point as one tree, or scales by the wrong amount, fails on every path.",
+      "size": 1,
+      "subject": {
+        "layer": "Urban Trees",
+        "ref": "T001",
+        "note": "a count of 3; T002 is the same tree with a count of 1. T003/T005 (created) and T004/T006 (enhanced) pair up the same way"
+      },
+      "files": {
+        "baseline": "trees/count-above-one-baseline.gpkg",
+        "postIntervention": "trees/count-above-one-post-intervention.gpkg",
+        "workbook": "trees/count-above-one.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "baseline units of T001 against T002",
+          "expected": "T001 = 3 × T002",
+          "actual": "T001 0.3912, T002 0.1304",
+          "passed": true
+        },
+        {
+          "check": "created units of T003 against T005",
+          "expected": "T003 = 2 × T005",
+          "actual": "T003 0.20504264988576, T005 0.10252132494288",
+          "passed": true
+        },
+        {
+          "check": "enhanced units of T004 against T006",
+          "expected": "T004 = 4 × T006",
+          "actual": "T004 0.10755733177632, T006 0.02688933294408",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookSource": "cd858c7cf67c559c98b0553f8627a3088e5c5fc9c835fbd899af26ce0282758f",
+      "inputRows": {
+        "habitatBaseline": 5,
+        "habitatCreation": 2,
+        "habitatEnhancement": 2,
+        "hedgerowBaseline": 0,
+        "hedgerowCreation": 0,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 0,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 0
+      },
+      "rejectedInputs": [],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 200.526785598989,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "postInterventionUnits": {
+            "area": 200.886796238538,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netUnitChange": {
+            "area": 0.360010639549046,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netPercentChange": {
+            "area": 0.00179532444243624,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netGainMessage": {
+            "area": "On-site net gain is less than target set ⚠",
+            "hedgerow": null,
+            "watercourse": null
+          },
+          "unitsRequired": {
+            "area": 220.579464158888,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "unitDeficit": {
+            "area": 19.6926679203499,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "Yes ✓",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": 0.36001063954904
+        },
+        "sheetWarnings": [
+          {
+            "sheet": "habitatEnhancement",
+            "cell": "AD2",
+            "message": "Note; Habitat selected has a time to target condition greater than 30 years. Non standard agreement may be required ⚠"
+          }
+        ],
+        "rowWarnings": []
+      }
+    },
+    {
       "id": "data-complete",
       "purpose": "data-completeness",
       "title": "Complete post-intervention data",
@@ -12002,6 +12295,1558 @@
             ]
           }
         ]
+      }
+    },
+    {
+      "id": "invalid-timing-conflicting-created-enhanced",
+      "purpose": "import-timing",
+      "title": "Created and Enhanced: conflicting timing is cleared",
+      "description": "AC3: both timing values are positive on Created/Enhanced features in all four layers. Import succeeds and saves null timing; BMD-1070 leaves these incomplete habitats unpriced in the workbook.",
+      "size": 2,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "Raw timing remains on the GeoPackage; saved timing must be null."
+      },
+      "files": {
+        "baseline": "import-timing/invalid-timing-conflicting-created-enhanced-baseline.gpkg",
+        "postIntervention": "import-timing/invalid-timing-conflicting-created-enhanced-post-intervention.gpkg",
+        "workbook": "import-timing/invalid-timing-conflicting-created-enhanced.xlsx"
+      },
+      "expectedImport": {
+        "accepted": true,
+        "features": [
+          {
+            "layer": "habitats",
+            "ref": "H001",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Incomplete",
+            "units": null
+          },
+          {
+            "layer": "habitats",
+            "ref": "H002",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Incomplete",
+            "units": null
+          },
+          {
+            "layer": "hedgerows",
+            "ref": "HG001",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Incomplete",
+            "units": null
+          },
+          {
+            "layer": "hedgerows",
+            "ref": "HG002",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Incomplete",
+            "units": null
+          },
+          {
+            "layer": "watercourses",
+            "ref": "R001",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Incomplete",
+            "units": null
+          },
+          {
+            "layer": "watercourses",
+            "ref": "R002",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Incomplete",
+            "units": null
+          },
+          {
+            "layer": "trees",
+            "ref": "T001",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Incomplete",
+            "units": null
+          },
+          {
+            "layer": "trees",
+            "ref": "T002",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Incomplete",
+            "units": null
+          }
+        ]
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookTimingChanges": [
+        {
+          "sheet": "habitatCreation",
+          "reference": "H001",
+          "retention": "Created",
+          "raw": {
+            "advanceYears": "2",
+            "delayYears": "3"
+          },
+          "metric": {
+            "advanceYears": null,
+            "delayYears": null,
+            "condition": null
+          },
+          "excludedFromCalculation": true
+        },
+        {
+          "sheet": "habitatEnhancement",
+          "reference": "H002",
+          "retention": "Enhanced",
+          "raw": {
+            "advanceYears": "2",
+            "delayYears": "3"
+          },
+          "metric": {
+            "advanceYears": null,
+            "delayYears": null,
+            "condition": null
+          },
+          "excludedFromCalculation": true
+        },
+        {
+          "sheet": "hedgerowCreation",
+          "reference": "HG001",
+          "retention": "Created",
+          "raw": {
+            "advanceYears": "2",
+            "delayYears": "3"
+          },
+          "metric": {
+            "advanceYears": null,
+            "delayYears": null,
+            "condition": null
+          },
+          "excludedFromCalculation": true
+        },
+        {
+          "sheet": "hedgerowEnhancement",
+          "reference": "HG002",
+          "retention": "Enhanced",
+          "raw": {
+            "advanceYears": "2",
+            "delayYears": "3"
+          },
+          "metric": {
+            "advanceYears": null,
+            "delayYears": null,
+            "condition": null
+          },
+          "excludedFromCalculation": true
+        },
+        {
+          "sheet": "watercourseCreation",
+          "reference": "R001",
+          "retention": "Created",
+          "raw": {
+            "advanceYears": "2",
+            "delayYears": "3"
+          },
+          "metric": {
+            "advanceYears": null,
+            "delayYears": null,
+            "condition": null
+          },
+          "excludedFromCalculation": true
+        },
+        {
+          "sheet": "watercourseEnhancement",
+          "reference": "R002",
+          "retention": "Enhanced",
+          "raw": {
+            "advanceYears": "2",
+            "delayYears": "3"
+          },
+          "metric": {
+            "advanceYears": null,
+            "delayYears": null,
+            "condition": null
+          },
+          "excludedFromCalculation": true
+        },
+        {
+          "sheet": "habitatCreation",
+          "reference": "T001",
+          "retention": "Created",
+          "raw": {
+            "advanceYears": "2",
+            "delayYears": "3"
+          },
+          "metric": {
+            "advanceYears": null,
+            "delayYears": null,
+            "condition": null
+          },
+          "excludedFromCalculation": true
+        },
+        {
+          "sheet": "habitatEnhancement",
+          "reference": "T002",
+          "retention": "Enhanced",
+          "raw": {
+            "advanceYears": "2",
+            "delayYears": "3"
+          },
+          "metric": {
+            "advanceYears": null,
+            "delayYears": null,
+            "condition": null
+          },
+          "excludedFromCalculation": true
+        }
+      ],
+      "workbookSource": "1300798003e29e3bdb4e0cc72400aa2077adb545bd92a617845b7d8f53286136",
+      "inputRows": {
+        "habitatBaseline": 3,
+        "habitatCreation": 2,
+        "habitatEnhancement": 2,
+        "hedgerowBaseline": 2,
+        "hedgerowCreation": 1,
+        "hedgerowEnhancement": 2,
+        "watercourseBaseline": 1,
+        "watercourseCreation": 1,
+        "watercourseEnhancement": 1
+      },
+      "rejectedInputs": [],
+      "projectedInputs": [
+        {
+          "sheet": "habitatCreation",
+          "index": 0,
+          "reference": "H001",
+          "field": "condition",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatCreation",
+          "index": 0,
+          "reference": "H001",
+          "field": "advanceYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatCreation",
+          "index": 0,
+          "reference": "H001",
+          "field": "delayYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatCreation",
+          "index": 1,
+          "reference": "T001",
+          "field": "condition",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatCreation",
+          "index": 1,
+          "reference": "T001",
+          "field": "advanceYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatCreation",
+          "index": 1,
+          "reference": "T001",
+          "field": "delayYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatEnhancement",
+          "index": 0,
+          "reference": "H002",
+          "field": "condition",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatEnhancement",
+          "index": 0,
+          "reference": "H002",
+          "field": "advanceYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatEnhancement",
+          "index": 0,
+          "reference": "H002",
+          "field": "delayYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatEnhancement",
+          "index": 1,
+          "reference": "T002",
+          "field": "condition",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatEnhancement",
+          "index": 1,
+          "reference": "T002",
+          "field": "advanceYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatEnhancement",
+          "index": 1,
+          "reference": "T002",
+          "field": "delayYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "hedgerowCreation",
+          "index": 0,
+          "reference": "HG001",
+          "field": "condition",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "hedgerowCreation",
+          "index": 0,
+          "reference": "HG001",
+          "field": "advanceYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "hedgerowCreation",
+          "index": 0,
+          "reference": "HG001",
+          "field": "delayYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "hedgerowEnhancement",
+          "index": 0,
+          "reference": "HG002",
+          "field": "condition",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "hedgerowEnhancement",
+          "index": 0,
+          "reference": "HG002",
+          "field": "advanceYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "hedgerowEnhancement",
+          "index": 0,
+          "reference": "HG002",
+          "field": "delayYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "watercourseCreation",
+          "index": 0,
+          "reference": "R001",
+          "field": "condition",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "watercourseCreation",
+          "index": 0,
+          "reference": "R001",
+          "field": "advanceYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "watercourseCreation",
+          "index": 0,
+          "reference": "R001",
+          "field": "delayYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "watercourseEnhancement",
+          "index": 0,
+          "reference": "R002",
+          "field": "condition",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "watercourseEnhancement",
+          "index": 0,
+          "reference": "R002",
+          "field": "advanceYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "watercourseEnhancement",
+          "index": 0,
+          "reference": "R002",
+          "field": "delayYears",
+          "value": null,
+          "problem": "missing"
+        }
+      ],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 221.621133875146,
+            "hedgerow": 3.90033201347492,
+            "watercourse": 3.77112171906031
+          },
+          "postInterventionUnits": {
+            "area": 0,
+            "hedgerow": 4.63192008041214,
+            "watercourse": 0
+          },
+          "netUnitChange": {
+            "area": -221.621133875146,
+            "hedgerow": 0.73158806693722,
+            "watercourse": -3.77112171906031
+          },
+          "netPercentChange": {
+            "area": -1,
+            "hedgerow": 0.187570715623624,
+            "watercourse": -1
+          },
+          "netGainMessage": {
+            "area": "On-site net gain is less than target set ⚠",
+            "hedgerow": null,
+            "watercourse": "On-site net gain is less than target set ⚠"
+          },
+          "unitsRequired": {
+            "area": 243.783247262661,
+            "hedgerow": 4.29036521482241,
+            "watercourse": 4.14823389096634
+          },
+          "unitDeficit": {
+            "area": 243.783247262661,
+            "hedgerow": 0,
+            "watercourse": 4.14823389096634
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "No - Check Trading Summaries ▲",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "No ▲"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "No ▲"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "No ▲"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": -221.588333875146
+        },
+        "sheetWarnings": [
+          {
+            "sheet": "habitatBaseline",
+            "cell": "L5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "habitatCreation",
+            "cell": "K5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "habitatEnhancement",
+            "cell": "T5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "watercourseBaseline",
+            "cell": "I5",
+            "message": "No - check trading summary ▲"
+          },
+          {
+            "sheet": "watercourseCreation",
+            "cell": "M6",
+            "message": "No - check trading summary ▲"
+          },
+          {
+            "sheet": "watercourseEnhancement",
+            "cell": "P5",
+            "message": "No - check trading summary ▲"
+          }
+        ],
+        "rowWarnings": [
+          {
+            "sheet": "habitatCreation",
+            "reference": "H001",
+            "message": "Check details - Is there evidence that habitat has reached target condition? ⚠",
+            "cells": [
+              "R11"
+            ]
+          },
+          {
+            "sheet": "habitatCreation",
+            "reference": "H001",
+            "message": "Low Difficulty - only applicable if all habitat created before losses ⚠",
+            "cells": [
+              "V11"
+            ]
+          },
+          {
+            "sheet": "habitatCreation",
+            "reference": "T001",
+            "message": "Check details - Is there evidence that habitat has reached target condition? ⚠",
+            "cells": [
+              "R12"
+            ]
+          },
+          {
+            "sheet": "habitatCreation",
+            "reference": "T001",
+            "message": "Low Difficulty - only applicable if all habitat created before losses ⚠",
+            "cells": [
+              "V12"
+            ]
+          },
+          {
+            "sheet": "hedgerowEnhancement",
+            "reference": "HG002",
+            "message": "Check details - Is there evidence that habitat has reached target condition? ⚠",
+            "cells": [
+              "AA12"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "null-timing-created-enhanced",
+      "purpose": "import-timing",
+      "title": "Created and Enhanced: null timing stays null",
+      "description": "AC4: both timing values are null on Created/Enhanced features in all four layers. Import succeeds and preserves nulls.",
+      "size": 2,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "Raw timing remains on the GeoPackage; saved timing must be null."
+      },
+      "files": {
+        "baseline": "import-timing/null-timing-created-enhanced-baseline.gpkg",
+        "postIntervention": "import-timing/null-timing-created-enhanced-post-intervention.gpkg",
+        "workbook": "import-timing/null-timing-created-enhanced.xlsx"
+      },
+      "expectedImport": {
+        "accepted": true,
+        "features": [
+          {
+            "layer": "habitats",
+            "ref": "H001",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Incomplete",
+            "units": null
+          },
+          {
+            "layer": "habitats",
+            "ref": "H002",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Incomplete",
+            "units": null
+          },
+          {
+            "layer": "hedgerows",
+            "ref": "HG001",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Incomplete",
+            "units": null
+          },
+          {
+            "layer": "hedgerows",
+            "ref": "HG002",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Incomplete",
+            "units": null
+          },
+          {
+            "layer": "watercourses",
+            "ref": "R001",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Incomplete",
+            "units": null
+          },
+          {
+            "layer": "watercourses",
+            "ref": "R002",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Incomplete",
+            "units": null
+          },
+          {
+            "layer": "trees",
+            "ref": "T001",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Incomplete",
+            "units": null
+          },
+          {
+            "layer": "trees",
+            "ref": "T002",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Incomplete",
+            "units": null
+          }
+        ]
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookTimingChanges": [
+        {
+          "sheet": "habitatCreation",
+          "reference": "H001",
+          "retention": "Created",
+          "raw": {
+            "advanceYears": null,
+            "delayYears": null
+          },
+          "metric": {
+            "advanceYears": null,
+            "delayYears": null,
+            "condition": null
+          },
+          "excludedFromCalculation": true
+        },
+        {
+          "sheet": "habitatEnhancement",
+          "reference": "H002",
+          "retention": "Enhanced",
+          "raw": {
+            "advanceYears": null,
+            "delayYears": null
+          },
+          "metric": {
+            "advanceYears": null,
+            "delayYears": null,
+            "condition": null
+          },
+          "excludedFromCalculation": true
+        },
+        {
+          "sheet": "hedgerowCreation",
+          "reference": "HG001",
+          "retention": "Created",
+          "raw": {
+            "advanceYears": null,
+            "delayYears": null
+          },
+          "metric": {
+            "advanceYears": null,
+            "delayYears": null,
+            "condition": null
+          },
+          "excludedFromCalculation": true
+        },
+        {
+          "sheet": "hedgerowEnhancement",
+          "reference": "HG002",
+          "retention": "Enhanced",
+          "raw": {
+            "advanceYears": null,
+            "delayYears": null
+          },
+          "metric": {
+            "advanceYears": null,
+            "delayYears": null,
+            "condition": null
+          },
+          "excludedFromCalculation": true
+        },
+        {
+          "sheet": "watercourseCreation",
+          "reference": "R001",
+          "retention": "Created",
+          "raw": {
+            "advanceYears": null,
+            "delayYears": null
+          },
+          "metric": {
+            "advanceYears": null,
+            "delayYears": null,
+            "condition": null
+          },
+          "excludedFromCalculation": true
+        },
+        {
+          "sheet": "watercourseEnhancement",
+          "reference": "R002",
+          "retention": "Enhanced",
+          "raw": {
+            "advanceYears": null,
+            "delayYears": null
+          },
+          "metric": {
+            "advanceYears": null,
+            "delayYears": null,
+            "condition": null
+          },
+          "excludedFromCalculation": true
+        },
+        {
+          "sheet": "habitatCreation",
+          "reference": "T001",
+          "retention": "Created",
+          "raw": {
+            "advanceYears": null,
+            "delayYears": null
+          },
+          "metric": {
+            "advanceYears": null,
+            "delayYears": null,
+            "condition": null
+          },
+          "excludedFromCalculation": true
+        },
+        {
+          "sheet": "habitatEnhancement",
+          "reference": "T002",
+          "retention": "Enhanced",
+          "raw": {
+            "advanceYears": null,
+            "delayYears": null
+          },
+          "metric": {
+            "advanceYears": null,
+            "delayYears": null,
+            "condition": null
+          },
+          "excludedFromCalculation": true
+        }
+      ],
+      "workbookSource": "a9368bf39551c33626a7f811be14af9a811da37b483f8d715710d883ef286791",
+      "inputRows": {
+        "habitatBaseline": 3,
+        "habitatCreation": 2,
+        "habitatEnhancement": 2,
+        "hedgerowBaseline": 2,
+        "hedgerowCreation": 1,
+        "hedgerowEnhancement": 1,
+        "watercourseBaseline": 1,
+        "watercourseCreation": 1,
+        "watercourseEnhancement": 1
+      },
+      "rejectedInputs": [],
+      "projectedInputs": [
+        {
+          "sheet": "habitatCreation",
+          "index": 0,
+          "reference": "H001",
+          "field": "condition",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatCreation",
+          "index": 0,
+          "reference": "H001",
+          "field": "advanceYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatCreation",
+          "index": 0,
+          "reference": "H001",
+          "field": "delayYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatCreation",
+          "index": 1,
+          "reference": "T001",
+          "field": "condition",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatCreation",
+          "index": 1,
+          "reference": "T001",
+          "field": "advanceYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatCreation",
+          "index": 1,
+          "reference": "T001",
+          "field": "delayYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatEnhancement",
+          "index": 0,
+          "reference": "H002",
+          "field": "condition",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatEnhancement",
+          "index": 0,
+          "reference": "H002",
+          "field": "advanceYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatEnhancement",
+          "index": 0,
+          "reference": "H002",
+          "field": "delayYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatEnhancement",
+          "index": 1,
+          "reference": "T002",
+          "field": "condition",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatEnhancement",
+          "index": 1,
+          "reference": "T002",
+          "field": "advanceYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "habitatEnhancement",
+          "index": 1,
+          "reference": "T002",
+          "field": "delayYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "hedgerowCreation",
+          "index": 0,
+          "reference": "HG001",
+          "field": "condition",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "hedgerowCreation",
+          "index": 0,
+          "reference": "HG001",
+          "field": "advanceYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "hedgerowCreation",
+          "index": 0,
+          "reference": "HG001",
+          "field": "delayYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "hedgerowEnhancement",
+          "index": 0,
+          "reference": "HG002",
+          "field": "condition",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "hedgerowEnhancement",
+          "index": 0,
+          "reference": "HG002",
+          "field": "advanceYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "hedgerowEnhancement",
+          "index": 0,
+          "reference": "HG002",
+          "field": "delayYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "watercourseCreation",
+          "index": 0,
+          "reference": "R001",
+          "field": "condition",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "watercourseCreation",
+          "index": 0,
+          "reference": "R001",
+          "field": "advanceYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "watercourseCreation",
+          "index": 0,
+          "reference": "R001",
+          "field": "delayYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "watercourseEnhancement",
+          "index": 0,
+          "reference": "R002",
+          "field": "condition",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "watercourseEnhancement",
+          "index": 0,
+          "reference": "R002",
+          "field": "advanceYears",
+          "value": null,
+          "problem": "missing"
+        },
+        {
+          "sheet": "watercourseEnhancement",
+          "index": 0,
+          "reference": "R002",
+          "field": "delayYears",
+          "value": null,
+          "problem": "missing"
+        }
+      ],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 237.303801308369,
+            "hedgerow": 1.67584619823563,
+            "watercourse": 2.58282517673223
+          },
+          "postInterventionUnits": {
+            "area": 0,
+            "hedgerow": 1.22653517550813,
+            "watercourse": 0
+          },
+          "netUnitChange": {
+            "area": -237.303801308369,
+            "hedgerow": -0.449311022727499,
+            "watercourse": -2.58282517673223
+          },
+          "netPercentChange": {
+            "area": -1,
+            "hedgerow": -0.268109939444649,
+            "watercourse": -1
+          },
+          "netGainMessage": {
+            "area": "On-site net gain is less than target set ⚠",
+            "hedgerow": "On-site net gain is less than target set ⚠",
+            "watercourse": "On-site net gain is less than target set ⚠"
+          },
+          "unitsRequired": {
+            "area": 261.034181439206,
+            "hedgerow": 1.84343081805919,
+            "watercourse": 2.84110769440545
+          },
+          "unitDeficit": {
+            "area": 261.034181439206,
+            "hedgerow": 0.616895642551062,
+            "watercourse": 2.84110769440545
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "No - Check Trading Summaries ▲",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "No ▲"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "No ▲"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "No ▲"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "No ▲"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": -237.271001308369
+        },
+        "sheetWarnings": [
+          {
+            "sheet": "habitatBaseline",
+            "cell": "L5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "habitatCreation",
+            "cell": "K5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "habitatEnhancement",
+            "cell": "T5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "hedgerowBaseline",
+            "cell": "J5",
+            "message": "No - check trading summary ▲"
+          },
+          {
+            "sheet": "hedgerowCreation",
+            "cell": "I5",
+            "message": "No - check trading summary ▲"
+          },
+          {
+            "sheet": "hedgerowEnhancement",
+            "cell": "O5",
+            "message": "No - check trading summary ▲"
+          },
+          {
+            "sheet": "watercourseBaseline",
+            "cell": "I5",
+            "message": "No - check trading summary ▲"
+          },
+          {
+            "sheet": "watercourseCreation",
+            "cell": "M6",
+            "message": "No - check trading summary ▲"
+          },
+          {
+            "sheet": "watercourseEnhancement",
+            "cell": "P5",
+            "message": "No - check trading summary ▲"
+          }
+        ],
+        "rowWarnings": [
+          {
+            "sheet": "habitatCreation",
+            "reference": "H001",
+            "message": "Check details - Is there evidence that habitat has reached target condition? ⚠",
+            "cells": [
+              "R11"
+            ]
+          },
+          {
+            "sheet": "habitatCreation",
+            "reference": "H001",
+            "message": "Low Difficulty - only applicable if all habitat created before losses ⚠",
+            "cells": [
+              "V11"
+            ]
+          },
+          {
+            "sheet": "habitatCreation",
+            "reference": "T001",
+            "message": "Check details - Is there evidence that habitat has reached target condition? ⚠",
+            "cells": [
+              "R12"
+            ]
+          },
+          {
+            "sheet": "habitatCreation",
+            "reference": "T001",
+            "message": "Low Difficulty - only applicable if all habitat created before losses ⚠",
+            "cells": [
+              "V12"
+            ]
+          },
+          {
+            "sheet": "hedgerowEnhancement",
+            "reference": "HG002",
+            "message": "Check details - Is there evidence that habitat has reached target condition? ⚠",
+            "cells": [
+              "AA12"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "invalid-timing-retained-lost",
+      "purpose": "import-timing",
+      "title": "Retained and Lost: redundant timing is cleared",
+      "description": "AC5: populated timing is cleared on Retained/Lost features. Lost linear features and trees remain absent from the PI document; the baseline is preserved.",
+      "size": 2,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "Raw timing remains on the GeoPackage; saved timing must be null."
+      },
+      "files": {
+        "baseline": "import-timing/invalid-timing-retained-lost-baseline.gpkg",
+        "postIntervention": "import-timing/invalid-timing-retained-lost-post-intervention.gpkg",
+        "workbook": "import-timing/invalid-timing-retained-lost.xlsx"
+      },
+      "expectedImport": {
+        "accepted": true,
+        "features": [
+          {
+            "layer": "habitats",
+            "ref": "H001",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Complete"
+          },
+          {
+            "layer": "habitats",
+            "ref": "H002",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Complete"
+          },
+          {
+            "layer": "hedgerows",
+            "ref": "HG001",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Complete"
+          },
+          {
+            "layer": "hedgerows",
+            "ref": "HG002",
+            "absent": true
+          },
+          {
+            "layer": "watercourses",
+            "ref": "R001",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Complete"
+          },
+          {
+            "layer": "watercourses",
+            "ref": "R002",
+            "absent": true
+          },
+          {
+            "layer": "trees",
+            "ref": "T001",
+            "proposed": {
+              "advanceYears": null,
+              "delayYears": null
+            },
+            "status": "Complete"
+          },
+          {
+            "layer": "trees",
+            "ref": "T002",
+            "absent": true
+          }
+        ]
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookTimingChanges": [
+        {
+          "sheet": "habitatCreation",
+          "reference": "H002",
+          "retention": "Lost",
+          "raw": {
+            "advanceYears": "4",
+            "delayYears": "0"
+          },
+          "metric": {
+            "advanceYears": 0,
+            "delayYears": 0
+          }
+        }
+      ],
+      "workbookSource": "67c8ce64ba807521c3b3e4f54208b2c73fa35e03002fd085b10566d5b6729813",
+      "inputRows": {
+        "habitatBaseline": 4,
+        "habitatCreation": 1,
+        "habitatEnhancement": 0,
+        "hedgerowBaseline": 3,
+        "hedgerowCreation": 0,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 2,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 0
+      },
+      "rejectedInputs": [],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 214.537353989656,
+            "hedgerow": 4.97086706874651,
+            "watercourse": 7.13975669574493
+          },
+          "postInterventionUnits": {
+            "area": 235.256781299572,
+            "hedgerow": 1.81798846631207,
+            "watercourse": 3.51491534785856
+          },
+          "netUnitChange": {
+            "area": 20.7194273099153,
+            "hedgerow": -3.15287860243445,
+            "watercourse": -3.62484134788637
+          },
+          "netPercentChange": {
+            "area": 0.0965772483187906,
+            "hedgerow": -0.63427135725629,
+            "watercourse": -0.507698161485904
+          },
+          "netGainMessage": {
+            "area": "On-site net gain is less than target set ⚠",
+            "hedgerow": "On-site net gain is less than target set ⚠",
+            "watercourse": "On-site net gain is less than target set ⚠"
+          },
+          "unitsRequired": {
+            "area": 235.991089388622,
+            "hedgerow": 5.46795377562116,
+            "watercourse": 7.85373236531942
+          },
+          "unitDeficit": {
+            "area": 0.734308089050359,
+            "hedgerow": 3.6499653093091,
+            "watercourse": 4.33881701746087
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "No - Check Trading Summaries ▲",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "No ▲"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "No ▲"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "No ▲"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "No ▲"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": 20.7522273099153
+        },
+        "sheetWarnings": [
+          {
+            "sheet": "habitatBaseline",
+            "cell": "L5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "habitatCreation",
+            "cell": "K5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "habitatEnhancement",
+            "cell": "T5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "hedgerowBaseline",
+            "cell": "J5",
+            "message": "No - check trading summary ▲"
+          },
+          {
+            "sheet": "hedgerowCreation",
+            "cell": "I5",
+            "message": "No - check trading summary ▲"
+          },
+          {
+            "sheet": "hedgerowEnhancement",
+            "cell": "O5",
+            "message": "No - check trading summary ▲"
+          },
+          {
+            "sheet": "watercourseBaseline",
+            "cell": "I5",
+            "message": "No - check trading summary ▲"
+          },
+          {
+            "sheet": "watercourseCreation",
+            "cell": "M6",
+            "message": "No - check trading summary ▲"
+          },
+          {
+            "sheet": "watercourseEnhancement",
+            "cell": "P5",
+            "message": "No - check trading summary ▲"
+          }
+        ],
+        "rowWarnings": []
       }
     }
   ]

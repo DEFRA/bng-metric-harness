@@ -41,13 +41,19 @@ import {
   readMetricResults,
   readTemplateVocabulary,
   saveRecalculatedWorkbooks,
-  workbookFromGeoPackage,
+  checkVocabulary,
+  writeMetricWorkbook,
 } from "#workbook-writer";
 import { header, info, warn } from "../_lib.mjs";
 import { refColumnFor } from "../gpkg-columns.mjs";
 import { readScenarioManifest } from "./manifest.mjs";
 import { loadEngine } from "./engine.mjs";
 import { meetsNetGain, priceHabitats } from "./engine-units.mjs";
+import { prepareImportTiming, expectedImport } from "./import-timing.mjs";
+import {
+  importWorkbookRows,
+  filterProjectedInputIssues,
+} from "./import-workbook-rows.mjs";
 
 // Report recalculation progress every this many workbooks.
 const PROGRESS_EVERY = 5;
@@ -194,11 +200,18 @@ function lintCheck(issues) {
  * @returns {boolean} true when the saved workbook was kept
  */
 function writeWorkbook(entry, piFile, outDir, workbook, saved) {
-  const { buffer, rows, issues, notes } = workbookFromGeoPackage({
-    postInterventionPath: piFile,
+  const { rows, notes, timingChanges } = importWorkbookRows(
+    path.join(outDir, entry.files.baseline),
+    piFile,
+  );
+  const issues = checkVocabulary(rows, workbook.vocabulary);
+  const buffer = writeMetricWorkbook({
     templateBuffer: workbook.template,
-    vocabulary: workbook.vocabulary,
+    rows,
   });
+  if (timingChanges.length > 0) {
+    entry.workbookTimingChanges = timingChanges;
+  }
   entry.workbookSource = createHash("sha256").update(buffer).digest("hex");
   const prior = saved.get(entry.id);
   const keep = prior?.source === entry.workbookSource;
@@ -207,7 +220,14 @@ function writeWorkbook(entry, piFile, outDir, workbook, saved) {
     keep ? prior.buffer : buffer,
   );
   entry.inputRows = countRows(rows);
-  entry.rejectedInputs = issues.map(({ allowed: _allowed, ...issue }) => issue);
+  const inputIssues = issues.map(({ allowed: _allowed, ...issue }) => issue);
+  entry.rejectedInputs = filterProjectedInputIssues(inputIssues, timingChanges);
+  const projectedInputs = inputIssues.filter(
+    (issue) => !entry.rejectedInputs.includes(issue),
+  );
+  if (projectedInputs.length > 0) {
+    entry.projectedInputs = projectedInputs;
+  }
   entry.notes = notes;
   const lint = lintWorkbook(buffer);
   entry.checks.push(lintCheck(lint));
@@ -217,6 +237,20 @@ function writeWorkbook(entry, piFile, outDir, workbook, saved) {
   return keep;
 }
 
+function importContractFields(scenario) {
+  return scenario.importCases
+    ? { expectedImport: expectedImport(scenario.importCases) }
+    : {};
+}
+function syntheticOptions(scenario, seed) {
+  return {
+    numParcels: scenario.size ?? PERMUTATION_DEFAULT_SIZE,
+    numTrees: scenario.treeCount,
+    emptyLayers: new Set(scenario.emptyLayers ?? []),
+    attributeOverrides: scenario.overrides ?? {},
+    seed: derivePermutationSeed(seed, scenario.id),
+  };
+}
 function generateScenario(scenario, context) {
   const { outDir, centre, seed, engine, workbook, saved, kept } = context;
   const files = scenarioFiles(scenario);
@@ -227,14 +261,9 @@ function generateScenario(scenario, context) {
   const baselineFile = path.join(outDir, files.baseline);
   mkdirSync(path.dirname(piFile), { recursive: true });
 
-  generateOne(piFile, centre, {
-    numParcels: scenario.size ?? PERMUTATION_DEFAULT_SIZE,
-    numTrees: scenario.treeCount,
-    emptyLayers: new Set(scenario.emptyLayers ?? []),
-    attributeOverrides: scenario.overrides ?? {},
-    seed: derivePermutationSeed(seed, scenario.id),
-  });
+  generateOne(piFile, centre, syntheticOptions(scenario, seed));
   deriveBaselineFromSynthetic(piFile, baselineFile);
+  prepareImportTiming(piFile, scenario.importCases);
   verifyPair(baselineFile, piFile);
   verifySubject(piFile, scenario.subject);
 
@@ -246,6 +275,7 @@ function generateScenario(scenario, context) {
     size: scenario.size ?? PERMUTATION_DEFAULT_SIZE,
     subject: scenario.subject,
     files,
+    ...importContractFields(scenario),
     gain: null,
     checks: [],
   };
@@ -303,7 +333,16 @@ function attachResults(entry, scenario, results) {
     rowWarnings: groupWarnings(results.rowWarnings),
   };
   entry.checks.push(
-    ...checkScenarioExpectations(scenario, results, entry.rejectedInputs),
+    // The pinned library identifies invalid scenarios by their id prefix and
+    // has no explicit validity option. This projection must still run its valid
+    // input checks; only the declared projected blanks have been separated out.
+    ...checkScenarioExpectations(
+      scenario.importCases
+        ? { ...scenario, id: `cleansed-${scenario.id}` }
+        : scenario,
+      results,
+      entry.rejectedInputs,
+    ),
   );
 }
 

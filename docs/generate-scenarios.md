@@ -81,6 +81,39 @@ identifiers renumbered, and the references it leaves to parts it dropped
 removed — so Excel has nothing to repair on opening. The workbooks are about
 3.7 MB each on disk.
 
+### Imported timing validation (BMD-1060)
+
+The harness extends the library catalogue in `scripts/scenarios/catalogue.mjs`
+with import-specific timing cases. Its synthetic generator uses the legacy
+`Lost` label for Created area replacements; the harness changes those generated
+PI labels to `Created` after deriving the separate baseline half. Baseline
+attributes, geometry and valid advance/delay values remain intact.
+This is a temporary adapter for the pinned library. Follow-up work should fix
+its generator label, move the timing recipes into its catalogue, and remove the
+harness relabel/overrides together. Until then, genuine raw `Lost` area coverage
+is confined to `import-timing/invalid-timing-retained-lost`, which explicitly
+restores Lost rows across all four layers and asserts their saved behaviour.
+
+The workbook reads both halves of the pair so that changing a PI label does not
+remove the original baseline loss. For every generated PI row, expected
+calculation inputs follow AC3/AC5 independently of the backend. Under BMD-1070,
+missing or conflicting timing on actual Created/Enhanced rows leaves those rows
+unpriced. Retained/Lost timing is redundant: it is saved null and pricing uses
+no advance/delay credit. The GeoPackage keeps its raw values. The workbook
+projection is recorded in `workbookTimingChanges`; no calculated service result
+is copied into it.
+
+`expectedImport` separately requires acceptance and the saved null attributes
+(or the existing exclusion of Lost hedgerows, watercourses and trees). The
+comparison fails if those assertions fail, then compares every workbook figure
+normally. Raw-invalid filenames remain `invalid-...`; their successful cleansing
+is an explicit contract rather than a blanket exception.
+
+The `import-timing` purpose covers Created/Enhanced conflicting timing, null
+timing, and Retained/Lost redundant timing across all four layers. The existing
+advance/difficulty scenarios retain genuine Created controls with advance
+credit, and the raw conflicting area/tree scenarios now expect acceptance.
+
 ### Why the answers can be trusted
 
 A corpus built by writing *our* numbers into spreadsheets would only prove
@@ -120,7 +153,7 @@ service does. The published formula reports it breached. That was checked
 over six seeds.
 
 One scenario, both artefacts: the workbook is written from the
-post-intervention GeoPackage, not from a separate description, so the two
+GeoPackage pair, not from a separate description, so the two
 cannot drift apart. The mapping follows what the service does with the same
 file:
 
@@ -406,3 +439,24 @@ Everything except recalculation lives in bng-library. `generatePermutations({
 workbookTemplate })` returns each scenario's workbook alongside its
 GeoPackage pair, with no LibreOffice involved, so the prototype can offer the
 workbooks for download.
+
+### BMD-1070: incomplete habitat calculations
+
+The import timing scenarios retain their raw GeoPackage values. Their manifest
+contracts assert both saved null timing and null units with Incomplete status
+for actual Created/Enhanced habitats. Retained habitats and original Lost area
+replacements still calculate without timing credit.
+
+The workbook treats blank timing cells as zero, so an incomplete Created or
+Enhanced row is left unpriced by blanking its required condition in the workbook
+input projection. The row remains in position so enhancement pairing is preserved;
+its baseline row and loss/allocation remain. The manifest records this projection.
+This is an independent input policy,
+not a copied service result or a discrepancy exemption. Numerical comparisons
+still cover every calculated figure; regression tests reject fabricated zero
+units and perturb a separate valid feature to check comparison sensitivity.
+
+Projected blanks are recorded separately from rejected inputs in the manifest
+and index. Only the exact declared null projection cells are excluded from
+vocabulary errors; unexpected missing values and populated invalid values still
+fail the scenario checks.

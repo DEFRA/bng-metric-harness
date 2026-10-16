@@ -13,6 +13,7 @@
  */
 
 import path from "node:path";
+import { realpathSync } from "node:fs";
 import {
   compareScenario,
   figuresFromProject,
@@ -23,6 +24,11 @@ import {
 import { HARNESS_ROOT, mapInSequence } from "../_lib.mjs";
 import { importGeoPackagePair } from "./import-geopackage-pair.mjs";
 import { metricTotalsOf } from "./unexplained.mjs";
+import {
+  readImportExpectations,
+  assertExpectedImport,
+  assertCalculatedHabitatUnits,
+} from "./import-expectations.mjs";
 
 /** The committed scenarios, each GeoPackage pair beside its workbook. */
 export const DEFAULT_CORPUS_DIR = path.join(
@@ -55,9 +61,11 @@ function isSelected(scenario, only) {
  *
  * @returns {Promise<{ service?: object, serviceError?: string }>}
  */
-async function importScenario(scenario, importPair) {
+async function importScenario(scenario, importPair, expectedImport) {
   try {
     const imported = await importPair(scenario.files);
+    assertCalculatedHabitatUnits(imported);
+    assertExpectedImport(imported, expectedImport);
     return {
       service: imported.accepted
         ? { accepted: true, figures: figuresFromProject(imported.project) }
@@ -78,17 +86,50 @@ async function importScenario(scenario, importPair) {
 export async function compareCorpusScenario(
   scenario,
   answers,
+  expectedImport,
   importPair = importGeoPackagePair,
 ) {
   if (answers.error) {
     return compareScenario({ scenario, workbookError: answers.error });
   }
-  const { service, serviceError } = await importScenario(scenario, importPair);
+  const { service, serviceError } = await importScenario(
+    scenario,
+    importPair,
+    expectedImport,
+  );
+  // Raw-invalid imports with explicit acceptance/attribute assertions are
+  // compared numerically against the cleansed workbook, in full.
+  const comparedScenario = expectedImport
+    ? { ...scenario, invalidData: false }
+    : scenario;
   const expected = figuresFromWorkbook(answers.results);
   return {
-    ...compareScenario({ scenario, expected, service, serviceError }),
+    ...compareScenario({
+      scenario: comparedScenario,
+      expected,
+      service,
+      serviceError,
+    }),
+    ...(expectedImport
+      ? { expectedImport, rawInvalidData: scenario.invalidData }
+      : {}),
     metricTotals: metricTotalsOf(expected),
   };
+}
+
+/** Full runs must not silently drop a manifest contract during discovery. */
+function assertAllExpectationsDiscovered(expectations, scenarios) {
+  const discovered = new Set(
+    scenarios.map((s) => realpathSync(s.files.postIntervention)),
+  );
+  const unmatched = [...expectations.keys()].filter(
+    (file) => !discovered.has(file),
+  );
+  if (unmatched.length) {
+    throw new Error(
+      `Import expectations have no matching scenario: ${unmatched.join(", ")}`,
+    );
+  }
 }
 
 /**
@@ -111,6 +152,10 @@ export async function runMetricComparison(options = {}) {
   } = options;
   const { scenarios, unmatched } = findScenarios(corpusDir);
   const selected = scenarios.filter((s) => isSelected(s, only));
+  const expectations = readImportExpectations(corpusDir);
+  if (only.length === 0) {
+    assertAllExpectationsDiscovered(expectations, selected);
+  }
   const answers = await readWorkbookAnswers(
     selected.map((s) => s.files.workbook),
   );
@@ -120,6 +165,7 @@ export async function runMetricComparison(options = {}) {
     const result = await compareCorpusScenario(
       scenario,
       answers[i],
+      expectations.get(realpathSync(scenario.files.postIntervention)),
       importPair,
     );
     onResult?.(result);
