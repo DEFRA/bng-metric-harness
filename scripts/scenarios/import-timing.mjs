@@ -56,7 +56,12 @@ function attributeDatabase(file) {
   return db;
 }
 
-/** The library's synthetic Created areas use the legacy Lost label. */
+/**
+ * Temporary adapter for the pinned library's legacy Lost label on Created areas.
+ * Follow-up: correct the generator and consolidate timing recipes in its catalogue,
+ * then remove this relabel. Genuine Lost coverage is deliberately restored by
+ * invalid-timing-retained-lost below, across all four layers.
+ */
 export function prepareImportTiming(file, cases = []) {
   const db = attributeDatabase(file);
   try {

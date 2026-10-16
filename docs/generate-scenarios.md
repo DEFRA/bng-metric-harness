@@ -88,14 +88,20 @@ with import-specific timing cases. Its synthetic generator uses the legacy
 `Lost` label for Created area replacements; the harness changes those generated
 PI labels to `Created` after deriving the separate baseline half. Baseline
 attributes, geometry and valid advance/delay values remain intact.
+This is a temporary adapter for the pinned library. Follow-up work should fix
+its generator label, move the timing recipes into its catalogue, and remove the
+harness relabel/overrides together. Until then, genuine raw `Lost` area coverage
+is confined to `import-timing/invalid-timing-retained-lost`, which explicitly
+restores Lost rows across all four layers and asserts their saved behaviour.
 
 The workbook reads both halves of the pair so that changing a PI label does not
-remove the original baseline loss. Expected calculation inputs follow AC3/AC5
-independently of the backend. Under BMD-1070, missing or conflicting timing on
-actual Created/Enhanced rows leaves those rows unpriced. Retained/Lost timing is
-redundant: it is saved null and pricing uses no advance/delay credit. The
-GeoPackage keeps its raw values. The workbook projection is recorded in
-`workbookTimingChanges`; no calculated service result is copied into it.
+remove the original baseline loss. For every generated PI row, expected
+calculation inputs follow AC3/AC5 independently of the backend. Under BMD-1070,
+missing or conflicting timing on actual Created/Enhanced rows leaves those rows
+unpriced. Retained/Lost timing is redundant: it is saved null and pricing uses
+no advance/delay credit. The GeoPackage keeps its raw values. The workbook
+projection is recorded in `workbookTimingChanges`; no calculated service result
+is copied into it.
 
 `expectedImport` separately requires acceptance and the saved null attributes
 (or the existing exclusion of Lost hedgerows, watercourses and trees). The

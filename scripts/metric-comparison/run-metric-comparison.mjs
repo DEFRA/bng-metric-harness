@@ -117,6 +117,21 @@ export async function compareCorpusScenario(
   };
 }
 
+/** Full runs must not silently drop a manifest contract during discovery. */
+function assertAllExpectationsDiscovered(expectations, scenarios) {
+  const discovered = new Set(
+    scenarios.map((s) => realpathSync(s.files.postIntervention)),
+  );
+  const unmatched = [...expectations.keys()].filter(
+    (file) => !discovered.has(file),
+  );
+  if (unmatched.length) {
+    throw new Error(
+      `Import expectations have no matching scenario: ${unmatched.join(", ")}`,
+    );
+  }
+}
+
 /**
  * @param {object} [options]
  * @param {string} [options.corpusDir] a folder of scenarios; by default the
@@ -138,6 +153,9 @@ export async function runMetricComparison(options = {}) {
   const { scenarios, unmatched } = findScenarios(corpusDir);
   const selected = scenarios.filter((s) => isSelected(s, only));
   const expectations = readImportExpectations(corpusDir);
+  if (only.length === 0) {
+    assertAllExpectationsDiscovered(expectations, selected);
+  }
   const answers = await readWorkbookAnswers(
     selected.map((s) => s.files.workbook),
   );
