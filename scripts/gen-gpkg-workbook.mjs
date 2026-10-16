@@ -17,8 +17,11 @@ import {
 import path from "node:path";
 import { error, info, timestampSuffix } from "./_lib.mjs";
 import {
+  FORMAT_BNG_SERVICE,
   MODE_BASELINE,
   MODE_POST_INTERVENTION,
+  STAGE_BASELINE,
+  generateBngServiceFromWorkbook,
   generateFromWorkbook,
   readMetricWorkbook,
 } from "#bng-lib";
@@ -105,18 +108,28 @@ async function resolveWorkbookSource(ref) {
   return abs;
 }
 
-function workbookOutputNames(source) {
+function workbookBaseName(source) {
   // Strip trailing query/hash, keep last path segment, replace extension.
   const cutAt = source.search(/[?#]/);
   const url = cutAt === -1 ? source : source.slice(0, cutAt);
-  const base =
-    path.basename(url).replace(/\.(xlsx|xlsm|xls)$/i, "") ||
-    "bng-from-workbook";
+  return (
+    path.basename(url).replace(/\.(xlsx|xlsm|xls)$/i, "") || "bng-from-workbook"
+  );
+}
+
+function workbookOutputNames(source) {
+  const base = workbookBaseName(source);
   const ts = timestampSuffix();
   return {
     baseline: `${base}-baseline-${ts}.gpkg`,
     postIntervention: `${base}-post-intervention-${ts}.gpkg`,
   };
+}
+
+// The BNG Service format's one file, which holds both stages.
+function bngServiceOutputName(source, stage) {
+  const stageSuffix = stage === STAGE_BASELINE ? "-baseline" : "";
+  return `${workbookBaseName(source)}-bng-service${stageSuffix}-${timestampSuffix()}.gpkg`;
 }
 
 function workbookSummary(source, localPath, workbook) {
@@ -166,7 +179,7 @@ function joinWithinDir(dir, name) {
 
 export async function runFromWorkbook(
   source,
-  { outDir, strict, inspect, centre, mode },
+  { outDir, strict, inspect, centre, mode, format, stage, templateVersion },
 ) {
   if (!existsSync(outDir)) {
     mkdirSync(outDir, { recursive: true });
@@ -178,6 +191,17 @@ export async function runFromWorkbook(
     console.log(
       JSON.stringify(workbookSummary(source, localPath, workbook), null, 2),
     );
+    return;
+  }
+
+  if (format === FORMAT_BNG_SERVICE) {
+    const outPath = joinWithinDir(outDir, bngServiceOutputName(source, stage));
+    generateBngServiceFromWorkbook(outPath, workbook, source, {
+      strict,
+      centre,
+      stage,
+      templateVersion,
+    });
     return;
   }
 
@@ -205,14 +229,23 @@ function readWorkbookList(listPath) {
 
 export async function runFromList(
   listPathArg,
-  { outDir, strict, centre, mode },
+  { outDir, strict, centre, mode, format, stage, templateVersion },
 ) {
   const listPath = path.resolve(listPathArg);
   if (!existsSync(listPath)) {
     error(`--from-list file not found: ${listPath}`);
     process.exit(1);
   }
-  const opts = { outDir, strict, inspect: false, centre, mode };
+  const opts = {
+    outDir,
+    strict,
+    inspect: false,
+    centre,
+    mode,
+    format,
+    stage,
+    templateVersion,
+  };
   for (const entry of readWorkbookList(listPath)) {
     try {
       await runFromWorkbook(entry, opts);
