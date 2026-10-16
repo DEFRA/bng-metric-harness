@@ -196,6 +196,9 @@ npm run generate:gpkg -- --bad
 
 Combines with `--count` for multiple bad files at once.
 
+`--bad` and `--flaw` are synthetic mode only: with `--from` or `--from-list`
+the script refuses them and exits 1 (it used to ignore them silently).
+
 ## The scenario library
 
 A whole library of paired baseline / post-intervention fixtures — one per BNG
@@ -279,7 +282,8 @@ supported in workbook mode; `generate:scenarios` takes one too.)
 | `--inspect`              | off                 | With `--from`, print parsed workbook summary instead of generating       |
 | `--strict-habitats`      | off                 | Drop workbook rows the prototype's validator would reject                |
 | `--mode <m>`             | `both`              | Workbook mode: `baseline`, `post-intervention`, or `both`                |
-| `--bad`                  | off                 | Emit an intentionally invalid GeoPackage                                 |
+| `--bad`                  | off                 | Synthetic mode only — emit an intentionally invalid GeoPackage           |
+| `--flaw <name>`          | —                   | Synthetic mode only — emit a fixture targeting one flaw; repeatable      |
 | `--seed <n>`             | —                   | Deterministic output; same seed → byte-identical files                   |
 | `--format <f>`           | `legacy`            | `legacy` (one file per stage) or `bng-service` (one file, both stages)   |
 | `--stage <s>`            | `post-intervention` | `bng-service` only: `baseline` leaves the post-intervention tables empty |
