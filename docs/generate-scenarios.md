@@ -88,9 +88,14 @@ with import-specific timing cases. Its synthetic generator uses the legacy
 `Lost` label for Created area replacements; the harness changes those generated
 PI labels to `Created` after deriving the separate baseline half. Baseline
 attributes, geometry and valid advance/delay values remain intact.
+This is a temporary adapter for the pinned library. Follow-up work should fix
+its generator label, move the timing recipes into its catalogue, and remove the
+harness relabel/overrides together. Until then, genuine raw `Lost` area coverage
+is confined to `import-timing/invalid-timing-retained-lost`, which explicitly
+restores Lost rows across all four layers and asserts their saved behaviour.
 
 The workbook reads both halves of the pair so that changing a PI label does not
-remove the original baseline loss. For explicit cleansing cases it receives the
+remove the original baseline loss. For every generated PI row it receives the
 expected calculation inputs after AC3/AC5, independently of the backend: both
 positive timing values on Created/Enhanced rows, and redundant timing on
 Retained/Lost rows, are priced as zero timing. AC4 null timing is also priced as

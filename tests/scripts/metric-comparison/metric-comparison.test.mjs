@@ -123,15 +123,17 @@ describe.skipIf(!isBackendInstalled())("runMetricComparison", () => {
     ]);
   });
 
-  it("compares a cleansed invalid-input scenario in full", async () => {
-    const { results } = await runMetricComparison({
-      only: ["invalid-area-advance-and-delay"],
-    });
+  it.each(["invalid-area-advance-and-delay", "invalid-tree-advance-and-delay"])(
+    "compares cleansed %s in full with its explicit contract",
+    async (id) => {
+      const { results } = await runMetricComparison({ only: [id] });
 
-    expect(results[0].outcome).toBe(OUTCOME.matched);
-    expect(results[0].rawInvalidData).toBe(true);
-    expect(results[0].compared).toBeGreaterThan(0);
-  });
+      expect(results[0].outcome).toBe(OUTCOME.matched);
+      expect(results[0].expectedImport?.accepted).toBe(true);
+      expect(results[0].rawInvalidData).toBe(true);
+      expect(results[0].compared).toBeGreaterThan(0);
+    },
+  );
 });
 
 // A stand-in for the backend's import, so these run without a backend

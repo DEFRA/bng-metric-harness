@@ -1,6 +1,7 @@
 import { describe, expect, it, afterEach } from "vitest";
 import {
   mkdtempSync,
+  mkdirSync,
   rmSync,
   writeFileSync,
   readFileSync,
@@ -12,6 +13,8 @@ import {
   assertExpectedImport,
   readImportExpectations,
 } from "../../../scripts/metric-comparison/import-expectations.mjs";
+
+import { runMetricComparison } from "../../../scripts/metric-comparison/run-metric-comparison.mjs";
 
 const expected = {
   accepted: true,
@@ -87,6 +90,10 @@ function manifestDirectory(expectations, duplicate = false) {
     expectedImport: expectations,
   };
   writeFileSync(
+    path.join(directory, entry.files.postIntervention),
+    "fixture placeholder",
+  );
+  writeFileSync(
     path.join(directory, "manifest.json"),
     JSON.stringify({ scenarios: duplicate ? [entry, entry] : [entry] }),
   );
@@ -132,6 +139,46 @@ describe("manifest acceptance contracts", () => {
       ).toThrow();
     },
   );
+  it.each(["missing.gpkg", undefined, ""])(
+    "refuses a missing or invalid PI filename: %s",
+    (piFile) => {
+      const directory = manifestDirectory(expected);
+      const file = path.join(directory, "manifest.json");
+      const manifest = JSON.parse(readFileSync(file, "utf8"));
+      manifest.scenarios[0].files.postIntervention = piFile;
+      writeFileSync(file, JSON.stringify(manifest));
+      expect(() => readImportExpectations(directory)).toThrow(/file|path/);
+    },
+  );
+  it("refuses a directory in place of a PI file", () => {
+    const directory = manifestDirectory(expected);
+    const piFile = path.join(
+      directory,
+      "invalid-timing-post-intervention.gpkg",
+    );
+    rmSync(piFile);
+    mkdirSync(piFile);
+    expect(() => readImportExpectations(directory)).toThrow(
+      "not a regular file",
+    );
+  });
+  it.each([undefined, []])(
+    "fails a full run with an undiscovered contract (%j)",
+    async (only) => {
+      const directory = manifestDirectory(expected);
+      await expect(
+        runMetricComparison({ corpusDir: directory, only }),
+      ).rejects.toThrow("no matching scenario");
+    },
+  );
+  it("allows a filtered run to leave unselected contracts unconsumed", async () => {
+    const directory = manifestDirectory(expected);
+    const result = await runMetricComparison({
+      corpusDir: directory,
+      only: ["another-scenario"],
+    });
+    expect(result.results).toEqual([]);
+  });
   it("refuses duplicate contracts", () => {
     expect(() =>
       readImportExpectations(manifestDirectory(expected, true)),

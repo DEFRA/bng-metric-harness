@@ -150,7 +150,11 @@ For BMD-1060 timing cases, `manifest.json` declares `expectedImport`: the servic
 must accept the file and save both timing fields as null on the named features.
 Lost linear features and trees must remain absent from PI, as in the existing
 importer. A rejection, missing/duplicate feature, or zero instead of null fails
-the comparison before any numerical checks. Malformed contracts also fail.
+the comparison before any numerical checks. Malformed contracts, missing PI
+files and directories used as files also fail. A full run additionally rejects
+contracts whose PI file does not belong to a discovered scenario (a complete
+GeoPackage pair and workbook). Filtered `--only` runs allow contracts for
+unselected scenarios; their referenced files must still exist.
 
 The corresponding workbook is recalculated from independently prepared expected
 inputs: AC3/AC5 clear timing, and the existing calculation treats null timing as

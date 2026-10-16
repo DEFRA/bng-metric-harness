@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
 
 const DOCUMENT_LAYERS = new Set([
@@ -46,21 +46,29 @@ function insideCorpus(root, file) {
 }
 
 function corpusFile(root, relative) {
+  if (typeof relative !== "string" || !relative.trim()) {
+    throw new Error("Import expectations require a non-empty file path");
+  }
   if (path.isAbsolute(relative)) {
     throw new Error("Import expectation paths must be relative to the corpus");
   }
   const target = insideCorpus(root, path.resolve(root, relative));
-  return existsSync(target) ? insideCorpus(root, realpathSync(target)) : target;
+  if (!existsSync(target) || !statSync(target).isFile()) {
+    throw new Error(
+      `Import expectation file is missing or not a regular file: ${relative}`,
+    );
+  }
+  return insideCorpus(root, realpathSync(target));
 }
 /** Optional manifest assertions are additional checks, never numerical exemptions. */
 export function readImportExpectations(corpusDir) {
   // --corpus may intentionally name any local directory. Confine every file
   // to that canonical, explicitly selected root, including symlink targets.
   const root = realpathSync(path.resolve(corpusDir));
-  const file = corpusFile(root, "manifest.json");
-  if (!existsSync(file)) {
+  if (!existsSync(path.join(root, "manifest.json"))) {
     return new Map();
   }
+  const file = corpusFile(root, "manifest.json");
   const manifest = JSON.parse(readFileSync(file, "utf8"));
   const expectations = new Map();
   for (const entry of manifest.scenarios ?? []) {
@@ -74,7 +82,7 @@ export function readImportExpectations(corpusDir) {
       throw new Error(`Invalid import expectations for ${entry.id}`);
     }
     entry.expectedImport.features.forEach(validateFeature);
-    const piFile = corpusFile(root, entry.files.postIntervention);
+    const piFile = corpusFile(root, entry.files?.postIntervention);
     if (expectations.has(piFile)) {
       throw new Error(`Duplicate import expectations for ${piFile}`);
     }
