@@ -80,6 +80,8 @@ async function importScenario(scenario, importPair, expectedImport) {
  * @param {import('bng-library/metric-compare').CorpusScenario} scenario
  * @param {{ results?: object, error?: string }} answers the metric workbook's
  *   answers, from readWorkbookAnswers
+ * @param {object} [expectedImport] the manifest's import contract, from
+ *   readImportExpectations
  * @param {typeof importGeoPackagePair} [importPair] the service's import; the
  *   backend's upload pipeline unless a test stands in for it
  */
