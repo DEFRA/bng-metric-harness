@@ -215,13 +215,29 @@ describe.skipIf(!isBackendInstalled())(
       CORPUS_TIMEOUT_MS,
     );
     it(
+      "fails when an incomplete habitat has fabricated zero units",
+      async () => {
+        const result = await compareMutation((imported) => {
+          imported.project.project.postIntervention.habitats.find(
+            (f) => f.ref === "H001",
+          ).units = 0;
+        });
+        expect(result.outcome).toBe(OUTCOME.importFailed);
+        expect(result.errors[0].message).toContain(
+          "expected null units with Incomplete",
+        );
+      },
+      CORPUS_TIMEOUT_MS,
+    );
+    it(
       "fails when a calculated unit differs after all cleansing assertions pass",
       async () => {
         const result = await compareMutation((imported) => {
           const habitat =
             imported.project.project.postIntervention.habitats.find(
-              (f) => f.ref === "H001",
+              (f) => f.ref !== "H001" && Number.isFinite(f.units),
             );
+          expect(habitat).toBeDefined();
           habitat.units += 1;
         });
         expect(result.outcome).toBe(OUTCOME.discrepancies);

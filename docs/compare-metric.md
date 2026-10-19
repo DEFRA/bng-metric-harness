@@ -388,3 +388,13 @@ How it got here:
 
 Until #439 merges, a run against the backend's `main` or #426 alone shows the
 hedgerow differences, explained as *Strategic significance not applied*.
+
+### BMD-1070: incomplete habitat calculations
+
+See [the generator's incomplete-calculation policy](generate-scenarios.md#bmd-1070-incomplete-habitat-calculations)
+for the independent workbook projection and its manifest records. The comparison
+checks null units with Incomplete status for every baseline and PI feature before
+applying any scenario explanations. Both repositories must include BMD-1070;
+merge the harness companion before rerunning the backend workflow, which checks
+out the harness's main branch. The harness PR's own workflow pairs matching
+backend branch names while those changes are under review.

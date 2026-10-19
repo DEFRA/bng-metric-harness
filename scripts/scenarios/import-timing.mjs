@@ -92,16 +92,25 @@ export function prepareImportTiming(file, cases = []) {
   }
 }
 
-/** Independent workbook input policy from BMD-1060 AC3-AC5; no engine results. */
-export function metricTiming(retention, advanceYears, delayYears) {
-  const redundant = retention === "Retained" || retention === "Lost";
-  const conflicting =
-    ["Created", "Enhanced"].includes(retention) &&
-    advanceYears > 0 &&
-    delayYears > 0;
-  return redundant || conflicting
-    ? { advanceYears: 0, delayYears: 0 }
+/** Independent input policy from BMD-1060 and BMD-1070; no service results. */
+export function metricTiming(retention, rawAdvance, rawDelay) {
+  if (retention === "Retained" || retention === "Lost") {
+    return { advanceYears: 0, delayYears: 0 };
+  }
+  const advanceYears = timingValue(rawAdvance);
+  const delayYears = timingValue(rawDelay);
+  const conflicting = advanceYears > 0 && delayYears > 0;
+  return conflicting
+    ? { advanceYears: null, delayYears: null }
     : { advanceYears, delayYears };
+}
+
+function timingValue(value) {
+  if (value == null || String(value).trim() === "") {
+    return null;
+  }
+  const numeric = Number.parseFloat(value);
+  return Number.isFinite(numeric) ? numeric : null;
 }
 
 export function readTimingInputs(file) {
@@ -144,7 +153,15 @@ export function expectedImport(cases) {
       ref: item.ref,
       ...(item.retention === "Lost" && item.layer !== "Habitats"
         ? { absent: true }
-        : { proposed: { advanceYears: null, delayYears: null } }),
+        : {
+            proposed: { advanceYears: null, delayYears: null },
+            status: ["Retained", "Lost"].includes(item.retention)
+              ? "Complete"
+              : "Incomplete",
+            ...(["Retained", "Lost"].includes(item.retention)
+              ? {}
+              : { units: null }),
+          }),
     })),
   };
 }

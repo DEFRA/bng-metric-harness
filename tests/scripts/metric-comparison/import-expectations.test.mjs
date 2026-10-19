@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   assertExpectedImport,
+  assertCalculatedHabitatUnits,
   readImportExpectations,
 } from "../../../scripts/metric-comparison/import-expectations.mjs";
 
@@ -60,6 +61,39 @@ describe("saved timing assertions", () => {
       { ref: "H001" },
     ];
     expect(() => assertExpectedImport(result, expected)).toThrow("one feature");
+  });
+  it.each([
+    [0, "Incomplete"],
+    [5, "Incomplete"],
+    [undefined, "Incomplete"],
+    [null, "Complete"],
+  ])("rejects wrong saved units/status: %s/%s", (units, status) => {
+    const contract = structuredClone(expected);
+    Object.assign(contract.features[0], { status: "Incomplete", units: null });
+    const result = imported();
+    Object.assign(result.project.project.postIntervention.habitats[0], {
+      units,
+      status,
+    });
+    expect(() => assertExpectedImport(result, contract)).toThrow();
+  });
+  it("accepts null units with Incomplete and calculated units with Complete", () => {
+    for (const [status, units] of [
+      ["Incomplete", null],
+      ["Complete", 4],
+    ]) {
+      const contract = structuredClone(expected);
+      contract.features[0].status = status;
+      if (status === "Incomplete") {
+        contract.features[0].units = null;
+      }
+      const result = imported();
+      Object.assign(result.project.project.postIntervention.habitats[0], {
+        units,
+        status,
+      });
+      expect(() => assertExpectedImport(result, contract)).not.toThrow();
+    }
   });
   it("checks Lost linear/tree absence explicitly", () => {
     const absence = {
@@ -214,4 +248,39 @@ describe("expectation files stay inside the selected corpus", () => {
       "escapes the corpus",
     );
   });
+});
+
+describe("BMD-1070 calculated-unit invariant", () => {
+  it.each(["baseline", "postIntervention"])(
+    "checks every layer on %s independently of scenario exemptions",
+    (documentKey) => {
+      for (const layer of ["habitats", "trees", "hedgerows", "watercourses"]) {
+        for (const [units, status, valid] of [
+          [null, "Incomplete", true],
+          [0, "Complete", true],
+          [3, "Complete", true],
+          [0, "Incomplete", false],
+          [99, "Incomplete", false],
+          [null, "Complete", false],
+          [undefined, "Incomplete", false],
+        ]) {
+          const result = {
+            accepted: true,
+            project: {
+              project: {
+                [documentKey]: { [layer]: [{ ref: "P1", units, status }] },
+              },
+            },
+          };
+          if (valid) {
+            expect(() => assertCalculatedHabitatUnits(result)).not.toThrow();
+          } else {
+            expect(() => assertCalculatedHabitatUnits(result)).toThrow(
+              `${documentKey}.${layer}/P1`,
+            );
+          }
+        }
+      }
+    },
+  );
 });

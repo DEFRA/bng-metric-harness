@@ -95,13 +95,13 @@ is confined to `import-timing/invalid-timing-retained-lost`, which explicitly
 restores Lost rows across all four layers and asserts their saved behaviour.
 
 The workbook reads both halves of the pair so that changing a PI label does not
-remove the original baseline loss. For every generated PI row it receives the
-expected calculation inputs after AC3/AC5, independently of the backend: both
-positive timing values on Created/Enhanced rows, and redundant timing on
-Retained/Lost rows, are priced as zero timing. AC4 null timing is also priced as
-zero by the existing calculation contract. The geopackage keeps its raw values.
-These workbook input changes are recorded as `workbookTimingChanges` in the
-manifest. No calculated service result is written into the workbook.
+remove the original baseline loss. For every generated PI row, expected
+calculation inputs follow AC3/AC5 independently of the backend. Under BMD-1070,
+missing or conflicting timing on actual Created/Enhanced rows leaves those rows
+unpriced. Retained/Lost timing is redundant: it is saved null and pricing uses
+no advance/delay credit. The GeoPackage keeps its raw values. The workbook
+projection is recorded in `workbookTimingChanges`; no calculated service result
+is copied into it.
 
 `expectedImport` separately requires acceptance and the saved null attributes
 (or the existing exclusion of Lost hedgerows, watercourses and trees). The
@@ -439,3 +439,24 @@ Everything except recalculation lives in bng-library. `generatePermutations({
 workbookTemplate })` returns each scenario's workbook alongside its
 GeoPackage pair, with no LibreOffice involved, so the prototype can offer the
 workbooks for download.
+
+### BMD-1070: incomplete habitat calculations
+
+The import timing scenarios retain their raw GeoPackage values. Their manifest
+contracts assert both saved null timing and null units with Incomplete status
+for actual Created/Enhanced habitats. Retained habitats and original Lost area
+replacements still calculate without timing credit.
+
+The workbook treats blank timing cells as zero, so an incomplete Created or
+Enhanced row is left unpriced by blanking its required condition in the workbook
+input projection. The row remains in position so enhancement pairing is preserved;
+its baseline row and loss/allocation remain. The manifest records this projection.
+This is an independent input policy,
+not a copied service result or a discrepancy exemption. Numerical comparisons
+still cover every calculated figure; regression tests reject fabricated zero
+units and perturb a separate valid feature to check comparison sensitivity.
+
+Projected blanks are recorded separately from rejected inputs in the manifest
+and index. Only the exact declared null projection cells are excluded from
+vocabulary errors; unexpected missing values and populated invalid values still
+fail the scenario checks.

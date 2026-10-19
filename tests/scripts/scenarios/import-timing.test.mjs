@@ -5,7 +5,10 @@ import Database from "better-sqlite3";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { HARNESS_SCENARIOS } from "../../../scripts/scenarios/catalogue.mjs";
 import { buildScenarioCorpus } from "../../../scripts/scenarios/runner.mjs";
-import { importWorkbookRows } from "../../../scripts/scenarios/import-workbook-rows.mjs";
+import {
+  importWorkbookRows,
+  filterProjectedInputIssues,
+} from "../../../scripts/scenarios/import-workbook-rows.mjs";
 import {
   metricTiming,
   readTimingInputs,
@@ -46,11 +49,15 @@ function pair(id) {
 
 describe("independent AC3-AC5 workbook timing inputs", () => {
   it.each([
-    ["Created", 2, 3, 0, 0],
-    ["Enhanced", 0.5, 0.25, 0, 0],
+    ["Created", 2, 3, null, null],
+    ["Enhanced", 0.5, 0.25, null, null],
     ["Created", 2, 0, 2, 0],
     ["Enhanced", 0, 3, 0, 3],
     ["Created", 0, 0, 0, 0],
+    ["Created", "30+", "0", 30, 0],
+    ["Created", null, 0, null, 0],
+    ["Enhanced", 0, null, 0, null],
+    ["Created", " ", "0", null, 0],
     ["Retained", 4, 0, 0, 0],
     ["Lost", 0, 4, 0, 0],
   ])(
@@ -90,7 +97,11 @@ describe("independent AC3-AC5 workbook timing inputs", () => {
               (r) => r.reference === input.ref,
             );
             if (row) {
-              expect(row).toMatchObject({ advanceYears: 0, delayYears: 0 });
+              expect(row).toMatchObject({
+                condition: null,
+                advanceYears: null,
+                delayYears: null,
+              });
             }
           }
         }
@@ -114,12 +125,13 @@ describe("independent AC3-AC5 workbook timing inputs", () => {
     expect(timingChanges).toEqual([]);
   });
 
-  it("clears only redundant Lost workbook timing and retains the baseline loss", () => {
+  it("prices Lost replacements without timing credit and retains the baseline loss", () => {
     const { baseline, pi } = pair("invalid-timing-retained-lost");
     const { rows, timingChanges } = importWorkbookRows(baseline, pi);
     expect(rows.habitatCreation).toEqual([
       expect.objectContaining({
         reference: "H002",
+        condition: "Good",
         advanceYears: 0,
         delayYears: 0,
       }),
@@ -128,7 +140,7 @@ describe("independent AC3-AC5 workbook timing inputs", () => {
     expect(timingChanges).toHaveLength(1);
     expect(timingChanges[0]).toMatchObject({
       retention: "Lost",
-      raw: { advanceYears: 4, delayYears: 0 },
+      raw: { advanceYears: "4", delayYears: "0" },
       metric: { advanceYears: 0, delayYears: 0 },
     });
   });
@@ -206,12 +218,12 @@ describe("generator net-gain checks use the expected import timing", () => {
     } finally {
       db.close();
     }
-    const expectedUnits =
-      engine.calculateRetainedAreaHabitatPostIntervention(
-        areas[0].area / 10000,
-        "Grassland - Modified grassland",
-        "Moderate",
-      ).units +
+    const expectedUnits = engine.calculateRetainedAreaHabitatPostIntervention(
+      areas[0].area / 10000,
+      "Grassland - Modified grassland",
+      "Moderate",
+    ).units;
+    const lostReplacementUnits =
       engine.calculateCreatedAreaHabitatPostIntervention(
         areas[1].area / 10000,
         "Grassland - Modified grassland",
@@ -219,8 +231,22 @@ describe("generator net-gain checks use the expected import timing", () => {
         0,
         0,
       ).units;
+    const expectedBaseline = areas.reduce(
+      (total, row) =>
+        total +
+        engine.calculateAreaHabitatBaseline(
+          row.area / 10000,
+          "Grassland - Modified grassland",
+          "Moderate",
+        ).units,
+      0,
+    );
+    expect(priceHabitats(engine, pi).baselineTotal).toBeCloseTo(
+      expectedBaseline,
+      10,
+    );
     expect(priceHabitats(engine, pi).postInterventionTotal).toBeCloseTo(
-      expectedUnits,
+      expectedUnits + lostReplacementUnits,
       10,
     );
   });
@@ -233,5 +259,48 @@ describe("timing fixture databases use existing local files", () => {
     path.join(tmpdir(), "nonexistent-timing.gpkg"),
   ])("refuses database URI or nonexistent filename %s", (file) => {
     expect(() => readTimingInputs(file)).toThrow();
+  });
+});
+
+describe("projected workbook vocabulary checks", () => {
+  it("only removes exact null fields declared for the unpriced row", () => {
+    const known = {
+      sheet: "habitatEnhancement",
+      reference: "H002",
+      field: "condition",
+      value: null,
+    };
+    const unexpected = [
+      { ...known, value: "invalid" },
+      { ...known, reference: "H003" },
+      { ...known, field: "habitatType" },
+    ];
+    const changes = [
+      {
+        sheet: known.sheet,
+        reference: known.reference,
+        excludedFromCalculation: true,
+        metric: { condition: null, advanceYears: null, delayYears: 0 },
+      },
+    ];
+    expect(filterProjectedInputIssues([known, ...unexpected], changes)).toEqual(
+      unexpected,
+    );
+    expect(filterProjectedInputIssues([known])).toEqual([known]);
+  });
+});
+
+describe("valid workbook timing labels", () => {
+  it("preserves the existing 30+ input rather than rewriting a valid control", () => {
+    const root = path.resolve("example-files/permutations/intervention");
+    const { rows, timingChanges } = importWorkbookRows(
+      path.join(root, "hedgerow-condition-lowered-baseline.gpkg"),
+      path.join(root, "hedgerow-condition-lowered-post-intervention.gpkg"),
+    );
+    expect(
+      rows.hedgerowCreation.find((row) => row.reference === "HG002")
+        .advanceYears,
+    ).toBe("30+");
+    expect(timingChanges).toEqual([]);
   });
 });

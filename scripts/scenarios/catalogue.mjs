@@ -83,7 +83,7 @@ const additions = [
   timingScenario(
     "invalid-timing-conflicting-created-enhanced",
     "Created and Enhanced: conflicting timing is cleared",
-    "AC3: both timing values are positive on Created/Enhanced features in all four layers. Import succeeds and saves null timing; the workbook prices the cleansed inputs.",
+    "AC3: both timing values are positive on Created/Enhanced features in all four layers. Import succeeds and saves null timing; BMD-1070 leaves these incomplete habitats unpriced in the workbook.",
     ["Created", "Enhanced"],
     "2",
     "3",
@@ -139,7 +139,7 @@ export const HARNESS_SCENARIOS = [
           ...scenario,
           expectMetricWarnings: [],
           importCases: existingTiming.get(scenario.id),
-          description: `${scenario.description} BMD-1060 AC3 accepts the import and clears both values before pricing.`,
+          description: `${scenario.description} BMD-1060 AC3 clears both timing values; BMD-1070 saves null units and Incomplete status.`,
         }
       : scenario,
   ),
