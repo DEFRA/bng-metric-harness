@@ -11,11 +11,34 @@ import {
   BNG_SERVICE_FLAWS,
   CATEGORY_DEGRADE,
   CATEGORY_LINEAGE,
+  CATEGORY_VERSION,
   FORMAT_BNG_SERVICE,
   FlawSelectionError,
   LEGACY_ONLY_FLAWS,
   STAGE_BASELINE,
 } from "#bng-lib";
+
+// Which list each BNG Service flaw category goes in.
+const FLAW_LISTS = {
+  [CATEGORY_LINEAGE]: "lineageFlawNames",
+  [CATEGORY_DEGRADE]: "degradeFlawNames",
+  [CATEGORY_VERSION]: "versionFlawNames",
+};
+
+/**
+ * The list a BNG Service flaw of this category goes in. A category this CLI
+ * does not know is refused, so a library that adds one fails loudly here
+ * rather than having its flaws applied as some other kind.
+ */
+export function flawListFor(category, name) {
+  const list = FLAW_LISTS[category];
+  if (!list) {
+    throw new FlawSelectionError(
+      `Flaw "${name}" is of a BNG Service flaw category this CLI does not know ("${category}"); teach scripts/gen-gpkg-flaws.mjs about it.`,
+    );
+  }
+  return list;
+}
 
 /**
  * Split --flaw into the legacy flaws, which the legacy generator draws, and
@@ -25,12 +48,10 @@ import {
  */
 export function splitFlaws(names, { bngService, stage }) {
   const legacy = [];
-  const lineageFlawNames = [];
-  const degradeFlawNames = [];
-  const versionFlawNames = [];
-  const byCategory = {
-    [CATEGORY_LINEAGE]: lineageFlawNames,
-    [CATEGORY_DEGRADE]: degradeFlawNames,
+  const lists = {
+    lineageFlawNames: [],
+    degradeFlawNames: [],
+    versionFlawNames: [],
   };
   for (const name of names) {
     const flaw = BNG_SERVICE_FLAWS[name];
@@ -42,18 +63,15 @@ export function splitFlaws(names, { bngService, stage }) {
     if (!flaw) {
       legacy.push(name);
     } else if (bngService) {
-      (byCategory[flaw.category] ?? versionFlawNames).push(name);
+      lists[flawListFor(flaw.category, name)].push(name);
     } else {
       throw new FlawSelectionError(
         `Flaw "${name}" is a BNG Service template flaw; add --format ${FORMAT_BNG_SERVICE}.`,
       );
     }
   }
-  assertBngServiceFlawsWritable(
-    { lineageFlawNames, degradeFlawNames, versionFlawNames },
-    stage,
-  );
-  return { legacy, lineageFlawNames, degradeFlawNames, versionFlawNames };
+  assertBngServiceFlawsWritable(lists, stage);
+  return { legacy, ...lists };
 }
 
 /**
