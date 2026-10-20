@@ -52,6 +52,32 @@ checked too (see *Scenario expectations*), and every workbook is linted for
 the faults Excel would "repair" on opening (see *Opening the workbooks in
 Excel*). A failed check is reported and the command exits non-zero.
 
+### The BNG Service template format
+
+`--format bng-service` writes each scenario as **one GeoPackage holding both
+stages**, in the BNG Service QGIS template's format (BMD-1080), in place of
+the baseline / post-intervention pair:
+
+```sh
+npm run generate:scenarios -- --format bng-service --outdir test-data/scenarios-bng-service
+# → test-data/scenarios-bng-service/<purpose>/<scenario>.gpkg
+# → test-data/scenarios-bng-service/<purpose>/<scenario>.xlsx
+```
+
+Each GeoPackage is converted from the same legacy pair a legacy run builds,
+which is still made, in a working folder beside the corpus, and removed when
+the run ends. The engine, the workbook and every check read that pair, so for
+the same seed the workbook is the one a legacy run writes, and the metric's
+expected figures carry over. A scenario holds exactly what it pins: none of
+the vertical habitats, comments or habitats that get worse a synthetic site
+adds. Each valid scenario is also checked against the template's own
+drop-downs (`checkTemplateValues`); an `invalid-` scenario breaks a rule on
+purpose, so it is not.
+
+`manifest.json` records the format, and a filtered run is refused in a
+folder holding the other format. `npm run compare:metric` still reads the
+legacy corpus in `example-files/permutations/`.
+
 ### GeoPackages only
 
 `--no-workbooks` skips the workbooks: no template and no LibreOffice are
@@ -409,6 +435,7 @@ against it.
 | `--only PURPOSE` | One purpose only, merged into the existing corpus (see below) |
 | `--scenario ID` | One scenario only (repeatable), merged into the existing corpus (see below) |
 | `--outdir DIR` | Output folder (default `test-data/scenarios`); must be inside the harness |
+| `--format F` | `legacy` (default): a baseline / post-intervention pair per scenario; `bng-service`: one GeoPackage per scenario in the BNG Service template format (see above) |
 | `--seed N` | Run seed, for byte-identical GeoPackages. Defaults to a random seed, which is recorded in the manifest so a run can be repeated; a filtered run defaults to the existing corpus's seed. Each scenario derives its own seed from it, so a fixture reproduces however many scenarios you run |
 | `--centre E,N` | Red Line Boundary centre, BNG/EPSG:27700 (default `530000,180000`) |
 | `--no-workbooks` | GeoPackages only: no template, no LibreOffice |

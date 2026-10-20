@@ -13,10 +13,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
+  FORMAT_BNG_SERVICE,
   PERMUTATION_DEFAULT_SIZE as DEFAULT_SIZE,
   generateOne,
   setMode,
 } from "#bng-lib";
+import { openGeoPackageReadonly } from "#gpkg-io";
 import {
   HARNESS_PURPOSES as PURPOSES,
   HARNESS_SCENARIOS as SCENARIOS,
@@ -104,6 +106,18 @@ describe("scenarioFiles", () => {
         "intervention",
         "area-created-post-intervention.gpkg",
       ),
+      workbook: path.join("intervention", "area-created.xlsx"),
+    });
+  });
+
+  it("files one GeoPackage per scenario in the BNG Service format", () => {
+    expect(
+      scenarioFiles(
+        { id: "intervention-area-created", purpose: "intervention" },
+        FORMAT_BNG_SERVICE,
+      ),
+    ).toEqual({
+      geoPackage: path.join("intervention", "area-created.gpkg"),
       workbook: path.join("intervention", "area-created.xlsx"),
     });
   });
@@ -263,6 +277,62 @@ describe("buildScenarioCorpus — GeoPackages only", () => {
   });
 });
 
+describe("buildScenarioCorpus — the BNG Service format", () => {
+  let outDir;
+
+  beforeEach(() => {
+    outDir = tempDir("scn-bng-");
+  });
+
+  afterEach(() => {
+    rmSync(outDir, { recursive: true, force: true });
+  });
+
+  it(
+    "writes one template-format GeoPackage per scenario, and no legacy pair",
+    async () => {
+      const entries = await buildScenarioCorpus({
+        scenarios: SCENARIOS,
+        outDir,
+        centre: DEFAULT_CENTRE,
+        seed: 1,
+        format: FORMAT_BNG_SERVICE,
+      });
+      const failed = entries.flatMap((e) => e.checks.filter((c) => !c.passed));
+      expect(failed).toEqual([]);
+      for (const entry of entries) {
+        expect(Object.keys(entry.files)).toEqual(["geoPackage"]);
+        expect(existsSync(path.join(outDir, entry.files.geoPackage))).toBe(true);
+        // A valid scenario is checked against the template's drop-downs; an
+        // invalid one breaks a rule on purpose.
+        const checked = entry.checks.some(
+          (c) => c.check === "every value one the BNG Service template offers",
+        );
+        expect(checked, entry.id).toBe(!entry.id.startsWith("invalid-"));
+      }
+      // The legacy pairs were built in a working folder, now gone.
+      const files = readdirSync(outDir, { recursive: true });
+      expect(files.filter((f) => f.endsWith("-baseline.gpkg"))).toEqual([]);
+      expect(files.filter((f) => f.startsWith(".legacy-"))).toEqual([]);
+      const db = openGeoPackageReadonly(
+        path.join(outDir, entries[0].files.geoPackage),
+      );
+      try {
+        const tables = db
+          .prepare("SELECT table_name FROM gpkg_contents")
+          .all()
+          .map((r) => r.table_name);
+        expect(tables).toContain("Area Habitats Baseline");
+        expect(tables).toContain("Area Habitats Post-Intervention");
+        expect(tables).not.toContain("Habitats");
+      } finally {
+        db.close();
+      }
+    },
+    CATALOGUE_TIMEOUT_MS,
+  );
+});
+
 describe("writeScenarioManifest", () => {
   let dir;
   beforeEach(() => {
@@ -338,6 +408,25 @@ describe("writeScenarioManifest", () => {
     expect(manifest.corrections).toEqual([]);
     expect(manifest.recalculated).toBe(false);
   });
+
+  it("records the format, legacy unless told otherwise", () => {
+    const { metric, ...gpkgOnly } = entry;
+    const legacy = writeScenarioManifest(dir, { entries: [gpkgOnly], seed: 7 });
+    expect(JSON.parse(readFileSync(legacy.manifestPath, "utf8")).format).toBe(
+      "legacy",
+    );
+    const bng = writeScenarioManifest(dir, {
+      entries: [gpkgOnly],
+      seed: 7,
+      format: FORMAT_BNG_SERVICE,
+    });
+    expect(JSON.parse(readFileSync(bng.manifestPath, "utf8")).format).toBe(
+      FORMAT_BNG_SERVICE,
+    );
+    expect(readFileSync(bng.indexPath, "utf8")).toContain(
+      "BNG Service template format",
+    );
+  });
 });
 
 describe("merging a filtered run into a corpus", () => {
@@ -365,6 +454,18 @@ describe("merging a filtered run into a corpus", () => {
     expect(
       corpusConflicts({ ...corpus, corrections: [] }, fits),
     ).toHaveLength(1);
+  });
+
+  it("treats a corpus with no format as legacy, and refuses another format", () => {
+    expect(
+      corpusConflicts(corpus, { ...fits, format: FORMAT_BNG_SERVICE }),
+    ).toEqual(["format bng-service, but the corpus has format legacy"]);
+    expect(
+      corpusConflicts(
+        { ...corpus, format: FORMAT_BNG_SERVICE },
+        { ...fits, format: FORMAT_BNG_SERVICE },
+      ),
+    ).toEqual([]);
   });
 
   it("replaces regenerated entries in catalogue order and drops retired ones", () => {
