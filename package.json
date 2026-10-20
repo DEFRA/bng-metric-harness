@@ -61,7 +61,7 @@
   },
   "devDependencies": {
     "better-sqlite3": "^13.0.3",
-    "bng-library": "github:DEFRA/bng-library#bf65b822f60175936fb120837e020be403834fa4",
+    "bng-library": "github:DEFRA/bng-library#39a7a2a164eb97ebe95d8f896419b28d37a69c9c",
     "husky": "9.1.7",
     "likec4": "^1.59.4",
     "remark-parse": "^11.0.0",

@@ -235,7 +235,11 @@ A synthetic site also holds what only the new template records: vertical area
 habitats, comments, an irreplaceable parcel and tree, Enhanced trees, and
 habitats that get worse (an area, vertical area and hedgerow habitat 30+ years
 in advance, a hedge that gets worse in part, and a watercourse worse in
-encroachment or in condition).
+encroachment or in condition). It also holds a re-meandered watercourse
+(Enhanced by Realignment, on a longer route), a watercourse that is only
+shorter (kept Retained), and a parcel split in two whose parts share a
+Habitat Ref. bng-library draws the file directly: no legacy file is written
+and converted along the way.
 
 - `--stage baseline` writes the **baseline-stage file**: every table, with the
   Post-Intervention tables empty — the file an ecologist has before mapping
