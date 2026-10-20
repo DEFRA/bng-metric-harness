@@ -120,6 +120,39 @@ describe("gen-gpkg --format bng-service", () => {
     db.close();
   });
 
+  it("writes a degraded-habitat flaw, and names it in the file name", () => {
+    const dir = outDir();
+    const result = run(
+      dir,
+      "--format",
+      "bng-service",
+      "--flaw",
+      "degrade-advance-missing",
+      "--size",
+      "6",
+      "--seed",
+      "3",
+    );
+    expect(result.status, result.stderr).toBe(0);
+    const file = onlyFile(dir);
+    expect(path.basename(file)).toMatch(/degrade-advance-missing/);
+    const db = openGeoPackageReadonly(file);
+    try {
+      // The flaw clears the years in advance on the hedge that gets worse.
+      const worse = db
+        .prepare(
+          `SELECT "Habitat created in advance/years" AS advance
+             FROM "Hedgerows Post-Intervention"
+            WHERE "Retention Category" = 'Created' AND parent_uuid IS NOT NULL`,
+        )
+        .all();
+      expect(worse.length).toBeGreaterThan(0);
+      expect(worse.map((r) => r.advance)).toContain(null);
+    } finally {
+      db.close();
+    }
+  });
+
   it("writes one file holding both stages from a workbook", () => {
     const dir = outDir();
     const result = run(dir, "--from", WORKBOOK, "--format", "bng-service");
@@ -183,6 +216,8 @@ describe("gen-gpkg --format bng-service", () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toMatch(/lineage-parent-unknown/);
     expect(result.stdout).toMatch(/version-record-missing/);
+    expect(result.stdout).toMatch(/Degraded-habitat flaws/);
+    expect(result.stdout).toMatch(/degrade-not-worse/);
     expect(result.stdout).toMatch(/tree-count-not-whole.*legacy only/);
   });
 
@@ -229,6 +264,29 @@ describe("gen-gpkg --format bng-service", () => {
       ],
       /baseline-stage file leaves empty/,
     ],
+    [
+      [
+        "--format",
+        "bng-service",
+        "--flaw",
+        "degrade-advance-missing",
+        "--flaw",
+        "degrade-not-worse",
+      ],
+      /Only one degraded-habitat flaw at a time/,
+    ],
+    [
+      [
+        "--format",
+        "bng-service",
+        "--stage",
+        "baseline",
+        "--flaw",
+        "degrade-not-worse",
+      ],
+      /Degraded-habitat flaws change post-intervention features/,
+    ],
+    [["--flaw", "degrade-not-worse"], /add --format bng-service/],
     [
       [
         "--from",
