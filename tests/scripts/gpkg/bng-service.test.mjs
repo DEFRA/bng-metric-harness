@@ -120,6 +120,47 @@ describe("gen-gpkg --format bng-service", () => {
     db.close();
   });
 
+  it("writes a degraded-habitat flaw, and names it in the file name", () => {
+    // The hedges that get worse, by their years in advance: the same seed
+    // with and without the flaw, so the flaw is what clears them.
+    const worseAdvance = (...flaw) => {
+      const dir = outDir();
+      const result = run(
+        dir,
+        "--format",
+        "bng-service",
+        ...flaw,
+        "--size",
+        "6",
+        "--seed",
+        "3",
+      );
+      expect(result.status, result.stderr).toBe(0);
+      const file = onlyFile(dir);
+      const db = openGeoPackageReadonly(file);
+      try {
+        const advance = db
+          .prepare(
+            `SELECT "Habitat created in advance/years" AS advance
+               FROM "Hedgerows Post-Intervention"
+              WHERE "Retention Category" = 'Created' AND parent_uuid IS NOT NULL`,
+          )
+          .all()
+          .map((r) => r.advance);
+        return { file, advance };
+      } finally {
+        db.close();
+      }
+    };
+    const plain = worseAdvance();
+    expect(plain.advance.length).toBeGreaterThan(0);
+    expect(new Set(plain.advance)).toEqual(new Set(["30+"]));
+    const flawed = worseAdvance("--flaw", "degrade-advance-missing");
+    expect(path.basename(flawed.file)).toMatch(/degrade-advance-missing/);
+    expect(flawed.advance).toHaveLength(plain.advance.length);
+    expect(flawed.advance).toContain(null);
+  });
+
   it("writes one file holding both stages from a workbook", () => {
     const dir = outDir();
     const result = run(dir, "--from", WORKBOOK, "--format", "bng-service");
@@ -183,6 +224,8 @@ describe("gen-gpkg --format bng-service", () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toMatch(/lineage-parent-unknown/);
     expect(result.stdout).toMatch(/version-record-missing/);
+    expect(result.stdout).toMatch(/Degraded-habitat flaws/);
+    expect(result.stdout).toMatch(/degrade-not-worse/);
     expect(result.stdout).toMatch(/tree-count-not-whole.*legacy only/);
   });
 
@@ -229,6 +272,29 @@ describe("gen-gpkg --format bng-service", () => {
       ],
       /baseline-stage file leaves empty/,
     ],
+    [
+      [
+        "--format",
+        "bng-service",
+        "--flaw",
+        "degrade-advance-missing",
+        "--flaw",
+        "degrade-not-worse",
+      ],
+      /Only one degraded-habitat flaw at a time/,
+    ],
+    [
+      [
+        "--format",
+        "bng-service",
+        "--stage",
+        "baseline",
+        "--flaw",
+        "degrade-not-worse",
+      ],
+      /Degraded-habitat flaws change post-intervention features/,
+    ],
+    [["--flaw", "degrade-not-worse"], /add --format bng-service/],
     [
       [
         "--from",

@@ -315,17 +315,21 @@ async function runSynthetic(centre, seed) {
     1,
     Number.parseInt(args.count, PARSE_INT_BASE_10) || DEFAULT_RUN_COUNT,
   );
-  const { legacy, lineageFlawNames, versionFlawNames } = splitFlaws(args.flaw, {
-    bngService,
-    stage: selectedStage,
-  });
+  const { legacy, lineageFlawNames, degradeFlawNames, versionFlawNames } =
+    splitFlaws(args.flaw, { bngService, stage: selectedStage });
   const selection = resolveFlawSelection({
     bad: args.bad,
     flaws: legacy,
     numParcels,
   });
   const habitatPins = resolveHabitatPins(args.habitat, numParcels, selection);
-  const plan = { numParcels, ...selection, lineageFlawNames, versionFlawNames };
+  const plan = {
+    numParcels,
+    ...selection,
+    lineageFlawNames,
+    degradeFlawNames,
+    versionFlawNames,
+  };
   if (habitatPins) {
     plan.attributeOverrides = {
       ...selection.attributeOverrides,
@@ -363,7 +367,11 @@ async function runSynthetic(centre, seed) {
 // The files one synthetic run writes, in the format and layout asked for.
 function syntheticOutPaths(plan, flawSuffix, suffix, stamp) {
   if (bngService) {
-    const extraFlaws = [...plan.lineageFlawNames, ...plan.versionFlawNames];
+    const extraFlaws = [
+      ...plan.lineageFlawNames,
+      ...plan.degradeFlawNames,
+      ...plan.versionFlawNames,
+    ];
     return {
       bngService: path.join(
         OUT_DIR,
@@ -416,6 +424,10 @@ const FLAW_CATEGORY_HEADINGS = [
   [
     "lineage",
     "Lineage flaws (--format bng-service only; a post-intervention feature's link to its parent):",
+  ],
+  [
+    "degraded-habitat",
+    "Degraded-habitat flaws (--format bng-service only; a habitat that gets worse, recorded wrongly):",
   ],
   [
     "template-version",
@@ -506,7 +518,7 @@ Flaw catalogue (--flaw values; defined in bng-library):
 ${renderFlawCatalogue()}
 
 Geometric, empty-layer and attribute flaws cannot be mixed with each other;
-lineage and template-version flaws combine with any of them. Examples:
+lineage, degraded-habitat and template-version flaws combine with any of them. Examples:
   node scripts/gen-gpkg.mjs --size 30
   node scripts/gen-gpkg.mjs --bad
   node scripts/gen-gpkg.mjs --flaw parcel-too-small
