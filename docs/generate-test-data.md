@@ -291,18 +291,20 @@ changes how files are laid out, fails it until the corpus is regenerated and
 committed.
 
 The `bng-500/` files need python3 and the bng-metric-template sibling (`npm run
-bootstrap` clones it; `BNG_TEMPLATE_DIR` names another checkout) at the commit
-`scripts/service-template/convert.mjs` pins, as another converter version may
-convert differently. A digest of the converter's Python files
-(`CONVERTER_DIGEST`) checks the checkout holds exactly that converter, so one
-at another commit or with local edits is refused. `scripts/bng500/convert.py` runs the converter with
+bootstrap` clones it; `BNG_TEMPLATE_DIR` names another checkout). The committed
+files come from the converter at the commit `CONVERTER_COMMIT` pins in
+`scripts/service-template/convert.mjs`. `scripts/bng500/convert.py` runs it with
 seeded feature uuids, and the generator then fixes the file's timestamps and
-rewrites it with SQLite's VACUUM, so the files are byte-stable. Without the
-converter the generator and the test skip them and say why; CI checks out the
-pinned commit and requires them. To move to a newer converter, check the
-sibling out at it, update `CONVERTER_COMMIT` and `CONVERTER_DIGEST` (the new
-`converterDigest()`), regenerate, and update each
-file's known issues in its recipe if they change.
+rewrites it with SQLite's VACUUM, so the files are byte-stable.
+
+CI is what holds them to the pin: it clones the template at `CONVERTER_COMMIT`,
+rebuilds the files and requires them to match the committed ones byte for
+byte (`REQUIRE_CONVERTER=true`). Locally the test skips them, as your
+checkout may be at another commit, and the generator converts with whatever
+checkout it finds and says which commit that is, warning when it is not the
+pinned one. To move to a newer converter, check the sibling out at it, update
+`CONVERTER_COMMIT`, regenerate, and update each file's known issues in its
+recipe if they change; CI then confirms it.
 
 The corpus's `permutations/` folder is the scenario corpus,
 built by `generate:scenarios -- --format bng-service` (see

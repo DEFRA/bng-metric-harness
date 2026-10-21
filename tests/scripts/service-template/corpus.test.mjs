@@ -9,7 +9,15 @@ import {
 } from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "vitest";
 import {
   FORMAT_BNG_SERVICE,
   checkLineage,
@@ -25,9 +33,11 @@ import {
   sameFixture,
 } from "../../../scripts/service-template/build.mjs";
 import {
+  CONVERTER_COMMIT,
   TEMPLATE_DIR_ENV,
-  converterDigest,
   converterProblem,
+  describeTemplateCommit,
+  templateCommit,
 } from "../../../scripts/service-template/convert.mjs";
 import { renderReadme } from "../../../scripts/service-template/readme.mjs";
 import {
@@ -44,16 +54,19 @@ const GENERATE = path.join(ROOT, "scripts/gen-service-template.mjs");
 const NOT_A_GEOPACKAGE = "malformed/not-a-geopackage.gpkg";
 const LEGACY_LAYOUT = "invalid-schema/legacy-template.gpkg";
 
-// The bng-500/ files need the template's converter. Without it they are
-// skipped, unless REQUIRE_CONVERTER is set, as CI sets it.
-const CONVERTER_PROBLEM = converterProblem();
-if (CONVERTER_PROBLEM && process.env.REQUIRE_CONVERTER === "true") {
+// The bng-500/ files are checked where REQUIRE_CONVERTER is "true", as CI
+// sets it with the template cloned at CONVERTER_COMMIT: that is what holds
+// the committed files to the pinned converter. Elsewhere they are skipped,
+// as a local template checkout may be at another commit.
+const CHECK_CONVERTED = process.env.REQUIRE_CONVERTER === "true";
+const CONVERTER_PROBLEM = CHECK_CONVERTED ? converterProblem() : null;
+if (CONVERTER_PROBLEM) {
   throw new Error(`REQUIRE_CONVERTER is set, but ${CONVERTER_PROBLEM}`);
 }
 const CONVERTED = RECIPES.filter((r) => r.kind === KIND_CONVERTED);
-const BUILDABLE = CONVERTER_PROBLEM
-  ? RECIPES.filter((r) => r.kind !== KIND_CONVERTED)
-  : RECIPES;
+const BUILDABLE = CHECK_CONVERTED
+  ? RECIPES
+  : RECIPES.filter((r) => r.kind !== KIND_CONVERTED);
 
 let outDir;
 // Inside the harness, as --outdir must be; test-data/ is gitignored.
@@ -231,7 +244,7 @@ describe("the built fixtures", () => {
   });
 });
 
-describe.skipIf(CONVERTER_PROBLEM)("the converted BNG500 files", () => {
+describe.skipIf(!CHECK_CONVERTED)("the converted BNG500 files", () => {
   it("report exactly the issues their recipes list", () => {
     for (const recipe of CONVERTED) {
       const file = built(recipe);
@@ -258,12 +271,11 @@ describe.skipIf(CONVERTER_PROBLEM)("the converted BNG500 files", () => {
 });
 
 describe("converterProblem", () => {
-  /** converterProblem() with BNG_TEMPLATE_DIR set to `dir`. */
-  function problemFor(dir) {
+  it("points at bootstrap when the template checkout is missing", () => {
     const before = process.env[TEMPLATE_DIR_ENV];
-    process.env[TEMPLATE_DIR_ENV] = dir;
+    process.env[TEMPLATE_DIR_ENV] = path.join(ROOT, "test-data", "no-such-dir");
     try {
-      return converterProblem();
+      expect(converterProblem()).toContain("npm run bootstrap");
     } finally {
       if (before === undefined) {
         delete process.env[TEMPLATE_DIR_ENV];
@@ -271,51 +283,44 @@ describe("converterProblem", () => {
         process.env[TEMPLATE_DIR_ENV] = before;
       }
     }
-  }
-
-  /** A template checkout whose converter is a stub. */
-  function stubTemplate() {
-    const dir = mkdtempSync(path.join(ROOT, "test-data", "template-stub-"));
-    const converter = path.join(dir, "plugin", "bng_template_convert");
-    mkdirSync(converter, { recursive: true });
-    writeFileSync(path.join(converter, "old_to_new.py"), "# stub\n");
-    return dir;
-  }
-
-  it("points at bootstrap when the template checkout is missing", () => {
-    expect(problemFor(path.join(ROOT, "test-data", "no-such-dir"))).toContain(
-      "npm run bootstrap",
-    );
-  });
-
-  it("refuses a converter other than the pinned one, at another commit or edited", () => {
-    const dir = stubTemplate();
-    try {
-      const problem = problemFor(dir);
-      expect(problem).toContain("not the one the corpus is built with");
-      expect(problem).toContain("update CONVERTER_COMMIT and CONVERTER_DIGEST");
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
   });
 });
 
-describe("converterDigest", () => {
-  it("ignores line endings, and sees any change to a Python file", () => {
-    const dir = mkdtempSync(path.join(ROOT, "test-data", "digest-"));
-    try {
-      writeFileSync(path.join(dir, "a.py"), "x = 1\ny = 2\n");
-      const digest = converterDigest(dir);
-      writeFileSync(path.join(dir, "a.py"), "x = 1\r\ny = 2\r\n");
-      expect(converterDigest(dir)).toBe(digest);
-      writeFileSync(path.join(dir, "a.py"), "x = 1\ny = 3\n");
-      expect(converterDigest(dir)).not.toBe(digest);
-      writeFileSync(path.join(dir, "notes.txt"), "not Python");
-      writeFileSync(path.join(dir, "a.py"), "x = 1\ny = 2\n");
-      expect(converterDigest(dir)).toBe(digest);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+describe("templateCommit", () => {
+  const SHA = "a".repeat(40);
+  let dir;
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(ROOT, "test-data", "template-git-"));
+    mkdirSync(path.join(dir, ".git", "refs", "heads"), { recursive: true });
+  });
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+  const write = (name, text) =>
+    writeFileSync(path.join(dir, ".git", name), text);
+
+  it("reads a detached HEAD", () => {
+    write("HEAD", `${SHA}\n`);
+    expect(templateCommit(dir)).toBe(SHA);
+  });
+
+  it("reads a branch, loose or packed", () => {
+    write("HEAD", "ref: refs/heads/main\n");
+    write("packed-refs", `# pack-refs\n${SHA} refs/heads/main\n`);
+    expect(templateCommit(dir)).toBe(SHA);
+    write("refs/heads/main", `${"b".repeat(40)}\n`);
+    expect(templateCommit(dir)).toBe("b".repeat(40));
+  });
+
+  it("is null outside a git checkout", () => {
+    expect(templateCommit(path.join(dir, "nowhere"))).toBeNull();
+  });
+
+  it("says when the checkout is not at the pinned commit", () => {
+    expect(describeTemplateCommit(CONVERTER_COMMIT).pinned).toBe(true);
+    const other = describeTemplateCommit(SHA);
+    expect(other.pinned).toBe(false);
+    expect(other.text).toContain("CI rebuilds the files");
   });
 });
 

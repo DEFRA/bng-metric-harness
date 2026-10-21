@@ -10,8 +10,9 @@
  *   npm run generate:service-template -- --only valid/default-site.gpkg
  *
  * The bng-500/ files need the template's converter (the bng-metric-template
- * sibling at the pinned commit, and python3): without it a full run skips
- * them and says why, and asking for them with --only fails.
+ * sibling, and python3): without it a full run skips them and says why, and
+ * asking for them with --only fails. The run says which template commit it
+ * converted with; CI checks the committed files against the pinned one.
  *
  * Every fixture has a fixed name and regenerates to the same bytes. A full
  * run also removes files no recipe builds any more. The scenario corpus in
@@ -30,7 +31,10 @@ import {
   warn,
 } from "./_lib.mjs";
 import { buildRecipe, removeStaleFiles } from "./service-template/build.mjs";
-import { converterProblem } from "./service-template/convert.mjs";
+import {
+  converterProblem,
+  describeTemplateCommit,
+} from "./service-template/convert.mjs";
 import { renderReadme } from "./service-template/readme.mjs";
 import {
   FAMILIES,
@@ -105,8 +109,13 @@ function outDirOrExit() {
  */
 function buildableRecipes(recipes) {
   const converted = recipes.filter((r) => r.kind === KIND_CONVERTED);
-  const problem = converted.length > 0 ? converterProblem() : null;
+  if (converted.length === 0) {
+    return recipes;
+  }
+  const problem = converterProblem();
   if (!problem) {
+    const commit = describeTemplateCommit();
+    (commit.pinned ? info : warn)(`  converting with ${commit.text}`);
     return recipes;
   }
   if (args.only.length > 0) {

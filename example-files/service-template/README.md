@@ -34,9 +34,11 @@ in the service from a failure.
 `npm run check:lineage -- --dir example-files/service-template` passes every file but `malformed/not-a-geopackage.gpkg`, which it reports as unreadable, as it should; `bng-500/BarkingandDagenham2400625FULL.gpkg`, which reports `lineage-parent-missing` (see its row). It skips the legacy-layout file. Each `lineage-problems/` file reports exactly the flaw its name gives.
 
 The `bng-500/` files need the template's converter: the bng-metric-template
-sibling (or the checkout `BNG_TEMPLATE_DIR` names) at commit
-`073550c`, and python3. Without them the generator and the
-byte-for-byte test skip those files and say why.
+sibling (or the checkout `BNG_TEMPLATE_DIR` names) and python3; without them
+the generator skips those files and says why. They come from the converter
+at commit `073550c`. CI rebuilds them there and requires them to match
+byte for byte; the test skips them elsewhere, as a local checkout may be at
+another commit.
 
 ## permutations/
 
