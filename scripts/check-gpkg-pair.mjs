@@ -17,7 +17,8 @@
  * Usage:
  *   node scripts/check-gpkg-pair.mjs <baseline.gpkg> <post-intervention.gpkg>
  *
- * Or to scan all paired files in a directory and its subdirectories:
+ * Or to scan all paired files in a directory and every folder under it
+ * (point --dir at one folder to check only what is in it):
  *   node scripts/check-gpkg-pair.mjs --dir test-data/
  *   node scripts/check-gpkg-pair.mjs --dir example-files   # the legacy corpus
  *
@@ -26,6 +27,9 @@
  * and "Post-intervention - <name>.gpkg", and the permutation and BNG500
  * corpora's <name>-baseline.gpkg and <name>-post-intervention.gpkg. A legacy
  * file may leave a layer's table out; it is read as a layer with no rows.
+ * Each pair is labelled by its baseline's path under --dir, so pairs that
+ * share a name in different folders are told apart. A pair that cannot be
+ * read (not a GeoPackage, say) is reported as failing, and the scan goes on.
  *
  * Exits 0 on success, 1 on any failure. Prints one summary line per pair.
  */
@@ -127,8 +131,8 @@ function checkBaselineNulls(db) {
 }
 
 function checkRedlineMatches(baseDb, postDb) {
-  const b = baseDb.prepare(`SELECT HEX(geometry) AS g, Area FROM "Red Line Boundary"`).get();
-  const p = postDb.prepare(`SELECT HEX(geometry) AS g, Area FROM "Red Line Boundary"`).get();
+  const sql = `SELECT HEX(geometry) AS g, Area FROM "Red Line Boundary"`;
+  const [b, p] = [baseDb, postDb].map((db) => layerRows(db, "Red Line Boundary", sql)[0]);
   if (!b || !p) {
     return [`Red Line Boundary missing in one file`];
   }
@@ -199,18 +203,22 @@ function checkRefsTraceBack(baseDb, postDb) {
 }
 
 function checkPair(baselinePath, postPath) {
-  const base = openGeoPackageReadonly(baselinePath);
-  const post = openGeoPackageReadonly(postPath);
+  let base = null;
+  let post = null;
   try {
+    base = openGeoPackageReadonly(baselinePath);
+    post = openGeoPackageReadonly(postPath);
     const failures = [
       ...checkBaselineNulls(base),
       ...checkRedlineMatches(base, post),
       ...checkRefsTraceBack(base, post),
     ];
     return failures;
+  } catch (err) {
+    return [`cannot check this pair: ${err.message}`];
   } finally {
-    base.close();
-    post.close();
+    base?.close();
+    post?.close();
   }
 }
 
@@ -269,13 +277,22 @@ function resolvePairsFromArgs() {
   return [positionals];
 }
 
+/**
+ * A pair's label: its baseline's path under --dir (as given, without it),
+ * so same-named pairs in different folders read differently.
+ */
+function pairLabel(baselinePath, postPath) {
+  const baseline = args.dir ? path.relative(args.dir, baselinePath) : baselinePath;
+  return `${baseline} ↔ ${path.basename(postPath)}`;
+}
+
 function runPair(baselinePath, postPath) {
   if (!existsSync(baselinePath) || !existsSync(postPath)) {
     console.error(`Missing file: ${baselinePath} / ${postPath}`);
     return { counted: false, ok: false };
   }
   const failures = checkPair(baselinePath, postPath);
-  const label = `${path.basename(baselinePath)} ↔ ${path.basename(postPath)}`;
+  const label = pairLabel(baselinePath, postPath);
   if (failures.length === 0) {
     console.log(`✔ ${label}`);
     return { counted: true, ok: true };
