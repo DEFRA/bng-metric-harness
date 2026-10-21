@@ -63,6 +63,14 @@ const CONVERTER_PROBLEM = CHECK_CONVERTED ? converterProblem() : null;
 if (CONVERTER_PROBLEM) {
   throw new Error(`REQUIRE_CONVERTER is set, but ${CONVERTER_PROBLEM}`);
 }
+// A checkout at another commit would fail the byte-for-byte test on every
+// bng-500/ file; say why instead.
+const TEMPLATE_AT = CHECK_CONVERTED ? describeTemplateCommit() : null;
+if (TEMPLATE_AT && !TEMPLATE_AT.pinned) {
+  throw new Error(
+    `REQUIRE_CONVERTER is set, but the converter is ${TEMPLATE_AT.text}`,
+  );
+}
 const CONVERTED = RECIPES.filter((r) => r.kind === KIND_CONVERTED);
 const BUILDABLE = CHECK_CONVERTED
   ? RECIPES
