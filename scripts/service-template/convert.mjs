@@ -41,18 +41,33 @@ function templateCommit(dir) {
   return result.status === 0 ? result.stdout.trim() : null;
 }
 
+/** Whether the converter's folder has changes not committed in `dir`. */
+function converterEdited(dir) {
+  const result = spawnSync(
+    "git",
+    ["-C", dir, "status", "--porcelain", "--", CONVERTER_PATH],
+    { encoding: "utf8" },
+  );
+  return result.status === 0 && result.stdout.trim() !== "";
+}
+
 function hasPython() {
   return spawnSync(PYTHON, ["--version"], { encoding: "utf8" }).status === 0;
 }
 
 /**
  * Why the converter cannot run here, or null if it can: the template
- * checkout is missing or at another commit, or there is no Python.
+ * checkout is missing, has uncommitted changes to the converter, or is at
+ * another commit, or there is no Python. Edits or another commit would
+ * write a corpus that CI's clean checkout of the pinned commit does not.
  */
 export function converterProblem() {
   const dir = templateDir();
   if (!existsSync(path.join(dir, CONVERTER_PATH, "old_to_new.py"))) {
     return `the ${TEMPLATE_REPO} checkout is missing at ${dir}: run \`npm run bootstrap\`, or set ${TEMPLATE_DIR_ENV}`;
+  }
+  if (converterEdited(dir)) {
+    return `${dir} has uncommitted changes in ${CONVERTER_PATH}: the corpus is built with the converter as committed at ${CONVERTER_COMMIT.slice(0, SHORT_COMMIT)}`;
   }
   const commit = templateCommit(dir);
   if (commit !== CONVERTER_COMMIT) {
@@ -79,10 +94,9 @@ function settle(file) {
 }
 
 /**
- * Convert one legacy pair into `file`.
- *
- * @returns {{ notes: string[], warnings: string[], counts: object }} the
- *   converter's report: its warnings are the steps it leaves to the user
+ * Convert one legacy pair into `file`. The converter's own output (its
+ * report of the steps it leaves to the user) is not needed here: run it by
+ * hand to read it.
  */
 export function convertPair({ baseline, postIntervention, seed }, file) {
   const result = spawnSync(
@@ -109,5 +123,4 @@ export function convertPair({ baseline, postIntervention, seed }, file) {
     );
   }
   settle(file);
-  return JSON.parse(result.stdout);
 }

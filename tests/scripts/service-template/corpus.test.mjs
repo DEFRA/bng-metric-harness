@@ -46,7 +46,7 @@ const LEGACY_LAYOUT = "invalid-schema/legacy-template.gpkg";
 // The bng-500/ files need the template's converter. Without it they are
 // skipped, unless REQUIRE_CONVERTER is set, as CI sets it.
 const CONVERTER_PROBLEM = converterProblem();
-if (CONVERTER_PROBLEM && process.env.REQUIRE_CONVERTER) {
+if (CONVERTER_PROBLEM && process.env.REQUIRE_CONVERTER === "true") {
   throw new Error(`REQUIRE_CONVERTER is set, but ${CONVERTER_PROBLEM}`);
 }
 const CONVERTED = RECIPES.filter((r) => r.kind === KIND_CONVERTED);
@@ -252,17 +252,72 @@ describe.skipIf(CONVERTER_PROBLEM)("the converted BNG500 files", () => {
 });
 
 describe("converterProblem", () => {
-  it("points at bootstrap when the template checkout is missing", () => {
+  /** converterProblem() with BNG_TEMPLATE_DIR set to `dir`. */
+  function problemFor(dir) {
     const before = process.env[TEMPLATE_DIR_ENV];
-    process.env[TEMPLATE_DIR_ENV] = path.join(ROOT, "test-data", "no-such-dir");
+    process.env[TEMPLATE_DIR_ENV] = dir;
     try {
-      expect(converterProblem()).toContain("npm run bootstrap");
+      return converterProblem();
     } finally {
       if (before === undefined) {
         delete process.env[TEMPLATE_DIR_ENV];
       } else {
         process.env[TEMPLATE_DIR_ENV] = before;
       }
+    }
+  }
+
+  const git = (dir, ...args) =>
+    spawnSync(
+      "git",
+      [
+        "-C",
+        dir,
+        "-c",
+        "user.name=test",
+        "-c",
+        "user.email=test@example.com",
+        "-c",
+        "commit.gpgsign=false",
+        ...args,
+      ],
+      { encoding: "utf8" },
+    );
+
+  /** A git repo holding a stub converter, committed. */
+  function stubTemplate() {
+    const dir = mkdtempSync(path.join(ROOT, "test-data", "template-stub-"));
+    const converter = path.join(dir, "plugin", "bng_template_convert");
+    mkdirSync(converter, { recursive: true });
+    writeFileSync(path.join(converter, "old_to_new.py"), "# stub\n");
+    git(dir, "init", "--quiet");
+    git(dir, "add", ".");
+    git(dir, "commit", "--quiet", "-m", "stub");
+    return { dir, converter };
+  }
+
+  it("points at bootstrap when the template checkout is missing", () => {
+    expect(problemFor(path.join(ROOT, "test-data", "no-such-dir"))).toContain(
+      "npm run bootstrap",
+    );
+  });
+
+  it("says to update CONVERTER_COMMIT when the checkout is at another commit", () => {
+    const { dir } = stubTemplate();
+    try {
+      expect(problemFor(dir)).toContain("update CONVERTER_COMMIT");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a checkout whose converter has uncommitted changes", () => {
+    const { dir, converter } = stubTemplate();
+    try {
+      writeFileSync(path.join(converter, "old_to_new.py"), "# edited\n");
+      expect(problemFor(dir)).toContain("uncommitted changes");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });
