@@ -264,12 +264,14 @@ function findPairs(dir) {
 
 /** A path inside the harness, where the corpus and test-data/ live; exits if not. */
 function insideHarnessOrExit(target, flag) {
+  let resolved = null;
   try {
-    return resolveInsideHarness(target, flag);
+    resolved = resolveInsideHarness(target, flag);
   } catch (err) {
     console.error(err.message);
     process.exit(1);
   }
+  return resolved;
 }
 
 // --dir, resolved inside the harness; empty when files are named instead.
