@@ -6,10 +6,11 @@
  */
 
 /**
- * The service-template feature flag, as both apps read it. `--service-template`
- * turns it on; plain `npm run dev` leaves it unset, so the apps keep their own
- * default (off). Neither app's own dev script pins it, so the value reaches
- * both unchanged.
+ * The service-template feature flag, as both apps read it. Only
+ * `--service-template` decides it: with the option it is on, and without it
+ * the harness removes any value inherited from the shell or the B2C .env, so
+ * plain `npm run dev` always runs with the apps' default (off). Neither app's
+ * own dev script pins it, so the value reaches both unchanged.
  */
 export const SERVICE_TEMPLATE_FLAG = "SERVICE_TEMPLATE_ENABLED";
 
@@ -24,18 +25,24 @@ export function devOptions(args) {
 /**
  * The environment both apps start with: the ambient one, then the B2C values
  * from the shared .env when `--b2c` is given (the file wins over the ambient
- * env), then the service-template flag when `--service-template` is given.
+ * env), then the service-template flag: set with `--service-template`, and
+ * removed without it, so an inherited value cannot turn it on unasked.
  *
  * @param {{ b2c: boolean, serviceTemplate: boolean }} options
  * @param {NodeJS.ProcessEnv} baseEnv
  * @param {() => Record<string, string>} loadB2cEnv  read only with --b2c
+ * @param {(value: string) => void} [onIgnored]  told the inherited value
+ *   it removed, to warn about it
  */
-export function childEnvFor(options, baseEnv, loadB2cEnv) {
-  return {
-    ...baseEnv,
-    ...(options.b2c ? loadB2cEnv() : {}),
-    ...(options.serviceTemplate ? { [SERVICE_TEMPLATE_FLAG]: "true" } : {}),
-  };
+export function childEnvFor(options, baseEnv, loadB2cEnv, onIgnored) {
+  const env = { ...baseEnv, ...(options.b2c ? loadB2cEnv() : {}) };
+  if (options.serviceTemplate) {
+    env[SERVICE_TEMPLATE_FLAG] = "true";
+  } else if (SERVICE_TEMPLATE_FLAG in env) {
+    onIgnored?.(env[SERVICE_TEMPLATE_FLAG]);
+    delete env[SERVICE_TEMPLATE_FLAG];
+  }
+  return env;
 }
 
 /** A banner suffix naming the options in force, e.g. " [B2C, service template]". */

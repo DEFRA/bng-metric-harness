@@ -71,7 +71,11 @@ function buildChildEnv() {
   if (options.serviceTemplate) {
     info(`  service template: ${SERVICE_TEMPLATE_FLAG}=true`);
   }
-  return childEnvFor(options, process.env, loadB2cEnv);
+  return childEnvFor(options, process.env, loadB2cEnv, (value) =>
+    warn(
+      `  ${SERVICE_TEMPLATE_FLAG}=${value} was set in your environment; ignoring it. Pass --service-template to turn the flag on.`,
+    ),
+  );
 }
 
 if (target === "all") {
