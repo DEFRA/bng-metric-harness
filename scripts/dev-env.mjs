@@ -38,7 +38,9 @@ export function childEnvFor(options, baseEnv, loadB2cEnv, onIgnored) {
   const env = { ...baseEnv, ...(options.b2c ? loadB2cEnv() : {}) };
   if (options.serviceTemplate) {
     env[SERVICE_TEMPLATE_FLAG] = "true";
-  } else if (SERVICE_TEMPLATE_FLAG in env) {
+    return env;
+  }
+  if (SERVICE_TEMPLATE_FLAG in env) {
     onIgnored?.(env[SERVICE_TEMPLATE_FLAG]);
     delete env[SERVICE_TEMPLATE_FLAG];
   }
