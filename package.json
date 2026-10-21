@@ -39,6 +39,7 @@
     "generate:gpkg": "node scripts/gen-gpkg.mjs",
     "generate:scenarios": "node scripts/gen-scenarios.mjs",
     "generate:scenarios:docker": "docker compose -f compose.gen-scenarios.yml run --rm --build gen-scenarios",
+    "check:lineage": "node scripts/check-gpkg-lineage.mjs",
     "compare:metric": "node scripts/compare-metric.mjs",
     "generate:gpkg:docker": "docker compose -f compose.gen-gpkg.yml run --rm --build gen-gpkg",
     "lib:link": "npm link ../bng-library",
@@ -62,7 +63,7 @@
   },
   "devDependencies": {
     "better-sqlite3": "^13.0.3",
-    "bng-library": "github:DEFRA/bng-library#39a7a2a164eb97ebe95d8f896419b28d37a69c9c",
+    "bng-library": "github:DEFRA/bng-library#a385420047bafe87c9495cb106db572ada9df9e5",
     "husky": "9.1.7",
     "likec4": "^1.59.4",
     "remark-parse": "^11.0.0",

@@ -259,6 +259,13 @@ and converted along the way.
   degraded-habitat flaws need the post-intervention tables, so not
   `--stage baseline`. `--help` lists them all.
 
+**Checking lineage.** A BNG Service file holds both stages, so it has no pair
+to check. `npm run check:lineage -- <file.gpkg>` (or `-- --dir DIR`) checks the
+lineage in one: every post-intervention feature must name its baseline parent
+by Parent Ref, parent_uuid and parent_geom. A file named for a lineage flaw, as
+`--flaw lineage-…` names it, must report exactly that flaw; any other file must
+report none. Legacy files are skipped. It exits 1 if a file fails.
+
 To look at a file in QGIS, take a copy of the template folder from
 [bng-metric-template](https://github.com/DEFRA/bng-metric-template)
 (`templates/bng-service/`), put the file in its `Layers` folder as
