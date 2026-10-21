@@ -27,7 +27,8 @@
  * and "Post-intervention - <name>.gpkg", and the permutation and BNG500
  * corpora's <name>-baseline.gpkg and <name>-post-intervention.gpkg. A legacy
  * file may leave a layer's table out; it is read as a layer with no rows.
- * Paths must be inside the harness, where the corpus and test-data/ live.
+ * Relative paths are taken from the current directory, and must lead
+ * inside the harness, where the corpus and test-data/ live.
  * Each pair is labelled by its baseline's path under --dir, so pairs that
  * share a name in different folders are told apart. A pair that cannot be
  * read (not a GeoPackage, say) is reported as failing, and the scan goes on.
@@ -262,11 +263,14 @@ function findPairs(dir) {
   return [...pairs.values()].filter((p) => p.baseline && p["post-intervention"]);
 }
 
-/** A path inside the harness, where the corpus and test-data/ live; exits if not. */
+/**
+ * A path, relative to the current directory, inside the harness, where the
+ * corpus and test-data/ live; exits if not.
+ */
 function insideHarnessOrExit(target, flag) {
   let resolved = null;
   try {
-    resolved = resolveInsideHarness(target, flag);
+    resolved = resolveInsideHarness(path.resolve(target), flag);
   } catch (err) {
     console.error(err.message);
     process.exit(1);

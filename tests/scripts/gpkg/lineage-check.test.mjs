@@ -257,6 +257,35 @@ describe("the legacy pair check still works on the legacy corpus", () => {
     expect(result.stdout).toContain("3/3 pair(s) passed");
   });
 
+  it("takes relative paths from the current directory", () => {
+    const name = "retained watercourse";
+    const valid = path.join(ROOT, "example-files/valid");
+    const scan = path.join(dir, "pair-relative");
+    mkdirSync(path.join(scan, "pairs"), { recursive: true });
+    for (const stage of ["Baseline", "Post-intervention"]) {
+      copyFileSync(
+        path.join(valid, `${stage} - ${name}.gpkg`),
+        path.join(scan, "pairs", `${stage} - ${name}.gpkg`),
+      );
+    }
+    const byDir = spawnSync(process.execPath, [CHECK_PAIR, "--dir", "pairs"], {
+      cwd: scan,
+      encoding: "utf8",
+    });
+    expect(byDir.status, byDir.stdout + byDir.stderr).toBe(0);
+    expect(byDir.stdout).toContain("1/1 pair(s) passed");
+    const byFiles = spawnSync(
+      process.execPath,
+      [
+        CHECK_PAIR,
+        `Baseline - ${name}.gpkg`,
+        `Post-intervention - ${name}.gpkg`,
+      ],
+      { cwd: path.join(scan, "pairs"), encoding: "utf8" },
+    );
+    expect(byFiles.status, byFiles.stdout + byFiles.stderr).toBe(0);
+  });
+
   it("tells same-named pairs apart, and reports an unreadable one as failing", () => {
     const name = "retained watercourse";
     const valid = path.join(ROOT, "example-files/valid");
