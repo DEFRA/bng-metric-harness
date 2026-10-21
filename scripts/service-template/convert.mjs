@@ -4,16 +4,19 @@
  * the plugin"), reproducibly.
  *
  * The converter is plugin/bng_template_convert/old_to_new.py in the
- * bng-metric-template sibling (or the checkout BNG_TEMPLATE_DIR names), at
- * the commit CONVERTER_COMMIT pins: another version may convert differently,
- * so the corpus records which one it was built with. scripts/bng500/
+ * bng-metric-template sibling (or the checkout BNG_TEMPLATE_DIR names), as it
+ * is at CONVERTER_COMMIT: another version may convert differently, so the
+ * corpus records which one it was built with. CONVERTER_DIGEST, a SHA-256 of
+ * the converter's Python files, checks a checkout has exactly that converter,
+ * whether it is at another commit or edited locally; CI clones the commit. scripts/bng500/
  * convert.py runs it with seeded uuids; here its file's timestamps are fixed
  * and the file rewritten with VACUUM, so SQLite lays it out as it does every
  * other fixture, whatever SQLite Python has.
  */
 
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { HARNESS_ROOT, repoPath } from "../_lib.mjs";
@@ -22,6 +25,9 @@ export const TEMPLATE_REPO = "bng-metric-template";
 export const TEMPLATE_DIR_ENV = "BNG_TEMPLATE_DIR";
 /** The bng-metric-template commit the committed bng-500/ files come from. */
 export const CONVERTER_COMMIT = "073550c7833d836937939a9d70980f0598201300";
+/** converterDigest() of the converter at CONVERTER_COMMIT. */
+export const CONVERTER_DIGEST =
+  "bea7ae174bc4e9631807d7a71df96f9120c0cfe6234c0251f7eeeb1a496dd1a3";
 
 const CONVERTER_PATH = path.join("plugin", "bng_template_convert");
 const WRAPPER = path.join(HARNESS_ROOT, "scripts", "bng500", "convert.py");
@@ -34,21 +40,20 @@ export function templateDir() {
   return process.env[TEMPLATE_DIR_ENV] || repoPath(TEMPLATE_REPO);
 }
 
-function templateCommit(dir) {
-  const result = spawnSync("git", ["-C", dir, "rev-parse", "HEAD"], {
-    encoding: "utf8",
-  });
-  return result.status === 0 ? result.stdout.trim() : null;
-}
-
-/** Whether the converter's folder has changes not committed in `dir`. */
-function converterEdited(dir) {
-  const result = spawnSync(
-    "git",
-    ["-C", dir, "status", "--porcelain", "--", CONVERTER_PATH],
-    { encoding: "utf8" },
-  );
-  return result.status === 0 && result.stdout.trim() !== "";
+/**
+ * A SHA-256 of the converter's Python files, by name, with line endings
+ * normalised so a Windows checkout gives the same digest.
+ */
+export function converterDigest(converterDir) {
+  const hash = createHash("sha256");
+  const files = readdirSync(converterDir)
+    .filter((name) => name.endsWith(".py"))
+    .sort((a, b) => a.localeCompare(b));
+  for (const name of files) {
+    const text = readFileSync(path.join(converterDir, name), "utf8");
+    hash.update(`${name}\n${text.replaceAll("\r\n", "\n")}\n`);
+  }
+  return hash.digest("hex");
 }
 
 function hasPython() {
@@ -57,21 +62,18 @@ function hasPython() {
 
 /**
  * Why the converter cannot run here, or null if it can: the template
- * checkout is missing, has uncommitted changes to the converter, or is at
- * another commit, or there is no Python. Edits or another commit would
- * write a corpus that CI's clean checkout of the pinned commit does not.
+ * checkout is missing, or its converter is not the one at CONVERTER_COMMIT
+ * (another commit, or edited locally), or there is no Python. Another
+ * converter would write a corpus CI's clean checkout does not.
  */
 export function converterProblem() {
   const dir = templateDir();
-  if (!existsSync(path.join(dir, CONVERTER_PATH, "old_to_new.py"))) {
+  const converterDir = path.join(dir, CONVERTER_PATH);
+  if (!existsSync(path.join(converterDir, "old_to_new.py"))) {
     return `the ${TEMPLATE_REPO} checkout is missing at ${dir}: run \`npm run bootstrap\`, or set ${TEMPLATE_DIR_ENV}`;
   }
-  if (converterEdited(dir)) {
-    return `${dir} has uncommitted changes in ${CONVERTER_PATH}: the corpus is built with the converter as committed at ${CONVERTER_COMMIT.slice(0, SHORT_COMMIT)}`;
-  }
-  const commit = templateCommit(dir);
-  if (commit !== CONVERTER_COMMIT) {
-    return `${dir} is at ${commit?.slice(0, SHORT_COMMIT) ?? "an unknown commit"}, not ${CONVERTER_COMMIT.slice(0, SHORT_COMMIT)}, the commit the corpus is built with: check it out there, or update CONVERTER_COMMIT and regenerate`;
+  if (converterDigest(converterDir) !== CONVERTER_DIGEST) {
+    return `the converter in ${dir} is not the one the corpus is built with, at ${TEMPLATE_REPO} ${CONVERTER_COMMIT.slice(0, SHORT_COMMIT)} (another commit, or uncommitted changes): check that commit out, or, to move on, update CONVERTER_COMMIT and CONVERTER_DIGEST and regenerate`;
   }
   if (!hasPython()) {
     return `${PYTHON} is not on the PATH`;

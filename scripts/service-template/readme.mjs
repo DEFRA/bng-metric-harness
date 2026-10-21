@@ -36,13 +36,15 @@ function generatedFrom({ options }) {
 
 const SHORT_COMMIT = 7;
 
+const asCode = (text) => `\`${text}\``;
+
 function knownIssues({ lineage, templateValues }) {
   const tables = Object.entries(templateValues).map(
     ([table, fields]) => `${table} (${fields.join(", ")})`,
   );
   const parts = [`Values the template does not offer in ${tables.join("; ")}`];
   if (lineage.length > 0) {
-    parts.unshift(`Lineage: ${lineage.map((f) => `\`${f}\``).join(", ")}`);
+    parts.unshift(`Lineage: ${lineage.map(asCode).join(", ")}`);
   }
   return parts.join(". ");
 }

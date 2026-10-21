@@ -242,6 +242,7 @@ const AREA_BASELINE = "Area Habitats Baseline";
 const HEDGEROWS_BASELINE = "Hedgerows Baseline";
 const WATERCOURSES_BASELINE = "Watercourses Baseline";
 const RED_LINE = "Red Line Boundary";
+const BASELINE_CONDITION = "Baseline Condition";
 const WGS84 = 4326;
 
 const INVALID_SCHEMA = [
@@ -258,7 +259,7 @@ const INVALID_SCHEMA = [
   derived(
     "invalid-schema/missing-columns-in-area-habitats.gpkg",
     `\`${AREA_BASELINE}\` has no \`Baseline Condition\` or \`Area\` column`,
-    [dropColumns(AREA_BASELINE, ["Baseline Condition", "Area"])],
+    [dropColumns(AREA_BASELINE, [BASELINE_CONDITION, "Area"])],
   ),
   derived(
     "invalid-schema/wrong-column-names-in-area-habitats.gpkg",
@@ -266,7 +267,7 @@ const INVALID_SCHEMA = [
     [
       renameColumns(AREA_BASELINE, {
         "Baseline Habitat Type": "Habitat Type",
-        "Baseline Condition": "Condition",
+        [BASELINE_CONDITION]: "Condition",
       }),
     ],
   ),
@@ -381,99 +382,80 @@ function converted(site, knownIssues) {
   };
 }
 
+const AREA_POST = "Area Habitats Post-Intervention";
+const TREES_BASELINE = "Individual Trees Baseline";
+const TREES_POST = "Individual Trees Post-Intervention";
+const WATERCOURSES_POST = "Watercourses Post-Intervention";
+const RURAL_OR_URBAN = "Baseline Rural or Urban Tree";
+const TREE_TYPE = "Baseline Tree Type";
+const PROPOSED_SIGNIFICANCE = "Proposed Strategic Significance";
+const AREA_ADVANCE = "Habitat created in advance/years";
+// Values the BNG500 files' trees carry that the template's lists do not.
+const TREE_VALUES = [
+  "Baseline Tree Size",
+  "Category",
+  "Proposed Rural or Urban Tree",
+  "Proposed Tree Size",
+  "Proposed Tree Type",
+  "Retention Category",
+];
+const TREE_BASELINE_VALUES = [RURAL_OR_URBAN, TREE_TYPE];
+const RIPARIAN_ENCROACHMENT = [
+  "Baseline Encroachment into riparian zone",
+  "Proposed Encroachment into riparian zone",
+];
+const WATERCOURSE_ENCROACHMENT = [
+  ...RIPARIAN_ENCROACHMENT,
+  "Baseline Encroachment into Watercourse",
+  "Proposed Encroachment into Watercourse",
+];
+
 const BNG500 = [
   converted("BROADLAND_2024_3282", {
     templateValues: {
-      "Individual Trees Baseline": [
-        "Baseline Rural or Urban Tree",
-        "Baseline Tree Type",
-      ],
-      "Individual Trees Post-Intervention": [
-        "Baseline Condition",
-        "Baseline Rural or Urban Tree",
-        "Baseline Tree Size",
-        "Baseline Tree Type",
-        "Category",
-        "Proposed Rural or Urban Tree",
-        "Proposed Tree Size",
-        "Proposed Tree Type",
-        "Retention Category",
+      [TREES_BASELINE]: TREE_BASELINE_VALUES,
+      [TREES_POST]: [
+        ...TREE_VALUES,
+        BASELINE_CONDITION,
+        RURAL_OR_URBAN,
+        TREE_TYPE,
       ],
     },
   }),
   converted("BarkingandDagenham2400625FULL", {
     lineage: ["lineage-parent-missing"],
     templateValues: {
-      "Individual Trees Post-Intervention": [
-        "Baseline Tree Size",
-        "Category",
-        "Proposed Rural or Urban Tree",
-        "Proposed Strategic Significance",
-        "Proposed Tree Size",
-        "Proposed Tree Type",
-        "Retention Category",
-      ],
-      "Watercourses Post-Intervention": [
-        "Baseline Encroachment into riparian zone",
-        "Baseline Encroachment into Watercourse",
-        "Proposed Encroachment into riparian zone",
-        "Proposed Encroachment into Watercourse",
-      ],
+      [TREES_POST]: [...TREE_VALUES, PROPOSED_SIGNIFICANCE],
+      [WATERCOURSES_POST]: WATERCOURSE_ENCROACHMENT,
     },
   }),
   converted("CAMBRIDGE_24_03964_FUL", {
     templateValues: {
-      "Area Habitats Post-Intervention": ["Proposed Strategic Significance"],
-      "Individual Trees Baseline": [
-        "Baseline Rural or Urban Tree",
-        "Baseline Tree Type",
-      ],
-      "Individual Trees Post-Intervention": [
-        "Baseline Condition",
-        "Baseline Rural or Urban Tree",
-        "Baseline Tree Size",
-        "Baseline Tree Type",
-        "Category",
-        "Proposed Rural or Urban Tree",
-        "Proposed Tree Size",
-        "Proposed Tree Type",
-        "Retention Category",
+      [AREA_POST]: [PROPOSED_SIGNIFICANCE],
+      [TREES_BASELINE]: TREE_BASELINE_VALUES,
+      [TREES_POST]: [
+        ...TREE_VALUES,
+        BASELINE_CONDITION,
+        RURAL_OR_URBAN,
+        TREE_TYPE,
       ],
     },
   }),
   converted("Sunderland_24_00723_FU4", {
     templateValues: {
-      "Area Habitats Baseline": ["Baseline Habitat Type"],
-      "Area Habitats Post-Intervention": ["Habitat created in advance/years"],
-      "Hedgerows Post-Intervention": ["Habitat created in advance/years"],
-      "Individual Trees Baseline": [
-        "Baseline Rural or Urban Tree",
-        "Baseline Tree Type",
-      ],
-      "Individual Trees Post-Intervention": [
-        "Baseline Tree Size",
-        "Category",
+      [AREA_BASELINE]: ["Baseline Habitat Type"],
+      [AREA_POST]: [AREA_ADVANCE],
+      "Hedgerows Post-Intervention": [AREA_ADVANCE],
+      [TREES_BASELINE]: TREE_BASELINE_VALUES,
+      [TREES_POST]: [
+        ...TREE_VALUES,
         "Habitat Created/Enhanced in advance/years",
-        "Proposed Rural or Urban Tree",
-        "Proposed Tree Size",
-        "Proposed Tree Type",
-        "Retention Category",
       ],
-      "Watercourses Post-Intervention": [
-        "Baseline Encroachment into riparian zone",
-        "Proposed Encroachment into riparian zone",
-      ],
+      [WATERCOURSES_POST]: RIPARIAN_ENCROACHMENT,
     },
   }),
   converted("Wiltshire_PL_2024_08441", {
-    templateValues: {
-      "Watercourses Post-Intervention": [
-        "Baseline Encroachment into riparian zone",
-        "Baseline Encroachment into Watercourse",
-        "Proposed Encroachment into riparian zone",
-        "Proposed Encroachment into Watercourse",
-      ],
-    },
+    templateValues: { [WATERCOURSES_POST]: WATERCOURSE_ENCROACHMENT },
   }),
 ];
 

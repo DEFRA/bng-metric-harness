@@ -26,6 +26,7 @@ import {
 } from "../../../scripts/service-template/build.mjs";
 import {
   TEMPLATE_DIR_ENV,
+  converterDigest,
   converterProblem,
 } from "../../../scripts/service-template/convert.mjs";
 import { renderReadme } from "../../../scripts/service-template/readme.mjs";
@@ -238,9 +239,14 @@ describe.skipIf(CONVERTER_PROBLEM)("the converted BNG500 files", () => {
       expect(lineage, recipe.path).toEqual(recipe.knownIssues.lineage);
       const values = {};
       for (const { table, field } of checkTemplateValues(file)) {
-        values[table] = [...(values[table] ?? []), field];
+        values[table] = [...(values[table] ?? []), field].sort();
       }
-      expect(values, recipe.path).toEqual(recipe.knownIssues.templateValues);
+      const known = Object.fromEntries(
+        Object.entries(recipe.knownIssues.templateValues).map(
+          ([table, fields]) => [table, [...fields].sort()],
+        ),
+      );
+      expect(values, recipe.path).toEqual(known);
     }
   });
 
@@ -267,33 +273,13 @@ describe("converterProblem", () => {
     }
   }
 
-  const git = (dir, ...args) =>
-    spawnSync(
-      "git",
-      [
-        "-C",
-        dir,
-        "-c",
-        "user.name=test",
-        "-c",
-        "user.email=test@example.com",
-        "-c",
-        "commit.gpgsign=false",
-        ...args,
-      ],
-      { encoding: "utf8" },
-    );
-
-  /** A git repo holding a stub converter, committed. */
+  /** A template checkout whose converter is a stub. */
   function stubTemplate() {
     const dir = mkdtempSync(path.join(ROOT, "test-data", "template-stub-"));
     const converter = path.join(dir, "plugin", "bng_template_convert");
     mkdirSync(converter, { recursive: true });
     writeFileSync(path.join(converter, "old_to_new.py"), "# stub\n");
-    git(dir, "init", "--quiet");
-    git(dir, "add", ".");
-    git(dir, "commit", "--quiet", "-m", "stub");
-    return { dir, converter };
+    return dir;
   }
 
   it("points at bootstrap when the template checkout is missing", () => {
@@ -302,20 +288,31 @@ describe("converterProblem", () => {
     );
   });
 
-  it("says to update CONVERTER_COMMIT when the checkout is at another commit", () => {
-    const { dir } = stubTemplate();
+  it("refuses a converter other than the pinned one, at another commit or edited", () => {
+    const dir = stubTemplate();
     try {
-      expect(problemFor(dir)).toContain("update CONVERTER_COMMIT");
+      const problem = problemFor(dir);
+      expect(problem).toContain("not the one the corpus is built with");
+      expect(problem).toContain("update CONVERTER_COMMIT and CONVERTER_DIGEST");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+});
 
-  it("refuses a checkout whose converter has uncommitted changes", () => {
-    const { dir, converter } = stubTemplate();
+describe("converterDigest", () => {
+  it("ignores line endings, and sees any change to a Python file", () => {
+    const dir = mkdtempSync(path.join(ROOT, "test-data", "digest-"));
     try {
-      writeFileSync(path.join(converter, "old_to_new.py"), "# edited\n");
-      expect(problemFor(dir)).toContain("uncommitted changes");
+      writeFileSync(path.join(dir, "a.py"), "x = 1\ny = 2\n");
+      const digest = converterDigest(dir);
+      writeFileSync(path.join(dir, "a.py"), "x = 1\r\ny = 2\r\n");
+      expect(converterDigest(dir)).toBe(digest);
+      writeFileSync(path.join(dir, "a.py"), "x = 1\ny = 3\n");
+      expect(converterDigest(dir)).not.toBe(digest);
+      writeFileSync(path.join(dir, "notes.txt"), "not Python");
+      writeFileSync(path.join(dir, "a.py"), "x = 1\ny = 2\n");
+      expect(converterDigest(dir)).toBe(digest);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

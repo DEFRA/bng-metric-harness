@@ -5,8 +5,8 @@ template's own converter (plugin/bng_template_convert/old_to_new.py in the
 bng-metric-template sibling), reproducibly.
 
 The converter gives every baseline feature a fresh uuid4, so two runs differ.
-This runs it with those uuids drawn from a seeded generator instead; nothing
-else in the conversion changes. The caller (scripts/service-template/
+This runs it with each uuid derived from the seed and the feature's place in
+the run, by SHA-256, instead; nothing else in the conversion changes. The caller (scripts/service-template/
 convert.mjs) runs it with PYTHONHASHSEED=0, then fixes the timestamps SQLite
 writes and rewrites the file with VACUUM, so the result is the same bytes on
 every run.
@@ -20,11 +20,12 @@ if the conversion fails.
 
 import argparse
 import contextlib
-import random
+import hashlib
+import itertools
 import sys
 import uuid
 
-UUID_BITS = 128
+UUID_BYTES = 16
 UUID_VERSION = 4
 
 
@@ -39,11 +40,18 @@ def parse_args(argv):
 
 
 def seeded_uuids(seed):
-    """A uuid4-shaped id drawn from a generator seeded with `seed`."""
-    rng = random.Random(seed)
-    return lambda: str(
-        uuid.UUID(int=rng.getrandbits(UUID_BITS), version=UUID_VERSION)
-    )
+    """Successive uuid4-shaped ids, each the SHA-256 of the seed and its index.
+
+    Reproducible test data, not secrets: the ids only need to be distinct and
+    the same on every run.
+    """
+    counter = itertools.count()
+
+    def next_uuid():
+        digest = hashlib.sha256(f"{seed}/{next(counter)}".encode()).digest()
+        return str(uuid.UUID(bytes=digest[:UUID_BYTES], version=UUID_VERSION))
+
+    return next_uuid
 
 
 def main(argv=None):

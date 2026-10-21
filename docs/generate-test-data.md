@@ -293,12 +293,15 @@ committed.
 The `bng-500/` files need python3 and the bng-metric-template sibling (`npm run
 bootstrap` clones it; `BNG_TEMPLATE_DIR` names another checkout) at the commit
 `scripts/service-template/convert.mjs` pins, as another converter version may
-convert differently. `scripts/bng500/convert.py` runs the converter with
+convert differently. A digest of the converter's Python files
+(`CONVERTER_DIGEST`) checks the checkout holds exactly that converter, so one
+at another commit or with local edits is refused. `scripts/bng500/convert.py` runs the converter with
 seeded feature uuids, and the generator then fixes the file's timestamps and
 rewrites it with SQLite's VACUUM, so the files are byte-stable. Without the
 converter the generator and the test skip them and say why; CI checks out the
 pinned commit and requires them. To move to a newer converter, check the
-sibling out at it, update `CONVERTER_COMMIT`, regenerate, and update each
+sibling out at it, update `CONVERTER_COMMIT` and `CONVERTER_DIGEST` (the new
+`converterDigest()`), regenerate, and update each
 file's known issues in its recipe if they change.
 
 The corpus's `permutations/` folder is the scenario corpus,
