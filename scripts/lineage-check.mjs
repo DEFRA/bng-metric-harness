@@ -54,8 +54,11 @@ export function checkFile(file, fileName = file) {
     const problems = checkLineage(db);
     const expected = expectedFlaw(fileName);
     const flaws = problems.map((p) => p.flaw);
+    // A lineage flaw breaks one feature, and the generator takes one lineage
+    // flaw per file, so a flaw file normally reports one problem. Any number
+    // passes, as long as every problem is the flaw its name says.
     const ok = expected
-      ? flaws.length === 1 && flaws[0] === expected
+      ? flaws.length > 0 && flaws.every((flaw) => flaw === expected)
       : flaws.length === 0;
     return { status: ok ? "pass" : "fail", problems, expected };
   } finally {

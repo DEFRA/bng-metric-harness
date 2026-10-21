@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   readdirSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -127,6 +128,26 @@ describe("the paths check:lineage reads", () => {
     const result = checkLineage("--dir", path.dirname(ROOT));
     expect(result.status).toBe(1);
     expect(result.stdout + result.stderr).toMatch(/must be inside the harness/);
+  });
+});
+
+describe("a file check:lineage cannot read", () => {
+  it("fails it with the reason, and still checks the other files", () => {
+    const folder = path.join(dir, "with-a-bad-file");
+    generate(path.join("with-a-bad-file", "good"), "--format", "bng-service");
+    writeFileSync(path.join(folder, "broken.gpkg"), "not a GeoPackage");
+    const result = checkLineage("--dir", folder);
+    expect(result.status).toBe(1);
+    const output = result.stdout + result.stderr;
+    expect(output).toMatch(/broken\.gpkg/);
+    expect(output).toMatch(/unreadable-file/);
+    expect(output).toMatch(/1 passed, 1 failed/);
+  });
+
+  it("reports a folder that does not exist without a stack trace", () => {
+    const result = checkLineage("--dir", path.join(dir, "no-such-folder"));
+    expect(result.status).toBe(1);
+    expect(result.stderr + result.stdout).not.toMatch(/\n\s+at /);
   });
 });
 

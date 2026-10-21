@@ -81,11 +81,34 @@ function report(file, result) {
   }
 }
 
+/**
+ * Check one file. A file that cannot be read (corrupt, or not a GeoPackage)
+ * fails with the reason, and the other files are still checked.
+ */
+function checkOne(file) {
+  try {
+    return checkFile(file, path.basename(file));
+  } catch (err) {
+    return {
+      status: "fail",
+      expected: null,
+      problems: [
+        {
+          flaw: "unreadable-file",
+          table: "(file)",
+          ref: null,
+          detail: err.message,
+        },
+      ],
+    };
+  }
+}
+
 function checkAll(files) {
   header(`check:lineage: ${files.length} file(s)`, "cyan");
   const counts = { pass: 0, fail: 0, skip: 0 };
   for (const file of files) {
-    const result = checkFile(file, path.basename(file));
+    const result = checkOne(file);
     counts[result.status] += 1;
     report(file, result);
   }
