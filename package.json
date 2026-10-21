@@ -56,7 +56,8 @@
     "setup:husky": "node -e \"try { (await import('husky')).default() } catch (e) { if (e.code !== 'ERR_MODULE_NOT_FOUND') throw e }\" --input-type module",
     "install:gitleaks": "node scripts/install-gitleaks.mjs",
     "postinstall": "node scripts/postinstall.mjs",
-    "git:pre-commit-hook": "node scripts/run-gitleaks.mjs"
+    "git:pre-commit-hook": "node scripts/run-gitleaks.mjs",
+    "generate:service-template": "node scripts/gen-service-template.mjs"
   },
   "dependencies": {
     "concurrently": "^10.0.6"
