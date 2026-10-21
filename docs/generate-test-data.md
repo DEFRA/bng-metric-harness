@@ -266,6 +266,30 @@ by Parent Ref, parent_uuid and parent_geom. A file named for a lineage flaw, as
 `--flaw lineage-…` names it, must report exactly that flaw; any other file must
 report none. Legacy files are skipped. It exits 1 if a file fails.
 
+**The committed corpus.** `example-files/service-template/` holds a curated
+corpus in this format, with the legacy corpus's families (valid, spatial,
+invalid-schema, empty-layer, attribute, malformed and filename problems) plus
+the format's own lineage, incomplete and version-problem fixtures. Each file has
+a fixed name and a recipe in `scripts/service-template/recipes.mjs`: drawn by
+bng-library from a seed, derived from a valid file by SQL edits (the schema
+faults no generator writes), or copied. One command rebuilds it, to the same
+bytes, and writes its README (what each file covers, its expected outcome and
+how it is built):
+
+```sh
+npm run generate:service-template                          # every family
+npm run generate:service-template -- --only lineage-problems
+npm run generate:service-template -- --only valid/default-site.gpkg
+```
+
+A test rebuilds the whole corpus and compares it with the committed files byte
+for byte, but for the SQLite version each file's header records. A change to
+bng-library that alters a fixture, or a SQLite (better-sqlite3) upgrade that
+changes how files are laid out, fails it until the corpus is regenerated and
+committed. Its `permutations/` folder is the scenario corpus,
+built by `generate:scenarios -- --format bng-service` (see
+[Scenario corpus](generate-scenarios.md)).
+
 To look at a file in QGIS, take a copy of the template folder from
 [bng-metric-template](https://github.com/DEFRA/bng-metric-template)
 (`templates/bng-service/`), put the file in its `Layers` folder as
