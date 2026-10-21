@@ -13,6 +13,9 @@
  * A filtered run (--only / --scenario) replaces only its own scenarios'
  * files and merges them into the manifest already in the output folder.
  *
+ * --format bng-service writes each scenario as one GeoPackage in the BNG
+ * Service template format, holding both stages, instead of the legacy pair.
+ *
  * The template defaults to the calculation tool Defra publishes, downloaded
  * once and cached; --template or METRIC_TEMPLATE names another.
  */
@@ -25,9 +28,10 @@ import { parseArgs } from "node:util";
 import { randomInt } from "node:crypto";
 import {
   HARNESS_PURPOSES as PERMUTATION_PURPOSES,
-  HARNESS_SCENARIOS as PERMUTATION_SCENARIOS,
+  catalogueFor,
 } from "./scenarios/catalogue.mjs";
 import { isLibreOfficeAvailable } from "#workbook-writer";
+import { FORMAT_LEGACY, VALID_FORMATS } from "#bng-lib";
 import {
   HARNESS_ROOT,
   error,
@@ -37,10 +41,7 @@ import {
   warn,
 } from "./_lib.mjs";
 import { DEFAULT_CENTRE, parseCentre } from "./centre.mjs";
-import {
-  buildScenarioCorpus,
-  removeCorpusFiles,
-} from "./scenarios/runner.mjs";
+import { buildScenarioCorpus, removeCorpusFiles } from "./scenarios/runner.mjs";
 import {
   corpusConflicts,
   mergeScenarioEntries,
@@ -67,6 +68,10 @@ Usage: npm run generate:scenarios -- [options]
                     merges them into the existing manifest, reusing its seed.
   --outdir DIR      Output folder (default: <harness>/test-data/scenarios).
                     Files are organised one folder per purpose.
+  --format F        ${[...VALID_FORMATS].join(" | ")} (default ${FORMAT_LEGACY}). bng-service writes
+                    each scenario as one GeoPackage in the BNG Service
+                    template format, holding both stages; the workbook
+                    describes the same site.
   --seed N          Run seed, for byte-reproducible GeoPackages (default:
                     random, recorded in the manifest; a filtered run
                     defaults to the existing corpus's seed).
@@ -93,6 +98,7 @@ const { values: args } = parseArgs({
     only: { type: "string", default: "" },
     scenario: { type: "string", multiple: true, default: [] },
     outdir: { type: "string", default: "" },
+    format: { type: "string", default: FORMAT_LEGACY },
     seed: { type: "string", default: "" },
     centre: { type: "string", default: "" },
     "no-workbooks": { type: "boolean", default: false },
@@ -105,14 +111,24 @@ const { values: args } = parseArgs({
   allowPositionals: false,
 });
 
-function selectScenarios() {
-  if (args.only && !PERMUTATION_PURPOSES.includes(args.only)) {
+function formatOrExit() {
+  if (!VALID_FORMATS.has(args.format)) {
     error(
-      `Unknown purpose "${args.only}". Known: ${PERMUTATION_PURPOSES.join(", ")}`,
+      `--format must be one of: ${[...VALID_FORMATS].join(", ")} (got: ${args.format})`,
     );
     process.exit(1);
   }
-  let selected = PERMUTATION_SCENARIOS;
+  return args.format;
+}
+
+function selectScenarios(catalogue) {
+  if (args.only && !catalogue.purposes.includes(args.only)) {
+    error(
+      `Unknown purpose "${args.only}". Known: ${catalogue.purposes.join(", ")}`,
+    );
+    process.exit(1);
+  }
+  let selected = catalogue.scenarios;
   if (args.only) {
     selected = selected.filter((s) => s.purpose === args.only);
   }
@@ -132,9 +148,7 @@ function listCatalogue(scenarios) {
       info(`  ${s.id.padEnd(CATALOGUE_ID_COLUMN_WIDTH)} ${s.title}`);
     }
   }
-  info(
-    `\n${scenarios.length} scenarios across ${purposes.length} purposes.`,
-  );
+  info(`\n${scenarios.length} scenarios across ${purposes.length} purposes.`);
 }
 
 function isFiltered() {
@@ -236,14 +250,14 @@ function assertFitsCorpus(previous, run, outDir) {
 }
 
 /** The manifest entries to write: this run's, merged into the corpus's. */
-function corpusEntries(previous, entries, outDir) {
+function corpusEntries(previous, entries, outDir, catalogue) {
   if (!previous) {
     return entries;
   }
   const merged = mergeScenarioEntries(
     previous.scenarios,
     entries,
-    PERMUTATION_SCENARIOS.map((s) => s.id),
+    catalogue.scenarios.map((s) => s.id),
   );
   for (const entry of merged.dropped) {
     warn(`  removing ${entry.id}: no longer in the catalogue`);
@@ -264,7 +278,9 @@ async function main() {
     info(`  template → ${await ensurePublishedTemplate()}`);
     return;
   }
-  const scenarios = selectScenarios();
+  const format = formatOrExit();
+  const catalogue = catalogueFor(format);
+  const scenarios = selectScenarios(catalogue);
   if (scenarios.length === 0) {
     error("No scenarios match the --only / --scenario filters.");
     process.exit(1);
@@ -282,7 +298,11 @@ async function main() {
   const previous = previousCorpusOrExit(outDir);
   const seed = resolveSeed(previous);
   if (previous) {
-    assertFitsCorpus(previous, { seed, templatePath, recalculate }, outDir);
+    assertFitsCorpus(
+      previous,
+      { seed, format, templatePath, recalculate },
+      outDir,
+    );
   }
   const entries = await buildScenarioCorpus({
     scenarios,
@@ -292,10 +312,12 @@ async function main() {
     templatePath,
     recalculate,
     partial: isFiltered(),
+    format,
   });
   const { indexPath } = writeScenarioManifest(outDir, {
-    entries: corpusEntries(previous, entries, outDir),
+    entries: corpusEntries(previous, entries, outDir, catalogue),
     seed,
+    format,
     templatePath,
   });
   info(`\n  index → ${indexPath}`);

@@ -15,6 +15,11 @@
  * Files are organised one folder per purpose. A failed expectation is
  * recorded rather than thrown, so one run reports every scenario that no
  * longer demonstrates what it claims to.
+ *
+ * In the BNG Service format each scenario is drawn natively by bng-library
+ * (no legacy file is written): one GeoPackage holding both stages, and its
+ * baseline-stage file. The engine, the workbook and the checks read the
+ * combined file, so the workbook describes exactly the file a user uploads.
  */
 
 import { createHash } from "node:crypto";
@@ -28,13 +33,14 @@ import {
 } from "node:fs";
 import path from "node:path";
 import {
+  FORMAT_BNG_SERVICE,
+  FORMAT_LEGACY,
   PERMUTATION_DEFAULT_SIZE,
   deriveBaselineFromSynthetic,
   derivePermutationSeed,
   generateOne,
   setMode,
 } from "#bng-lib";
-import { openGeoPackageReadonly } from "#gpkg-io";
 import {
   checkScenarioExpectations,
   lintWorkbook,
@@ -42,11 +48,13 @@ import {
   readTemplateVocabulary,
   saveRecalculatedWorkbooks,
   checkVocabulary,
+  workbookRowsFromGeoPackage,
   writeMetricWorkbook,
 } from "#workbook-writer";
 import { header, info, warn } from "../_lib.mjs";
-import { refColumnFor } from "../gpkg-columns.mjs";
 import { readScenarioManifest } from "./manifest.mjs";
+import { verifyPair, verifySubject } from "./verify.mjs";
+import { generateBngServiceScenario } from "./bng-service.mjs";
 import { loadEngine } from "./engine.mjs";
 import { meetsNetGain, priceHabitats } from "./engine-units.mjs";
 import { prepareImportTiming, expectedImport } from "./import-timing.mjs";
@@ -64,76 +72,27 @@ const WORK_PREFIX = ".recalc-";
 /**
  * File names within the scenario's purpose folder. When the id leads with its
  * purpose, it is dropped rather than repeated: intervention/area-created-…,
- * not intervention/intervention-area-created-….
+ * not intervention/intervention-area-created-…. The legacy format writes a
+ * baseline / post-intervention pair; the BNG Service format one GeoPackage
+ * holding both stages, and its baseline-stage file.
  */
-export function scenarioFiles(scenario) {
+export function scenarioFiles(scenario, format = FORMAT_LEGACY) {
   const prefix = `${scenario.purpose}-`;
   const base = scenario.id.startsWith(prefix)
     ? scenario.id.slice(prefix.length)
     : scenario.id;
   const inFolder = (name) => path.join(scenario.purpose, name);
-  return {
-    baseline: inFolder(`${base}-baseline.gpkg`),
-    postIntervention: inFolder(`${base}-post-intervention.gpkg`),
-    workbook: inFolder(`${base}.xlsx`),
-  };
-}
-
-/**
- * Light pair check: the derived baseline must have cleared the area layer's
- * proposed state, and both halves must share a redline. The deep guarantees
- * are bng-library's own tests; this catches a broken run early.
- */
-function verifyPair(baselineFile, piFile) {
-  const baseDb = openGeoPackageReadonly(baselineFile);
-  const piDb = openGeoPackageReadonly(piFile);
-  try {
-    const leftoverProposed = baseDb
-      .prepare(
-        `SELECT count(*) AS n FROM "Habitats"
-           WHERE "Proposed Condition" IS NOT NULL
-              OR "Retention Category" IS NOT NULL`,
-      )
-      .get().n;
-    if (leftoverProposed > 0) {
-      throw new Error(
-        `baseline half still carries proposed data on ${leftoverProposed} habitat row(s)`,
-      );
-    }
-    const redlineSql = `SELECT hex(geometry) AS g FROM "Red Line Boundary"`;
-    const baseRlb = baseDb.prepare(redlineSql).get()?.g;
-    const piRlb = piDb.prepare(redlineSql).get()?.g;
-    if (!baseRlb || baseRlb !== piRlb) {
-      throw new Error("baseline and post-intervention redlines differ");
-    }
-  } finally {
-    baseDb.close();
-    piDb.close();
-  }
-}
-
-/**
- * The scenario's subject feature must have landed. A hedgerow or watercourse
- * subject depends on the rejection sampler drawing enough lines, so fail
- * loudly rather than ship a fixture that silently misses its case.
- */
-function verifySubject(piFile, subject) {
-  const refColumn = refColumnFor(subject.layer);
-  const db = openGeoPackageReadonly(piFile);
-  try {
-    const found = db
-      .prepare(
-        `SELECT count(*) AS n FROM "${subject.layer}" WHERE "${refColumn}" = ?`,
-      )
-      .get(subject.ref).n;
-    if (found === 0) {
-      throw new Error(
-        `subject ${subject.layer} "${subject.ref}" is missing — the layer generated too few features`,
-      );
-    }
-  } finally {
-    db.close();
-  }
+  const geoPackages =
+    format === FORMAT_BNG_SERVICE
+      ? {
+          geoPackage: inFolder(`${base}.gpkg`),
+          baselineStage: inFolder(`${base}-baseline.gpkg`),
+        }
+      : {
+          baseline: inFolder(`${base}-baseline.gpkg`),
+          postIntervention: inFolder(`${base}-post-intervention.gpkg`),
+        };
+  return { ...geoPackages, workbook: inFolder(`${base}.xlsx`) };
 }
 
 /** Our engine's view of the net gain, recorded and checked like the rest. */
@@ -199,11 +158,8 @@ function lintCheck(issues) {
  *
  * @returns {boolean} true when the saved workbook was kept
  */
-function writeWorkbook(entry, piFile, outDir, workbook, saved) {
-  const { rows, notes, timingChanges } = importWorkbookRows(
-    path.join(outDir, entry.files.baseline),
-    piFile,
-  );
+function writeWorkbook(entry, source, outDir, workbook, saved) {
+  const { rows, notes, timingChanges } = workbookRowsOf(source);
   const issues = checkVocabulary(rows, workbook.vocabulary);
   const buffer = writeMetricWorkbook({
     templateBuffer: workbook.template,
@@ -237,6 +193,19 @@ function writeWorkbook(entry, piFile, outDir, workbook, saved) {
   return keep;
 }
 
+/**
+ * The workbook rows for a scenario's files: read from the BNG Service file,
+ * which holds both stages; or from the legacy pair, with its import-timing
+ * projection.
+ */
+function workbookRowsOf(source) {
+  if (source.bngServiceFile) {
+    const { rows, notes } = workbookRowsFromGeoPackage(source.bngServiceFile);
+    return { rows, notes, timingChanges: [] };
+  }
+  return importWorkbookRows(source.baselineFile, source.piFile);
+}
+
 function importContractFields(scenario) {
   return scenario.importCases
     ? { expectedImport: expectedImport(scenario.importCases) }
@@ -251,21 +220,32 @@ function syntheticOptions(scenario, seed) {
     seed: derivePermutationSeed(seed, scenario.id),
   };
 }
-function generateScenario(scenario, context) {
-  const { outDir, centre, seed, engine, workbook, saved, kept } = context;
-  const files = scenarioFiles(scenario);
-  if (!workbook) {
-    delete files.workbook;
-  }
+/** Generate the scenario's legacy pair in the corpus, and check it. */
+function generateLegacyScenario(scenario, files, { outDir, centre, seed }) {
   const piFile = path.join(outDir, files.postIntervention);
   const baselineFile = path.join(outDir, files.baseline);
   mkdirSync(path.dirname(piFile), { recursive: true });
-
   generateOne(piFile, centre, syntheticOptions(scenario, seed));
   deriveBaselineFromSynthetic(piFile, baselineFile);
   prepareImportTiming(piFile, scenario.importCases);
   verifyPair(baselineFile, piFile);
   verifySubject(piFile, scenario.subject);
+  return { source: { baselineFile, piFile }, checks: [] };
+}
+
+function generateScenario(scenario, context) {
+  const { outDir, engine, workbook, saved, kept, format } = context;
+  const files = scenarioFiles(scenario, format);
+  if (!workbook) {
+    delete files.workbook;
+  }
+  const { source, checks } =
+    format === FORMAT_BNG_SERVICE
+      ? generateBngServiceScenario(scenario, files, {
+          ...context,
+          plan: syntheticOptions(scenario, context.seed),
+        })
+      : generateLegacyScenario(scenario, files, context);
 
   const entry = {
     id: scenario.id,
@@ -277,14 +257,18 @@ function generateScenario(scenario, context) {
     files,
     ...importContractFields(scenario),
     gain: null,
-    checks: [],
+    checks,
   };
   if (scenario.expectGain) {
-    const { gain, check } = priceGain(engine, scenario, piFile);
+    const { gain, check } = priceGain(
+      engine,
+      scenario,
+      source.bngServiceFile ?? source.piFile,
+    );
     entry.gain = gain;
     entry.checks.push(check);
   }
-  if (workbook && writeWorkbook(entry, piFile, outDir, workbook, saved)) {
+  if (workbook && writeWorkbook(entry, source, outDir, workbook, saved)) {
     kept.add(entry.id);
   }
 
@@ -396,7 +380,7 @@ async function recalculateAll(entries, scenarios, { outDir, soffice, kept }) {
  * fingerprint of the source each was saved from. Read before the output
  * folder is cleared, so an unchanged one can be put back as it was.
  */
-function savedWorkbooks(outDir, scenarios) {
+function savedWorkbooks(outDir, scenarios, format) {
   const saved = new Map();
   const previous = readScenarioManifest(outDir);
   if (!previous?.recalculated) {
@@ -406,7 +390,7 @@ function savedWorkbooks(outDir, scenarios) {
     previous.scenarios.map((e) => [e.id, e.workbookSource]),
   );
   for (const scenario of scenarios) {
-    const file = path.join(outDir, scenarioFiles(scenario).workbook);
+    const file = path.join(outDir, scenarioFiles(scenario, format).workbook);
     const source = sources.get(scenario.id);
     if (source && existsSync(file)) {
       saved.set(scenario.id, { source, buffer: readFileSync(file) });
@@ -451,13 +435,17 @@ export function removeCorpusFiles(outDir, files) {
 
 /**
  * A filtered run replaces only the files of the scenarios it builds, so the
- * rest of the corpus survives it. All three names go, whether or not this run
- * writes a workbook.
+ * rest of the corpus survives it. Every name either format gives them goes,
+ * whether or not this run writes a workbook.
  */
 function clearScenarioFiles(outDir, scenarios) {
   removeCorpusFiles(
     outDir,
-    scenarios.flatMap((s) => Object.values(scenarioFiles(s))),
+    scenarios.flatMap((s) => [
+      ...Object.values(scenarioFiles(s, FORMAT_LEGACY)),
+      scenarioFiles(s, FORMAT_BNG_SERVICE).geoPackage,
+      scenarioFiles(s, FORMAT_BNG_SERVICE).baselineStage,
+    ]),
   );
 }
 
@@ -484,6 +472,10 @@ function reportFailedChecks(entries) {
  * @param {string} [options.soffice] LibreOffice binary
  * @param {boolean} [options.partial] a filtered run: replace only these
  *   scenarios' files rather than their whole purpose folders
+ * @param {string} [options.format] 'legacy' (the default): a baseline /
+ *   post-intervention pair per scenario; 'bng-service': one GeoPackage in
+ *   the BNG Service template format holding both stages, and its
+ *   baseline-stage file, drawn natively
  * @returns {Promise<object[]>} manifest entries, in catalogue order
  */
 export async function buildScenarioCorpus({
@@ -495,6 +487,7 @@ export async function buildScenarioCorpus({
   recalculate = false,
   soffice,
   partial = false,
+  format = FORMAT_LEGACY,
 }) {
   const workbook = templatePath ? loadTemplate(templatePath) : null;
   // Only the net-gain scenarios price habitats through the engine.
@@ -504,7 +497,9 @@ export async function buildScenarioCorpus({
 
   mkdirSync(outDir, { recursive: true });
   const saved =
-    workbook && recalculate ? savedWorkbooks(outDir, scenarios) : new Map();
+    workbook && recalculate
+      ? savedWorkbooks(outDir, scenarios, format)
+      : new Map();
   const kept = new Set();
   if (partial) {
     clearScenarioFiles(outDir, scenarios);
@@ -515,19 +510,26 @@ export async function buildScenarioCorpus({
   // bng-library logs a banner per file; silence it and print our own progress.
   setMode("silent");
   header("Generating scenarios", "cyan");
-  info(`  ${scenarios.length} scenario(s), seed ${seed} → ${outDir}`);
-  const entries = scenarios.map((scenario) =>
-    generateScenario(scenario, {
-      outDir,
-      centre,
-      seed,
-      engine,
-      workbook,
-      saved,
-      kept,
-    }),
+  info(
+    `  ${scenarios.length} scenario(s), seed ${seed}, ${format} format → ${outDir}`,
   );
-  setMode("cli");
+  let entries;
+  try {
+    entries = scenarios.map((scenario) =>
+      generateScenario(scenario, {
+        outDir,
+        centre,
+        seed,
+        engine,
+        workbook,
+        saved,
+        kept,
+        format,
+      }),
+    );
+  } finally {
+    setMode("cli");
+  }
 
   if (workbook && recalculate) {
     header("Recalculating the workbooks with LibreOffice", "cyan");
