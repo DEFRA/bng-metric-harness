@@ -244,10 +244,15 @@ describe("the built fixtures", () => {
   });
 });
 
-describe.skipIf(!CHECK_CONVERTED)("the converted BNG500 files", () => {
+// Read from the committed files, so they need no converter and run
+// everywhere: a bng-library repin that changes what the checks report fails
+// locally. Rebuilding them is the byte-for-byte test, gated above.
+describe("the committed BNG500 files", () => {
+  const committed = (recipe) => path.join(CORPUS, recipe.path);
+
   it("report exactly the issues their recipes list", () => {
     for (const recipe of CONVERTED) {
-      const file = built(recipe);
+      const file = committed(recipe);
       const lineage = [...new Set(checkLineage(file).map((p) => p.flaw))];
       expect(lineage, recipe.path).toEqual(recipe.knownIssues.lineage);
       const values = {};
@@ -265,7 +270,7 @@ describe.skipIf(!CHECK_CONVERTED)("the converted BNG500 files", () => {
 
   it("carry one template version record each", () => {
     for (const recipe of CONVERTED) {
-      expect(versionRecords(built(recipe)), recipe.path).toHaveLength(1);
+      expect(versionRecords(committed(recipe)), recipe.path).toHaveLength(1);
     }
   });
 });
