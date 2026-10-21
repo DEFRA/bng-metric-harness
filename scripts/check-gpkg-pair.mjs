@@ -27,6 +27,7 @@
  * and "Post-intervention - <name>.gpkg", and the permutation and BNG500
  * corpora's <name>-baseline.gpkg and <name>-post-intervention.gpkg. A legacy
  * file may leave a layer's table out; it is read as a layer with no rows.
+ * Paths must be inside the harness, where the corpus and test-data/ live.
  * Each pair is labelled by its baseline's path under --dir, so pairs that
  * share a name in different folders are told apart. A pair that cannot be
  * read (not a GeoPackage, say) is reported as failing, and the scan goes on.
@@ -38,6 +39,7 @@ import { readdirSync, existsSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { openGeoPackageReadonly } from "#gpkg-io";
+import { resolveInsideHarness } from "./_lib.mjs";
 import {
   COL_PARCEL_REF,
   COL_TREE_REF,
@@ -222,26 +224,26 @@ function checkPair(baselinePath, postPath) {
   }
 }
 
-// The names a pair's files take, each giving the pair's name and the side.
+// The names a pair's files take. Each names the pair (`name`, and `stamp`
+// for generate:gpkg's) and the stage (`side`).
 const PAIR_NAMES = [
   // generate:gpkg: <name>-baseline-20260101-1200-00.gpkg
-  { pattern: /^(.+)-(baseline|post-intervention)-(\d{8}-\d{4}-\d{2})\.gpkg$/, name: (m) => `${m[1]}|${m[3]}`, side: (m) => m[2] },
+  /^(?<name>.+)-(?<side>baseline|post-intervention)-(?<stamp>\d{8}-\d{4}-\d{2})\.gpkg$/,
   // The curated corpus: "Baseline - <name>.gpkg", "Post-intervention - <name>.gpkg"
-  { pattern: /^(Baseline|Post-intervention) - (.+)\.gpkg$/, name: (m) => m[2], side: (m) => m[1].toLowerCase() },
+  /^(?<side>Baseline|Post-intervention) - (?<name>.+)\.gpkg$/,
   // The permutation and BNG500 corpora: <name>-baseline.gpkg
-  { pattern: /^(.+)-(baseline|post-intervention)\.gpkg$/, name: (m) => m[1], side: (m) => m[2] },
+  /^(?<name>.+)-(?<side>baseline|post-intervention)\.gpkg$/,
 ];
 
 /** The pair a file belongs to, as { key, side }, or null if it is no pair's. */
 function pairSide(relativePath) {
   const fileName = path.basename(relativePath);
-  for (const { pattern, name, side } of PAIR_NAMES) {
-    const m = fileName.match(pattern);
-    if (m) {
-      return { key: `${path.dirname(relativePath)}|${name(m)}`, side: side(m) };
-    }
+  const match = PAIR_NAMES.map((pattern) => pattern.exec(fileName)).find(Boolean);
+  if (!match) {
+    return null;
   }
-  return null;
+  const { name, side, stamp = "" } = match.groups;
+  return { key: [path.dirname(relativePath), name, stamp].join("|"), side: side.toLowerCase() };
 }
 
 /** Every baseline / post-intervention pair under `dir`, in path order. */
@@ -260,9 +262,22 @@ function findPairs(dir) {
   return [...pairs.values()].filter((p) => p.baseline && p["post-intervention"]);
 }
 
+/** A path inside the harness, where the corpus and test-data/ live; exits if not. */
+function insideHarnessOrExit(target, flag) {
+  try {
+    return resolveInsideHarness(target, flag);
+  } catch (err) {
+    console.error(err.message);
+    process.exit(1);
+  }
+}
+
+// --dir, resolved inside the harness; empty when files are named instead.
+const scanDir = args.dir ? insideHarnessOrExit(args.dir, "--dir") : "";
+
 function resolvePairsFromArgs() {
-  if (args.dir) {
-    const pairs = findPairs(args.dir).map((p) => [p.baseline, p["post-intervention"]]);
+  if (scanDir) {
+    const pairs = findPairs(scanDir).map((p) => [p.baseline, p["post-intervention"]]);
     if (pairs.length === 0) {
       console.error(`No baseline / post-intervention pairs found in ${args.dir}`);
       process.exit(1);
@@ -274,7 +289,7 @@ function resolvePairsFromArgs() {
     console.error("   or: node scripts/check-gpkg-pair.mjs --dir test-data/");
     process.exit(1);
   }
-  return [positionals];
+  return [positionals.map((file) => insideHarnessOrExit(file, "file"))];
 }
 
 /**
@@ -282,7 +297,7 @@ function resolvePairsFromArgs() {
  * so same-named pairs in different folders read differently.
  */
 function pairLabel(baselinePath, postPath) {
-  const baseline = args.dir ? path.relative(args.dir, baselinePath) : baselinePath;
+  const baseline = scanDir ? path.relative(scanDir, baselinePath) : baselinePath;
   return `${baseline} ↔ ${path.basename(postPath)}`;
 }
 
