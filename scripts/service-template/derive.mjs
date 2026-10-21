@@ -10,7 +10,8 @@
 const GEOMETRY_COLUMN = "geom";
 
 const quote = (name) => `"${name.replaceAll('"', '""')}"`;
-const escapeRegExp = (text) => text.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegExp = (text) =>
+  text.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
 function tableSql(db, table) {
   const row = db

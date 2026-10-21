@@ -22,7 +22,14 @@ npm run generate:service-template -- --only valid/default-site.gpkg # one file
 ```
 
 A test (`tests/scripts/service-template/corpus.test.mjs`) rebuilds the
-whole corpus and compares it with these files byte for byte.
+whole corpus and compares it with these files byte for byte, but for the
+SQLite version each GeoPackage's header records. A bng-library repin that
+changes a fixture, or a SQLite (better-sqlite3) upgrade that changes how
+files are laid out, fails it until the corpus is regenerated and committed.
+
+**Expected** is the outcome BMD-1081 asks for. Where the service does not
+give it yet, the cell says what it does today, so a tester can tell a gap
+in the service from a failure.
 
 `npm run check:lineage -- --dir example-files/service-template` passes every
 file but `malformed/not-a-geopackage.gpkg`, which it reports as unreadable,
@@ -113,9 +120,9 @@ Valid schema and geometry: an attribute value trips a later validator, or a habi
 | `missing-habitat-ref.gpkg` | a habitat parcel whose Parcel Ref is only spaces | HABITAT_REF_MISSING | seed 1, flaw `missing-habitat-ref` |
 | `habitat-ref-invalid-characters.gpkg` | a habitat parcel whose Parcel Ref holds the character a decoder puts in place of invalid UTF-8 | HABITAT_REF_INVALID_CHARACTERS | seed 1, flaw `habitat-ref-invalid-characters` |
 | `advance-delay-both-set.gpkg` | a created habitat carries both advance and delayed creation years | ADVANCE_AND_DELAY_BOTH_SET | seed 1, flaw `advance-delay-both-set` |
-| `degrade-advance-missing.gpkg` | a hedgerow that gets worse (Created in its own type, linked to its parent, in a lower condition) has no years created in advance, where the Metric asks for 30 plus | (accepted; the service does not check habitats that get worse yet) | seed 1, flaw `degrade-advance-missing` |
-| `degrade-not-worse.gpkg` | a same-type creation that is not worse: a hedgerow Created in its own type, linked to its parent, with 30+ years in advance, in its baseline condition (a 30+ on a row that does not get worse overstates its units) | (accepted; the service does not check habitats that get worse yet) | seed 1, flaw `degrade-not-worse` |
-| `degrade-watercourse-retained-and-created.gpkg` | a baseline watercourse has both a Retained and a Created post-intervention part. The template records part of a stretch changing by splitting it at the baseline survey, as the service cannot measure part of a watercourse | (accepted; the service does not check habitats that get worse yet) | seed 1, flaw `degrade-watercourse-retained-and-created` |
+| `degrade-advance-missing.gpkg` | a hedgerow that gets worse (Created in its own type, linked to its parent, in a lower condition) has no years created in advance, where the Metric asks for 30 plus | refused. Accepted today: the service does not check habitats that get worse yet | seed 1, flaw `degrade-advance-missing` |
+| `degrade-not-worse.gpkg` | a same-type creation that is not worse: a hedgerow Created in its own type, linked to its parent, with 30+ years in advance, in its baseline condition (a 30+ on a row that does not get worse overstates its units) | refused. Accepted today: the service does not check habitats that get worse yet | seed 1, flaw `degrade-not-worse` |
+| `degrade-watercourse-retained-and-created.gpkg` | a baseline watercourse has both a Retained and a Created post-intervention part. The template records part of a stretch changing by splitting it at the baseline survey, as the service cannot measure part of a watercourse | refused. Accepted today: the service does not check habitats that get worse yet | seed 1, flaw `degrade-watercourse-retained-and-created` |
 
 ## lineage-problems/
 
@@ -127,7 +134,7 @@ A post-intervention feature names its baseline parent wrongly. `npm run check:li
 | `lineage-parent-unknown.gpkg` | a Retained area habitat names a parent, by Parent Ref and parent_uuid, that is not in the baseline | STAGED_UNKNOWN_PARENT_REF | seed 1, flaw `lineage-parent-unknown` |
 | `lineage-parent-wrong.gpkg` | a Retained area habitat names another baseline parcel as its parent, so it lies outside the parent it names | STAGED_PI_OUTSIDE_PARENT | seed 1, flaw `lineage-parent-wrong` |
 | `lineage-parent-geom-mismatch.gpkg` | a Retained area habitat's parent_geom is its parent's shape moved 5 m, as if the baseline changed after the copy | STAGED_BASELINE_DRIFTED | seed 1, flaw `lineage-parent-geom-mismatch` |
-| `lineage-parent-geom-missing.gpkg` | a Retained area habitat names its parent by Parent Ref and parent_uuid, but has no parent_geom, so the parent's shape cannot be compared | (accepted; the service skips the shape check without parent_geom) | seed 1, flaw `lineage-parent-geom-missing` |
+| `lineage-parent-geom-missing.gpkg` | a Retained area habitat names its parent by Parent Ref and parent_uuid, but has no parent_geom, so the parent's shape cannot be compared | refused. Accepted today: the service skips the shape check on a linked row with no parent_geom | seed 1, flaw `lineage-parent-geom-missing` |
 
 ## incomplete/
 
@@ -135,8 +142,8 @@ A watercourse that gets worse is recorded in a way the service saves as Incomple
 
 | File | Covers | Expected | Built from |
 | ---- | ------ | -------- | ---------- |
-| `degrade-watercourse-advance-not-encroachment.gpkg` | a watercourse whose condition gets worse, with no change of encroachment, is created 10 years in advance, which the Metric allows only where encroachment increases with no other impact | (accepted; the service does not check habitats that get worse yet) | seed 1, flaw `degrade-watercourse-advance-not-encroachment` |
-| `degrade-watercourse-encroachment-no-advance.gpkg` | a watercourse whose only change is more encroachment has no years created in advance, though the Metric allows 10 or more for it | (accepted; the service does not check habitats that get worse yet) | seed 1, flaw `degrade-watercourse-encroachment-no-advance` |
+| `degrade-watercourse-advance-not-encroachment.gpkg` | a watercourse whose condition gets worse, with no change of encroachment, is created 10 years in advance, which the Metric allows only where encroachment increases with no other impact | saved as Incomplete. Accepted today: the service does not check habitats that get worse yet | seed 1, flaw `degrade-watercourse-advance-not-encroachment` |
+| `degrade-watercourse-encroachment-no-advance.gpkg` | a watercourse whose only change is more encroachment has no years created in advance, though the Metric allows 10 or more for it | saved as Incomplete. Accepted today: the service does not check habitats that get worse yet | seed 1, flaw `degrade-watercourse-encroachment-no-advance` |
 
 ## version-problems/
 
@@ -144,9 +151,9 @@ The template version record is missing, doubled or unsupported.
 
 | File | Covers | Expected | Built from |
 | ---- | ------ | -------- | ---------- |
-| `version-record-missing.gpkg` | the GeoPackage has no template version record | (refused; the service does not check the version yet) | seed 1, flaw `version-record-missing` |
-| `version-record-duplicated.gpkg` | the GeoPackage has two template version records | (refused; the service does not check the version yet) | seed 1, flaw `version-record-duplicated` |
-| `version-unsupported.gpkg` | the template version record names a version the service does not support (the next major version after 1.0) | (refused; the service does not check the version yet) | seed 1, flaw `version-unsupported` |
+| `version-record-missing.gpkg` | the GeoPackage has no template version record | refused (BMD-1082). Accepted today: the service does not check the version record yet | seed 1, flaw `version-record-missing` |
+| `version-record-duplicated.gpkg` | the GeoPackage has two template version records | refused (BMD-1082). Accepted today: the service does not check the version record yet | seed 1, flaw `version-record-duplicated` |
+| `version-unsupported.gpkg` | the template version record names a version the service does not support (the next major version after 1.0) | refused (BMD-1082). Accepted today: the service does not check the version record yet | seed 1, flaw `version-unsupported` |
 
 ## malformed/
 

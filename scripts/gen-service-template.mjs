@@ -80,12 +80,14 @@ function outDirOrExit() {
   if (!args.outdir) {
     return DEFAULT_OUTDIR;
   }
+  let outDir = null;
   try {
-    return resolveInsideHarness(args.outdir, "--outdir");
+    outDir = resolveInsideHarness(args.outdir, "--outdir");
   } catch (err) {
     error(err.message);
     process.exit(1);
   }
+  return outDir;
 }
 
 function listRecipes(recipes) {

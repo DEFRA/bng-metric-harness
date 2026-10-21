@@ -21,6 +21,7 @@ import {
   buildRecipe,
   familyFiles,
   removeStaleFiles,
+  sameFixture,
 } from "../../../scripts/service-template/build.mjs";
 import { renderReadme } from "../../../scripts/service-template/readme.mjs";
 import {
@@ -104,10 +105,13 @@ describe("the committed service-template corpus", () => {
       const committed = path.join(CORPUS, recipe.path);
       return (
         !existsSync(committed) ||
-        !readFileSync(committed).equals(readFileSync(built(recipe)))
+        !sameFixture(readFileSync(committed), readFileSync(built(recipe)))
       );
     }).map((r) => r.path);
-    expect(differ).toEqual([]);
+    expect(
+      differ,
+      "Regenerate the corpus with `npm run generate:service-template` and commit it, if the change is meant (a bng-library repin, or a SQLite upgrade that changes how files are laid out)",
+    ).toEqual([]);
   });
 
   it("holds no file a recipe does not build", () => {
@@ -204,6 +208,36 @@ describe("the built fixtures", () => {
         built(recipeFor("filename-problems/default site [invalid chars].gpkg")),
       ).equals(readFileSync(built(recipeFor("valid/default-site.gpkg")))),
     ).toBe(true);
+  });
+});
+
+describe("sameFixture", () => {
+  const file = readFileSync(path.join(CORPUS, "valid/default-site.gpkg"));
+
+  it("ignores the SQLite version a GeoPackage's header records", () => {
+    const upgraded = Buffer.from(file);
+    upgraded.writeUInt32BE(3_099_000, 96);
+    upgraded.writeUInt32BE(9, 92);
+    expect(upgraded.equals(file)).toBe(false);
+    expect(sameFixture(upgraded, file)).toBe(true);
+  });
+
+  it("tells apart files that differ anywhere else", () => {
+    const changed = Buffer.from(file);
+    changed[changed.length - 1] ^= 1;
+    expect(sameFixture(changed, file)).toBe(false);
+    const counter = Buffer.from(file);
+    counter[24] ^= 1;
+    expect(sameFixture(counter, file)).toBe(false);
+  });
+
+  it("compares a file that is not SQLite byte for byte", () => {
+    expect(
+      sameFixture(Buffer.from("not a gpkg"), Buffer.from("not a gpkg")),
+    ).toBe(true);
+    expect(
+      sameFixture(Buffer.from("not a gpkg"), Buffer.from("not a gpkh")),
+    ).toBe(false);
   });
 });
 

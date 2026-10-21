@@ -104,18 +104,44 @@ function flawInfo(name) {
   return flaw;
 }
 
+const DEGRADE_NOT_CHECKED =
+  "Accepted today: the service does not check habitats that get worse yet";
+const VERSION_NOT_CHECKED =
+  "Accepted today: the service does not check the version record yet";
+
+/**
+ * The outcome BMD-1081 asks for, where the service does not give it yet.
+ * bng-library's note on these flaws describes today's behaviour, which reads
+ * as the expectation in a README, so each says both.
+ */
+const NOT_ENFORCED_YET = {
+  "lineage-parent-geom-missing":
+    "refused. Accepted today: the service skips the shape check on a linked row with no parent_geom",
+  "degrade-advance-missing": `refused. ${DEGRADE_NOT_CHECKED}`,
+  "degrade-not-worse": `refused. ${DEGRADE_NOT_CHECKED}`,
+  "degrade-watercourse-retained-and-created": `refused. ${DEGRADE_NOT_CHECKED}`,
+  "degrade-watercourse-advance-not-encroachment": `saved as Incomplete. ${DEGRADE_NOT_CHECKED}`,
+  "degrade-watercourse-encroachment-no-advance": `saved as Incomplete. ${DEGRADE_NOT_CHECKED}`,
+  "version-record-missing": `refused (BMD-1082). ${VERSION_NOT_CHECKED}`,
+  "version-record-duplicated": `refused (BMD-1082). ${VERSION_NOT_CHECKED}`,
+  "version-unsupported": `refused (BMD-1082). ${VERSION_NOT_CHECKED}`,
+};
+
 function generated(path, covers, expected, options) {
   return { path, kind: KIND_GENERATED, covers, expected, options };
 }
 
-/** A file that carries one flaw, named for it, expecting the flaw's error. */
+/**
+ * A file that carries one flaw, named for it, expecting the flaw's error, or
+ * the outcome asked for where the service does not enforce it yet.
+ */
 function flawFixture(dir, name, options = {}) {
   const flaw = flawInfo(name);
   const suffix = options.stage === STAGE_BASELINE ? "-baseline" : "";
   return generated(
     `${dir}/${name}${suffix}.gpkg`,
     flaw.description,
-    flaw.errorCode,
+    NOT_ENFORCED_YET[name] ?? flaw.errorCode,
     { seed: SEED, flaws: [name], ...options },
   );
 }

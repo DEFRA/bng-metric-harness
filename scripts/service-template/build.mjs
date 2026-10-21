@@ -8,7 +8,6 @@ import {
   copyFileSync,
   mkdirSync,
   readdirSync,
-  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -102,7 +101,30 @@ export function removeStaleFiles(outDir) {
   return stale;
 }
 
-/** Read a built fixture, for comparing one build with another. */
-export function readFixture(outDir, recipe) {
-  return readFileSync(path.join(outDir, recipe.path));
+const SQLITE_HEADER = Buffer.from("SQLite format 3\0", "latin1");
+// Bytes 92-99 of a SQLite file header record the SQLite version that last
+// wrote it (version-valid-for and SQLITE_VERSION_NUMBER), not its content.
+const VERSION_BYTES_START = 92;
+const VERSION_BYTES_END = 100;
+
+function withoutSqliteVersion(buffer) {
+  if (
+    buffer.length < VERSION_BYTES_END ||
+    !buffer.subarray(0, SQLITE_HEADER.length).equals(SQLITE_HEADER)
+  ) {
+    return buffer;
+  }
+  const copy = Buffer.from(buffer);
+  copy.fill(0, VERSION_BYTES_START, VERSION_BYTES_END);
+  return copy;
+}
+
+/**
+ * Whether two builds of a fixture are the same file: byte for byte, but for
+ * the SQLite version a GeoPackage's header records, so a better-sqlite3
+ * upgrade alone does not make the committed corpus differ. One that changes
+ * how SQLite lays out a file does, and the corpus is then regenerated.
+ */
+export function sameFixture(a, b) {
+  return withoutSqliteVersion(a).equals(withoutSqliteVersion(b));
 }

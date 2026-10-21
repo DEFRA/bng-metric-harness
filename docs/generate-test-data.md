@@ -283,8 +283,10 @@ npm run generate:service-template -- --only valid/default-site.gpkg
 ```
 
 A test rebuilds the whole corpus and compares it with the committed files byte
-for byte, so a change to bng-library that alters a fixture fails until the
-corpus is regenerated. Its `permutations/` folder is the scenario corpus,
+for byte, but for the SQLite version each file's header records. A change to
+bng-library that alters a fixture, or a SQLite (better-sqlite3) upgrade that
+changes how files are laid out, fails it until the corpus is regenerated and
+committed. Its `permutations/` folder is the scenario corpus,
 built by `generate:scenarios -- --format bng-service` (see
 [Scenario corpus](generate-scenarios.md)).
 
