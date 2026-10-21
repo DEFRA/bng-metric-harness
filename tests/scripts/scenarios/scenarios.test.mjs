@@ -11,15 +11,28 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "vitest";
+import {
+  FORMAT_BNG_SERVICE,
   PERMUTATION_DEFAULT_SIZE as DEFAULT_SIZE,
+  PERMUTATION_SCENARIOS,
+  generateBngServiceSynthetic,
   generateOne,
   setMode,
 } from "#bng-lib";
+import { openGeoPackageReadonly } from "#gpkg-io";
 import {
   HARNESS_PURPOSES as PURPOSES,
   HARNESS_SCENARIOS as SCENARIOS,
+  catalogueFor,
 } from "../../../scripts/scenarios/catalogue.mjs";
 import { HARNESS_ROOT } from "../../../scripts/_lib.mjs";
 import { DEFAULT_CENTRE } from "../../../scripts/centre.mjs";
@@ -97,7 +110,10 @@ describe("scenario catalogue integrity", () => {
 describe("scenarioFiles", () => {
   it("files a scenario in its purpose folder, without repeating the purpose", () => {
     expect(
-      scenarioFiles({ id: "intervention-area-created", purpose: "intervention" }),
+      scenarioFiles({
+        id: "intervention-area-created",
+        purpose: "intervention",
+      }),
     ).toEqual({
       baseline: path.join("intervention", "area-created-baseline.gpkg"),
       postIntervention: path.join(
@@ -106,6 +122,37 @@ describe("scenarioFiles", () => {
       ),
       workbook: path.join("intervention", "area-created.xlsx"),
     });
+  });
+
+  it("files one GeoPackage per scenario in the BNG Service format", () => {
+    expect(
+      scenarioFiles(
+        { id: "intervention-area-created", purpose: "intervention" },
+        FORMAT_BNG_SERVICE,
+      ),
+    ).toEqual({
+      geoPackage: path.join("intervention", "area-created.gpkg"),
+      baselineStage: path.join("intervention", "area-created-baseline.gpkg"),
+      workbook: path.join("intervention", "area-created.xlsx"),
+    });
+  });
+});
+
+describe("catalogueFor", () => {
+  it("gives the legacy corpus the harness catalogue, import timing included", () => {
+    expect(catalogueFor("legacy")).toEqual({
+      scenarios: SCENARIOS,
+      purposes: PURPOSES,
+    });
+  });
+
+  it("gives the BNG Service corpus the library's catalogue in that format", () => {
+    const { scenarios, purposes } = catalogueFor(FORMAT_BNG_SERVICE);
+    const ids = scenarios.map((s) => s.id);
+    expect(ids).not.toContain("trees-count-above-one");
+    expect(purposes).not.toContain("import-timing");
+    expect(scenarios.some((s) => s.importCases)).toBe(false);
+    expect(ids.length).toBeGreaterThan(50);
   });
 });
 
@@ -134,6 +181,37 @@ describe("engine-accurate net gain", () => {
     });
     return file;
   };
+
+  it.each(["net-gain-met", "net-gain-unmet"])(
+    "prices %s the same from the BNG Service file as from the legacy one",
+    (id) => {
+      const scenario = PERMUTATION_SCENARIOS.find((s) => s.id === id);
+      const plan = {
+        numParcels: scenario.size ?? DEFAULT_SIZE,
+        numTrees: scenario.treeCount,
+        emptyLayers: new Set(scenario.emptyLayers ?? []),
+        attributeOverrides: scenario.overrides ?? {},
+        seed: 1,
+      };
+      const legacyFile = path.join(outDir, `${id}-legacy.gpkg`);
+      const bngFile = path.join(outDir, `${id}-bng-service.gpkg`);
+      generateOne(legacyFile, DEFAULT_CENTRE, {
+        ...plan,
+        habitatFilter: () => true,
+      });
+      generateBngServiceSynthetic(bngFile, DEFAULT_CENTRE, plan, {
+        templateFeatures: false,
+      });
+      const legacy = priceHabitats(engine, legacyFile);
+      const bng = priceHabitats(engine, bngFile);
+      expect(meetsNetGain(bng.netGainPercentage)).toBe(
+        scenario.expectGain === "met",
+      );
+      expect(bng.skipped).toBe(legacy.skipped);
+      // Legacy areas are whole square metres; the BNG Service ones are exact.
+      expect(bng.netGainPercentage).toBeCloseTo(legacy.netGainPercentage, 1);
+    },
+  );
 
   it("prices an all-retained fixture at ~0% (unmet)", () => {
     const file = generate(
@@ -210,8 +288,14 @@ describe("buildScenarioCorpus — GeoPackages only", () => {
   });
 
   it("replaces only its own scenarios' files on a filtered run", async () => {
-    await build(pick("intervention-area-retained", "intervention-area-created"));
-    const sibling = path.join(outDir, "intervention", "area-created-baseline.gpkg");
+    await build(
+      pick("intervention-area-retained", "intervention-area-created"),
+    );
+    const sibling = path.join(
+      outDir,
+      "intervention",
+      "area-created-baseline.gpkg",
+    );
     const ours = path.join(outDir, "intervention", "notes.txt");
     writeFileSync(ours, "ours");
     await buildScenarioCorpus({
@@ -224,7 +308,9 @@ describe("buildScenarioCorpus — GeoPackages only", () => {
     expect(existsSync(sibling)).toBe(true);
     expect(existsSync(ours)).toBe(true);
     expect(
-      existsSync(path.join(outDir, "intervention", "area-retained-baseline.gpkg")),
+      existsSync(
+        path.join(outDir, "intervention", "area-retained-baseline.gpkg"),
+      ),
     ).toBe(true);
   });
 
@@ -261,6 +347,78 @@ describe("buildScenarioCorpus — GeoPackages only", () => {
   it("produces different fixtures for a different seed", async () => {
     expect(await hashRun(7)).not.toBe(await hashRun(8));
   });
+});
+
+describe("buildScenarioCorpus — the BNG Service format", () => {
+  let outDir;
+
+  beforeEach(() => {
+    outDir = tempDir("scn-bng-");
+  });
+
+  afterEach(() => {
+    rmSync(outDir, { recursive: true, force: true });
+  });
+
+  it(
+    "draws each scenario natively: both stages, and the baseline stage, and no legacy file",
+    async () => {
+      const { scenarios } = catalogueFor(FORMAT_BNG_SERVICE);
+      const entries = await buildScenarioCorpus({
+        scenarios,
+        outDir,
+        centre: DEFAULT_CENTRE,
+        seed: 1,
+        format: FORMAT_BNG_SERVICE,
+      });
+      const failed = entries.flatMap((e) => e.checks.filter((c) => !c.passed));
+      expect(failed).toEqual([]);
+      for (const entry of entries) {
+        expect(Object.keys(entry.files)).toEqual([
+          "geoPackage",
+          "baselineStage",
+        ]);
+        for (const file of Object.values(entry.files)) {
+          expect(existsSync(path.join(outDir, file)), file).toBe(true);
+        }
+        const names = entry.checks.map((c) => c.check);
+        expect(names).toContain(
+          "every post-intervention feature names its parent",
+        );
+        // A valid scenario is checked against the template's drop-downs; an
+        // invalid one breaks a rule on purpose.
+        expect(
+          names.includes("every value one the BNG Service template offers"),
+          entry.id,
+        ).toBe(!entry.id.startsWith("invalid-"));
+      }
+      // Nothing in the legacy layout is written, not even to work from.
+      const files = readdirSync(outDir, { recursive: true });
+      expect(
+        files.filter((f) => f.endsWith("-post-intervention.gpkg")),
+      ).toEqual([]);
+      expect(files.filter((f) => f.startsWith("."))).toEqual([]);
+      const count = (file, table) => {
+        const db = openGeoPackageReadonly(path.join(outDir, file));
+        try {
+          return db.prepare(`SELECT COUNT(*) AS n FROM "${table}"`).get().n;
+        } finally {
+          db.close();
+        }
+      };
+      const [first] = entries;
+      expect(
+        count(first.files.geoPackage, "Area Habitats Post-Intervention"),
+      ).toBeGreaterThan(0);
+      expect(
+        count(first.files.baselineStage, "Area Habitats Baseline"),
+      ).toBeGreaterThan(0);
+      expect(
+        count(first.files.baselineStage, "Area Habitats Post-Intervention"),
+      ).toBe(0);
+    },
+    CATALOGUE_TIMEOUT_MS,
+  );
 });
 
 describe("writeScenarioManifest", () => {
@@ -338,6 +496,25 @@ describe("writeScenarioManifest", () => {
     expect(manifest.corrections).toEqual([]);
     expect(manifest.recalculated).toBe(false);
   });
+
+  it("records the format, legacy unless told otherwise", () => {
+    const { metric, ...gpkgOnly } = entry;
+    const legacy = writeScenarioManifest(dir, { entries: [gpkgOnly], seed: 7 });
+    expect(JSON.parse(readFileSync(legacy.manifestPath, "utf8")).format).toBe(
+      "legacy",
+    );
+    const bng = writeScenarioManifest(dir, {
+      entries: [gpkgOnly],
+      seed: 7,
+      format: FORMAT_BNG_SERVICE,
+    });
+    expect(JSON.parse(readFileSync(bng.manifestPath, "utf8")).format).toBe(
+      FORMAT_BNG_SERVICE,
+    );
+    expect(readFileSync(bng.indexPath, "utf8")).toContain(
+      "BNG Service template format",
+    );
+  });
 });
 
 describe("merging a filtered run into a corpus", () => {
@@ -358,13 +535,33 @@ describe("merging a filtered run into a corpus", () => {
     expect(corpusConflicts(corpus, { ...fits, seed: 2 })).toEqual([
       "seed 2, but the corpus has seed 1",
     ]);
-    expect(corpusConflicts(corpus, { ...fits, recalculate: false })).toHaveLength(1);
     expect(
-      corpusConflicts(corpus, { seed: 1, templatePath: null, recalculate: false }),
-    ).toEqual(["template none (--no-workbooks), but the corpus has metric.xlsx"]);
-    expect(
-      corpusConflicts({ ...corpus, corrections: [] }, fits),
+      corpusConflicts(corpus, { ...fits, recalculate: false }),
     ).toHaveLength(1);
+    expect(
+      corpusConflicts(corpus, {
+        seed: 1,
+        templatePath: null,
+        recalculate: false,
+      }),
+    ).toEqual([
+      "template none (--no-workbooks), but the corpus has metric.xlsx",
+    ]);
+    expect(corpusConflicts({ ...corpus, corrections: [] }, fits)).toHaveLength(
+      1,
+    );
+  });
+
+  it("treats a corpus with no format as legacy, and refuses another format", () => {
+    expect(
+      corpusConflicts(corpus, { ...fits, format: FORMAT_BNG_SERVICE }),
+    ).toEqual(["format bng-service, but the corpus has format legacy"]);
+    expect(
+      corpusConflicts(
+        { ...corpus, format: FORMAT_BNG_SERVICE },
+        { ...fits, format: FORMAT_BNG_SERVICE },
+      ),
+    ).toEqual([]);
   });
 
   it("replaces regenerated entries in catalogue order and drops retired ones", () => {
@@ -436,8 +633,12 @@ describe("generate:scenarios — filtered runs", () => {
     const before = readFileSync(path.join(outDir, "manifest.json"), "utf8");
     const run = cli("--only", "conditions", "--seed", "6");
     expect(run.status).toBe(1);
-    expect(run.stderr + run.stdout).toContain("seed 6, but the corpus has seed 5");
-    expect(readFileSync(path.join(outDir, "manifest.json"), "utf8")).toBe(before);
+    expect(run.stderr + run.stdout).toContain(
+      "seed 6, but the corpus has seed 5",
+    );
+    expect(readFileSync(path.join(outDir, "manifest.json"), "utf8")).toBe(
+      before,
+    );
     expect(
       existsSync(path.join(outDir, "conditions", "area-spread-baseline.gpkg")),
     ).toBe(true);
@@ -484,7 +685,9 @@ describe.skipIf(!hasTemplate)("buildScenarioCorpus — with workbooks", () => {
       expect(folder).toContain(path.basename(entry.files.baseline));
     }
     // H001's pinned enhancement; its other parcel is pinned Retained.
-    const tradingDown = entries.find((e) => e.id === "invalid-area-trading-down");
+    const tradingDown = entries.find(
+      (e) => e.id === "invalid-area-trading-down",
+    );
     expect(tradingDown.inputRows.habitatEnhancement).toBe(1);
   });
 

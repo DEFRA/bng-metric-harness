@@ -1,4 +1,9 @@
-import { PERMUTATION_PURPOSES, PERMUTATION_SCENARIOS } from "#bng-lib";
+import {
+  FORMAT_BNG_SERVICE,
+  PERMUTATION_PURPOSES,
+  PERMUTATION_SCENARIOS,
+  scenarioInFormat,
+} from "#bng-lib";
 
 const REFERENCE_NUMBER_WIDTH = 3;
 const LOW = "Area/compensation not in local strategy/ no local strategy";
@@ -146,3 +151,25 @@ export const HARNESS_SCENARIOS = [
   ...additions,
 ];
 export const HARNESS_PURPOSES = [...PERMUTATION_PURPOSES, "import-timing"];
+
+/**
+ * The scenarios and purposes a corpus in `format` holds. The legacy corpus
+ * holds the harness catalogue above. The BNG Service corpus holds the
+ * library's catalogue, less any scenario that lists only other formats
+ * (`scenarioInFormat`); the harness's import-timing scenarios stay legacy
+ * only, as they work by editing a legacy file after it is generated.
+ */
+export function catalogueFor(format) {
+  if (format !== FORMAT_BNG_SERVICE) {
+    return { scenarios: HARNESS_SCENARIOS, purposes: HARNESS_PURPOSES };
+  }
+  const scenarios = PERMUTATION_SCENARIOS.filter((scenario) =>
+    scenarioInFormat(scenario, format),
+  );
+  return {
+    scenarios,
+    purposes: PERMUTATION_PURPOSES.filter((purpose) =>
+      scenarios.some((scenario) => scenario.purpose === purpose),
+    ),
+  };
+}

@@ -52,6 +52,41 @@ checked too (see *Scenario expectations*), and every workbook is linted for
 the faults Excel would "repair" on opening (see *Opening the workbooks in
 Excel*). A failed check is reported and the command exits non-zero.
 
+### The BNG Service template format
+
+`--format bng-service` writes each scenario in the BNG Service QGIS template's
+format (BMD-1080) instead of the legacy pair: **one GeoPackage holding both
+stages**, and its **baseline-stage file** (the same tables, Post-Intervention
+empty), with the metric workbook as before:
+
+```sh
+npm run generate:scenarios -- --format bng-service --outdir example-files/service-template/permutations --seed 1
+# → example-files/service-template/permutations/<purpose>/<scenario>.gpkg
+# → example-files/service-template/permutations/<purpose>/<scenario>-baseline.gpkg
+# → example-files/service-template/permutations/<purpose>/<scenario>.xlsx
+```
+
+bng-library draws each scenario natively, from the same seed derivation as the
+legacy corpus: no legacy file is written. A scenario holds exactly what it
+pins: none of the vertical habitats, comments or habitats that get worse a
+default synthetic site adds. The engine's net-gain check, the workbook and the
+checks all read the combined file, so the workbook describes the file a user
+would upload. Each scenario is also checked for lineage (`checkLineage`: every
+post-intervention feature names its parent), and each valid one against the
+template's own drop-downs (`checkTemplateValues`); an `invalid-` scenario
+breaks a rule on purpose, so it is not.
+
+The BNG Service corpus holds the library's catalogue, less any scenario that
+lists only other formats (`trees-count-above-one`, until tree counts are
+decided). The harness's three import-timing scenarios stay legacy only: they
+work by editing a legacy file after it is generated.
+
+`example-files/service-template/permutations/` holds a full run at seed 1,
+refreshed with the command above. `manifest.json` records the format, and a
+filtered run is refused in a folder holding the other format.
+`npm run compare:metric` still reads the legacy corpus in
+`example-files/permutations/`.
+
 ### GeoPackages only
 
 `--no-workbooks` skips the workbooks: no template and no LibreOffice are
@@ -409,6 +444,7 @@ against it.
 | `--only PURPOSE` | One purpose only, merged into the existing corpus (see below) |
 | `--scenario ID` | One scenario only (repeatable), merged into the existing corpus (see below) |
 | `--outdir DIR` | Output folder (default `test-data/scenarios`); must be inside the harness |
+| `--format F` | `legacy` (default): a baseline / post-intervention pair per scenario; `bng-service`: per scenario, one BNG Service GeoPackage holding both stages and its baseline-stage file, drawn natively (see above) |
 | `--seed N` | Run seed, for byte-identical GeoPackages. Defaults to a random seed, which is recorded in the manifest so a run can be repeated; a filtered run defaults to the existing corpus's seed. Each scenario derives its own seed from it, so a fixture reproduces however many scenarios you run |
 | `--centre E,N` | Red Line Boundary centre, BNG/EPSG:27700 (default `530000,180000`) |
 | `--no-workbooks` | GeoPackages only: no template, no LibreOffice |

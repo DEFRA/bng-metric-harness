@@ -37,8 +37,7 @@ function fullName(broad, type) {
  * gpkg retention category. Returns null if the engine cannot price the row
  * (e.g. an intentionally incomplete row with a blank proposed condition).
  */
-function postInterventionUnits(engine, row) {
-  const sizeHa = row.Area / SQ_METRES_PER_HECTARE;
+function postInterventionUnits(engine, row, sizeHa) {
   const baseline = fullName(
     row["Baseline Broad Habitat Type"],
     row["Baseline Habitat Type"],
@@ -52,8 +51,7 @@ function postInterventionUnits(engine, row) {
   const retention = row["Retention Category"];
   const { advanceYears: advance, delayYears: delay } = metricTiming(
     retention,
-    row["Habitat created in advance/years"],
-    row["Delay in starting habitat creation/years"],
+    ...row.timing,
   );
 
   if (retention === RETAINED) {
@@ -89,8 +87,7 @@ function postInterventionUnits(engine, row) {
   return null;
 }
 
-function baselineUnits(engine, row) {
-  const sizeHa = row.Area / SQ_METRES_PER_HECTARE;
+function baselineUnits(engine, row, sizeHa) {
   const baseline = fullName(
     row["Baseline Broad Habitat Type"],
     row["Baseline Habitat Type"],
@@ -102,10 +99,73 @@ function baselineUnits(engine, row) {
   ).units;
 }
 
+const ADVANCE = "Habitat created in advance/years";
+const DELAY = "Delay in starting habitat creation/years";
+const BNG_SERVICE_BASELINE = "Area Habitats Baseline";
+const BNG_SERVICE_POST = "Area Habitats Post-Intervention";
+
+const blank = (value) => value === null || value === undefined || value === "";
+
+/**
+ * A BNG Service row's advance and delay years. The template blanks one of the
+ * two while the other is above 0, so a blank beside a set value is 0; two
+ * blanks stay blank, as incomplete.
+ */
+function bngServiceTiming(row) {
+  const advance = row[ADVANCE];
+  const delay = row[DELAY];
+  if (blank(advance) && !blank(delay)) {
+    return ["0", delay];
+  }
+  if (blank(delay) && !blank(advance)) {
+    return [advance, "0"];
+  }
+  return [advance, delay];
+}
+
+function tableExists(db, table) {
+  return Boolean(
+    db
+      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
+      .get(table),
+  );
+}
+
+/**
+ * The area habitats to price, each with its size in hectares and its timing:
+ * in the legacy layout one row carries both stages (Area in square metres);
+ * in the BNG Service format the baseline and post-intervention rows are apart,
+ * each post-intervention row carrying its parent's baseline values, and Area
+ * is in hectares.
+ */
 function readHabitats(file) {
   const db = openGeoPackageReadonly(file);
   try {
-    return db.prepare(`SELECT * FROM "Habitats"`).all();
+    if (tableExists(db, BNG_SERVICE_BASELINE)) {
+      return {
+        baseline: db
+          .prepare(`SELECT * FROM "${BNG_SERVICE_BASELINE}"`)
+          .all()
+          .map((row) => ({ ...row, sizeHa: row.Area })),
+        postIntervention: db
+          .prepare(`SELECT * FROM "${BNG_SERVICE_POST}"`)
+          .all()
+          .map((row) => ({
+            ...row,
+            sizeHa: row.Area,
+            timing: bngServiceTiming(row),
+          })),
+      };
+    }
+    const rows = db
+      .prepare(`SELECT * FROM "Habitats"`)
+      .all()
+      .map((row) => ({
+        ...row,
+        sizeHa: row.Area / SQ_METRES_PER_HECTARE,
+        timing: [row[ADVANCE], row[DELAY]],
+      }));
+    return { baseline: rows, postIntervention: rows };
   } finally {
     db.close();
   }
@@ -118,41 +178,55 @@ function readHabitats(file) {
  * "incomplete data".
  *
  * @param {object} engine loaded bng-library/metric namespace
- * @param {string} file path to the post-intervention gpkg (carries both sides)
+ * @param {string} file path to the legacy post-intervention gpkg (carries both
+ *   sides), or to a BNG Service file
  */
 export function priceHabitats(engine, file) {
-  const rows = readHabitats(file);
-  let baselineTotal = 0;
-  let postInterventionTotal = 0;
-  let priced = 0;
-  let skipped = 0;
-
-  for (const row of rows) {
-    const pi = safePrice(() => postInterventionUnits(engine, row));
-    const base = safePrice(() => baselineUnits(engine, row));
-    baselineTotal += base ?? 0;
-    postInterventionTotal += pi ?? 0;
-    if (pi === null || base === null) {
-      skipped += 1;
-    } else {
-      priced += 1;
+  const { baseline, postIntervention } = readHabitats(file);
+  const total = (rows, price) => {
+    let sum = 0;
+    let unpriced = 0;
+    for (const row of rows) {
+      const units = safePrice(() => price(engine, row, row.sizeHa));
+      sum += units ?? 0;
+      unpriced += units === null ? 1 : 0;
     }
-  }
+    return { sum, unpriced };
+  };
+  const base = total(baseline, baselineUnits);
+  const post = total(postIntervention, postInterventionUnits);
+  // A row either stage could not price is skipped; in the legacy layout one
+  // row is both stages, so it is counted once.
+  const rowCount = Math.max(baseline.length, postIntervention.length);
+  const skipped =
+    baseline === postIntervention
+      ? countUnpricedRows(engine, baseline)
+      : base.unpriced + post.unpriced;
 
   const { habitatsNetUnitChange, habitatsNetUnitChangePercentage } =
     engine.calculatePostInterventionNetUnitChanges(
-      { habitatsTotal: baselineTotal },
-      { habitatsTotal: postInterventionTotal },
+      { habitatsTotal: base.sum },
+      { habitatsTotal: post.sum },
     );
 
   return {
-    baselineTotal,
-    postInterventionTotal,
+    baselineTotal: base.sum,
+    postInterventionTotal: post.sum,
     netUnitChange: habitatsNetUnitChange,
     netGainPercentage: habitatsNetUnitChangePercentage,
-    priced,
+    priced: rowCount - skipped,
     skipped,
   };
+}
+
+/** Legacy rows that either stage could not price, each counted once. */
+function countUnpricedRows(engine, rows) {
+  return rows.filter(
+    (row) =>
+      safePrice(() => postInterventionUnits(engine, row, row.sizeHa)) ===
+        null ||
+      safePrice(() => baselineUnits(engine, row, row.sizeHa)) === null,
+  ).length;
 }
 
 function safePrice(fn) {
