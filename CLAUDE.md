@@ -47,12 +47,13 @@ Everything here is pure npm + Node — no submodules, no workspaces, no shared l
 
 | Command                             | What it does                                                                                         |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `npm run bootstrap`                 | Clones any missing sibling repo from its GitHub remote                                               |
+| `npm run bootstrap`                 | Clones any missing sibling repo from its GitHub remote, bng-metric-template included                 |
 | `npm run install:all`               | `npm install` in harness + both siblings                                                             |
 | `npm run install:fe` / `install:be` | `npm install` in one sibling                                                                         |
 | `npm run dev`                       | Starts both apps in parallel via `concurrently` (`[fe]` cyan, `[be]` magenta) — any crash kills both |
 | `npm run dev:fe` / `dev:be`         | Starts a single app                                                                                  |
 | `npm run dev:b2c` / `dev:fe:b2c`    | Same, but against **real Defra ID (B2C)** instead of the stub — see below                            |
+| `npm run dev -- --service-template` | Same, with the service-template flag on in both apps (`SERVICE_TEMPLATE_ENABLED=true`); also `dev:service-template` |
 | `npm run status`                    | `git status --short` in all three repos, with headers                                                |
 | `npm run pull`                      | `git pull --ff-only` in all three; warns (never errors) on ff failure                                |
 | `npm run branch`                    | Current branch of each repo, side-by-side                                                            |

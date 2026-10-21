@@ -13,9 +13,16 @@ import {
   run,
   warn,
 } from "./_lib.mjs";
+import {
+  SERVICE_TEMPLATE_FLAG,
+  childEnvFor,
+  devOptions,
+  optionLabel,
+} from "./dev-env.mjs";
 
 const args = process.argv.slice(2);
-const b2c = args.includes("--b2c");
+const options = devOptions(args);
+const { b2c } = options;
 const target = parseTarget(args.filter((a) => !a.startsWith("--")));
 
 // Real Defra ID (B2C) login only differs for the frontend, which must run with
@@ -58,16 +65,25 @@ function loadB2cEnv() {
 // File wins over ambient env so the .env is the single source of truth for B2C.
 // The FE/BE dev scripts' own cross-env values (e.g. OIDC_USE_STUB=false) are set
 // downstream of this and still take precedence, which is what we want.
+// `--service-template` turns the service-template flag on in both apps.
 // Called after the header so its logging lands under the banner, not above it.
-const buildChildEnv = () =>
-  b2c ? { ...process.env, ...loadB2cEnv() } : process.env;
+function buildChildEnv() {
+  if (options.serviceTemplate) {
+    info(`  service template: ${SERVICE_TEMPLATE_FLAG}=true`);
+  }
+  return childEnvFor(options, process.env, loadB2cEnv, (value) =>
+    warn(
+      `  ${SERVICE_TEMPLATE_FLAG}=${value} was set in your environment; ignoring it. Pass --service-template to turn the flag on.`,
+    ),
+  );
+}
 
 if (target === "all") {
   for (const repo of REPOS) requireSibling(repo.name);
 
   const { default: concurrently } = await import("concurrently");
 
-  header(`dev: fe + be (concurrently)${b2c ? " [B2C]" : ""}`, "green");
+  header(`dev: fe + be (concurrently)${optionLabel(options)}`, "green");
 
   const childEnv = buildChildEnv();
 
@@ -97,7 +113,7 @@ if (target === "all") {
 } else {
   const repo = REPOS.find((r) => r.key === target);
   requireSibling(repo.name);
-  header(`dev: ${repo.name}${b2c ? " [B2C]" : ""}`, repo.color);
+  header(`dev: ${repo.name}${optionLabel(options)}`, repo.color);
   info(`  cwd: ${repoPath(repo.name)}`);
   const code = await run(npmBin, ["run", devScript(repo)], {
     cwd: repoPath(repo.name),
