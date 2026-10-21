@@ -1,6 +1,11 @@
 import { spawnSync } from "node:child_process";
-import { copyFileSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+} from "node:fs";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { BNG_SERVICE_FLAWS, CATEGORY_LINEAGE } from "#bng-lib";
@@ -15,8 +20,12 @@ const LINEAGE_FLAWS = Object.entries(BNG_SERVICE_FLAWS)
   .map(([name]) => name);
 
 let dir;
+// Inside the harness, as check:lineage only reads paths there; test-data/ is
+// gitignored.
 beforeAll(() => {
-  dir = mkdtempSync(path.join(tmpdir(), "lineage-check-"));
+  const testData = path.join(ROOT, "test-data");
+  mkdirSync(testData, { recursive: true });
+  dir = mkdtempSync(path.join(testData, "lineage-check-"));
 });
 afterAll(() => {
   rmSync(dir, { recursive: true, force: true });
@@ -110,6 +119,14 @@ describe("the single-file lineage check", () => {
     const failing = checkLineage("--dir", folder);
     expect(failing.status).toBe(1);
     expect(failing.stdout + failing.stderr).toMatch(/lineage-parent-wrong/);
+  });
+});
+
+describe("the paths check:lineage reads", () => {
+  it("refuses a folder outside the harness", () => {
+    const result = checkLineage("--dir", path.dirname(ROOT));
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toMatch(/must be inside the harness/);
   });
 });
 
