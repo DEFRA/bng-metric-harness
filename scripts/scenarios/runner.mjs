@@ -44,7 +44,6 @@ import {
   generateOne,
   setMode,
 } from "#bng-lib";
-import { openGeoPackageReadonly } from "#gpkg-io";
 import {
   checkScenarioExpectations,
   lintWorkbook,
@@ -56,8 +55,13 @@ import {
   writeMetricWorkbook,
 } from "#workbook-writer";
 import { header, info, warn } from "../_lib.mjs";
-import { refColumnFor } from "../gpkg-columns.mjs";
 import { readScenarioManifest } from "./manifest.mjs";
+import {
+  fileCheck,
+  verifyBngServiceSubject,
+  verifyPair,
+  verifySubject,
+} from "./verify.mjs";
 import { loadEngine } from "./engine.mjs";
 import { meetsNetGain, priceHabitats } from "./engine-units.mjs";
 import { prepareImportTiming, expectedImport } from "./import-timing.mjs";
@@ -98,97 +102,6 @@ export function scenarioFiles(scenario, format = FORMAT_LEGACY) {
           postIntervention: inFolder(`${base}-post-intervention.gpkg`),
         };
   return { ...geoPackages, workbook: inFolder(`${base}.xlsx`) };
-}
-
-/**
- * Light pair check: the derived baseline must have cleared the area layer's
- * proposed state, and both halves must share a redline. The deep guarantees
- * are bng-library's own tests; this catches a broken run early.
- */
-function verifyPair(baselineFile, piFile) {
-  const baseDb = openGeoPackageReadonly(baselineFile);
-  const piDb = openGeoPackageReadonly(piFile);
-  try {
-    const leftoverProposed = baseDb
-      .prepare(
-        `SELECT count(*) AS n FROM "Habitats"
-           WHERE "Proposed Condition" IS NOT NULL
-              OR "Retention Category" IS NOT NULL`,
-      )
-      .get().n;
-    if (leftoverProposed > 0) {
-      throw new Error(
-        `baseline half still carries proposed data on ${leftoverProposed} habitat row(s)`,
-      );
-    }
-    const redlineSql = `SELECT hex(geometry) AS g FROM "Red Line Boundary"`;
-    const baseRlb = baseDb.prepare(redlineSql).get()?.g;
-    const piRlb = piDb.prepare(redlineSql).get()?.g;
-    if (!baseRlb || baseRlb !== piRlb) {
-      throw new Error("baseline and post-intervention redlines differ");
-    }
-  } finally {
-    baseDb.close();
-    piDb.close();
-  }
-}
-
-/**
- * The scenario's subject feature must have landed. A hedgerow or watercourse
- * subject depends on the rejection sampler drawing enough lines, so fail
- * loudly rather than ship a fixture that silently misses its case.
- */
-function verifySubject(piFile, subject) {
-  const refColumn = refColumnFor(subject.layer);
-  const db = openGeoPackageReadonly(piFile);
-  try {
-    const found = db
-      .prepare(
-        `SELECT count(*) AS n FROM "${subject.layer}" WHERE "${refColumn}" = ?`,
-      )
-      .get(subject.ref).n;
-    if (found === 0) {
-      throw new Error(
-        `subject ${subject.layer} "${subject.ref}" is missing — the layer generated too few features`,
-      );
-    }
-  } finally {
-    db.close();
-  }
-}
-
-// The BNG Service layer a legacy subject layer names.
-const BNG_SERVICE_LAYERS = {
-  Habitats: "Area Habitats",
-  Hedgerows: "Hedgerows",
-  Rivers: "Watercourses",
-  "Urban Trees": "Individual Trees",
-};
-
-/**
- * The scenario's subject feature must be in the BNG Service file, at either
- * stage (a created feature has no baseline row), by its Habitat Ref.
- */
-function verifyBngServiceSubject(file, subject) {
-  const layer = BNG_SERVICE_LAYERS[subject.layer];
-  const db = openGeoPackageReadonly(file);
-  try {
-    const found = ["Baseline", "Post-Intervention"].some(
-      (stage) =>
-        db
-          .prepare(
-            `SELECT count(*) AS n FROM "${layer} ${stage}" WHERE "Habitat Ref" = ?`,
-          )
-          .get(subject.ref).n > 0,
-    );
-    if (!found) {
-      throw new Error(
-        `subject ${layer} "${subject.ref}" is missing — the layer generated too few features`,
-      );
-    }
-  } finally {
-    db.close();
-  }
 }
 
 /** Our engine's view of the net gain, recorded and checked like the rest. */
@@ -316,16 +229,6 @@ function syntheticOptions(scenario, seed) {
     seed: derivePermutationSeed(seed, scenario.id),
   };
 }
-/** A check the BNG Service file must pass, as recorded in the manifest. */
-function fileCheck(check, problems, describe) {
-  return {
-    check,
-    expected: "no issues",
-    actual: problems.length ? problems.map(describe).join("; ") : "no issues",
-    passed: problems.length === 0,
-  };
-}
-
 /**
  * Draw the scenario natively in the BNG Service format: the file holding both
  * stages, and its baseline-stage file, from the same seed. It holds exactly
