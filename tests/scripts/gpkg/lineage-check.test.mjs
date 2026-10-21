@@ -184,4 +184,141 @@ describe("the legacy pair check still works on the legacy corpus", () => {
     );
     expect(result.status, result.stdout + result.stderr).toBe(0);
   });
+
+  // The two legacy pairs the check fails, as the legacy corpus stays as it
+  // is until BMD-1097. Every other pair in it must pass.
+  const KNOWN_FAILURES = [
+    // Two single-file HABITAT_REF_MISSING fixtures that share a name, not a
+    // pair: different sites, and the "baseline" one carries proposed data.
+    "attribute-problems/Baseline - missing habitat ref.gpkg ↔ Post-intervention - missing habitat ref.gpkg",
+    // A hand-built pair: its baseline carries proposed values on habitats
+    // and the river, and the post-intervention parcels H2-1…H2-10 and
+    // hedgerow HR3 name no baseline ref.
+    "valid/Baseline - retained hedgerow.gpkg ↔ Post-intervention - retained hedgerow.gpkg",
+  ];
+
+  /** The pairs a --dir run counted, from its "N/M pair(s) passed" line. */
+  function pairTotal(stdout) {
+    return Number(/\d+\/(\d+) pair\(s\) passed/.exec(stdout)?.[1]);
+  }
+
+  /** Each pair's result from a --dir run: label → failure lines. */
+  function pairResults(stdout) {
+    const results = {};
+    let current = null;
+    for (const line of stdout.split("\n")) {
+      const pair = /^([✔✘]) (.+)$/.exec(line);
+      if (pair) {
+        current = pair[2];
+        results[current] = pair[1] === "✔" ? null : [];
+      } else if (current && line.startsWith("    ")) {
+        results[current].push(line.trim());
+      }
+    }
+    return results;
+  }
+
+  it("passes every pair in the legacy corpus, but the two known ones", () => {
+    const result = spawnSync(
+      process.execPath,
+      [CHECK_PAIR, "--dir", path.join(ROOT, "example-files")],
+      { encoding: "utf8" },
+    );
+    expect(result.stderr).toBe("");
+    const results = pairResults(result.stdout);
+    // One label per pair counted, so no two pairs share a label.
+    expect(Object.keys(results)).toHaveLength(pairTotal(result.stdout));
+    const failed = Object.keys(results).filter((pair) => results[pair]);
+    expect(failed.sort()).toEqual([...KNOWN_FAILURES].sort());
+    // The curated, permutation and BNG500 pairs are all found.
+    expect(Object.keys(results).length).toBeGreaterThan(70);
+  });
+
+  it("finds a pair by each of the names the harness gives one", () => {
+    const name = "retained watercourse";
+    const valid = path.join(ROOT, "example-files/valid");
+    const files = {
+      "curated/Baseline - site.gpkg": `Baseline - ${name}.gpkg`,
+      "curated/Post-intervention - site.gpkg": `Post-intervention - ${name}.gpkg`,
+      "corpus/site-baseline.gpkg": `Baseline - ${name}.gpkg`,
+      "corpus/site-post-intervention.gpkg": `Post-intervention - ${name}.gpkg`,
+      "generated/site-baseline-20260101-1200-00.gpkg": `Baseline - ${name}.gpkg`,
+      "generated/site-post-intervention-20260101-1200-00.gpkg": `Post-intervention - ${name}.gpkg`,
+    };
+    const scan = path.join(dir, "pair-names");
+    for (const [target, source] of Object.entries(files)) {
+      mkdirSync(path.dirname(path.join(scan, target)), { recursive: true });
+      copyFileSync(path.join(valid, source), path.join(scan, target));
+    }
+    const result = spawnSync(process.execPath, [CHECK_PAIR, "--dir", scan], {
+      encoding: "utf8",
+    });
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.stdout).toContain("3/3 pair(s) passed");
+  });
+
+  it("takes relative paths from the current directory", () => {
+    const name = "retained watercourse";
+    const valid = path.join(ROOT, "example-files/valid");
+    const scan = path.join(dir, "pair-relative");
+    mkdirSync(path.join(scan, "pairs"), { recursive: true });
+    for (const stage of ["Baseline", "Post-intervention"]) {
+      copyFileSync(
+        path.join(valid, `${stage} - ${name}.gpkg`),
+        path.join(scan, "pairs", `${stage} - ${name}.gpkg`),
+      );
+    }
+    const byDir = spawnSync(process.execPath, [CHECK_PAIR, "--dir", "pairs"], {
+      cwd: scan,
+      encoding: "utf8",
+    });
+    expect(byDir.status, byDir.stdout + byDir.stderr).toBe(0);
+    expect(byDir.stdout).toContain("1/1 pair(s) passed");
+    const byFiles = spawnSync(
+      process.execPath,
+      [
+        CHECK_PAIR,
+        `Baseline - ${name}.gpkg`,
+        `Post-intervention - ${name}.gpkg`,
+      ],
+      { cwd: path.join(scan, "pairs"), encoding: "utf8" },
+    );
+    expect(byFiles.status, byFiles.stdout + byFiles.stderr).toBe(0);
+  });
+
+  it("tells same-named pairs apart, and reports an unreadable one as failing", () => {
+    const name = "retained watercourse";
+    const valid = path.join(ROOT, "example-files/valid");
+    const scan = path.join(dir, "pair-folders");
+    for (const folder of ["one", "two", "broken"]) {
+      mkdirSync(path.join(scan, folder), { recursive: true });
+      for (const stage of ["Baseline", "Post-intervention"]) {
+        copyFileSync(
+          path.join(valid, `${stage} - ${name}.gpkg`),
+          path.join(scan, folder, `${stage} - ${name}.gpkg`),
+        );
+      }
+    }
+    writeFileSync(
+      path.join(scan, "broken", `Baseline - ${name}.gpkg`),
+      "not a GeoPackage",
+    );
+    const result = spawnSync(process.execPath, [CHECK_PAIR, "--dir", scan], {
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(1);
+    const results = pairResults(result.stdout);
+    expect(Object.keys(results).sort()).toEqual(
+      ["broken", "one", "two"].map(
+        (folder) =>
+          `${folder}/Baseline - ${name}.gpkg ↔ Post-intervention - ${name}.gpkg`,
+      ),
+    );
+    const broken =
+      results[
+        `broken/Baseline - ${name}.gpkg ↔ Post-intervention - ${name}.gpkg`
+      ];
+    expect(broken[0]).toMatch(/^cannot check this pair: /);
+    expect(result.stdout).toContain("2/3 pair(s) passed");
+  });
 });
