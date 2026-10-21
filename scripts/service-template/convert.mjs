@@ -116,8 +116,16 @@ export function convertPair({ baseline, postIntervention, seed }, file) {
       "--out",
       file,
     ],
-    // Fixed string hashing, so any set the converter walks has one order.
-    { encoding: "utf8", env: { ...process.env, PYTHONHASHSEED: "0" } },
+    // Fixed string hashing, so any set the converter walks has one order;
+    // no __pycache__ left in the template checkout.
+    {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PYTHONHASHSEED: "0",
+        PYTHONDONTWRITEBYTECODE: "1",
+      },
+    },
   );
   if (result.status !== 0) {
     throw new Error(

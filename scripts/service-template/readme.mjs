@@ -89,6 +89,26 @@ function familySection({ dir, covers }) {
   ].join("\n");
 }
 
+/**
+ * What `check:lineage --dir` reports on the corpus beyond the lineage flaw
+ * files: the files whose recipes list a lineage issue, taken from the
+ * recipes so the note follows them.
+ */
+function lineageCheckNote() {
+  const flagged = RECIPES.filter((r) => r.knownIssues?.lineage.length > 0).map(
+    (r) =>
+      `${asCode(r.path)}, which reports ${r.knownIssues.lineage.map(asCode).join(", ")} (see its row)`,
+  );
+  const exceptions = [
+    `${asCode("malformed/not-a-geopackage.gpkg")}, which it reports as unreadable, as it should`,
+    ...flagged,
+  ];
+  return [
+    `\`npm run check:lineage -- --dir example-files/service-template\` passes every file but ${exceptions.join("; ")}. It skips the legacy-layout file.`,
+    "Each `lineage-problems/` file reports exactly the flaw its name gives.",
+  ].join(" ");
+}
+
 /** The README's Markdown. */
 export function renderReadme() {
   return [
@@ -125,12 +145,7 @@ export function renderReadme() {
     "give it yet, the cell says what it does today, so a tester can tell a gap",
     "in the service from a failure.",
     "",
-    "`npm run check:lineage -- --dir example-files/service-template` passes every",
-    "file but `malformed/not-a-geopackage.gpkg`, which it reports as unreadable,",
-    "as it should, `bng-500/BarkingandDagenham2400625FULL.gpkg`, where the",
-    "converter leaves a parent for the service to infer (see `bng-500/`), and the",
-    "legacy-layout file, which it skips. Each `lineage-problems/` file reports",
-    "exactly the flaw its name gives.",
+    lineageCheckNote(),
     "",
     "The `bng-500/` files need the template's converter: the bng-metric-template",
     `sibling (or the checkout \`BNG_TEMPLATE_DIR\` names) at commit`,

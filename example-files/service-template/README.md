@@ -31,12 +31,7 @@ files are laid out, fails it until the corpus is regenerated and committed.
 give it yet, the cell says what it does today, so a tester can tell a gap
 in the service from a failure.
 
-`npm run check:lineage -- --dir example-files/service-template` passes every
-file but `malformed/not-a-geopackage.gpkg`, which it reports as unreadable,
-as it should, `bng-500/BarkingandDagenham2400625FULL.gpkg`, where the
-converter leaves a parent for the service to infer (see `bng-500/`), and the
-legacy-layout file, which it skips. Each `lineage-problems/` file reports
-exactly the flaw its name gives.
+`npm run check:lineage -- --dir example-files/service-template` passes every file but `malformed/not-a-geopackage.gpkg`, which it reports as unreadable, as it should; `bng-500/BarkingandDagenham2400625FULL.gpkg`, which reports `lineage-parent-missing` (see its row). It skips the legacy-layout file. Each `lineage-problems/` file reports exactly the flaw its name gives.
 
 The `bng-500/` files need the template's converter: the bng-metric-template
 sibling (or the checkout `BNG_TEMPLATE_DIR` names) at commit
