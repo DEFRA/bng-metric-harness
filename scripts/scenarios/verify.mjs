@@ -1,7 +1,8 @@
 /**
- * The checks the scenario runner makes on the files it generates, before
- * anything is priced or written into a workbook: a broken run fails here,
- * loudly, rather than shipping a fixture that misses its case.
+ * The checks the scenario runner makes on the legacy pairs it generates,
+ * before anything is priced or written into a workbook: a broken run fails
+ * here, loudly, rather than shipping a fixture that misses its case. The BNG
+ * Service format's checks are in bng-service.mjs.
  */
 
 import { openGeoPackageReadonly } from "#gpkg-io";
@@ -62,48 +63,4 @@ export function verifySubject(piFile, subject) {
   } finally {
     db.close();
   }
-}
-
-// The BNG Service layer a legacy subject layer names.
-const BNG_SERVICE_LAYERS = {
-  Habitats: "Area Habitats",
-  Hedgerows: "Hedgerows",
-  Rivers: "Watercourses",
-  "Urban Trees": "Individual Trees",
-};
-
-/**
- * The scenario's subject feature must be in the BNG Service file, at either
- * stage (a created feature has no baseline row), by its Habitat Ref.
- */
-export function verifyBngServiceSubject(file, subject) {
-  const layer = BNG_SERVICE_LAYERS[subject.layer];
-  const db = openGeoPackageReadonly(file);
-  try {
-    const found = ["Baseline", "Post-Intervention"].some(
-      (stage) =>
-        db
-          .prepare(
-            `SELECT count(*) AS n FROM "${layer} ${stage}" WHERE "Habitat Ref" = ?`,
-          )
-          .get(subject.ref).n > 0,
-    );
-    if (!found) {
-      throw new Error(
-        `subject ${layer} "${subject.ref}" is missing — the layer generated too few features`,
-      );
-    }
-  } finally {
-    db.close();
-  }
-}
-
-/** A check the BNG Service file must pass, as recorded in the manifest. */
-export function fileCheck(check, problems, describe) {
-  return {
-    check,
-    expected: "no issues",
-    actual: problems.length ? problems.map(describe).join("; ") : "no issues",
-    passed: problems.length === 0,
-  };
 }

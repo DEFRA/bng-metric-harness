@@ -36,11 +36,8 @@ import {
   FORMAT_BNG_SERVICE,
   FORMAT_LEGACY,
   PERMUTATION_DEFAULT_SIZE,
-  checkLineage,
-  checkTemplateValues,
   deriveBaselineFromSynthetic,
   derivePermutationSeed,
-  generateBngServiceSynthetic,
   generateOne,
   setMode,
 } from "#bng-lib";
@@ -56,12 +53,8 @@ import {
 } from "#workbook-writer";
 import { header, info, warn } from "../_lib.mjs";
 import { readScenarioManifest } from "./manifest.mjs";
-import {
-  fileCheck,
-  verifyBngServiceSubject,
-  verifyPair,
-  verifySubject,
-} from "./verify.mjs";
+import { verifyPair, verifySubject } from "./verify.mjs";
+import { generateBngServiceScenario } from "./bng-service.mjs";
 import { loadEngine } from "./engine.mjs";
 import { meetsNetGain, priceHabitats } from "./engine-units.mjs";
 import { prepareImportTiming, expectedImport } from "./import-timing.mjs";
@@ -75,8 +68,6 @@ const PROGRESS_EVERY = 5;
 // Lint issues quoted in a failed check; the manifest keeps them all.
 const LINT_ISSUES_QUOTED = 3;
 const WORK_PREFIX = ".recalc-";
-// A scenario that breaks a rule on purpose, as bng-library marks it.
-const INVALID_PREFIX = "invalid-";
 
 /**
  * File names within the scenario's purpose folder. When the id leads with its
@@ -229,44 +220,6 @@ function syntheticOptions(scenario, seed) {
     seed: derivePermutationSeed(seed, scenario.id),
   };
 }
-/**
- * Draw the scenario natively in the BNG Service format: the file holding both
- * stages, and its baseline-stage file, from the same seed. It holds exactly
- * what the scenario pins, as bng-library's own catalogue does. A valid
- * scenario must hold only values the template offers, and every scenario
- * must link each post-intervention feature to its parent.
- */
-function generateBngServiceScenario(scenario, files, { outDir, centre, seed }) {
-  const file = path.join(outDir, files.geoPackage);
-  mkdirSync(path.dirname(file), { recursive: true });
-  const plan = syntheticOptions(scenario, seed);
-  generateBngServiceSynthetic(file, centre, plan, { templateFeatures: false });
-  generateBngServiceSynthetic(
-    path.join(outDir, files.baselineStage),
-    centre,
-    plan,
-    { templateFeatures: false, stage: "baseline" },
-  );
-  verifyBngServiceSubject(file, scenario.subject);
-  const checks = [
-    fileCheck(
-      "every post-intervention feature names its parent",
-      checkLineage(file),
-      (p) => `${p.flaw} ${p.table} ${p.ref}`,
-    ),
-  ];
-  if (!scenario.id.startsWith(INVALID_PREFIX)) {
-    checks.unshift(
-      fileCheck(
-        "every value one the BNG Service template offers",
-        checkTemplateValues(file),
-        (i) => `${i.table} "${i.field}"`,
-      ),
-    );
-  }
-  return { source: { bngServiceFile: file }, checks };
-}
-
 /** Generate the scenario's legacy pair in the corpus, and check it. */
 function generateLegacyScenario(scenario, files, { outDir, centre, seed }) {
   const piFile = path.join(outDir, files.postIntervention);
@@ -288,7 +241,10 @@ function generateScenario(scenario, context) {
   }
   const { source, checks } =
     format === FORMAT_BNG_SERVICE
-      ? generateBngServiceScenario(scenario, files, context)
+      ? generateBngServiceScenario(scenario, files, {
+          ...context,
+          plan: syntheticOptions(scenario, context.seed),
+        })
       : generateLegacyScenario(scenario, files, context);
 
   const entry = {
@@ -424,7 +380,7 @@ async function recalculateAll(entries, scenarios, { outDir, soffice, kept }) {
  * fingerprint of the source each was saved from. Read before the output
  * folder is cleared, so an unchanged one can be put back as it was.
  */
-function savedWorkbooks(outDir, scenarios) {
+function savedWorkbooks(outDir, scenarios, format) {
   const saved = new Map();
   const previous = readScenarioManifest(outDir);
   if (!previous?.recalculated) {
@@ -434,7 +390,7 @@ function savedWorkbooks(outDir, scenarios) {
     previous.scenarios.map((e) => [e.id, e.workbookSource]),
   );
   for (const scenario of scenarios) {
-    const file = path.join(outDir, scenarioFiles(scenario).workbook);
+    const file = path.join(outDir, scenarioFiles(scenario, format).workbook);
     const source = sources.get(scenario.id);
     if (source && existsSync(file)) {
       saved.set(scenario.id, { source, buffer: readFileSync(file) });
@@ -541,7 +497,9 @@ export async function buildScenarioCorpus({
 
   mkdirSync(outDir, { recursive: true });
   const saved =
-    workbook && recalculate ? savedWorkbooks(outDir, scenarios) : new Map();
+    workbook && recalculate
+      ? savedWorkbooks(outDir, scenarios, format)
+      : new Map();
   const kept = new Set();
   if (partial) {
     clearScenarioFiles(outDir, scenarios);
