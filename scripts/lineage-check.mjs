@@ -10,6 +10,7 @@
  */
 
 import { BNG_SERVICE_FLAWS, CATEGORY_LINEAGE, checkLineage } from "#bng-lib";
+import path from "node:path";
 import { openGeoPackageReadonly } from "#gpkg-io";
 
 const BNG_SERVICE_TABLE = "Area Habitats Baseline";
@@ -39,7 +40,7 @@ function isBngService(db) {
  * @returns {{ status: 'pass' | 'fail' | 'skip', problems: object[],
  *   expected: string | null, reason?: string }}
  */
-export function checkFile(file, fileName = file) {
+export function checkFile(file, fileName = path.basename(file)) {
   const db = openGeoPackageReadonly(file);
   try {
     if (!isBngService(db)) {

@@ -94,6 +94,15 @@ describe("the single-file lineage check", () => {
     );
   });
 
+  it("reads the flaw from the file's own name, not its folder's", () => {
+    const valid = generate(
+      path.join("lineage-parent-wrong", "valid"),
+      "--format",
+      "bng-service",
+    );
+    expect(checkFile(valid)).toMatchObject({ status: "pass", expected: null });
+  });
+
   it("skips a legacy file", () => {
     expect(checkFile(generate("legacy")).status).toBe("skip");
   });
