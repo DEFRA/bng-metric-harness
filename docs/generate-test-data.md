@@ -272,7 +272,9 @@ invalid-schema, empty-layer, attribute, malformed and filename problems) plus
 the format's own lineage, incomplete and version-problem fixtures. Each file has
 a fixed name and a recipe in `scripts/service-template/recipes.mjs`: drawn by
 bng-library from a seed, derived from a valid file by SQL edits (the schema
-faults no generator writes), or copied. One command rebuilds it, to the same
+faults no generator writes), copied, or, for `bng-500/`, converted from the
+legacy BNG500 pairs by the template's own converter
+(`plugin/bng_template_convert/old_to_new.py` in bng-metric-template). One command rebuilds it, to the same
 bytes, and writes its README (what each file covers, its expected outcome and
 how it is built):
 
@@ -286,7 +288,20 @@ A test rebuilds the whole corpus and compares it with the committed files byte
 for byte, but for the SQLite version each file's header records. A change to
 bng-library that alters a fixture, or a SQLite (better-sqlite3) upgrade that
 changes how files are laid out, fails it until the corpus is regenerated and
-committed. Its `permutations/` folder is the scenario corpus,
+committed.
+
+The `bng-500/` files need python3 and the bng-metric-template sibling (`npm run
+bootstrap` clones it; `BNG_TEMPLATE_DIR` names another checkout) at the commit
+`scripts/service-template/convert.mjs` pins, as another converter version may
+convert differently. `scripts/bng500/convert.py` runs the converter with
+seeded feature uuids, and the generator then fixes the file's timestamps and
+rewrites it with SQLite's VACUUM, so the files are byte-stable. Without the
+converter the generator and the test skip them and say why; CI checks out the
+pinned commit and requires them. To move to a newer converter, check the
+sibling out at it, update `CONVERTER_COMMIT`, regenerate, and update each
+file's known issues in its recipe if they change.
+
+The corpus's `permutations/` folder is the scenario corpus,
 built by `generate:scenarios -- --format bng-service` (see
 [Scenario corpus](generate-scenarios.md)).
 

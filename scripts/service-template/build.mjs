@@ -16,8 +16,10 @@ import Database from "better-sqlite3";
 import { FORMAT_BNG_SERVICE, generateSyntheticGpkg } from "#bng-lib";
 import { HARNESS_ROOT } from "../_lib.mjs";
 import { DEFAULT_CENTRE } from "../centre.mjs";
+import { convertPair } from "./convert.mjs";
 import {
   FAMILIES,
+  KIND_CONVERTED,
   KIND_COPIED,
   KIND_DERIVED,
   KIND_GENERATED,
@@ -67,6 +69,8 @@ export function buildRecipe(recipe, outDir) {
     applyEdits(file, recipe.edits);
   } else if (recipe.kind === KIND_COPIED) {
     copyFileSync(path.join(HARNESS_ROOT, recipe.source), file);
+  } else if (recipe.kind === KIND_CONVERTED) {
+    convertPair(recipe, file);
   } else {
     throw new Error(`${recipe.path}: unknown recipe kind "${recipe.kind}"`);
   }

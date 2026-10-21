@@ -9,6 +9,10 @@
  *   npm run generate:service-template -- --only lineage-problems
  *   npm run generate:service-template -- --only valid/default-site.gpkg
  *
+ * The bng-500/ files need the template's converter (the bng-metric-template
+ * sibling at the pinned commit, and python3): without it a full run skips
+ * them and says why, and asking for them with --only fails.
+ *
  * Every fixture has a fixed name and regenerates to the same bytes. A full
  * run also removes files no recipe builds any more. The scenario corpus in
  * service-template/permutations/ is generate:scenarios' own, and untouched.
@@ -26,8 +30,13 @@ import {
   warn,
 } from "./_lib.mjs";
 import { buildRecipe, removeStaleFiles } from "./service-template/build.mjs";
+import { converterProblem } from "./service-template/convert.mjs";
 import { renderReadme } from "./service-template/readme.mjs";
-import { FAMILIES, RECIPES } from "./service-template/recipes.mjs";
+import {
+  FAMILIES,
+  KIND_CONVERTED,
+  RECIPES,
+} from "./service-template/recipes.mjs";
 
 const DEFAULT_OUTDIR = path.join(
   HARNESS_ROOT,
@@ -90,6 +99,24 @@ function outDirOrExit() {
   return outDir;
 }
 
+/**
+ * The recipes this machine can build: all of them, or all but the converted
+ * ones when the converter cannot run. Exits if --only asked for those.
+ */
+function buildableRecipes(recipes) {
+  const converted = recipes.filter((r) => r.kind === KIND_CONVERTED);
+  const problem = converted.length > 0 ? converterProblem() : null;
+  if (!problem) {
+    return recipes;
+  }
+  if (args.only.length > 0) {
+    error(`Cannot convert the BNG500 files: ${problem}`);
+    process.exit(1);
+  }
+  warn(`  skipping ${converted.length} bng-500/ file(s): ${problem}`);
+  return recipes.filter((r) => r.kind !== KIND_CONVERTED);
+}
+
 function listRecipes(recipes) {
   header("BNG Service template recipes", "cyan");
   for (const recipe of recipes) {
@@ -111,12 +138,13 @@ function main() {
   const outDir = outDirOrExit();
   header(`generate:service-template: ${recipes.length} fixture(s)`, "cyan");
   info(`  → ${outDir}`);
+  const buildable = buildableRecipes(recipes);
   if (args.only.length === 0) {
     for (const stale of removeStaleFiles(outDir)) {
       warn(`  removed ${stale}: no recipe builds it`);
     }
   }
-  for (const recipe of recipes) {
+  for (const recipe of buildable) {
     buildRecipe(recipe, outDir);
     info(`  ✔ ${recipe.path} (${recipe.kind})`);
   }

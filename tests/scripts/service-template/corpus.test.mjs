@@ -12,6 +12,7 @@ import Database from "better-sqlite3";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   FORMAT_BNG_SERVICE,
+  checkLineage,
   checkTemplateValues,
   listFlaws,
   readVersionRecords,
@@ -23,9 +24,14 @@ import {
   removeStaleFiles,
   sameFixture,
 } from "../../../scripts/service-template/build.mjs";
+import {
+  TEMPLATE_DIR_ENV,
+  converterProblem,
+} from "../../../scripts/service-template/convert.mjs";
 import { renderReadme } from "../../../scripts/service-template/readme.mjs";
 import {
   FAMILIES,
+  KIND_CONVERTED,
   KIND_DERIVED,
   RECIPES,
   recipeFor,
@@ -37,13 +43,24 @@ const GENERATE = path.join(ROOT, "scripts/gen-service-template.mjs");
 const NOT_A_GEOPACKAGE = "malformed/not-a-geopackage.gpkg";
 const LEGACY_LAYOUT = "invalid-schema/legacy-template.gpkg";
 
+// The bng-500/ files need the template's converter. Without it they are
+// skipped, unless REQUIRE_CONVERTER is set, as CI sets it.
+const CONVERTER_PROBLEM = converterProblem();
+if (CONVERTER_PROBLEM && process.env.REQUIRE_CONVERTER) {
+  throw new Error(`REQUIRE_CONVERTER is set, but ${CONVERTER_PROBLEM}`);
+}
+const CONVERTED = RECIPES.filter((r) => r.kind === KIND_CONVERTED);
+const BUILDABLE = CONVERTER_PROBLEM
+  ? RECIPES.filter((r) => r.kind !== KIND_CONVERTED)
+  : RECIPES;
+
 let outDir;
 // Inside the harness, as --outdir must be; test-data/ is gitignored.
 beforeAll(() => {
   const testData = path.join(ROOT, "test-data");
   mkdirSync(testData, { recursive: true });
   outDir = mkdtempSync(path.join(testData, "service-template-"));
-  for (const recipe of RECIPES) {
+  for (const recipe of BUILDABLE) {
     buildRecipe(recipe, outDir);
   }
 });
@@ -101,7 +118,7 @@ describe("the service-template recipes", () => {
 
 describe("the committed service-template corpus", () => {
   it("is exactly what the recipes build, byte for byte (AC2)", () => {
-    const differ = RECIPES.filter((recipe) => {
+    const differ = BUILDABLE.filter((recipe) => {
       const committed = path.join(CORPUS, recipe.path);
       return (
         !existsSync(committed) ||
@@ -134,8 +151,10 @@ describe("the built fixtures", () => {
   });
 
   it("pass the lineage check, each lineage flaw file with its own flaw (AC3)", () => {
-    const checked = RECIPES.filter(
-      (r) => ![NOT_A_GEOPACKAGE, LEGACY_LAYOUT].includes(r.path),
+    const checked = BUILDABLE.filter(
+      (r) =>
+        r.kind !== KIND_CONVERTED &&
+        ![NOT_A_GEOPACKAGE, LEGACY_LAYOUT].includes(r.path),
     );
     for (const recipe of checked) {
       const result = checkFile(built(recipe));
@@ -208,6 +227,43 @@ describe("the built fixtures", () => {
         built(recipeFor("filename-problems/default site [invalid chars].gpkg")),
       ).equals(readFileSync(built(recipeFor("valid/default-site.gpkg")))),
     ).toBe(true);
+  });
+});
+
+describe.skipIf(CONVERTER_PROBLEM)("the converted BNG500 files", () => {
+  it("report exactly the issues their recipes list", () => {
+    for (const recipe of CONVERTED) {
+      const file = built(recipe);
+      const lineage = [...new Set(checkLineage(file).map((p) => p.flaw))];
+      expect(lineage, recipe.path).toEqual(recipe.knownIssues.lineage);
+      const values = {};
+      for (const { table, field } of checkTemplateValues(file)) {
+        values[table] = [...(values[table] ?? []), field];
+      }
+      expect(values, recipe.path).toEqual(recipe.knownIssues.templateValues);
+    }
+  });
+
+  it("carry one template version record each", () => {
+    for (const recipe of CONVERTED) {
+      expect(versionRecords(built(recipe)), recipe.path).toHaveLength(1);
+    }
+  });
+});
+
+describe("converterProblem", () => {
+  it("points at bootstrap when the template checkout is missing", () => {
+    const before = process.env[TEMPLATE_DIR_ENV];
+    process.env[TEMPLATE_DIR_ENV] = path.join(ROOT, "test-data", "no-such-dir");
+    try {
+      expect(converterProblem()).toContain("npm run bootstrap");
+    } finally {
+      if (before === undefined) {
+        delete process.env[TEMPLATE_DIR_ENV];
+      } else {
+        process.env[TEMPLATE_DIR_ENV] = before;
+      }
+    }
   });
 });
 

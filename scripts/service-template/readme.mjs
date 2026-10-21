@@ -5,9 +5,11 @@
  */
 
 import { STAGE_BASELINE } from "#bng-lib";
+import { CONVERTER_COMMIT } from "./convert.mjs";
 import {
   FAMILIES,
   GAPS,
+  KIND_CONVERTED,
   KIND_COPIED,
   KIND_DERIVED,
   RECIPES,
@@ -32,7 +34,29 @@ function generatedFrom({ options }) {
   return parts.join(", ");
 }
 
+const SHORT_COMMIT = 7;
+
+function knownIssues({ lineage, templateValues }) {
+  const tables = Object.entries(templateValues).map(
+    ([table, fields]) => `${table} (${fields.join(", ")})`,
+  );
+  const parts = [`Values the template does not offer in ${tables.join("; ")}`];
+  if (lineage.length > 0) {
+    parts.unshift(`Lineage: ${lineage.map((f) => `\`${f}\``).join(", ")}`);
+  }
+  return parts.join(". ");
+}
+
+function coversCell(recipe) {
+  return recipe.knownIssues
+    ? `${recipe.covers}. ${knownIssues(recipe.knownIssues)}`
+    : recipe.covers;
+}
+
 function builtFrom(recipe) {
+  if (recipe.kind === KIND_CONVERTED) {
+    return `\`${recipe.baseline}\` and its post-intervention file, converted at bng-metric-template ${CONVERTER_COMMIT.slice(0, SHORT_COMMIT)}, seed ${recipe.seed}`;
+  }
   if (recipe.kind === KIND_COPIED) {
     return `copy of \`${recipe.source}\``;
   }
@@ -49,7 +73,7 @@ const fileName = (recipePath) => recipePath.slice(recipePath.indexOf("/") + 1);
 function familySection({ dir, covers }) {
   const rows = RECIPES.filter((r) => r.path.startsWith(`${dir}/`)).map(
     (r) =>
-      `| \`${fileName(r.path)}\` | ${r.covers} | ${r.expected} | ${builtFrom(r)} |`,
+      `| \`${fileName(r.path)}\` | ${coversCell(r)} | ${r.expected} | ${builtFrom(r)} |`,
   );
   return [
     `## ${dir}/`,
@@ -101,8 +125,15 @@ export function renderReadme() {
     "",
     "`npm run check:lineage -- --dir example-files/service-template` passes every",
     "file but `malformed/not-a-geopackage.gpkg`, which it reports as unreadable,",
-    "as it should, and the legacy-layout file, which it skips. Each",
-    "`lineage-problems/` file reports exactly the flaw its name gives.",
+    "as it should, `bng-500/BarkingandDagenham2400625FULL.gpkg`, where the",
+    "converter leaves a parent for the service to infer (see `bng-500/`), and the",
+    "legacy-layout file, which it skips. Each `lineage-problems/` file reports",
+    "exactly the flaw its name gives.",
+    "",
+    "The `bng-500/` files need the template's converter: the bng-metric-template",
+    `sibling (or the checkout \`BNG_TEMPLATE_DIR\` names) at commit`,
+    `\`${CONVERTER_COMMIT.slice(0, SHORT_COMMIT)}\`, and python3. Without them the generator and the`,
+    "byte-for-byte test skip those files and say why.",
     "",
     "## permutations/",
     "",
