@@ -63,6 +63,16 @@ If you have [Tilt](https://tilt.dev/) installed, you can replace steps 5–6 wit
 | `npm run dev:be`     | Backend only                                                                                                  |
 | `npm run dev:b2c`    | Both apps, but the frontend runs against **real** Defra ID (B2C) instead of the stub (`OIDC_USE_STUB=false`). |
 | `npm run dev:fe:b2c` | Frontend only, against real Defra ID (B2C).                                                                   |
+| `npm run dev:service-template` | Both apps with the service-template flag on (`SERVICE_TEMPLATE_ENABLED=true`). `--service-template` works with any `dev` command, e.g. `npm run dev:b2c -- --service-template`. |
+
+### The service-template flag
+
+While the service accepts both the legacy and the new BNG Service template, it is
+tested with its service-template flag both on and off. `npm run dev` leaves the flag
+unset, so both apps run with their default (off).
+`npm run dev -- --service-template` (or `npm run dev:service-template`) sets
+`SERVICE_TEMPLATE_ENABLED=true` in both apps' environment, the way `--b2c` passes the
+B2C settings. Neither app's own `dev` script sets it, so the value reaches both.
 
 ### Stub vs. real Defra ID (B2C) login
 
@@ -94,7 +104,7 @@ see the frontend's `.env.example`.
 
 | Command               | What it does                                     |
 | --------------------- | ------------------------------------------------ |
-| `npm run bootstrap`   | Clone any missing sibling repo from GitHub (SSH) |
+| `npm run bootstrap`   | Clone any missing sibling repo from GitHub (SSH), including bng-metric-template |
 | `npm run install:all` | `npm install` in harness + both siblings         |
 | `npm run install:fe`  | `npm install` in frontend only                   |
 | `npm run install:be`  | `npm install` in backend only                    |

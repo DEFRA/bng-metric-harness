@@ -24,6 +24,7 @@
     "dev:be": "node scripts/dev.mjs be",
     "dev:b2c": "node scripts/dev.mjs all --b2c",
     "dev:fe:b2c": "node scripts/dev.mjs fe --b2c",
+    "dev:service-template": "node scripts/dev.mjs all --service-template",
     "status": "node scripts/status.mjs",
     "pull": "node scripts/pull.mjs",
     "queue-deps": "node scripts/queue-dependabot.mjs",
