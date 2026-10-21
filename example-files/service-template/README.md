@@ -31,10 +31,14 @@ files are laid out, fails it until the corpus is regenerated and committed.
 give it yet, the cell says what it does today, so a tester can tell a gap
 in the service from a failure.
 
-`npm run check:lineage -- --dir example-files/service-template` passes every
-file but `malformed/not-a-geopackage.gpkg`, which it reports as unreadable,
-as it should, and the legacy-layout file, which it skips. Each
-`lineage-problems/` file reports exactly the flaw its name gives.
+`npm run check:lineage -- --dir example-files/service-template` passes every file but `malformed/not-a-geopackage.gpkg`, which it reports as unreadable, as it should; `bng-500/BarkingandDagenham2400625FULL.gpkg`, which reports `lineage-parent-missing` (see its row). It skips the legacy-layout file. Each `lineage-problems/` file reports exactly the flaw its name gives.
+
+The `bng-500/` files need the template's converter: the bng-metric-template
+sibling (or the checkout `BNG_TEMPLATE_DIR` names) and python3; without them
+the generator skips those files and says why. They come from the converter
+at commit `073550c`. CI rebuilds them there and requires them to match
+byte for byte; the test skips them elsewhere, as a local checkout may be at
+another commit.
 
 ## permutations/
 
@@ -155,6 +159,18 @@ The template version record is missing, doubled or unsupported.
 | `version-record-duplicated.gpkg` | the GeoPackage has two template version records | refused (BMD-1082). Accepted today: the service does not check the version record yet | seed 1, flaw `version-record-duplicated` |
 | `version-unsupported.gpkg` | the template version record names a version the service does not support (the next major version after 1.0) | refused (BMD-1082). Accepted today: the service does not check the version record yet | seed 1, flaw `version-unsupported` |
 
+## bng-500/
+
+The legacy `bng-500/` pairs, built from real Defra metric workbooks, converted by the BNG Service template's own converter (`old_to_new.py`, bng-metric-template) as a user converts a legacy file. They are what the converter writes, before the manual steps it leaves to the user (its warnings), so each still holds values the template does not offer; the recipes list them, and the tests pin them.
+
+| File | Covers | Expected | Built from |
+| ---- | ------ | -------- | ---------- |
+| `BROADLAND_2024_3282.gpkg` | `BROADLAND_2024_3282`, converted. Values the template does not offer in Individual Trees Baseline (Baseline Rural or Urban Tree, Baseline Tree Type); Individual Trees Post-Intervention (Baseline Tree Size, Category, Proposed Rural or Urban Tree, Proposed Tree Size, Proposed Tree Type, Retention Category, Baseline Condition, Baseline Rural or Urban Tree, Baseline Tree Type) | not ready to upload as it stands: the converter's manual steps (its warnings) are still to do | `example-files/bng-500/BROADLAND_2024_3282-baseline.gpkg` and its post-intervention file, converted at bng-metric-template 073550c, seed 1 |
+| `BarkingandDagenham2400625FULL.gpkg` | `BarkingandDagenham2400625FULL`, converted. Lineage: `lineage-parent-missing`. Values the template does not offer in Individual Trees Post-Intervention (Baseline Tree Size, Category, Proposed Rural or Urban Tree, Proposed Tree Size, Proposed Tree Type, Retention Category, Proposed Strategic Significance); Watercourses Post-Intervention (Baseline Encroachment into riparian zone, Proposed Encroachment into riparian zone, Baseline Encroachment into Watercourse, Proposed Encroachment into Watercourse) | not ready to upload as it stands: the converter's manual steps (its warnings) are still to do | `example-files/bng-500/BarkingandDagenham2400625FULL-baseline.gpkg` and its post-intervention file, converted at bng-metric-template 073550c, seed 1 |
+| `CAMBRIDGE_24_03964_FUL.gpkg` | `CAMBRIDGE_24_03964_FUL`, converted. Values the template does not offer in Area Habitats Post-Intervention (Proposed Strategic Significance); Individual Trees Baseline (Baseline Rural or Urban Tree, Baseline Tree Type); Individual Trees Post-Intervention (Baseline Tree Size, Category, Proposed Rural or Urban Tree, Proposed Tree Size, Proposed Tree Type, Retention Category, Baseline Condition, Baseline Rural or Urban Tree, Baseline Tree Type) | not ready to upload as it stands: the converter's manual steps (its warnings) are still to do | `example-files/bng-500/CAMBRIDGE_24_03964_FUL-baseline.gpkg` and its post-intervention file, converted at bng-metric-template 073550c, seed 1 |
+| `Sunderland_24_00723_FU4.gpkg` | `Sunderland_24_00723_FU4`, converted. Values the template does not offer in Area Habitats Baseline (Baseline Habitat Type); Area Habitats Post-Intervention (Habitat created in advance/years); Hedgerows Post-Intervention (Habitat created in advance/years); Individual Trees Baseline (Baseline Rural or Urban Tree, Baseline Tree Type); Individual Trees Post-Intervention (Baseline Tree Size, Category, Proposed Rural or Urban Tree, Proposed Tree Size, Proposed Tree Type, Retention Category, Habitat Created/Enhanced in advance/years); Watercourses Post-Intervention (Baseline Encroachment into riparian zone, Proposed Encroachment into riparian zone) | not ready to upload as it stands: the converter's manual steps (its warnings) are still to do | `example-files/bng-500/Sunderland_24_00723_FU4-baseline.gpkg` and its post-intervention file, converted at bng-metric-template 073550c, seed 1 |
+| `Wiltshire_PL_2024_08441.gpkg` | `Wiltshire_PL_2024_08441`, converted. Values the template does not offer in Watercourses Post-Intervention (Baseline Encroachment into riparian zone, Proposed Encroachment into riparian zone, Baseline Encroachment into Watercourse, Proposed Encroachment into Watercourse) | not ready to upload as it stands: the converter's manual steps (its warnings) are still to do | `example-files/bng-500/Wiltshire_PL_2024_08441-baseline.gpkg` and its post-intervention file, converted at bng-metric-template 073550c, seed 1 |
+
 ## malformed/
 
 Not a GeoPackage at all.
@@ -176,4 +192,3 @@ A valid file; only the upload's own file name is invalid.
 - A natural river left out of a watercourse that gets worse, a habitat that gets worse with a blank Habitat Ref, and an irreplaceable tree that gets worse: bng-library has no degrade flaw for these yet (BMD-1080 follow-up).
 - Individual trees with varied counts: the template has no Count column, and how several trees are recorded is undecided (BMD-1171, BMD-1172).
 - The harness's import-timing scenarios: they edit legacy files, so `permutations/` builds them in the legacy format only.
-- The BNG500 corpus converted to the new template: a separate change, through the template's own converter.

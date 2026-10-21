@@ -5,9 +5,11 @@
  */
 
 import { STAGE_BASELINE } from "#bng-lib";
+import { CONVERTER_COMMIT } from "./convert.mjs";
 import {
   FAMILIES,
   GAPS,
+  KIND_CONVERTED,
   KIND_COPIED,
   KIND_DERIVED,
   RECIPES,
@@ -32,7 +34,31 @@ function generatedFrom({ options }) {
   return parts.join(", ");
 }
 
+const SHORT_COMMIT = 7;
+
+const asCode = (text) => `\`${text}\``;
+
+function knownIssues({ lineage, templateValues }) {
+  const tables = Object.entries(templateValues).map(
+    ([table, fields]) => `${table} (${fields.join(", ")})`,
+  );
+  const parts = [`Values the template does not offer in ${tables.join("; ")}`];
+  if (lineage.length > 0) {
+    parts.unshift(`Lineage: ${lineage.map(asCode).join(", ")}`);
+  }
+  return parts.join(". ");
+}
+
+function coversCell(recipe) {
+  return recipe.knownIssues
+    ? `${recipe.covers}. ${knownIssues(recipe.knownIssues)}`
+    : recipe.covers;
+}
+
 function builtFrom(recipe) {
+  if (recipe.kind === KIND_CONVERTED) {
+    return `\`${recipe.baseline}\` and its post-intervention file, converted at bng-metric-template ${CONVERTER_COMMIT.slice(0, SHORT_COMMIT)}, seed ${recipe.seed}`;
+  }
   if (recipe.kind === KIND_COPIED) {
     return `copy of \`${recipe.source}\``;
   }
@@ -49,7 +75,7 @@ const fileName = (recipePath) => recipePath.slice(recipePath.indexOf("/") + 1);
 function familySection({ dir, covers }) {
   const rows = RECIPES.filter((r) => r.path.startsWith(`${dir}/`)).map(
     (r) =>
-      `| \`${fileName(r.path)}\` | ${r.covers} | ${r.expected} | ${builtFrom(r)} |`,
+      `| \`${fileName(r.path)}\` | ${coversCell(r)} | ${r.expected} | ${builtFrom(r)} |`,
   );
   return [
     `## ${dir}/`,
@@ -61,6 +87,26 @@ function familySection({ dir, covers }) {
     ...rows,
     "",
   ].join("\n");
+}
+
+/**
+ * What `check:lineage --dir` reports on the corpus beyond the lineage flaw
+ * files: the files whose recipes list a lineage issue, taken from the
+ * recipes so the note follows them.
+ */
+function lineageCheckNote() {
+  const flagged = RECIPES.filter((r) => r.knownIssues?.lineage.length > 0).map(
+    (r) =>
+      `${asCode(r.path)}, which reports ${r.knownIssues.lineage.map(asCode).join(", ")} (see its row)`,
+  );
+  const exceptions = [
+    `${asCode("malformed/not-a-geopackage.gpkg")}, which it reports as unreadable, as it should`,
+    ...flagged,
+  ];
+  return [
+    `\`npm run check:lineage -- --dir example-files/service-template\` passes every file but ${exceptions.join("; ")}. It skips the legacy-layout file.`,
+    "Each `lineage-problems/` file reports exactly the flaw its name gives.",
+  ].join(" ");
 }
 
 /** The README's Markdown. */
@@ -99,10 +145,14 @@ export function renderReadme() {
     "give it yet, the cell says what it does today, so a tester can tell a gap",
     "in the service from a failure.",
     "",
-    "`npm run check:lineage -- --dir example-files/service-template` passes every",
-    "file but `malformed/not-a-geopackage.gpkg`, which it reports as unreadable,",
-    "as it should, and the legacy-layout file, which it skips. Each",
-    "`lineage-problems/` file reports exactly the flaw its name gives.",
+    lineageCheckNote(),
+    "",
+    "The `bng-500/` files need the template's converter: the bng-metric-template",
+    "sibling (or the checkout `BNG_TEMPLATE_DIR` names) and python3; without them",
+    "the generator skips those files and says why. They come from the converter",
+    `at commit \`${CONVERTER_COMMIT.slice(0, SHORT_COMMIT)}\`. CI rebuilds them there and requires them to match`,
+    "byte for byte; the test skips them elsewhere, as a local checkout may be at",
+    "another commit.",
     "",
     "## permutations/",
     "",

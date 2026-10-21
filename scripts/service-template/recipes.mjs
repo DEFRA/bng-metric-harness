@@ -8,7 +8,9 @@
  *   - generated: drawn by bng-library from a seed, with flaws and options;
  *   - derived:   another recipe's file, changed by the SQL edits listed
  *                (see derive.mjs), for schema faults no generator writes;
- *   - copied:    a file already in the harness, copied as it is.
+ *   - copied:    a file already in the harness, copied as it is;
+ *   - converted: a legacy BNG500 pair, converted by the template's own
+ *                converter (see convert.mjs).
  *
  * The scenario corpus in service-template/permutations/ is built by
  * generate:scenarios, not from here.
@@ -30,6 +32,7 @@ import {
 export const KIND_GENERATED = "generated";
 export const KIND_DERIVED = "derived";
 export const KIND_COPIED = "copied";
+export const KIND_CONVERTED = "converted";
 
 export const ACCEPTED = "accepted";
 const SCHEMA_REFUSED =
@@ -84,6 +87,11 @@ export const FAMILIES = [
   {
     dir: "version-problems",
     covers: "The template version record is missing, doubled or unsupported",
+  },
+  {
+    dir: "bng-500",
+    covers:
+      "The legacy `bng-500/` pairs, built from real Defra metric workbooks, converted by the BNG Service template's own converter (`old_to_new.py`, bng-metric-template) as a user converts a legacy file. They are what the converter writes, before the manual steps it leaves to the user (its warnings), so each still holds values the template does not offer; the recipes list them, and the tests pin them",
   },
   { dir: "malformed", covers: "Not a GeoPackage at all" },
   {
@@ -234,6 +242,7 @@ const AREA_BASELINE = "Area Habitats Baseline";
 const HEDGEROWS_BASELINE = "Hedgerows Baseline";
 const WATERCOURSES_BASELINE = "Watercourses Baseline";
 const RED_LINE = "Red Line Boundary";
+const BASELINE_CONDITION = "Baseline Condition";
 const WGS84 = 4326;
 
 const INVALID_SCHEMA = [
@@ -250,7 +259,7 @@ const INVALID_SCHEMA = [
   derived(
     "invalid-schema/missing-columns-in-area-habitats.gpkg",
     `\`${AREA_BASELINE}\` has no \`Baseline Condition\` or \`Area\` column`,
-    [dropColumns(AREA_BASELINE, ["Baseline Condition", "Area"])],
+    [dropColumns(AREA_BASELINE, [BASELINE_CONDITION, "Area"])],
   ),
   derived(
     "invalid-schema/wrong-column-names-in-area-habitats.gpkg",
@@ -258,7 +267,7 @@ const INVALID_SCHEMA = [
     [
       renameColumns(AREA_BASELINE, {
         "Baseline Habitat Type": "Habitat Type",
-        "Baseline Condition": "Condition",
+        [BASELINE_CONDITION]: "Condition",
       }),
     ],
   ),
@@ -353,6 +362,103 @@ const VERSION = [
   "version-unsupported",
 ].map((name) => flawFixture("version-problems", name));
 
+/**
+ * A legacy BNG500 pair, converted. `knownIssues` is what the lineage and
+ * template-value checks report on the converted file: the converter leaves
+ * an unprovable parent link for the service to infer, and copies values the
+ * template does not offer for the user to fix.
+ */
+function converted(site, knownIssues) {
+  return {
+    path: `bng-500/${site}.gpkg`,
+    kind: KIND_CONVERTED,
+    covers: `\`${site}\`, converted`,
+    expected:
+      "not ready to upload as it stands: the converter's manual steps (its warnings) are still to do",
+    baseline: `example-files/bng-500/${site}-baseline.gpkg`,
+    postIntervention: `example-files/bng-500/${site}-post-intervention.gpkg`,
+    seed: SEED,
+    knownIssues: { lineage: [], ...knownIssues },
+  };
+}
+
+const AREA_POST = "Area Habitats Post-Intervention";
+const TREES_BASELINE = "Individual Trees Baseline";
+const TREES_POST = "Individual Trees Post-Intervention";
+const WATERCOURSES_POST = "Watercourses Post-Intervention";
+const RURAL_OR_URBAN = "Baseline Rural or Urban Tree";
+const TREE_TYPE = "Baseline Tree Type";
+const PROPOSED_SIGNIFICANCE = "Proposed Strategic Significance";
+const AREA_ADVANCE = "Habitat created in advance/years";
+// Values the BNG500 files' trees carry that the template's lists do not.
+const TREE_VALUES = [
+  "Baseline Tree Size",
+  "Category",
+  "Proposed Rural or Urban Tree",
+  "Proposed Tree Size",
+  "Proposed Tree Type",
+  "Retention Category",
+];
+const TREE_BASELINE_VALUES = [RURAL_OR_URBAN, TREE_TYPE];
+const RIPARIAN_ENCROACHMENT = [
+  "Baseline Encroachment into riparian zone",
+  "Proposed Encroachment into riparian zone",
+];
+const WATERCOURSE_ENCROACHMENT = [
+  ...RIPARIAN_ENCROACHMENT,
+  "Baseline Encroachment into Watercourse",
+  "Proposed Encroachment into Watercourse",
+];
+
+const BNG500 = [
+  converted("BROADLAND_2024_3282", {
+    templateValues: {
+      [TREES_BASELINE]: TREE_BASELINE_VALUES,
+      [TREES_POST]: [
+        ...TREE_VALUES,
+        BASELINE_CONDITION,
+        RURAL_OR_URBAN,
+        TREE_TYPE,
+      ],
+    },
+  }),
+  converted("BarkingandDagenham2400625FULL", {
+    lineage: ["lineage-parent-missing"],
+    templateValues: {
+      [TREES_POST]: [...TREE_VALUES, PROPOSED_SIGNIFICANCE],
+      [WATERCOURSES_POST]: WATERCOURSE_ENCROACHMENT,
+    },
+  }),
+  converted("CAMBRIDGE_24_03964_FUL", {
+    templateValues: {
+      [AREA_POST]: [PROPOSED_SIGNIFICANCE],
+      [TREES_BASELINE]: TREE_BASELINE_VALUES,
+      [TREES_POST]: [
+        ...TREE_VALUES,
+        BASELINE_CONDITION,
+        RURAL_OR_URBAN,
+        TREE_TYPE,
+      ],
+    },
+  }),
+  converted("Sunderland_24_00723_FU4", {
+    templateValues: {
+      [AREA_BASELINE]: ["Baseline Habitat Type"],
+      [AREA_POST]: [AREA_ADVANCE],
+      "Hedgerows Post-Intervention": [AREA_ADVANCE],
+      [TREES_BASELINE]: TREE_BASELINE_VALUES,
+      [TREES_POST]: [
+        ...TREE_VALUES,
+        "Habitat Created/Enhanced in advance/years",
+      ],
+      [WATERCOURSES_POST]: RIPARIAN_ENCROACHMENT,
+    },
+  }),
+  converted("Wiltshire_PL_2024_08441", {
+    templateValues: { [WATERCOURSES_POST]: WATERCOURSE_ENCROACHMENT },
+  }),
+];
+
 const MALFORMED = [
   {
     path: "malformed/not-a-geopackage.gpkg",
@@ -385,6 +491,7 @@ export const RECIPES = [
   ...LINEAGE,
   ...INCOMPLETE,
   ...VERSION,
+  ...BNG500,
   ...MALFORMED,
   ...FILENAME,
 ];
@@ -397,7 +504,6 @@ export const GAPS = [
   "A natural river left out of a watercourse that gets worse, a habitat that gets worse with a blank Habitat Ref, and an irreplaceable tree that gets worse: bng-library has no degrade flaw for these yet (BMD-1080 follow-up).",
   "Individual trees with varied counts: the template has no Count column, and how several trees are recorded is undecided (BMD-1171, BMD-1172).",
   "The harness's import-timing scenarios: they edit legacy files, so `permutations/` builds them in the legacy format only.",
-  "The BNG500 corpus converted to the new template: a separate change, through the template's own converter.",
 ];
 
 /** The recipe that builds `recipePath`. */

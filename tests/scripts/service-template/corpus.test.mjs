@@ -9,9 +9,18 @@ import {
 } from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "vitest";
 import {
   FORMAT_BNG_SERVICE,
+  checkLineage,
   checkTemplateValues,
   listFlaws,
   readVersionRecords,
@@ -23,9 +32,17 @@ import {
   removeStaleFiles,
   sameFixture,
 } from "../../../scripts/service-template/build.mjs";
+import {
+  CONVERTER_COMMIT,
+  TEMPLATE_DIR_ENV,
+  converterProblem,
+  describeTemplateCommit,
+  templateCommit,
+} from "../../../scripts/service-template/convert.mjs";
 import { renderReadme } from "../../../scripts/service-template/readme.mjs";
 import {
   FAMILIES,
+  KIND_CONVERTED,
   KIND_DERIVED,
   RECIPES,
   recipeFor,
@@ -37,13 +54,35 @@ const GENERATE = path.join(ROOT, "scripts/gen-service-template.mjs");
 const NOT_A_GEOPACKAGE = "malformed/not-a-geopackage.gpkg";
 const LEGACY_LAYOUT = "invalid-schema/legacy-template.gpkg";
 
+// The bng-500/ files are checked where REQUIRE_CONVERTER is "true", as CI
+// sets it with the template cloned at CONVERTER_COMMIT: that is what holds
+// the committed files to the pinned converter. Elsewhere they are skipped,
+// as a local template checkout may be at another commit.
+const CHECK_CONVERTED = process.env.REQUIRE_CONVERTER === "true";
+const CONVERTER_PROBLEM = CHECK_CONVERTED ? converterProblem() : null;
+if (CONVERTER_PROBLEM) {
+  throw new Error(`REQUIRE_CONVERTER is set, but ${CONVERTER_PROBLEM}`);
+}
+// A checkout at another commit would fail the byte-for-byte test on every
+// bng-500/ file; say why instead.
+const TEMPLATE_AT = CHECK_CONVERTED ? describeTemplateCommit() : null;
+if (TEMPLATE_AT && !TEMPLATE_AT.pinned) {
+  throw new Error(
+    `REQUIRE_CONVERTER is set, but the converter is ${TEMPLATE_AT.text}`,
+  );
+}
+const CONVERTED = RECIPES.filter((r) => r.kind === KIND_CONVERTED);
+const BUILDABLE = CHECK_CONVERTED
+  ? RECIPES
+  : RECIPES.filter((r) => r.kind !== KIND_CONVERTED);
+
 let outDir;
 // Inside the harness, as --outdir must be; test-data/ is gitignored.
 beforeAll(() => {
   const testData = path.join(ROOT, "test-data");
   mkdirSync(testData, { recursive: true });
   outDir = mkdtempSync(path.join(testData, "service-template-"));
-  for (const recipe of RECIPES) {
+  for (const recipe of BUILDABLE) {
     buildRecipe(recipe, outDir);
   }
 });
@@ -101,7 +140,7 @@ describe("the service-template recipes", () => {
 
 describe("the committed service-template corpus", () => {
   it("is exactly what the recipes build, byte for byte (AC2)", () => {
-    const differ = RECIPES.filter((recipe) => {
+    const differ = BUILDABLE.filter((recipe) => {
       const committed = path.join(CORPUS, recipe.path);
       return (
         !existsSync(committed) ||
@@ -134,8 +173,10 @@ describe("the built fixtures", () => {
   });
 
   it("pass the lineage check, each lineage flaw file with its own flaw (AC3)", () => {
-    const checked = RECIPES.filter(
-      (r) => ![NOT_A_GEOPACKAGE, LEGACY_LAYOUT].includes(r.path),
+    const checked = BUILDABLE.filter(
+      (r) =>
+        r.kind !== KIND_CONVERTED &&
+        ![NOT_A_GEOPACKAGE, LEGACY_LAYOUT].includes(r.path),
     );
     for (const recipe of checked) {
       const result = checkFile(built(recipe));
@@ -208,6 +249,91 @@ describe("the built fixtures", () => {
         built(recipeFor("filename-problems/default site [invalid chars].gpkg")),
       ).equals(readFileSync(built(recipeFor("valid/default-site.gpkg")))),
     ).toBe(true);
+  });
+});
+
+// Read from the committed files, so they need no converter and run
+// everywhere: a bng-library repin that changes what the checks report fails
+// locally. Rebuilding them is the byte-for-byte test, gated above.
+describe("the committed BNG500 files", () => {
+  const committed = (recipe) => path.join(CORPUS, recipe.path);
+
+  it("report exactly the issues their recipes list", () => {
+    for (const recipe of CONVERTED) {
+      const file = committed(recipe);
+      const lineage = [...new Set(checkLineage(file).map((p) => p.flaw))];
+      expect(lineage, recipe.path).toEqual(recipe.knownIssues.lineage);
+      const values = {};
+      for (const { table, field } of checkTemplateValues(file)) {
+        values[table] = [...(values[table] ?? []), field].sort();
+      }
+      const known = Object.fromEntries(
+        Object.entries(recipe.knownIssues.templateValues).map(
+          ([table, fields]) => [table, [...fields].sort()],
+        ),
+      );
+      expect(values, recipe.path).toEqual(known);
+    }
+  });
+
+  it("carry one template version record each", () => {
+    for (const recipe of CONVERTED) {
+      expect(versionRecords(committed(recipe)), recipe.path).toHaveLength(1);
+    }
+  });
+});
+
+describe("converterProblem", () => {
+  it("points at bootstrap when the template checkout is missing", () => {
+    const before = process.env[TEMPLATE_DIR_ENV];
+    process.env[TEMPLATE_DIR_ENV] = path.join(ROOT, "test-data", "no-such-dir");
+    try {
+      expect(converterProblem()).toContain("npm run bootstrap");
+    } finally {
+      if (before === undefined) {
+        delete process.env[TEMPLATE_DIR_ENV];
+      } else {
+        process.env[TEMPLATE_DIR_ENV] = before;
+      }
+    }
+  });
+});
+
+describe("templateCommit", () => {
+  const SHA = "a".repeat(40);
+  let dir;
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(ROOT, "test-data", "template-git-"));
+    mkdirSync(path.join(dir, ".git", "refs", "heads"), { recursive: true });
+  });
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+  const write = (name, text) =>
+    writeFileSync(path.join(dir, ".git", name), text);
+
+  it("reads a detached HEAD", () => {
+    write("HEAD", `${SHA}\n`);
+    expect(templateCommit(dir)).toBe(SHA);
+  });
+
+  it("reads a branch, loose or packed", () => {
+    write("HEAD", "ref: refs/heads/main\n");
+    write("packed-refs", `# pack-refs\n${SHA} refs/heads/main\n`);
+    expect(templateCommit(dir)).toBe(SHA);
+    write("refs/heads/main", `${"b".repeat(40)}\n`);
+    expect(templateCommit(dir)).toBe("b".repeat(40));
+  });
+
+  it("is null outside a git checkout", () => {
+    expect(templateCommit(path.join(dir, "nowhere"))).toBeNull();
+  });
+
+  it("says when the checkout is not at the pinned commit", () => {
+    expect(describeTemplateCommit(CONVERTER_COMMIT).pinned).toBe(true);
+    const other = describeTemplateCommit(SHA);
+    expect(other.pinned).toBe(false);
+    expect(other.text).toContain("CI rebuilds the files");
   });
 });
 

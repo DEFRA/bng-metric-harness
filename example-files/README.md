@@ -14,7 +14,7 @@ where they came from:
 | `bng-500/`            | Built from real Defra metric workbooks in the BNG500 corpus                |
 | `malformed/`          | Not a GeoPackage at all                                                    |
 | `filename-problems/`  | A valid GeoPackage; only the upload's own filename is invalid              |
-| `service-template/`   | The same families in the **BNG Service template** format (BMD-1081), kept apart from the legacy corpus above, plus its own lineage, incomplete and version-problem fixtures. Rebuilt to the same bytes by `npm run generate:service-template`; its own `README.md` lists every file. `service-template/permutations/` is the scenario corpus, one file per scenario plus its baseline-stage file — see `docs/generate-scenarios.md` |
+| `service-template/`   | The same families in the **BNG Service template** format (BMD-1081), kept apart from the legacy corpus above, plus its own lineage, incomplete and version-problem fixtures, and `bng-500/` converted by the template's own converter. Rebuilt to the same bytes by `npm run generate:service-template`; its own `README.md` lists every file. `service-template/permutations/` is the scenario corpus, one file per scenario plus its baseline-stage file — see `docs/generate-scenarios.md` |
 
 Stage (`Baseline` / `Post-intervention`) is a filename prefix rather than a
 directory level, so a family can be read in one listing.
