@@ -147,7 +147,7 @@ export function convertPair({ baseline, postIntervention, seed }, file) {
   );
   if (result.status !== 0) {
     throw new Error(
-      `converting ${baseline} failed: ${result.stderr.trim() || result.error?.message}`,
+      `converting ${baseline} failed: ${result.stderr?.trim() || result.error?.message}`,
     );
   }
   settle(file);

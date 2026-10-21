@@ -27,6 +27,13 @@ jobs:
           cache: npm
       - run: npm ci
 
+      # The Python the committed bng-500/ files were converted with, so a
+      # runner image's new Python cannot change them.
+      - name: Setup Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.13'
+
       # The corpus's bng-500/ files are converted by bng-metric-template's
       # converter, at the commit scripts/service-template/convert.mjs pins.
       - name: Check out the template converter

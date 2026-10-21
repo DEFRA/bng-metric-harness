@@ -298,8 +298,10 @@ seeded feature uuids, and the generator then fixes the file's timestamps and
 rewrites it with SQLite's VACUUM, so the files are byte-stable.
 
 CI is what holds them to the pin: it clones the template at `CONVERTER_COMMIT`,
-rebuilds the files and requires them to match the committed ones byte for
-byte (`REQUIRE_CONVERTER=true`). Locally the test skips them, as your
+rebuilds the files with Python 3.13, the version they were converted with,
+and requires them to match the committed ones byte for byte
+(`REQUIRE_CONVERTER=true`). A move to another Python version means
+regenerating them with it and updating the workflow's `setup-python` step. Locally the test skips them, as your
 checkout may be at another commit, and the generator converts with whatever
 checkout it finds and says which commit that is, warning when it is not the
 pinned one. To move to a newer converter, check the sibling out at it, update
