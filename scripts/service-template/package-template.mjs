@@ -16,7 +16,8 @@
  * BNG_TEMPLATE_DIR names (see convert.mjs).
  */
 
-import { copyFileSync, cpSync, existsSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { zipFolder } from "../zip.mjs";
@@ -304,34 +305,46 @@ function copyVersionRecords(db, source) {
   }
 }
 
-/**
- * A GeoPackage path as a plain local file path, for SQLite: absolute, so it
- * is never read as a `file:` URI, which SQLITE_USE_URI=1 would let carry
- * connection parameters (`?vfs=`, `?mode=`) in a name.
- */
-export function localDatabasePath(file) {
-  const resolved = path.resolve(file);
-  if (!path.isAbsolute(resolved) || resolved.startsWith("file:")) {
-    throw new Error(`${file} is not a local file path`);
+/** Run `fn` with a private folder of its own, removed afterwards. */
+function withStagingDir(fn) {
+  const dir = mkdtempSync(path.join(tmpdir(), "bng-package-template-"));
+  try {
+    return fn(dir);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
-  return resolved;
 }
 
 /**
  * Write the template's GeoPackage, `templateGpkg`, to `outGpkg` holding every
- * feature row of `sourceGpkg`. The source is read through a connection of
- * its own, read-only, rather than attached to the output by name.
+ * feature row of `sourceGpkg`.
+ *
+ * Both are worked on as copies in a private folder this creates, so SQLite
+ * only ever opens paths it named itself, never one taken from the command
+ * line (where a name could carry connection parameters as a `file:` URI),
+ * and `outGpkg` appears only once it is complete. The source is read
+ * through a read-only connection of its own, not attached to the output.
  *
  * @returns {Record<string, number>} the rows written, by table
  */
 export function loadIntoTemplateGpkg(templateGpkg, sourceGpkg, outGpkg) {
-  const outPath = localDatabasePath(outGpkg);
-  copyFileSync(templateGpkg, outPath);
-  const source = new Database(localDatabasePath(sourceGpkg), {
+  return withStagingDir((dir) => {
+    const stagedSource = path.join(dir, "source.gpkg");
+    const stagedOut = path.join(dir, "out.gpkg");
+    copyFileSync(sourceGpkg, stagedSource);
+    copyFileSync(templateGpkg, stagedOut);
+    const counts = loadStaged(stagedSource, stagedOut);
+    copyFileSync(stagedOut, outGpkg);
+    return counts;
+  });
+}
+
+function loadStaged(sourcePath, outPath) {
+  const source = new Database(sourcePath, {
     readonly: true,
     fileMustExist: true,
   });
-  const db = new Database(outPath);
+  const db = new Database(outPath, { fileMustExist: true });
   try {
     registerSpatialFunctions(db);
     const tables = assertSameSchema(db, source);

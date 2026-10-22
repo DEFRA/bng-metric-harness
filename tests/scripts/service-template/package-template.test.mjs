@@ -20,7 +20,6 @@ import {
   PROJECT_FILE,
   geometryBounds,
   loadIntoTemplateGpkg,
-  localDatabasePath,
   packageForQgis,
   templateFolder,
 } from "../../../scripts/service-template/package-template.mjs";
@@ -284,15 +283,6 @@ describe("geometryBounds", () => {
   });
 });
 
-describe("localDatabasePath", () => {
-  it("gives SQLite an absolute path, so a name is never read as a file: URI", () => {
-    expect(localDatabasePath("file:demo.gpkg?vfs=unix-none")).toBe(
-      path.resolve("file:demo.gpkg?vfs=unix-none"),
-    );
-    expect(path.isAbsolute(localDatabasePath("a/b.gpkg"))).toBe(true);
-  });
-});
-
 describe("checkGenerated", () => {
   /** A copy of `file` whose first Retained hedge names a parent not there. */
   function brokenLineage(file) {
@@ -394,6 +384,16 @@ withTemplate("loadIntoTemplateGpkg", () => {
       );
     expect(records(out)).toEqual(records(source));
     expect(records(out)[0]).toContain('"1.7"');
+  });
+
+  it("leaves no output file when the load fails", () => {
+    const source = generated();
+    const db = new Database(source);
+    db.exec('ALTER TABLE "Hedgerows Baseline" DROP COLUMN "Comment"');
+    db.close();
+    const out = path.join(dir, "never-written.gpkg");
+    expect(() => loadIntoTemplateGpkg(templateGpkg, source, out)).toThrow();
+    expect(existsSync(out)).toBe(false);
   });
 
   it("refuses a file whose columns are not the template's", () => {
