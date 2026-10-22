@@ -40,7 +40,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v7.1.0
         with:
-          node-version: '20'
+          node-version-file: bng-metric-harness/.nvmrc
           cache: npm
           cache-dependency-path: bng-metric-harness/package-lock.json
 

@@ -12,7 +12,7 @@
     "#metric-compare": "bng-library/metric-compare"
   },
   "engines": {
-    "node": ">=24.14.1"
+    "node": ">=24.22.1"
   },
   "scripts": {
     "bootstrap": "node scripts/bootstrap.mjs",
