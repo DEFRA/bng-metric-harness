@@ -45,6 +45,8 @@ export function checkGenerated(file, { strictLineage, strictValues }) {
         ? `lineage: reports ${lineage.expected}, as its name says`
         : "lineage: every post-intervention feature names its parent",
     );
+  } else if (lineage.status === "skip") {
+    add(strictLineage, true, `lineage: not checked: ${lineage.reason}`);
   } else {
     const flaws = [...new Set(lineage.problems.map((p) => p.flaw))];
     const expected = lineage.expected

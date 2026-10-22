@@ -370,7 +370,7 @@ function loadStaged(sourcePath, outPath) {
 
 /**
  * Package `sourceGpkg` as a template folder named `name` in `outDir`, and
- * that folder zipped beside it.
+ * that folder zipped beside it. If either cannot be written, neither is left.
  *
  * @param {string} sourceGpkg
  * @param {{ outDir: string, name: string, templateRoot?: string }} options
@@ -388,11 +388,18 @@ export function packageForQgis(sourceGpkg, { outDir, name, templateRoot }) {
     }
   }
   cpSync(template, folder, { recursive: true });
-  const counts = loadIntoTemplateGpkg(
-    path.join(template, LAYERS_GPKG),
-    sourceGpkg,
-    path.join(folder, LAYERS_GPKG),
-  );
-  zipFolder(folder, zip);
-  return { folder, zip, counts };
+  try {
+    const counts = loadIntoTemplateGpkg(
+      path.join(template, LAYERS_GPKG),
+      sourceGpkg,
+      path.join(folder, LAYERS_GPKG),
+    );
+    zipFolder(folder, zip);
+    return { folder, zip, counts };
+  } catch (error) {
+    // Leave nothing behind that could be opened as an empty or part-written site.
+    rmSync(folder, { recursive: true, force: true });
+    rmSync(zip, { force: true });
+    throw error;
+  }
 }

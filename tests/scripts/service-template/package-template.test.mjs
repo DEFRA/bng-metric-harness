@@ -297,6 +297,24 @@ describe("checkGenerated", () => {
     return broken;
   }
 
+  it("says why lineage was not checked, rather than reporting no problems", () => {
+    const legacy = path.join(
+      ROOT,
+      "example-files/valid/Post-intervention - complete.gpkg",
+    );
+    const { ok, findings } = checkGenerated(legacy, {
+      strictLineage: true,
+      strictValues: false,
+    });
+    expect(ok).toBe(false);
+    expect(findings[0]).toEqual({
+      level: "error",
+      text: expect.stringMatching(
+        /^lineage: not checked: not a BNG Service file/,
+      ),
+    });
+  });
+
   it("passes a generated file, strictly", () => {
     const { ok, findings } = checkGenerated(
       generated(),
@@ -443,6 +461,19 @@ withTemplate("packageForQgis", () => {
         .get("Demo site/Layers/BNG Service Layers.gpkg")
         .equals(readFileSync(path.join(folder, LAYERS_GPKG))),
     ).toBe(true);
+  });
+
+  it("leaves no folder or zip when the load fails", () => {
+    const source = generated();
+    const db = new Database(source);
+    db.exec('ALTER TABLE "Hedgerows Baseline" DROP COLUMN "Comment"');
+    db.close();
+    const folder = path.join(dir, "Failed site");
+    expect(() =>
+      packageForQgis(source, { outDir: dir, name: "Failed site" }),
+    ).toThrow();
+    expect(existsSync(folder)).toBe(false);
+    expect(existsSync(`${folder}.zip`)).toBe(false);
   });
 
   it("refuses to write over a folder already there", () => {

@@ -6,8 +6,9 @@
  * its git-pinned bng-library, `npm run lib:link` in the backend instead).
  *
  * A file that passes is one the backend recognises as the BNG Service
- * template. The service cannot read such a file yet: uploaded, it is still
- * refused as "not yet read" (SERVICE_TEMPLATE_NOT_YET_READ).
+ * template. The baseline + post-intervention upload still refuses it as "not
+ * yet read" (SERVICE_TEMPLATE_NOT_YET_READ); the baseline upload does too
+ * until bng-metric-backend#530 is merged, and reads its Baseline tables after.
  *
  *   node .claude/skills/generate-geopackage/scripts/backend-gate.mjs <file.gpkg> [...]
  *

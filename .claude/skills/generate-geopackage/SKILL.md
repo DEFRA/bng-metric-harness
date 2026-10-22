@@ -94,11 +94,12 @@ asked for.** The default is still the legacy format.
 
 - **Whether the file was opened in QGIS.** An agent usually cannot. The
   checks above are not the same as opening it.
-- **That the service cannot read a BNG Service file yet.** With the
-  service-template flag on (`SERVICE_TEMPLATE_ENABLED=true`), an upload that
-  passes the gate is still refused as "not yet read"
-  (`SERVICE_TEMPLATE_NOT_YET_READ`). A demonstration of the template stays
-  in QGIS.
+- **Which upload can read a BNG Service file.** With the service-template
+  flag on (`SERVICE_TEMPLATE_ENABLED=true`), the baseline + post-intervention
+  upload refuses a file that passes the gate as "not yet read"
+  (`SERVICE_TEMPLATE_NOT_YET_READ`). The baseline upload refuses it too
+  until bng-metric-backend#530 is merged; after that it reads the Baseline
+  tables and saves the baseline. Check which applies before saying so.
 - **Which template the file matches.** The schema is bng-library's copy of
   the template. If packaging refuses a file as not matching the template
   checkout, the two repos are at different versions: say so rather than
