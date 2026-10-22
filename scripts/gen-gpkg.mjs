@@ -69,6 +69,7 @@ import {
 import { splitFlaws } from "./gen-gpkg-flaws.mjs";
 import { printHelp } from "./gen-gpkg-help.mjs";
 import { runFromList, runFromWorkbook } from "./gen-gpkg-workbook.mjs";
+import { parseWorseCounts } from "./gen-gpkg-worse.mjs";
 import {
   afterBngServiceWrite,
   assertTemplateAvailable,
@@ -140,6 +141,9 @@ const { values: args } = parseArgs({
     // BNG Service format only: also write each file as a copy of the QGIS
     // template folder, ready to open, and that folder zipped.
     "package-template": { type: "boolean", default: false },
+    // BNG Service format, synthetic only: how many habitats that get worse
+    // of a kind to draw, as KIND=N, in place of one each.
+    worse: { type: "string", multiple: true, default: [] },
     help: { type: "boolean", short: "h", default: false },
   },
   allowPositionals: false,
@@ -333,6 +337,14 @@ async function runSynthetic(centre, seed) {
     numParcels,
   });
   const habitatPins = resolveHabitatPins(args.habitat, numParcels, selection);
+  const worseHabitatCounts = parseWorseCounts(args.worse);
+  // A geometric flaw draws the minimal bad site, which holds no habitats
+  // that get worse to count.
+  if (worseHabitatCounts && selection.geometricFlawNames.length > 0) {
+    throw new FlawSelectionError(
+      "--worse cannot be combined with --bad or a geometric flaw: their minimal site draws no habitats that get worse",
+    );
+  }
   const plan = {
     numParcels,
     ...selection,
@@ -359,6 +371,7 @@ async function runSynthetic(centre, seed) {
     // Each file in a --count batch gets its own seed so the batch stays varied
     // yet reproducible: same --seed always yields the same N files.
     runs.push({
+      worseHabitatCounts,
       plan: seed === null ? plan : { ...plan, seed: seed + (i - 1) },
       paths: syntheticOutPaths(plan, flawSuffix, suffix, timestampSuffix()),
       strictness: syntheticStrictness({
@@ -406,11 +419,15 @@ function syntheticOutPaths(plan, flawSuffix, suffix, stamp) {
   };
 }
 
-function writeSyntheticRun(centre, { plan, paths, strictness }) {
+function writeSyntheticRun(
+  centre,
+  { plan, paths, strictness, worseHabitatCounts },
+) {
   if (paths.bngService) {
     generateBngServiceSynthetic(paths.bngService, centre, plan, {
       stage: selectedStage,
       templateVersion: selectedTemplateVersion,
+      worseHabitatCounts,
     });
     afterBngServiceWrite(paths.bngService, {
       strictness,
@@ -437,9 +454,9 @@ function assertSyntheticFlagsOutsideWorkbookMode() {
   if (!workbookMode) {
     return;
   }
-  if (args.pair || args.habitat.length > 0) {
+  if (args.pair || args.habitat.length > 0 || args.worse.length > 0) {
     error(
-      "--pair and --habitat are synthetic-mode only; workbook mode already emits a " +
+      "--pair, --habitat and --worse are synthetic-mode only; workbook mode already emits a " +
         "pair and takes its habitats from the workbook (see --mode)",
     );
     process.exit(1);
@@ -480,6 +497,12 @@ function assertFormatFlagsValid() {
     args.stage !== undefined || args["template-version"] !== undefined;
   if (!bngService && bngServiceOnly) {
     error(`--stage and --template-version need --format ${FORMAT_BNG_SERVICE}`);
+    process.exit(1);
+  }
+  if (!bngService && args.worse.length > 0) {
+    error(
+      `--worse needs --format ${FORMAT_BNG_SERVICE}: it counts the BNG Service template's habitats that get worse`,
+    );
     process.exit(1);
   }
   if (!bngService && args["package-template"]) {
