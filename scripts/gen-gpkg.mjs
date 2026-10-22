@@ -69,6 +69,15 @@ import {
 import { splitFlaws } from "./gen-gpkg-flaws.mjs";
 import { runFromList, runFromWorkbook } from "./gen-gpkg-workbook.mjs";
 import {
+  afterBngServiceWrite,
+  assertTemplateAvailable,
+  failedChecks,
+} from "./gen-gpkg-after-write.mjs";
+import {
+  WORKBOOK_STRICTNESS,
+  syntheticStrictness,
+} from "./service-template/check-generated.mjs";
+import {
   BNG_SERVICE_FLAWS,
   CURRENT_TEMPLATE_VERSION,
   FEATURE_REF_PAD,
@@ -130,6 +139,9 @@ const { values: args } = parseArgs({
     stage: { type: "string" },
     // BNG Service format only: the version the template version record names.
     "template-version": { type: "string" },
+    // BNG Service format only: also write each file as a copy of the QGIS
+    // template folder, ready to open, and that folder zipped.
+    "package-template": { type: "boolean", default: false },
     help: { type: "boolean", short: "h", default: false },
   },
   allowPositionals: false,
@@ -351,6 +363,10 @@ async function runSynthetic(centre, seed) {
     runs.push({
       plan: seed === null ? plan : { ...plan, seed: seed + (i - 1) },
       paths: syntheticOutPaths(plan, flawSuffix, suffix, timestampSuffix()),
+      strictness: syntheticStrictness({
+        contentFlaws:
+          legacy.length + degradeFlawNames.length + (args.bad ? 1 : 0),
+      }),
     });
   }
   // Clear everything the batch would overwrite before writing any of it, so
@@ -391,11 +407,15 @@ function syntheticOutPaths(plan, flawSuffix, suffix, stamp) {
   };
 }
 
-function writeSyntheticRun(centre, { plan, paths }) {
+function writeSyntheticRun(centre, { plan, paths, strictness }) {
   if (paths.bngService) {
     generateBngServiceSynthetic(paths.bngService, centre, plan, {
       stage: selectedStage,
       templateVersion: selectedTemplateVersion,
+    });
+    afterBngServiceWrite(paths.bngService, {
+      strictness,
+      packageTemplate: args["package-template"],
     });
   } else if (paths.baseline) {
     writeSyntheticPair(paths, centre, plan);
@@ -512,6 +532,17 @@ Options:
                       tables empty.
   --template-version V  The version the file's template version record names
                       (${FORMAT_BNG_SERVICE} only; default ${CURRENT_TEMPLATE_VERSION}).
+  --package-template  ${FORMAT_BNG_SERVICE} only: also write each file as a copy of
+                      the QGIS template folder, ready to open in QGIS (its
+                      project reads Layers/BNG Service Layers.gpkg, so a bare
+                      file shows every layer as unavailable), and that folder
+                      zipped. Needs the bng-metric-template sibling
+                      (npm run bootstrap) or BNG_TEMPLATE_DIR.
+
+Each ${FORMAT_BNG_SERVICE} file is checked as it is written: its lineage (as
+npm run check:lineage) and its values against the template's drop-downs. A
+check that should pass and does not exits 1; one a flaw asked for may break
+only warns.
   -h, --help          Show this help and exit.
 
 Flaw catalogue (--flaw values; defined in bng-library):
@@ -527,6 +558,8 @@ lineage, degraded-habitat and template-version flaws combine with any of them. E
   node scripts/gen-gpkg.mjs --format ${FORMAT_BNG_SERVICE} --size 20
   node scripts/gen-gpkg.mjs --format ${FORMAT_BNG_SERVICE} --stage ${STAGE_BASELINE}
   node scripts/gen-gpkg.mjs --format ${FORMAT_BNG_SERVICE} --flaw lineage-parent-unknown
+  node scripts/gen-gpkg.mjs --format ${FORMAT_BNG_SERVICE} --size 15 --seed 6 \
+    --centre 460000,210000 --package-template
   node scripts/gen-gpkg.mjs --format ${FORMAT_BNG_SERVICE} --from ./metric.xlsm
   node scripts/gen-gpkg.mjs --size 3 --pair \
     --habitat "Intertidal hard structures - Artificial hard structures with integrated greening of grey infrastructure (IGGI)"`,
@@ -592,6 +625,20 @@ function assertFormatFlagsValid() {
     error(`--stage and --template-version need --format ${FORMAT_BNG_SERVICE}`);
     process.exit(1);
   }
+  if (!bngService && args["package-template"]) {
+    error(
+      `--package-template needs --format ${FORMAT_BNG_SERVICE}: it packages the BNG Service template`,
+    );
+    process.exit(1);
+  }
+}
+
+// Before anything is written, so a missing template is not found only after
+// a long run.
+function assertPackagingPossible() {
+  if (args["package-template"] && !args.inspect) {
+    assertTemplateAvailable();
+  }
 }
 
 function assertFlagCombinationsValid() {
@@ -599,6 +646,7 @@ function assertFlagCombinationsValid() {
   assertSyntheticFlagsOutsideWorkbookMode();
   assertSeedOutsideWorkbookMode();
   assertFormatFlagsValid();
+  assertPackagingPossible();
 }
 
 function formatOptions() {
@@ -606,7 +654,24 @@ function formatOptions() {
     format: args.format,
     stage: selectedStage,
     templateVersion: selectedTemplateVersion,
+    onBngServiceFile: (file) =>
+      afterBngServiceWrite(file, {
+        strictness: WORKBOOK_STRICTNESS,
+        packageTemplate: args["package-template"],
+      }),
   };
+}
+
+// A file that fails a check it should pass is still written, and named, so
+// it can be looked at; the run exits 1.
+function exitIfChecksFailed() {
+  const failed = failedChecks();
+  if (failed.length > 0) {
+    error(
+      `${failed.length} file(s) failed a check they should pass:\n  ${failed.join("\n  ")}`,
+    );
+    process.exit(1);
+  }
 }
 
 async function main() {
@@ -629,6 +694,7 @@ async function main() {
       mode: selectedMode,
       ...formatOptions(),
     });
+    exitIfChecksFailed();
     return;
   }
   if (args.from) {
@@ -640,9 +706,11 @@ async function main() {
       mode: selectedMode,
       ...formatOptions(),
     });
+    exitIfChecksFailed();
     return;
   }
   await runSynthetic(centre, seed);
+  exitIfChecksFailed();
 }
 
 main().catch((err) => {

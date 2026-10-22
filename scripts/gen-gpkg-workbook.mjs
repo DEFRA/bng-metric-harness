@@ -179,7 +179,17 @@ function joinWithinDir(dir, name) {
 
 export async function runFromWorkbook(
   source,
-  { outDir, strict, inspect, centre, mode, format, stage, templateVersion },
+  {
+    outDir,
+    strict,
+    inspect,
+    centre,
+    mode,
+    format,
+    stage,
+    templateVersion,
+    onBngServiceFile,
+  },
 ) {
   if (!existsSync(outDir)) {
     mkdirSync(outDir, { recursive: true });
@@ -196,12 +206,15 @@ export async function runFromWorkbook(
 
   if (format === FORMAT_BNG_SERVICE) {
     const outPath = joinWithinDir(outDir, bngServiceOutputName(source, stage));
-    generateBngServiceFromWorkbook(outPath, workbook, source, {
-      strict,
-      centre,
-      stage,
-      templateVersion,
-    });
+    const { success } = generateBngServiceFromWorkbook(
+      outPath,
+      workbook,
+      source,
+      { strict, centre, stage, templateVersion },
+    );
+    if (success) {
+      onBngServiceFile?.(outPath);
+    }
     return;
   }
 
@@ -229,7 +242,16 @@ function readWorkbookList(listPath) {
 
 export async function runFromList(
   listPathArg,
-  { outDir, strict, centre, mode, format, stage, templateVersion },
+  {
+    outDir,
+    strict,
+    centre,
+    mode,
+    format,
+    stage,
+    templateVersion,
+    onBngServiceFile,
+  },
 ) {
   const listPath = path.resolve(listPathArg);
   if (!existsSync(listPath)) {
@@ -245,6 +267,7 @@ export async function runFromList(
     format,
     stage,
     templateVersion,
+    onBngServiceFile,
   };
   for (const entry of readWorkbookList(listPath)) {
     try {
