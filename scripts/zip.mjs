@@ -13,9 +13,8 @@ import { crc32, deflateRawSync } from "node:zlib";
 const LOCAL_HEADER = 0x04034b50;
 const CENTRAL_HEADER = 0x02014b50;
 const END_OF_CENTRAL = 0x06054b50;
-const LOCAL_HEADER_SIZE = 30;
-const CENTRAL_HEADER_SIZE = 46;
-const END_OF_CENTRAL_SIZE = 22;
+const UINT16_BYTES = 2;
+const UINT32_BYTES = 4;
 const VERSION_NEEDED = 20;
 // Bit 11: names are UTF-8, so spaces and accents survive on every platform.
 const FLAG_UTF8 = 0x0800;
@@ -85,51 +84,77 @@ function compressed(data) {
     : { method: METHOD_STORED, body: data };
 }
 
+/**
+ * Little-endian fields, in order, as one buffer: each `[bytes, value]`, two
+ * or four bytes wide. Writing a header field by field keeps its layout in
+ * the order the zip format lists it, with no offsets to keep in step.
+ */
+function fields(list) {
+  const buffer = Buffer.alloc(list.reduce((n, [bytes]) => n + bytes, 0));
+  let offset = 0;
+  for (const [bytes, value] of list) {
+    if (bytes === UINT16_BYTES) {
+      buffer.writeUInt16LE(value, offset);
+    } else {
+      buffer.writeUInt32LE(value >>> 0, offset);
+    }
+    offset += bytes;
+  }
+  return buffer;
+}
+
+const u16 = (value) => [UINT16_BYTES, value];
+const u32 = (value) => [UINT32_BYTES, value];
+const NONE = 0;
+
+/** The fields a local header and its central-directory entry share. */
+function sharedFields(entry) {
+  return [
+    u16(VERSION_NEEDED),
+    u16(FLAG_UTF8),
+    u16(entry.method),
+    u16(entry.time),
+    u16(entry.date),
+    u32(entry.crc),
+    u32(entry.body.length),
+    u32(entry.size),
+    u16(entry.nameBytes.length),
+    u16(NONE), // extra field length
+  ];
+}
+
 function localHeader(entry) {
-  const header = Buffer.alloc(LOCAL_HEADER_SIZE);
-  header.writeUInt32LE(LOCAL_HEADER, 0);
-  header.writeUInt16LE(VERSION_NEEDED, 4);
-  header.writeUInt16LE(FLAG_UTF8, 6);
-  header.writeUInt16LE(entry.method, 8);
-  header.writeUInt16LE(entry.time, 10);
-  header.writeUInt16LE(entry.date, 12);
-  header.writeUInt32LE(entry.crc, 14);
-  header.writeUInt32LE(entry.body.length, 18);
-  header.writeUInt32LE(entry.size, 22);
-  header.writeUInt16LE(entry.nameBytes.length, 26);
-  return header;
+  return fields([u32(LOCAL_HEADER), ...sharedFields(entry)]);
 }
 
 function centralHeader(entry) {
-  const header = Buffer.alloc(CENTRAL_HEADER_SIZE);
-  header.writeUInt32LE(CENTRAL_HEADER, 0);
-  header.writeUInt16LE(MADE_BY_UNIX, 4);
-  header.writeUInt16LE(VERSION_NEEDED, 6);
-  header.writeUInt16LE(FLAG_UTF8, 8);
-  header.writeUInt16LE(entry.method, 10);
-  header.writeUInt16LE(entry.time, 12);
-  header.writeUInt16LE(entry.date, 14);
-  header.writeUInt32LE(entry.crc, 16);
-  header.writeUInt32LE(entry.body.length, 20);
-  header.writeUInt32LE(entry.size, 24);
-  header.writeUInt16LE(entry.nameBytes.length, 28);
   const unixMode = entry.directory ? UNIX_DIR_MODE : UNIX_FILE_MODE;
   const external =
     ((unixMode << UNIX_MODE_SHIFT) >>> 0) |
     (entry.directory ? MSDOS_DIRECTORY : 0);
-  header.writeUInt32LE(external >>> 0, 38);
-  header.writeUInt32LE(entry.offset, 42);
-  return header;
+  return fields([
+    u32(CENTRAL_HEADER),
+    u16(MADE_BY_UNIX),
+    ...sharedFields(entry),
+    u16(NONE), // file comment length
+    u16(NONE), // disk number start
+    u16(NONE), // internal attributes
+    u32(external),
+    u32(entry.offset),
+  ]);
 }
 
 function endOfCentral(count, size, offset) {
-  const end = Buffer.alloc(END_OF_CENTRAL_SIZE);
-  end.writeUInt32LE(END_OF_CENTRAL, 0);
-  end.writeUInt16LE(count, 8);
-  end.writeUInt16LE(count, 10);
-  end.writeUInt32LE(size, 12);
-  end.writeUInt32LE(offset, 16);
-  return end;
+  return fields([
+    u32(END_OF_CENTRAL),
+    u16(NONE), // this disk
+    u16(NONE), // disk where the central directory starts
+    u16(count), // entries on this disk
+    u16(count), // entries in all
+    u32(size),
+    u32(offset),
+    u16(NONE), // comment length
+  ]);
 }
 
 /**

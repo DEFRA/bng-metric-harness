@@ -81,14 +81,18 @@ export function checkGenerated(file, { strictLineage, strictValues }) {
 /**
  * How strict the checks are for a synthetic file: strict unless a flaw asked
  * for may break them. A lineage or version flaw leaves the values alone, and
- * the lineage check expects a lineage flaw by the file's name.
+ * the lineage check expects a lineage flaw by the file's name. A --habitat
+ * pin is checked against the legacy habitat list, which offers habitats the
+ * template's area layer does not (an individual tree, say), so with pins the
+ * values check only warns, as it does for a workbook.
  *
- * @param {{ contentFlaws: number }} plan  how many geometric, empty-layer,
- *   attribute and degrade flaws the file carries
+ * @param {{ contentFlaws: number, habitatPins?: number }} plan  how many
+ *   geometric, empty-layer, attribute and degrade flaws the file carries,
+ *   and how many habitats it pins
  */
-export function syntheticStrictness({ contentFlaws }) {
+export function syntheticStrictness({ contentFlaws, habitatPins = 0 }) {
   const clean = contentFlaws === 0;
-  return { strictLineage: clean, strictValues: clean };
+  return { strictLineage: clean, strictValues: clean && habitatPins === 0 };
 }
 
 /** A workbook site's lineage is the generator's; its values are the workbook's. */

@@ -29,6 +29,10 @@ import {
   syntheticStrictness,
 } from "../../../scripts/service-template/check-generated.mjs";
 import { TEMPLATE_DIR_ENV } from "../../../scripts/service-template/convert.mjs";
+import {
+  afterBngServiceWrite,
+  failures,
+} from "../../../scripts/gen-gpkg-after-write.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
 const GEN_GPKG = path.join(ROOT, "scripts/gen-gpkg.mjs");
@@ -206,6 +210,73 @@ describe("geometryBounds", () => {
     });
   });
 
+  /** ISO WKB for a line, with `dimensions` doubles a coordinate. */
+  function lineWkb(code, coords) {
+    const dimensions = coords[0].length;
+    const wkb = Buffer.alloc(9 + coords.length * dimensions * 8);
+    wkb.writeUInt8(1, 0);
+    wkb.writeUInt32LE(code, 1);
+    wkb.writeUInt32LE(coords.length, 5);
+    coords.flat().forEach((v, i) => wkb.writeDoubleLE(v, 9 + i * 8));
+    return wkb;
+  }
+
+  it.each([
+    [
+      "LINESTRING",
+      2,
+      [
+        [1, 10],
+        [5, 2],
+      ],
+    ],
+    [
+      "LINESTRING Z",
+      1002,
+      [
+        [1, 10, 99],
+        [5, 2, -99],
+      ],
+    ],
+    [
+      "LINESTRING M",
+      2002,
+      [
+        [1, 10, 99],
+        [5, 2, -99],
+      ],
+    ],
+    [
+      "LINESTRING ZM",
+      3002,
+      [
+        [1, 10, 99, 7],
+        [5, 2, -99, 7],
+      ],
+    ],
+  ])("reads each coordinate of a %s with no envelope", (_, code, coords) => {
+    expect(geometryBounds(blob(lineWkb(code, coords)))).toEqual({
+      minX: 1,
+      maxX: 5,
+      minY: 2,
+      maxY: 10,
+      empty: false,
+    });
+  });
+
+  it("refuses a geometry type it does not know, or an envelope the spec reserves", () => {
+    expect(() => geometryBounds(blob(lineWkb(4002, [[1, 2]])))).toThrow(
+      /unsupported WKB geometry type 4002/,
+    );
+    expect(() => geometryBounds(blob(lineWkb(17, [[1, 2]])))).toThrow(
+      /unsupported WKB geometry type 17/,
+    );
+    const reserved = 0x01 | (5 << 1);
+    expect(() => geometryBounds(blob(POINT_WKB, reserved))).toThrow(
+      /reserved GeoPackage envelope indicator 5/,
+    );
+  });
+
   it("gives null for no geometry, or a blob that is not a GeoPackage geometry", () => {
     expect(geometryBounds(null)).toBeNull();
     expect(geometryBounds(Buffer.from("not a geometry"))).toBeNull();
@@ -243,6 +314,17 @@ describe("checkGenerated", () => {
     expect(ok).toBe(false);
     expect(findings[0]).toMatchObject({ level: "error" });
     expect(findings[0].text).toMatch(/^lineage: \d+ problem/);
+  });
+
+  it("only warns on values where habitats are pinned, as the legacy list offers what the template does not", () => {
+    expect(syntheticStrictness({ contentFlaws: 0, habitatPins: 1 })).toEqual({
+      strictLineage: true,
+      strictValues: false,
+    });
+    expect(syntheticStrictness({ contentFlaws: 0 })).toEqual({
+      strictLineage: true,
+      strictValues: true,
+    });
   });
 
   it("only warns where a flaw asked for may break it", () => {
@@ -316,6 +398,23 @@ withTemplate("loadIntoTemplateGpkg", () => {
         path.join(dir, "refused.gpkg"),
       ),
     ).toThrow(/Hedgerows Baseline has no Comment.*different versions/);
+  });
+});
+
+withTemplate("afterBngServiceWrite", () => {
+  it("records a packaging failure with the file and carries on, rather than throw", () => {
+    const file = generated();
+    const strictness = syntheticStrictness({ contentFlaws: 0 });
+    afterBngServiceWrite(file, { strictness, packageTemplate: true });
+    expect(failures().map((f) => f.file)).not.toContain(file);
+    // The folder is there now, so packaging the file again fails.
+    expect(() =>
+      afterBngServiceWrite(file, { strictness, packageTemplate: true }),
+    ).not.toThrow();
+    expect(failures()).toContainEqual({
+      file,
+      reason: expect.stringMatching(/^not packaged: .*already exists/),
+    });
   });
 });
 
@@ -393,6 +492,20 @@ describe("generate:gpkg --package-template", () => {
       );
     },
   );
+
+  it("warns, not fails, on a pinned habitat the template does not offer", () => {
+    const out = path.join(dir, "pinned");
+    const result = run(out, [
+      "--format",
+      "bng-service",
+      "--habitat",
+      "Individual trees - Urban tree",
+    ]);
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.stdout + result.stderr).toMatch(
+      /template values: \d+ field\(s\) hold values the template does not offer/,
+    );
+  });
 
   it("checks a file without packaging it, and passes one named for its lineage flaw", () => {
     const out = path.join(dir, "lineage-flaw");

@@ -27,22 +27,50 @@ export const PROJECT_FILE = "BNG Service Habitat Mapping.qgz";
 export const LAYERS_GPKG = path.join("Layers", "BNG Service Layers.gpkg");
 
 const GPKG_MAGIC = "GP";
+const GPKG_MAGIC_BYTES = 2;
+const GPKG_FLAGS_OFFSET = 3;
 const GPKG_HEADER_SIZE = 8;
 const FLAG_LITTLE_ENDIAN = 0x01;
 const FLAG_EMPTY = 0x10;
 const ENVELOPE_SHIFT = 1;
 const ENVELOPE_MASK = 0x07;
-// The envelope's size in bytes, by its indicator: none, XY, XYZ, XYM, XYZM.
-const ENVELOPE_BYTES = [0, 32, 48, 48, 64];
 const DOUBLE_BYTES = 8;
-const COORD_BYTES = 16;
+// An envelope's doubles, by its indicator: none, XY, XYZ, XYM, XYZM. The
+// GeoPackage spec reserves indicators 5 to 7, so a blob with one is refused.
+const XY_ENVELOPE = 4;
+const XYZ_OR_XYM_ENVELOPE = 6;
+const XYZM_ENVELOPE = 8;
+const ENVELOPE_DOUBLES = [
+  0,
+  XY_ENVELOPE,
+  XYZ_OR_XYM_ENVELOPE,
+  XYZ_OR_XYM_ENVELOPE,
+  XYZM_ENVELOPE,
+];
+// Where each bound sits in the envelope, as doubles from its start.
+const ENVELOPE_MIN_X = 0;
+const ENVELOPE_MAX_X = 1;
+const ENVELOPE_MIN_Y = 2;
+const ENVELOPE_MAX_Y = 3;
 const WKB_HEADER_BYTES = 5;
 const COUNT_BYTES = 4;
-// WKB types; a Z, M or ZM type differs from its 2D type by a multiple of 1000.
+// An ISO WKB type is its 2D type plus 1000 for Z, 2000 for M or 3000 for
+// ZM, which sets how many doubles each coordinate holds.
 const WKB_TYPE_FAMILY = 1000;
+const XY_DIMENSIONS = 2;
+const XYZ_OR_XYM_DIMENSIONS = 3;
+const XYZM_DIMENSIONS = 4;
+const DIMENSIONS_BY_FAMILY = [
+  XY_DIMENSIONS,
+  XYZ_OR_XYM_DIMENSIONS,
+  XYZ_OR_XYM_DIMENSIONS,
+  XYZM_DIMENSIONS,
+];
 const WKB_POINT = 1;
 const WKB_LINESTRING = 2;
 const WKB_POLYGON = 3;
+// Multi-geometries and collections (4 to 7) are lists of geometries.
+const WKB_GEOMETRY_COLLECTION = 7;
 
 /** The template folder in the template checkout, or an error naming it. */
 export function templateFolder(root = templateDir()) {
@@ -58,16 +86,29 @@ export function templateFolder(root = templateDir()) {
   return folder;
 }
 
+/**
+ * Collect the X and Y of every coordinate of the WKB geometry at `start`
+ * into `xs` and `ys`, whatever its dimensions; returns the offset after it.
+ * Refuses a geometry type it does not know, rather than read the wrong bytes.
+ */
 function readCoords(wkb, start, xs, ys) {
   const little = wkb[start] === 1;
-  const uint = (at) => (little ? wkb.readUInt32LE(at) : wkb.readUInt32BE(at));
-  const double = (at) => (little ? wkb.readDoubleLE(at) : wkb.readDoubleBE(at));
-  const type = uint(start + 1) % WKB_TYPE_FAMILY;
+  const uint = (offset) =>
+    little ? wkb.readUInt32LE(offset) : wkb.readUInt32BE(offset);
+  const double = (offset) =>
+    little ? wkb.readDoubleLE(offset) : wkb.readDoubleBE(offset);
+  const code = uint(start + 1);
+  const type = code % WKB_TYPE_FAMILY;
+  const dimensions = DIMENSIONS_BY_FAMILY[Math.floor(code / WKB_TYPE_FAMILY)];
+  if (!dimensions || type < WKB_POINT || type > WKB_GEOMETRY_COLLECTION) {
+    throw new Error(`unsupported WKB geometry type ${code}`);
+  }
+  const coordBytes = dimensions * DOUBLE_BYTES;
   let at = start + WKB_HEADER_BYTES;
   const point = () => {
     xs.push(double(at));
     ys.push(double(at + DOUBLE_BYTES));
-    at += COORD_BYTES;
+    at += coordBytes;
   };
   const points = () => {
     const n = uint(at);
@@ -96,37 +137,51 @@ function readCoords(wkb, start, xs, ys) {
   return at;
 }
 
+/** The bounds an envelope records: min X, max X, min Y, max Y first. */
+function envelopeBounds(blob, little, empty) {
+  const bound = (index) => {
+    const offset = GPKG_HEADER_SIZE + index * DOUBLE_BYTES;
+    return little ? blob.readDoubleLE(offset) : blob.readDoubleBE(offset);
+  };
+  return {
+    minX: bound(ENVELOPE_MIN_X),
+    maxX: bound(ENVELOPE_MAX_X),
+    minY: bound(ENVELOPE_MIN_Y),
+    maxY: bound(ENVELOPE_MAX_Y),
+    empty,
+  };
+}
+
 /**
  * The bounding box of a GeoPackage geometry blob, from its envelope or, when
- * it has none, its coordinates; null for no geometry.
+ * it has none, its coordinates; null for no geometry. Refuses an envelope
+ * indicator the spec reserves (5 to 7).
  *
  * @returns {{ minX: number, maxX: number, minY: number, maxY: number,
  *   empty: boolean } | null}
  */
 export function geometryBounds(blob) {
-  if (!blob || blob.toString("latin1", 0, 2) !== GPKG_MAGIC) {
+  if (blob?.toString("latin1", 0, GPKG_MAGIC_BYTES) !== GPKG_MAGIC) {
     return null;
   }
-  const flags = blob[3];
+  const flags = blob[GPKG_FLAGS_OFFSET];
   const little = (flags & FLAG_LITTLE_ENDIAN) !== 0;
   const envelope = (flags >> ENVELOPE_SHIFT) & ENVELOPE_MASK;
   const empty = (flags & FLAG_EMPTY) !== 0;
+  if (envelope >= ENVELOPE_DOUBLES.length) {
+    throw new Error(`reserved GeoPackage envelope indicator ${envelope}`);
+  }
   if (envelope > 0) {
-    const double = (i) => {
-      const at = GPKG_HEADER_SIZE + i * DOUBLE_BYTES;
-      return little ? blob.readDoubleLE(at) : blob.readDoubleBE(at);
-    };
-    return {
-      minX: double(0),
-      maxX: double(1),
-      minY: double(2),
-      maxY: double(3),
-      empty,
-    };
+    return envelopeBounds(blob, little, empty);
   }
   const xs = [];
   const ys = [];
-  readCoords(blob, GPKG_HEADER_SIZE + ENVELOPE_BYTES[envelope], xs, ys);
+  readCoords(
+    blob,
+    GPKG_HEADER_SIZE + ENVELOPE_DOUBLES[envelope] * DOUBLE_BYTES,
+    xs,
+    ys,
+  );
   if (xs.length === 0) {
     return { minX: null, maxX: null, minY: null, maxY: null, empty: true };
   }
@@ -156,26 +211,33 @@ function registerSpatialFunctions(db) {
   });
 }
 
-const featureTables = (db, schema) =>
+const featureTables = (db) =>
   db
     .prepare(
-      `SELECT table_name FROM ${schema}.gpkg_contents WHERE data_type = 'features' ORDER BY table_name`,
+      "SELECT table_name FROM gpkg_contents WHERE data_type = 'features' ORDER BY table_name",
     )
     .pluck()
     .all();
 
-const columnsOf = (db, schema, table) =>
+const columnsOf = (db, table) =>
   db
-    .prepare(`PRAGMA ${schema}.table_info("${table}")`)
+    .prepare(`PRAGMA table_info("${table}")`)
     .all()
     .map((c) => c.name);
 
-/** Refuse a file whose tables or columns are not the template's. */
-function assertSameSchema(db) {
-  const template = featureTables(db, "main");
-  const source = featureTables(db, "src");
-  const missing = template.filter((t) => !source.includes(t));
-  const extra = source.filter((t) => !template.includes(t));
+const hasTable = (db, name) =>
+  Boolean(
+    db
+      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
+      .get(name),
+  );
+
+/** Refuse a source whose tables or columns are not the template's. */
+function assertSameSchema(db, source) {
+  const template = featureTables(db);
+  const sourceTables = featureTables(source);
+  const missing = template.filter((t) => !sourceTables.includes(t));
+  const extra = sourceTables.filter((t) => !template.includes(t));
   const problems = [];
   if (missing.length > 0) {
     problems.push(`it has no ${missing.join(", ")}`);
@@ -183,10 +245,9 @@ function assertSameSchema(db) {
   if (extra.length > 0) {
     problems.push(`the template has no ${extra.join(", ")}`);
   }
-  for (const table of template.filter((t) => source.includes(t))) {
-    const want = columnsOf(db, "main", table);
-    const have = columnsOf(db, "src", table);
-    const lacking = want.filter((c) => !have.includes(c));
+  for (const table of template.filter((t) => sourceTables.includes(t))) {
+    const have = columnsOf(source, table);
+    const lacking = columnsOf(db, table).filter((c) => !have.includes(c));
     if (lacking.length > 0) {
       problems.push(`${table} has no ${lacking.join(", ")}`);
     }
@@ -199,13 +260,18 @@ function assertSameSchema(db) {
   return template;
 }
 
-function copyRows(db, table) {
-  const names = columnsOf(db, "main", table)
-    .map((c) => `"${c}"`)
-    .join(", ");
-  db.exec(
-    `INSERT INTO main."${table}" (${names}) SELECT ${names} FROM src."${table}" ORDER BY fid`,
+/** Copy every row of `columns` from `source`'s table into `db`'s. */
+function copyTable(db, source, table, columns, orderBy = "") {
+  const names = columns.map((c) => `"${c}"`).join(", ");
+  const insert = db.prepare(
+    `INSERT INTO "${table}" (${names}) VALUES (${columns.map(() => "?").join(", ")})`,
   );
+  const select = source
+    .prepare(`SELECT ${names} FROM "${table}" ${orderBy}`)
+    .raw();
+  for (const row of select.iterate()) {
+    insert.run(row);
+  }
 }
 
 /** Each layer's extent, as GDAL records it, so QGIS zooms to the data. */
@@ -222,59 +288,56 @@ function updateExtent(db, table) {
   }
 }
 
-const hasTable = (db, schema, name) =>
-  Boolean(
-    db
-      .prepare(
-        `SELECT 1 FROM ${schema}.sqlite_master WHERE type = 'table' AND name = ?`,
-      )
-      .get(name),
-  );
+const METADATA_TABLES = ["gpkg_metadata", "gpkg_metadata_reference"];
 
 /** The generated file's version records, in place of the template's. */
-function copyVersionRecords(db) {
-  for (const table of ["gpkg_metadata_reference", "gpkg_metadata"]) {
-    if (hasTable(db, "main", table)) {
-      db.exec(`DELETE FROM main.${table}`);
+function copyVersionRecords(db, source) {
+  for (const table of [...METADATA_TABLES].reverse()) {
+    if (hasTable(db, table)) {
+      db.exec(`DELETE FROM ${table}`);
     }
   }
-  for (const table of ["gpkg_metadata", "gpkg_metadata_reference"]) {
-    if (hasTable(db, "src", table) && hasTable(db, "main", table)) {
-      db.exec(`INSERT INTO main.${table} SELECT * FROM src.${table}`);
+  for (const table of METADATA_TABLES) {
+    if (hasTable(source, table) && hasTable(db, table)) {
+      copyTable(db, source, table, columnsOf(db, table));
     }
   }
 }
 
 /**
  * Write the template's GeoPackage, `templateGpkg`, to `outGpkg` holding every
- * feature row of `sourceGpkg`.
+ * feature row of `sourceGpkg`. The source is read through a connection of
+ * its own, read-only, rather than attached to the output by name.
  *
  * @returns {Record<string, number>} the rows written, by table
  */
 export function loadIntoTemplateGpkg(templateGpkg, sourceGpkg, outGpkg) {
   copyFileSync(templateGpkg, outGpkg);
+  const source = new Database(sourceGpkg, {
+    readonly: true,
+    fileMustExist: true,
+  });
   const db = new Database(outGpkg);
   try {
     registerSpatialFunctions(db);
-    db.prepare("ATTACH DATABASE ? AS src").run(sourceGpkg);
-    const tables = assertSameSchema(db);
+    const tables = assertSameSchema(db, source);
     const counts = {};
     db.transaction(() => {
       for (const table of tables) {
-        copyRows(db, table);
+        copyTable(db, source, table, columnsOf(db, table), "ORDER BY fid");
         updateExtent(db, table);
         counts[table] = db
-          .prepare(`SELECT count(*) FROM main."${table}"`)
+          .prepare(`SELECT count(*) FROM "${table}"`)
           .pluck()
           .get();
       }
-      copyVersionRecords(db);
+      copyVersionRecords(db, source);
     })();
-    db.exec("DETACH DATABASE src");
     db.exec("VACUUM");
     return counts;
   } finally {
     db.close();
+    source.close();
   }
 }
 
