@@ -134,12 +134,31 @@ const NOT_ENFORCED_YET = {
  * The code the backend refuses these flaws with, where bng-library records
  * none for them yet (its NO_BACKEND_CODE_YET). The backend gives them with the
  * service-template flag on, as it does every BNG Service template outcome here.
+ * Used only while the library has its placeholder, so once a repin brings the
+ * library's own code, that code wins and these entries can be deleted.
  */
 const BACKEND_CODES = {
   "version-record-missing": "TEMPLATE_VERSION_MISSING",
   "version-record-duplicated": "TEMPLATE_VERSION_DUPLICATED",
   "version-unsupported": "TEMPLATE_VERSION_UNSUPPORTED",
 };
+
+/** A backend error code, such as TEMPLATE_VERSION_MISSING, not a placeholder. */
+const BACKEND_CODE = /^[A-Z][A-Z0-9_]*$/;
+
+/**
+ * What the service does with a file carrying the named flaw: the outcome asked
+ * for where it is not enforced yet, else the library's code, else ours.
+ */
+function expectedForFlaw(name, flaw) {
+  if (NOT_ENFORCED_YET[name]) {
+    return NOT_ENFORCED_YET[name];
+  }
+  if (BACKEND_CODE.test(flaw.errorCode)) {
+    return flaw.errorCode;
+  }
+  return BACKEND_CODES[name] ?? flaw.errorCode;
+}
 
 function generated(path, covers, expected, options) {
   return { path, kind: KIND_GENERATED, covers, expected, options };
@@ -155,7 +174,7 @@ function flawFixture(dir, name, options = {}) {
   return generated(
     `${dir}/${name}${suffix}.gpkg`,
     flaw.description,
-    NOT_ENFORCED_YET[name] ?? BACKEND_CODES[name] ?? flaw.errorCode,
+    expectedForFlaw(name, flaw),
     { seed: SEED, flaws: [name], ...options },
   );
 }
