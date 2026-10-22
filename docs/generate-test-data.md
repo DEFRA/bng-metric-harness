@@ -312,6 +312,31 @@ The corpus's `permutations/` folder is the scenario corpus,
 built by `generate:scenarios -- --format bng-service` (see
 [Scenario corpus](generate-scenarios.md)).
 
+### More habitats that get worse (`--worse`)
+
+A synthetic BNG Service site draws one habitat that gets worse of each kind.
+`--worse KIND=N` (repeatable, 0 to 50) draws N of a kind instead, each a
+feature of its own linked to its own baseline parent:
+
+| Kind                     | What one is                                                                       |
+| ------------------------ | --------------------------------------------------------------------------------- |
+| `parcel`                 | A Retained area parcel set to Created in its own type, lower condition, 30+ years |
+| `vertical`               | A vertical area habitat, the same                                                 |
+| `hedge`                  | A hedgerow that gets worse as a whole, the same                                   |
+| `partly-worse-hedge`     | A hedgerow split into a Retained part `a` and a worse Created part `b`            |
+| `encroached-watercourse` | A watercourse whose encroachment gets worse, 10 years in advance                  |
+| `worse-watercourse`      | A watercourse whose condition gets worse, no years in advance                     |
+
+```sh
+npm run generate:gpkg -- --format bng-service --size 15 --seed 6 \
+  --centre 460000,210000 --worse hedge=4 --worse partly-worse-hedge=4 \
+  --package-template
+```
+
+Parcels get worse only while another Retained parcel stays, so a site may
+give fewer than it asks for. `--worse` is refused with `--bad` or a
+geometric flaw, whose minimal site holds none, and in workbook mode.
+
 ### Opening a file in QGIS (`--package-template`)
 
 The template's QGIS project reads its layers from
@@ -388,4 +413,5 @@ supported in workbook mode; `generate:scenarios` takes one too.)
 | `--format <f>`           | `legacy`            | `legacy` (one file per stage) or `bng-service` (one file, both stages)                          |
 | `--stage <s>`            | `post-intervention` | `bng-service` only: `baseline` leaves the post-intervention tables empty                        |
 | `--template-version <v>` | `1.0`               | `bng-service` only: the version the template version record names                               |
+| `--worse <kind>=<n>`     | one of each         | `bng-service` synthetic only: how many habitats that get worse of a kind; repeatable            |
 | `--package-template`     | off                 | `bng-service` only: also write a copy of the QGIS template folder holding the file, and its zip |
