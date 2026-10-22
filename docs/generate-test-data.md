@@ -369,23 +369,23 @@ supported in workbook mode; `generate:scenarios` takes one too.)
 
 ### Full option reference
 
-| Option                   | Default             | Notes                                                                    |
-| ------------------------ | ------------------- | ------------------------------------------------------------------------ |
-| `--size <n>`             | 50                  | Synthetic mode only — habitat parcel count; scales other layers          |
-| `--count <n>`            | 1                   | Generate n files in one run; each has different randomised layout        |
-| `--outdir <dir>`         | `test-data/`        | Output directory                                                         |
-| `--pair`                 | off                 | Synthetic mode only — emit a baseline + post-intervention pair           |
-| `--habitat "B - T"`      | —                   | Synthetic mode only — pin the next parcel's habitat; repeatable          |
-| `--centre <e,n>`         | 530000,180000       | RLB centre in BNG eastings/northings; must be inside England             |
-| `--from <ref>`           | —                   | Local path or HTTPS URL of a Defra metric workbook                       |
-| `--from-list <f>`        | —                   | Newline-delimited list of paths/URLs (one per line, `#` comments)        |
-| `--inspect`              | off                 | With `--from`, print parsed workbook summary instead of generating       |
-| `--strict-habitats`      | off                 | Drop workbook rows the prototype's validator would reject                |
-| `--mode <m>`             | `both`              | Workbook mode: `baseline`, `post-intervention`, or `both`                |
-| `--bad`                  | off                 | Synthetic mode only — emit an intentionally invalid GeoPackage           |
-| `--flaw <name>`          | —                   | Synthetic mode only — emit a fixture targeting one flaw; repeatable      |
-| `--seed <n>`             | —                   | Deterministic output; same seed → byte-identical files                   |
-| `--format <f>`           | `legacy`            | `legacy` (one file per stage) or `bng-service` (one file, both stages)   |
-| `--stage <s>`            | `post-intervention` | `bng-service` only: `baseline` leaves the post-intervention tables empty |
-| `--template-version <v>` | `1.0`               | `bng-service` only: the version the template version record names        |
+| Option                   | Default             | Notes                                                                                           |
+| ------------------------ | ------------------- | ----------------------------------------------------------------------------------------------- |
+| `--size <n>`             | 50                  | Synthetic mode only — habitat parcel count; scales other layers                                 |
+| `--count <n>`            | 1                   | Generate n files in one run; each has different randomised layout                               |
+| `--outdir <dir>`         | `test-data/`        | Output directory                                                                                |
+| `--pair`                 | off                 | Synthetic mode only — emit a baseline + post-intervention pair                                  |
+| `--habitat "B - T"`      | —                   | Synthetic mode only — pin the next parcel's habitat; repeatable                                 |
+| `--centre <e,n>`         | 530000,180000       | RLB centre in BNG eastings/northings; must be inside England                                    |
+| `--from <ref>`           | —                   | Local path or HTTPS URL of a Defra metric workbook                                              |
+| `--from-list <f>`        | —                   | Newline-delimited list of paths/URLs (one per line, `#` comments)                               |
+| `--inspect`              | off                 | With `--from`, print parsed workbook summary instead of generating                              |
+| `--strict-habitats`      | off                 | Drop workbook rows the prototype's validator would reject                                       |
+| `--mode <m>`             | `both`              | Workbook mode: `baseline`, `post-intervention`, or `both`                                       |
+| `--bad`                  | off                 | Synthetic mode only — emit an intentionally invalid GeoPackage                                  |
+| `--flaw <name>`          | —                   | Synthetic mode only — emit a fixture targeting one flaw; repeatable                             |
+| `--seed <n>`             | —                   | Deterministic output; same seed → byte-identical files                                          |
+| `--format <f>`           | `legacy`            | `legacy` (one file per stage) or `bng-service` (one file, both stages)                          |
+| `--stage <s>`            | `post-intervention` | `bng-service` only: `baseline` leaves the post-intervention tables empty                        |
+| `--template-version <v>` | `1.0`               | `bng-service` only: the version the template version record names                               |
 | `--package-template`     | off                 | `bng-service` only: also write a copy of the QGIS template folder holding the file, and its zip |
