@@ -20,6 +20,7 @@ import {
   PROJECT_FILE,
   geometryBounds,
   loadIntoTemplateGpkg,
+  localDatabasePath,
   packageForQgis,
   templateFolder,
 } from "../../../scripts/service-template/package-template.mjs";
@@ -280,6 +281,15 @@ describe("geometryBounds", () => {
   it("gives null for no geometry, or a blob that is not a GeoPackage geometry", () => {
     expect(geometryBounds(null)).toBeNull();
     expect(geometryBounds(Buffer.from("not a geometry"))).toBeNull();
+  });
+});
+
+describe("localDatabasePath", () => {
+  it("gives SQLite an absolute path, so a name is never read as a file: URI", () => {
+    expect(localDatabasePath("file:demo.gpkg?vfs=unix-none")).toBe(
+      path.resolve("file:demo.gpkg?vfs=unix-none"),
+    );
+    expect(path.isAbsolute(localDatabasePath("a/b.gpkg"))).toBe(true);
   });
 });
 

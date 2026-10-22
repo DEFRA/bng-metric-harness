@@ -305,6 +305,19 @@ function copyVersionRecords(db, source) {
 }
 
 /**
+ * A GeoPackage path as a plain local file path, for SQLite: absolute, so it
+ * is never read as a `file:` URI, which SQLITE_USE_URI=1 would let carry
+ * connection parameters (`?vfs=`, `?mode=`) in a name.
+ */
+export function localDatabasePath(file) {
+  const resolved = path.resolve(file);
+  if (!path.isAbsolute(resolved) || resolved.startsWith("file:")) {
+    throw new Error(`${file} is not a local file path`);
+  }
+  return resolved;
+}
+
+/**
  * Write the template's GeoPackage, `templateGpkg`, to `outGpkg` holding every
  * feature row of `sourceGpkg`. The source is read through a connection of
  * its own, read-only, rather than attached to the output by name.
@@ -312,12 +325,13 @@ function copyVersionRecords(db, source) {
  * @returns {Record<string, number>} the rows written, by table
  */
 export function loadIntoTemplateGpkg(templateGpkg, sourceGpkg, outGpkg) {
-  copyFileSync(templateGpkg, outGpkg);
-  const source = new Database(sourceGpkg, {
+  const outPath = localDatabasePath(outGpkg);
+  copyFileSync(templateGpkg, outPath);
+  const source = new Database(localDatabasePath(sourceGpkg), {
     readonly: true,
     fileMustExist: true,
   });
-  const db = new Database(outGpkg);
+  const db = new Database(outPath);
   try {
     registerSpatialFunctions(db);
     const tables = assertSameSchema(db, source);
