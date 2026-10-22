@@ -76,6 +76,16 @@ describe("parseWorseCounts", () => {
     expect(() => parseWorseCounts([value])).toThrow(message);
   });
 
+  it("refuses a zero count for the kind a degrade flaw breaks, and takes it otherwise", () => {
+    expect(() => parseWorseCounts(["hedge=0"], ["degrade-not-worse"])).toThrow(
+      /degrade-not-worse breaks .* cannot set hedge to 0/,
+    );
+    expect(parseWorseCounts(["hedge=0"])).toEqual({ hedge: 0 });
+    expect(
+      parseWorseCounts(["worse-watercourse=0"], ["degrade-not-worse"]),
+    ).toEqual({ "worse-watercourse": 0 });
+  });
+
   it("refuses a kind given twice", () => {
     expect(() => parseWorseCounts(["hedge=1", "hedge=2"])).toThrow(
       /names hedge twice/,
@@ -130,6 +140,17 @@ describe("generate:gpkg --worse", () => {
     [
       ["--format", "bng-service", "--worse", "hedgerow=2"],
       /unknown kind of habitat that gets worse/,
+    ],
+    [
+      [
+        "--format",
+        "bng-service",
+        "--flaw",
+        "degrade-not-worse",
+        "--worse",
+        "hedge=0",
+      ],
+      /--worse: degrade-not-worse breaks .* cannot set hedge to 0/,
     ],
   ])("refuses %j", (args, message) => {
     const result = generate(...args);

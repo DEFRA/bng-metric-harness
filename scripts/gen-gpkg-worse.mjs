@@ -11,6 +11,7 @@ import {
   FlawSelectionError,
   MAX_WORSE_COUNT,
   WORSE_KINDS,
+  assertDegradeSubjectsDrawn,
   resolveWorseCounts,
 } from "#bng-lib";
 
@@ -19,12 +20,14 @@ const WHOLE_NUMBER = /^\d+$/;
 /**
  * The counts `--worse` asks for, by kind, or undefined when it was not
  * given. Refuses a value that is not KIND=N, a kind the library does not
- * know, a count out of range, and a kind given twice.
+ * know, a count out of range, a kind given twice, and a count of 0 for the
+ * kind a degrade flaw asked for breaks.
  *
  * @param {string[]} values  each --worse value
+ * @param {string[]} [degradeFlawNames]  the degrade flaws asked for
  * @returns {Record<string, number> | undefined}
  */
-export function parseWorseCounts(values) {
+export function parseWorseCounts(values, degradeFlawNames = []) {
   if (values.length === 0) {
     return undefined;
   }
@@ -43,7 +46,7 @@ export function parseWorseCounts(values) {
     counts[name] = Number(count.trim());
   }
   try {
-    resolveWorseCounts(counts);
+    assertDegradeSubjectsDrawn(degradeFlawNames, resolveWorseCounts(counts));
   } catch (err) {
     throw new FlawSelectionError(`--worse: ${err.message}`);
   }

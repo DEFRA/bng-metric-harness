@@ -337,7 +337,7 @@ async function runSynthetic(centre, seed) {
     numParcels,
   });
   const habitatPins = resolveHabitatPins(args.habitat, numParcels, selection);
-  const worseHabitatCounts = parseWorseCounts(args.worse);
+  const worseHabitatCounts = parseWorseCounts(args.worse, degradeFlawNames);
   // A geometric flaw draws the minimal bad site, which holds no habitats
   // that get worse to count.
   if (worseHabitatCounts && selection.geometricFlawNames.length > 0) {
