@@ -49,16 +49,22 @@ asked for.** The default is still the legacy format.
    | The same file again                       | `--seed N`: the same seed and flags give the same bytes                                                                                     |
    | The file before post-intervention mapping | `--stage baseline`                                                                                                                          |
    | A validation fault                        | `--flaw NAME`, named in the file name; lineage, degrade and version flaws combine with the others                                           |
+   | More of one behaviour                     | `--worse KIND=N`, repeatable, 0 to 50: `hedge`, `partly-worse-hedge`, `parcel`, `vertical`, `encroached-watercourse`, `worse-watercourse`   |
    | A file to open in QGIS                    | `--package-template`                                                                                                                        |
 
    A default BNG Service site already holds what only the new template
    records: one parcel, vertical habitat and hedge that get worse, a hedge
    that gets worse in part (split, part **a** Retained, part **b** worse),
    an encroached watercourse and one whose condition gets worse, plus
-   Retained, Enhanced, Created and lost features on every layer.
+   Retained, Enhanced, Created and lost features on every layer. To show
+   more of one, ask for it: `--worse hedge=4 --worse partly-worse-hedge=4`
+   draws eight hedgerows that get worse, each with its own parent. Parcels
+   get worse only while another Retained parcel stays, so `--worse parcel=N`
+   may give fewer than N.
 
-3. **Choose a seed that shows what was asked.** Seeds differ in what they
-   draw. Generate a few (`--seed 1` to `--seed 15`, same other flags, into a
+3. **Choose a seed that shows what was asked.** `--worse` sets how many;
+   the seed sets which conditions they move between (Good to Poor, Moderate
+   to Poor, and so on) and what else the site holds. Generate a few (`--seed 1` to `--seed 15`, same other flags, into a
    scratch `--outdir`), then compare them:
 
    ```sh

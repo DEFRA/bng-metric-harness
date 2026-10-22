@@ -69,6 +69,7 @@ import {
 import { splitFlaws } from "./gen-gpkg-flaws.mjs";
 import { printHelp } from "./gen-gpkg-help.mjs";
 import { runFromList, runFromWorkbook } from "./gen-gpkg-workbook.mjs";
+import { assertWorseDrawn, parseWorseCounts } from "./gen-gpkg-worse.mjs";
 import {
   afterBngServiceWrite,
   assertTemplateAvailable,
@@ -140,6 +141,9 @@ const { values: args } = parseArgs({
     // BNG Service format only: also write each file as a copy of the QGIS
     // template folder, ready to open, and that folder zipped.
     "package-template": { type: "boolean", default: false },
+    // BNG Service format, synthetic only: how many habitats that get worse
+    // of a kind to draw, as KIND=N, in place of one each.
+    worse: { type: "string", multiple: true, default: [] },
     help: { type: "boolean", short: "h", default: false },
   },
   allowPositionals: false,
@@ -333,6 +337,12 @@ async function runSynthetic(centre, seed) {
     numParcels,
   });
   const habitatPins = resolveHabitatPins(args.habitat, numParcels, selection);
+  const worseHabitatCounts = parseWorseCounts(args.worse, degradeFlawNames);
+  assertWorseDrawn(worseHabitatCounts, {
+    geometricFlawNames: selection.geometricFlawNames,
+    degradeFlawNames,
+    stage: selectedStage,
+  });
   const plan = {
     numParcels,
     ...selection,
@@ -359,6 +369,7 @@ async function runSynthetic(centre, seed) {
     // Each file in a --count batch gets its own seed so the batch stays varied
     // yet reproducible: same --seed always yields the same N files.
     runs.push({
+      worseHabitatCounts,
       plan: seed === null ? plan : { ...plan, seed: seed + (i - 1) },
       paths: syntheticOutPaths(plan, flawSuffix, suffix, timestampSuffix()),
       strictness: syntheticStrictness({
@@ -406,11 +417,15 @@ function syntheticOutPaths(plan, flawSuffix, suffix, stamp) {
   };
 }
 
-function writeSyntheticRun(centre, { plan, paths, strictness }) {
+function writeSyntheticRun(
+  centre,
+  { plan, paths, strictness, worseHabitatCounts },
+) {
   if (paths.bngService) {
     generateBngServiceSynthetic(paths.bngService, centre, plan, {
       stage: selectedStage,
       templateVersion: selectedTemplateVersion,
+      worseHabitatCounts,
     });
     afterBngServiceWrite(paths.bngService, {
       strictness,
@@ -437,9 +452,9 @@ function assertSyntheticFlagsOutsideWorkbookMode() {
   if (!workbookMode) {
     return;
   }
-  if (args.pair || args.habitat.length > 0) {
+  if (args.pair || args.habitat.length > 0 || args.worse.length > 0) {
     error(
-      "--pair and --habitat are synthetic-mode only; workbook mode already emits a " +
+      "--pair, --habitat and --worse are synthetic-mode only; workbook mode already emits a " +
         "pair and takes its habitats from the workbook (see --mode)",
     );
     process.exit(1);
@@ -465,6 +480,23 @@ function assertSeedOutsideWorkbookMode() {
   }
 }
 
+// Flags that mean nothing in the legacy format, each with why.
+const BNG_SERVICE_ONLY_FLAGS = [
+  {
+    given: () =>
+      args.stage !== undefined || args["template-version"] !== undefined,
+    message: `--stage and --template-version need --format ${FORMAT_BNG_SERVICE}`,
+  },
+  {
+    given: () => args.worse.length > 0,
+    message: `--worse needs --format ${FORMAT_BNG_SERVICE}: it counts the BNG Service template's habitats that get worse`,
+  },
+  {
+    given: () => args["package-template"],
+    message: `--package-template needs --format ${FORMAT_BNG_SERVICE}: it packages the BNG Service template`,
+  },
+];
+
 // The BNG Service format writes one file holding both stages, so it has no
 // --pair and no --mode; --stage asks for the baseline-stage file. --stage and
 // --template-version mean nothing in the legacy format.
@@ -476,16 +508,12 @@ function assertFormatFlagsValid() {
     );
     process.exit(1);
   }
-  const bngServiceOnly =
-    args.stage !== undefined || args["template-version"] !== undefined;
-  if (!bngService && bngServiceOnly) {
-    error(`--stage and --template-version need --format ${FORMAT_BNG_SERVICE}`);
-    process.exit(1);
+  if (bngService) {
+    return;
   }
-  if (!bngService && args["package-template"]) {
-    error(
-      `--package-template needs --format ${FORMAT_BNG_SERVICE}: it packages the BNG Service template`,
-    );
+  const needsBngService = BNG_SERVICE_ONLY_FLAGS.find(({ given }) => given());
+  if (needsBngService) {
+    error(needsBngService.message);
     process.exit(1);
   }
 }

@@ -8,6 +8,7 @@
  */
 
 import { DEFAULT_CENTRE_E, DEFAULT_CENTRE_N } from "./centre.mjs";
+import { worseHelp } from "./gen-gpkg-worse.mjs";
 import {
   BNG_SERVICE_FLAWS,
   CURRENT_TEMPLATE_VERSION,
@@ -132,6 +133,7 @@ Options:
                       tables empty.
   --template-version V  The version the file's template version record names
                       (${FORMAT_BNG_SERVICE} only; default ${CURRENT_TEMPLATE_VERSION}).
+${worseHelp()}
   --package-template  ${FORMAT_BNG_SERVICE} only: also write each file as a copy of
                       the QGIS template folder, ready to open in QGIS (its
                       project reads Layers/BNG Service Layers.gpkg, so a bare
@@ -159,7 +161,8 @@ lineage, degraded-habitat and template-version flaws combine with any of them. E
   node scripts/gen-gpkg.mjs --format ${FORMAT_BNG_SERVICE} --stage ${STAGE_BASELINE}
   node scripts/gen-gpkg.mjs --format ${FORMAT_BNG_SERVICE} --flaw lineage-parent-unknown
   node scripts/gen-gpkg.mjs --format ${FORMAT_BNG_SERVICE} --size 15 --seed 6 \
-    --centre 460000,210000 --package-template
+    --centre 460000,210000 --worse hedge=4 --worse partly-worse-hedge=4 \
+    --package-template
   node scripts/gen-gpkg.mjs --format ${FORMAT_BNG_SERVICE} --from ./metric.xlsm
   node scripts/gen-gpkg.mjs --size 3 --pair \
     --habitat "Intertidal hard structures - Artificial hard structures with integrated greening of grey infrastructure (IGGI)"`,
