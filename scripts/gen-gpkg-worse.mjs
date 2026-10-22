@@ -10,6 +10,7 @@
 import {
   FlawSelectionError,
   MAX_WORSE_COUNT,
+  STAGE_BASELINE,
   WORSE_KINDS,
   assertDegradeSubjectsDrawn,
   resolveWorseCounts,
@@ -31,7 +32,9 @@ export function parseWorseCounts(values, degradeFlawNames = []) {
   if (values.length === 0) {
     return undefined;
   }
-  const counts = {};
+  // No prototype, so a kind such as constructor reaches the library's
+  // unknown-kind refusal instead of reading as given twice.
+  const counts = Object.create(null);
   for (const value of values) {
     const [kind, count, ...rest] = value.split("=");
     if (rest.length > 0 || !count || !WHOLE_NUMBER.test(count.trim())) {
@@ -40,7 +43,7 @@ export function parseWorseCounts(values, degradeFlawNames = []) {
       );
     }
     const name = kind.trim();
-    if (name in counts) {
+    if (Object.hasOwn(counts, name)) {
       throw new FlawSelectionError(`--worse names ${name} twice`);
     }
     counts[name] = Number(count.trim());
@@ -54,16 +57,30 @@ export function parseWorseCounts(values, degradeFlawNames = []) {
 }
 
 /**
- * Refuse counts for a site drawn with a geometric flaw (or --bad): that
- * minimal site holds no habitats that get worse to count.
+ * Refuse counts the file would not show: a site drawn with a geometric flaw
+ * (or --bad) and no degrade flaw is the minimal site, which draws no
+ * habitats that get worse (a degrade flaw adds them to it); and the
+ * baseline-stage file leaves the post-intervention tables, where they are
+ * recorded, empty.
  *
  * @param {Record<string, number> | undefined} counts  as parseWorseCounts gives
- * @param {string[]} geometricFlawNames
+ * @param {{ geometricFlawNames: string[], degradeFlawNames: string[], stage: string }} site
  */
-export function assertWorseOnFullSite(counts, geometricFlawNames) {
-  if (counts && geometricFlawNames.length > 0) {
+export function assertWorseDrawn(
+  counts,
+  { geometricFlawNames, degradeFlawNames, stage },
+) {
+  if (!counts) {
+    return;
+  }
+  if (geometricFlawNames.length > 0 && degradeFlawNames.length === 0) {
     throw new FlawSelectionError(
-      "--worse cannot be combined with --bad or a geometric flaw: their minimal site draws no habitats that get worse",
+      "--worse with --bad or a geometric flaw needs a degrade flaw too: their minimal site draws no habitats that get worse without one",
+    );
+  }
+  if (stage === STAGE_BASELINE) {
+    throw new FlawSelectionError(
+      `--worse changes post-intervention features, which the baseline-stage file leaves empty; drop --stage ${STAGE_BASELINE}`,
     );
   }
 }

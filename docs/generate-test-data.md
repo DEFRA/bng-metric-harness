@@ -335,7 +335,9 @@ npm run generate:gpkg -- --format bng-service --size 15 --seed 6 \
 
 Parcels get worse only while another Retained parcel stays, so a site may
 give fewer than it asks for. `--worse` is refused with `--bad` or a
-geometric flaw, whose minimal site holds none, and in workbook mode.
+geometric flaw unless a degrade flaw is given too (the minimal site holds
+none until a degrade flaw adds them), with `--stage baseline` (whose file
+leaves the post-intervention tables empty), and in workbook mode.
 
 ### Opening a file in QGIS (`--package-template`)
 

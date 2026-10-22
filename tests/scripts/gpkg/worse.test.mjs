@@ -70,6 +70,8 @@ describe("parseWorseCounts", () => {
     ["hedge=1=2", /takes KIND=N/],
     ["hedge=-1", /takes KIND=N/],
     ["hedgerow=2", /unknown kind of habitat that gets worse: hedgerow/],
+    ["constructor=2", /unknown kind of habitat that gets worse: constructor/],
+    ["toString=1", /unknown kind of habitat that gets worse: toString/],
     [`hedge=${MAX_WORSE_COUNT + 1}`, /whole number from 0/],
   ])("refuses %s", (value, message) => {
     expect(() => parseWorseCounts([value])).toThrow(FlawSelectionError);
@@ -114,6 +116,22 @@ describe("generate:gpkg --worse", () => {
     });
   });
 
+  it("draws them on a geometric flaw's minimal site when a degrade flaw adds them", () => {
+    const result = generate(
+      "--format",
+      "bng-service",
+      "--flaw",
+      "bowtie-parcel",
+      "--flaw",
+      "degrade-not-worse",
+      "--worse",
+      "hedge=3",
+    );
+    expect(result.status, result.output).toBe(0);
+    const [file] = readdirSync(result.out);
+    expect(worseHedges(path.join(result.out, file)).whole).toBe(3);
+  });
+
   it("draws one of each without --worse", () => {
     const result = generate("--format", "bng-service");
     expect(result.status, result.output).toBe(0);
@@ -135,7 +153,11 @@ describe("generate:gpkg --worse", () => {
         "--worse",
         "hedge=2",
       ],
-      /cannot be combined with --bad or a geometric flaw/,
+      /with --bad or a geometric flaw needs a degrade flaw too/,
+    ],
+    [
+      ["--format", "bng-service", "--stage", "baseline", "--worse", "hedge=2"],
+      /baseline-stage file leaves empty; drop --stage baseline/,
     ],
     [
       ["--format", "bng-service", "--worse", "hedgerow=2"],

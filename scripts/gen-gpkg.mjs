@@ -69,7 +69,7 @@ import {
 import { splitFlaws } from "./gen-gpkg-flaws.mjs";
 import { printHelp } from "./gen-gpkg-help.mjs";
 import { runFromList, runFromWorkbook } from "./gen-gpkg-workbook.mjs";
-import { assertWorseOnFullSite, parseWorseCounts } from "./gen-gpkg-worse.mjs";
+import { assertWorseDrawn, parseWorseCounts } from "./gen-gpkg-worse.mjs";
 import {
   afterBngServiceWrite,
   assertTemplateAvailable,
@@ -338,7 +338,11 @@ async function runSynthetic(centre, seed) {
   });
   const habitatPins = resolveHabitatPins(args.habitat, numParcels, selection);
   const worseHabitatCounts = parseWorseCounts(args.worse, degradeFlawNames);
-  assertWorseOnFullSite(worseHabitatCounts, selection.geometricFlawNames);
+  assertWorseDrawn(worseHabitatCounts, {
+    geometricFlawNames: selection.geometricFlawNames,
+    degradeFlawNames,
+    stage: selectedStage,
+  });
   const plan = {
     numParcels,
     ...selection,
