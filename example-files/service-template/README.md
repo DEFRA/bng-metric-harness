@@ -155,9 +155,9 @@ The template version record is missing, doubled or unsupported.
 
 | File | Covers | Expected | Built from |
 | ---- | ------ | -------- | ---------- |
-| `version-record-missing.gpkg` | the GeoPackage has no template version record | refused (BMD-1082). Accepted today: the service does not check the version record yet | seed 1, flaw `version-record-missing` |
-| `version-record-duplicated.gpkg` | the GeoPackage has two template version records | refused (BMD-1082). Accepted today: the service does not check the version record yet | seed 1, flaw `version-record-duplicated` |
-| `version-unsupported.gpkg` | the template version record names a version the service does not support (the next major version after 1.0) | refused (BMD-1082). Accepted today: the service does not check the version record yet | seed 1, flaw `version-unsupported` |
+| `version-record-missing.gpkg` | the GeoPackage has no template version record | TEMPLATE_VERSION_MISSING | seed 1, flaw `version-record-missing` |
+| `version-record-duplicated.gpkg` | the GeoPackage has two template version records | TEMPLATE_VERSION_DUPLICATED | seed 1, flaw `version-record-duplicated` |
+| `version-unsupported.gpkg` | the template version record names a version the service does not support (the next major version after 1.0) | TEMPLATE_VERSION_UNSUPPORTED | seed 1, flaw `version-unsupported` |
 
 ## bng-500/
 
