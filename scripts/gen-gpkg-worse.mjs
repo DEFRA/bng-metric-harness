@@ -53,6 +53,21 @@ export function parseWorseCounts(values, degradeFlawNames = []) {
   return counts;
 }
 
+/**
+ * Refuse counts for a site drawn with a geometric flaw (or --bad): that
+ * minimal site holds no habitats that get worse to count.
+ *
+ * @param {Record<string, number> | undefined} counts  as parseWorseCounts gives
+ * @param {string[]} geometricFlawNames
+ */
+export function assertWorseOnFullSite(counts, geometricFlawNames) {
+  if (counts && geometricFlawNames.length > 0) {
+    throw new FlawSelectionError(
+      "--worse cannot be combined with --bad or a geometric flaw: their minimal site draws no habitats that get worse",
+    );
+  }
+}
+
 /** The --help lines for --worse. */
 export function worseHelp() {
   return `  --worse KIND=N      ${"bng-service"} synthetic only: draw N habitats that get

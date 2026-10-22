@@ -69,7 +69,7 @@ import {
 import { splitFlaws } from "./gen-gpkg-flaws.mjs";
 import { printHelp } from "./gen-gpkg-help.mjs";
 import { runFromList, runFromWorkbook } from "./gen-gpkg-workbook.mjs";
-import { parseWorseCounts } from "./gen-gpkg-worse.mjs";
+import { assertWorseOnFullSite, parseWorseCounts } from "./gen-gpkg-worse.mjs";
 import {
   afterBngServiceWrite,
   assertTemplateAvailable,
@@ -338,13 +338,7 @@ async function runSynthetic(centre, seed) {
   });
   const habitatPins = resolveHabitatPins(args.habitat, numParcels, selection);
   const worseHabitatCounts = parseWorseCounts(args.worse, degradeFlawNames);
-  // A geometric flaw draws the minimal bad site, which holds no habitats
-  // that get worse to count.
-  if (worseHabitatCounts && selection.geometricFlawNames.length > 0) {
-    throw new FlawSelectionError(
-      "--worse cannot be combined with --bad or a geometric flaw: their minimal site draws no habitats that get worse",
-    );
-  }
+  assertWorseOnFullSite(worseHabitatCounts, selection.geometricFlawNames);
   const plan = {
     numParcels,
     ...selection,
@@ -482,6 +476,23 @@ function assertSeedOutsideWorkbookMode() {
   }
 }
 
+// Flags that mean nothing in the legacy format, each with why.
+const BNG_SERVICE_ONLY_FLAGS = [
+  {
+    given: () =>
+      args.stage !== undefined || args["template-version"] !== undefined,
+    message: `--stage and --template-version need --format ${FORMAT_BNG_SERVICE}`,
+  },
+  {
+    given: () => args.worse.length > 0,
+    message: `--worse needs --format ${FORMAT_BNG_SERVICE}: it counts the BNG Service template's habitats that get worse`,
+  },
+  {
+    given: () => args["package-template"],
+    message: `--package-template needs --format ${FORMAT_BNG_SERVICE}: it packages the BNG Service template`,
+  },
+];
+
 // The BNG Service format writes one file holding both stages, so it has no
 // --pair and no --mode; --stage asks for the baseline-stage file. --stage and
 // --template-version mean nothing in the legacy format.
@@ -493,22 +504,12 @@ function assertFormatFlagsValid() {
     );
     process.exit(1);
   }
-  const bngServiceOnly =
-    args.stage !== undefined || args["template-version"] !== undefined;
-  if (!bngService && bngServiceOnly) {
-    error(`--stage and --template-version need --format ${FORMAT_BNG_SERVICE}`);
-    process.exit(1);
+  if (bngService) {
+    return;
   }
-  if (!bngService && args.worse.length > 0) {
-    error(
-      `--worse needs --format ${FORMAT_BNG_SERVICE}: it counts the BNG Service template's habitats that get worse`,
-    );
-    process.exit(1);
-  }
-  if (!bngService && args["package-template"]) {
-    error(
-      `--package-template needs --format ${FORMAT_BNG_SERVICE}: it packages the BNG Service template`,
-    );
+  const needsBngService = BNG_SERVICE_ONLY_FLAGS.find(({ given }) => given());
+  if (needsBngService) {
+    error(needsBngService.message);
     process.exit(1);
   }
 }
