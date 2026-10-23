@@ -43,3 +43,6 @@ mkdocs.generated.yml
 
 # npm run compare:metric output
 /metric-comparison/
+
+# LibreOffice scratch space left by an interrupted workbook recalculation
+**/.recalc-*/
