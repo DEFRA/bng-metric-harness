@@ -6,7 +6,7 @@ import {
   SERVICE_TEMPLATE_FLAG,
   childEnvFor,
   devOptions,
-  dropRemovedKeys,
+  flagSource,
   optionLabel,
 } from "../../scripts/dev-env.mjs";
 
@@ -50,38 +50,43 @@ describe("the environment npm run dev gives both apps", () => {
     });
   });
 
-  it("ignores a flag inherited from the shell without the option, and says so", () => {
-    const onIgnored = vi.fn();
+  it("keeps a flag inherited from the shell without the option", () => {
     const env = childEnvFor(
       devOptions([]),
       { ...BASE, [SERVICE_TEMPLATE_FLAG]: "true" },
       () => ({}),
-      onIgnored,
     );
-    expect(SERVICE_TEMPLATE_FLAG in env).toBe(false);
-    expect(onIgnored).toHaveBeenCalledWith("true");
+    expect(env[SERVICE_TEMPLATE_FLAG]).toBe("true");
   });
 
-  it("ignores a flag in the B2C .env without the option", () => {
-    const env = childEnvFor(
-      devOptions(["--b2c"]),
-      BASE,
-      () => ({ [SERVICE_TEMPLATE_FLAG]: "true" }),
-      () => {},
-    );
-    expect(SERVICE_TEMPLATE_FLAG in env).toBe(false);
+  it("keeps a flag the B2C .env sets", () => {
+    const env = childEnvFor(devOptions(["--b2c"]), BASE, () => ({
+      [SERVICE_TEMPLATE_FLAG]: "true",
+    }));
+    expect(env[SERVICE_TEMPLATE_FLAG]).toBe("true");
   });
 
   it("turns the flag on with the option, whatever was inherited", () => {
-    const onIgnored = vi.fn();
     const env = childEnvFor(
       devOptions(["--service-template"]),
       { ...BASE, [SERVICE_TEMPLATE_FLAG]: "false" },
       () => ({}),
-      onIgnored,
     );
     expect(env[SERVICE_TEMPLATE_FLAG]).toBe("true");
-    expect(onIgnored).not.toHaveBeenCalled();
+  });
+
+  it("says where the flag comes from", () => {
+    const options = devOptions([]);
+    expect(flagSource(options, BASE)).toBeNull();
+    expect(
+      flagSource(options, { ...BASE, [SERVICE_TEMPLATE_FLAG]: "true" }),
+    ).toBe("your environment");
+    expect(
+      flagSource(devOptions(["--service-template"]), {
+        ...BASE,
+        [SERVICE_TEMPLATE_FLAG]: "true",
+      }),
+    ).toBe("--service-template");
   });
 
   it("names the options in force in the banner", () => {
@@ -126,29 +131,27 @@ describe("the flag both apps see when npm run dev starts them together", () => {
     }
   });
 
-  it("is unset without the option, even when the shell sets it", async () => {
-    process.env[SERVICE_TEMPLATE_FLAG] = "true";
-    const childEnv = childEnvFor(devOptions([]), process.env, () => ({}));
-    dropRemovedKeys(childEnv, process.env);
-    expect(await flagSeenByConcurrently(childEnv)).toBe("unset");
-  });
-
-  it("is on with the option", async () => {
-    delete process.env[SERVICE_TEMPLATE_FLAG];
-    const childEnv = childEnvFor(
-      devOptions(["--service-template"]),
-      process.env,
-      () => ({}),
+  // concurrently reads the shell's environment from process.env itself.
+  const seen = (args, shellValue) => {
+    if (shellValue === undefined) {
+      delete process.env[SERVICE_TEMPLATE_FLAG];
+    } else {
+      process.env[SERVICE_TEMPLATE_FLAG] = shellValue;
+    }
+    return flagSeenByConcurrently(
+      childEnvFor(devOptions(args), process.env, () => ({})),
     );
-    dropRemovedKeys(childEnv, process.env);
-    expect(await flagSeenByConcurrently(childEnv)).toBe("true");
-  });
-});
+  };
 
-describe("dropRemovedKeys", () => {
-  it("removes only the keys the child env left out", () => {
-    const processEnv = { PATH: "/bin", [SERVICE_TEMPLATE_FLAG]: "true" };
-    dropRemovedKeys({ PATH: "/bin", EXTRA: "x" }, processEnv);
-    expect(processEnv).toEqual({ PATH: "/bin" });
+  it("is unset when nobody sets it", async () => {
+    expect(await seen([])).toBe("unset");
+  });
+
+  it("is the shell's value without the option", async () => {
+    expect(await seen([], "true")).toBe("true");
+  });
+
+  it("is on with the option, whatever the shell set", async () => {
+    expect(await seen(["--service-template"], "false")).toBe("true");
   });
 });

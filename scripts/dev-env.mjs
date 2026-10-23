@@ -6,11 +6,11 @@
  */
 
 /**
- * The service-template feature flag, as both apps read it. Only
- * `--service-template` decides it: with the option it is on, and without it
- * the harness removes any value inherited from the shell or the B2C .env, so
- * plain `npm run dev` always runs with the apps' default (off). Neither app's
- * own dev script pins it, so the value reaches both unchanged.
+ * The service-template feature flag, as both apps read it. `--service-template`
+ * turns it on. Without the option the harness leaves it as the shell (or, with
+ * `--b2c`, the B2C .env) set it: a developer who exports it meant it, and it
+ * is off when nobody sets it, the apps' default. Neither app's own dev script
+ * pins it, so the value reaches both unchanged.
  */
 export const SERVICE_TEMPLATE_FLAG = "SERVICE_TEMPLATE_ENABLED";
 
@@ -25,42 +25,33 @@ export function devOptions(args) {
 /**
  * The environment both apps start with: the ambient one, then the B2C values
  * from the shared .env when `--b2c` is given (the file wins over the ambient
- * env), then the service-template flag: set with `--service-template`, and
- * removed without it, so an inherited value cannot turn it on unasked.
+ * env), then the service-template flag set on with `--service-template`.
+ * Nothing inherited is removed.
  *
  * @param {{ b2c: boolean, serviceTemplate: boolean }} options
  * @param {NodeJS.ProcessEnv} baseEnv
  * @param {() => Record<string, string>} loadB2cEnv  read only with --b2c
- * @param {(value: string) => void} [onIgnored]  told the inherited value
- *   it removed, to warn about it
  */
-export function childEnvFor(options, baseEnv, loadB2cEnv, onIgnored) {
+export function childEnvFor(options, baseEnv, loadB2cEnv) {
   const env = { ...baseEnv, ...(options.b2c ? loadB2cEnv() : {}) };
   if (options.serviceTemplate) {
     env[SERVICE_TEMPLATE_FLAG] = "true";
-    return env;
-  }
-  if (SERVICE_TEMPLATE_FLAG in env) {
-    onIgnored?.(env[SERVICE_TEMPLATE_FLAG]);
-    delete env[SERVICE_TEMPLATE_FLAG];
   }
   return env;
 }
 
 /**
- * Remove from `processEnv` every key `childEnv` left out. concurrently starts
- * each command with `{ ...process.env, ...env }`, so a key removed from the
- * child environment alone comes straight back from the shell's.
+ * Where the flag both apps get comes from, for the banner: the option, the
+ * inherited environment, or nowhere (null: off, the apps' default).
  *
- * @param {NodeJS.ProcessEnv} childEnv
- * @param {NodeJS.ProcessEnv} processEnv  changed in place
+ * @param {{ serviceTemplate: boolean }} options
+ * @param {NodeJS.ProcessEnv} childEnv  from `childEnvFor`
  */
-export function dropRemovedKeys(childEnv, processEnv) {
-  for (const key of Object.keys(processEnv)) {
-    if (!(key in childEnv)) {
-      delete processEnv[key];
-    }
+export function flagSource(options, childEnv) {
+  if (options.serviceTemplate) {
+    return "--service-template";
   }
+  return SERVICE_TEMPLATE_FLAG in childEnv ? "your environment" : null;
 }
 
 /** A banner suffix naming the options in force, e.g. " [B2C, service template]". */

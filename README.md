@@ -68,13 +68,13 @@ If you have [Tilt](https://tilt.dev/) installed, you can replace steps 5–6 wit
 ### The service-template flag
 
 While the service accepts both the legacy and the new BNG Service template, it is
-tested with its service-template flag both on and off. Only `--service-template`
-decides the flag: `npm run dev -- --service-template` (or `npm run dev:service-template`)
-sets `SERVICE_TEMPLATE_ENABLED=true` in both apps' environment, the way `--b2c` passes
-the B2C settings. Without it, the harness removes any `SERVICE_TEMPLATE_ENABLED` your
-shell or the B2C `.env` sets, with a warning, so plain `npm run dev` always runs both
-apps with their default (off). Neither app's own `dev` script sets it, so the value
-reaches both.
+tested with its service-template flag both on and off. `npm run dev -- --service-template`
+(or `npm run dev:service-template`) sets `SERVICE_TEMPLATE_ENABLED=true` in both apps'
+environment, the way `--b2c` passes the B2C settings. Without it, a
+`SERVICE_TEMPLATE_ENABLED` your shell (or, with `--b2c`, the B2C `.env`) sets reaches
+both apps as it is, and the banner says where it came from; with neither, both apps run
+with their default (off). Neither app's own `dev` script sets it, so the value reaches
+both.
 
 ### Stub vs. real Defra ID (B2C) login
 

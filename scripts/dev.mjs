@@ -17,7 +17,7 @@ import {
   SERVICE_TEMPLATE_FLAG,
   childEnvFor,
   devOptions,
-  dropRemovedKeys,
+  flagSource,
   optionLabel,
 } from "./dev-env.mjs";
 
@@ -66,17 +66,18 @@ function loadB2cEnv() {
 // File wins over ambient env so the .env is the single source of truth for B2C.
 // The FE/BE dev scripts' own cross-env values (e.g. OIDC_USE_STUB=false) are set
 // downstream of this and still take precedence, which is what we want.
-// `--service-template` turns the service-template flag on in both apps.
+// `--service-template` turns the service-template flag on in both apps;
+// without it, a value the developer set reaches both as it is.
 // Called after the header so its logging lands under the banner, not above it.
 function buildChildEnv() {
-  if (options.serviceTemplate) {
-    info(`  service template: ${SERVICE_TEMPLATE_FLAG}=true`);
+  const env = childEnvFor(options, process.env, loadB2cEnv);
+  const source = flagSource(options, env);
+  if (source) {
+    info(
+      `  service template: ${SERVICE_TEMPLATE_FLAG}=${env[SERVICE_TEMPLATE_FLAG]} (from ${source})`,
+    );
   }
-  return childEnvFor(options, process.env, loadB2cEnv, (value) =>
-    warn(
-      `  ${SERVICE_TEMPLATE_FLAG}=${value} was set in your environment; ignoring it. Pass --service-template to turn the flag on.`,
-    ),
-  );
+  return env;
 }
 
 if (target === "all") {
@@ -87,7 +88,6 @@ if (target === "all") {
   header(`dev: fe + be (concurrently)${optionLabel(options)}`, "green");
 
   const childEnv = buildChildEnv();
-  dropRemovedKeys(childEnv, process.env);
 
   const { result } = concurrently(
     REPOS.map((r) => ({
