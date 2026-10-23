@@ -47,6 +47,22 @@ export function childEnvFor(options, baseEnv, loadB2cEnv, onIgnored) {
   return env;
 }
 
+/**
+ * Remove from `processEnv` every key `childEnv` left out. concurrently starts
+ * each command with `{ ...process.env, ...env }`, so a key removed from the
+ * child environment alone comes straight back from the shell's.
+ *
+ * @param {NodeJS.ProcessEnv} childEnv
+ * @param {NodeJS.ProcessEnv} processEnv  changed in place
+ */
+export function dropRemovedKeys(childEnv, processEnv) {
+  for (const key of Object.keys(processEnv)) {
+    if (!(key in childEnv)) {
+      delete processEnv[key];
+    }
+  }
+}
+
 /** A banner suffix naming the options in force, e.g. " [B2C, service template]". */
 export function optionLabel(options) {
   const names = [

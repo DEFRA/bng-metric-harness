@@ -1,8 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
+import { Writable } from "node:stream";
+
+import concurrently from "concurrently";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   SERVICE_TEMPLATE_FLAG,
   childEnvFor,
   devOptions,
+  dropRemovedKeys,
   optionLabel,
 } from "../../scripts/dev-env.mjs";
 
@@ -85,5 +89,66 @@ describe("the environment npm run dev gives both apps", () => {
     expect(optionLabel(devOptions(["--b2c", "--service-template"]))).toBe(
       " [B2C, service template]",
     );
+  });
+});
+
+// What `npm run dev` does with both apps, against a command that prints the
+// flag it sees: concurrently merges `process.env` back under the child env.
+async function flagSeenByConcurrently(childEnv) {
+  let output = "";
+  const outputStream = new Writable({
+    write(chunk, _encoding, done) {
+      output += chunk.toString();
+      done();
+    },
+  });
+  const { result } = concurrently(
+    [
+      {
+        command: `node -p "process.env.${SERVICE_TEMPLATE_FLAG} ?? 'unset'"`,
+        env: childEnv,
+      },
+    ],
+    { outputStream, prefix: "none" },
+  );
+  await result;
+  return output.split("\n")[0].trim();
+}
+
+describe("the flag both apps see when npm run dev starts them together", () => {
+  const inherited = process.env[SERVICE_TEMPLATE_FLAG];
+
+  afterEach(() => {
+    if (inherited === undefined) {
+      delete process.env[SERVICE_TEMPLATE_FLAG];
+    } else {
+      process.env[SERVICE_TEMPLATE_FLAG] = inherited;
+    }
+  });
+
+  it("is unset without the option, even when the shell sets it", async () => {
+    process.env[SERVICE_TEMPLATE_FLAG] = "true";
+    const childEnv = childEnvFor(devOptions([]), process.env, () => ({}));
+    dropRemovedKeys(childEnv, process.env);
+    expect(await flagSeenByConcurrently(childEnv)).toBe("unset");
+  });
+
+  it("is on with the option", async () => {
+    delete process.env[SERVICE_TEMPLATE_FLAG];
+    const childEnv = childEnvFor(
+      devOptions(["--service-template"]),
+      process.env,
+      () => ({}),
+    );
+    dropRemovedKeys(childEnv, process.env);
+    expect(await flagSeenByConcurrently(childEnv)).toBe("true");
+  });
+});
+
+describe("dropRemovedKeys", () => {
+  it("removes only the keys the child env left out", () => {
+    const processEnv = { PATH: "/bin", [SERVICE_TEMPLATE_FLAG]: "true" };
+    dropRemovedKeys({ PATH: "/bin", EXTRA: "x" }, processEnv);
+    expect(processEnv).toEqual({ PATH: "/bin" });
   });
 });

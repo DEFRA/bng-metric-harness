@@ -17,6 +17,7 @@ import {
   SERVICE_TEMPLATE_FLAG,
   childEnvFor,
   devOptions,
+  dropRemovedKeys,
   optionLabel,
 } from "./dev-env.mjs";
 
@@ -86,6 +87,7 @@ if (target === "all") {
   header(`dev: fe + be (concurrently)${optionLabel(options)}`, "green");
 
   const childEnv = buildChildEnv();
+  dropRemovedKeys(childEnv, process.env);
 
   const { result } = concurrently(
     REPOS.map((r) => ({
