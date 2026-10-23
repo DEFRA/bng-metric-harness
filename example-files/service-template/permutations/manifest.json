@@ -787,7 +787,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "6ee5e776b7e7808b05b5ab8cc535ac3353ce21bceab81b844dd3887fa4c5f69e",
+      "workbookSource": "5bdf326d299f9b7cd814f2368b3a818d9a6d03c02c65dda4ff5bd75876f8f484",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 4,
@@ -1268,7 +1268,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "887c82afb31ad1ccff1ff817fba36abe80b090da4390666346c923e7e716a039",
+      "workbookSource": "b4f982394806bd4b8ec6885371fc3ece5359c9ba2552dcb0a11ea1a074b370d4",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 5,
@@ -1290,17 +1290,17 @@
             "watercourse": 2.9971524390455
           },
           "postInterventionUnits": {
-            "area": 142.306386286966,
+            "area": 135.320669026776,
             "hedgerow": 2.89782897444366,
             "watercourse": 0.738523555349216
           },
           "netUnitChange": {
-            "area": -29.8431836105499,
+            "area": -36.8289008707405,
             "hedgerow": 1.65829103025734,
             "watercourse": -2.25862888369628
           },
           "netPercentChange": {
-            "area": -0.173356132276811,
+            "area": -0.213935480016972,
             "hedgerow": 1.33782998579032,
             "watercourse": -0.753591593898236
           },
@@ -1315,7 +1315,7 @@
             "watercourse": 3.29686768295005
           },
           "unitDeficit": {
-            "area": 47.0581406003016,
+            "area": 54.0438578604921,
             "hedgerow": 0,
             "watercourse": 2.55834412760083
           },
@@ -1386,7 +1386,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": -2.93401446671076
+          "areaCumulativeSurplus": -25.5067307405104
         },
         "sheetWarnings": [
           {
@@ -1447,9 +1447,17 @@
           {
             "sheet": "habitatCreation",
             "reference": "H006",
-            "message": "Check details - Is there evidence habitat creation in place? ⚠",
+            "message": "Check details - Is there evidence that habitat has reached target condition? ⚠",
             "cells": [
               "R14"
+            ]
+          },
+          {
+            "sheet": "habitatCreation",
+            "reference": "H006",
+            "message": "Low Difficulty - only applicable if all habitat created before losses ⚠",
+            "cells": [
+              "V14"
             ]
           },
           {
@@ -1954,7 +1962,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "0aa3dad5147c7185feb84e1fa7b8611de0852c9d6d373f6c3359b672791d0fdd",
+      "workbookSource": "f5cabf8fc1722fbee93974b562f5c66a0c1dc4226b12390daa4b820c350a9a3c",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 4,
@@ -2192,7 +2200,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "9d0288b03fc54639d28c9c07f5f008e0a5f5478dd3fa82bc0fabdc0b59e110a3",
+      "workbookSource": "e5377d1ddeefc2851b8e1caee3a5c9127fc32ed156c4c9c64b65f0a49a0cf8fe",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 5,
@@ -2214,17 +2222,17 @@
             "watercourse": 0.936065997274199
           },
           "postInterventionUnits": {
-            "area": 253.516998726594,
+            "area": 270.705379321702,
             "hedgerow": 4.74210208162608,
             "watercourse": 2.70305740844579
           },
           "netUnitChange": {
-            "area": 129.549710259748,
+            "area": 146.738090854856,
             "hedgerow": 1.92825019159776,
             "watercourse": 1.76699141117159
           },
           "netPercentChange": {
-            "area": 1.04503140999487,
+            "area": 1.18368395945113,
             "hedgerow": 0.685270677689559,
             "watercourse": 1.88767823670235
           },
@@ -2310,7 +2318,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 129.886417187014
+          "areaCumulativeSurplus": 147.074797782121
         },
         "sheetWarnings": [
           {
