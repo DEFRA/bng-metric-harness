@@ -1,8 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
+import { Writable } from "node:stream";
+
+import concurrently from "concurrently";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   SERVICE_TEMPLATE_FLAG,
   childEnvFor,
   devOptions,
+  flagSource,
   optionLabel,
 } from "../../scripts/dev-env.mjs";
 
@@ -46,38 +50,65 @@ describe("the environment npm run dev gives both apps", () => {
     });
   });
 
-  it("ignores a flag inherited from the shell without the option, and says so", () => {
-    const onIgnored = vi.fn();
+  it("keeps a flag inherited from the shell without the option", () => {
     const env = childEnvFor(
       devOptions([]),
       { ...BASE, [SERVICE_TEMPLATE_FLAG]: "true" },
       () => ({}),
-      onIgnored,
     );
-    expect(SERVICE_TEMPLATE_FLAG in env).toBe(false);
-    expect(onIgnored).toHaveBeenCalledWith("true");
+    expect(env[SERVICE_TEMPLATE_FLAG]).toBe("true");
   });
 
-  it("ignores a flag in the B2C .env without the option", () => {
-    const env = childEnvFor(
-      devOptions(["--b2c"]),
-      BASE,
-      () => ({ [SERVICE_TEMPLATE_FLAG]: "true" }),
-      () => {},
-    );
-    expect(SERVICE_TEMPLATE_FLAG in env).toBe(false);
+  it("keeps a flag the B2C .env sets", () => {
+    const env = childEnvFor(devOptions(["--b2c"]), BASE, () => ({
+      [SERVICE_TEMPLATE_FLAG]: "true",
+    }));
+    expect(env[SERVICE_TEMPLATE_FLAG]).toBe("true");
   });
 
   it("turns the flag on with the option, whatever was inherited", () => {
-    const onIgnored = vi.fn();
     const env = childEnvFor(
       devOptions(["--service-template"]),
       { ...BASE, [SERVICE_TEMPLATE_FLAG]: "false" },
       () => ({}),
-      onIgnored,
     );
     expect(env[SERVICE_TEMPLATE_FLAG]).toBe("true");
-    expect(onIgnored).not.toHaveBeenCalled();
+  });
+
+  describe("says where the flag comes from", () => {
+    const SET = { [SERVICE_TEMPLATE_FLAG]: "true" };
+    const NONE = devOptions([]);
+
+    it("nowhere, when nothing sets it", () => {
+      expect(flagSource(NONE, BASE, {})).toBeNull();
+    });
+
+    it("the shell, when only the shell sets it", () => {
+      expect(flagSource(NONE, { ...BASE, ...SET }, {})).toBe("your shell");
+    });
+
+    it("the B2C .env, when only the .env sets it", () => {
+      expect(flagSource(devOptions(["--b2c"]), BASE, SET)).toBe("the B2C .env");
+    });
+
+    it("the B2C .env, when both set it, as its value is the one the apps get", () => {
+      const options = devOptions(["--b2c"]);
+      const shell = { ...BASE, [SERVICE_TEMPLATE_FLAG]: "false" };
+      expect(flagSource(options, shell, SET)).toBe("the B2C .env");
+      expect(
+        childEnvFor(options, shell, () => SET)[SERVICE_TEMPLATE_FLAG],
+      ).toBe("true");
+    });
+
+    it("the option, whatever else sets it", () => {
+      expect(
+        flagSource(
+          devOptions(["--b2c", "--service-template"]),
+          { ...BASE, ...SET },
+          SET,
+        ),
+      ).toBe("--service-template");
+    });
   });
 
   it("names the options in force in the banner", () => {
@@ -85,5 +116,64 @@ describe("the environment npm run dev gives both apps", () => {
     expect(optionLabel(devOptions(["--b2c", "--service-template"]))).toBe(
       " [B2C, service template]",
     );
+  });
+});
+
+// What `npm run dev` does with both apps, against a command that prints the
+// flag it sees: concurrently merges `process.env` back under the child env.
+async function flagSeenByConcurrently(childEnv) {
+  let output = "";
+  const outputStream = new Writable({
+    write(chunk, _encoding, done) {
+      output += chunk.toString();
+      done();
+    },
+  });
+  const { result } = concurrently(
+    [
+      {
+        command: `node -p "process.env.${SERVICE_TEMPLATE_FLAG} ?? 'unset'"`,
+        env: childEnv,
+      },
+    ],
+    { outputStream, prefix: "none" },
+  );
+  await result;
+  return output.split("\n")[0].trim();
+}
+
+describe("the flag both apps see when npm run dev starts them together", () => {
+  const inherited = process.env[SERVICE_TEMPLATE_FLAG];
+
+  afterEach(() => {
+    if (inherited === undefined) {
+      delete process.env[SERVICE_TEMPLATE_FLAG];
+    } else {
+      process.env[SERVICE_TEMPLATE_FLAG] = inherited;
+    }
+  });
+
+  // concurrently reads the shell's environment from process.env itself.
+  const seen = (args, shellValue) => {
+    if (shellValue === undefined) {
+      delete process.env[SERVICE_TEMPLATE_FLAG];
+    } else {
+      process.env[SERVICE_TEMPLATE_FLAG] = shellValue;
+    }
+    return flagSeenByConcurrently(
+      childEnvFor(devOptions(args), process.env, () => ({})),
+    );
+  };
+
+  it("is unset when nobody sets it", async () => {
+    expect(await seen([])).toBe("unset");
+  });
+
+  it("is the shell's value without the option", async () => {
+    expect(await seen([], "true")).toBe("true");
+  });
+
+  it("is on with the option, whatever the shell set", async () => {
+    expect(await seen(["--service-template"], "false")).toBe("true");
   });
 });
