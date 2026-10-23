@@ -274,7 +274,11 @@ a fixed name and a recipe in `scripts/service-template/recipes.mjs`: drawn by
 bng-library from a seed, derived from a valid file by SQL edits (the schema
 faults no generator writes), copied, or, for `bng-500/`, converted from the
 legacy BNG500 pairs by the template's own converter
-(`plugin/bng_template_convert/old_to_new.py` in bng-metric-template). One command rebuilds it, to the same
+(`plugin/bng_template_convert/old_to_new.py` in bng-metric-template). Unlike
+a site `generate:gpkg` draws, its files mark no parcel or tree irreplaceable
+(bng-library's `irreplaceableLayers: []`), as the service refuses an
+irreplaceable habitat; `attribute-problems/irreplaceable-*.gpkg` are the
+exceptions. One command rebuilds it, to the same
 bytes, and writes its README (what each file covers, its expected outcome and
 how it is built):
 

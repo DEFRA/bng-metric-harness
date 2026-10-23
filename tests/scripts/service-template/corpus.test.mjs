@@ -44,6 +44,7 @@ import {
   FAMILIES,
   KIND_CONVERTED,
   KIND_DERIVED,
+  KIND_GENERATED,
   RECIPES,
   recipeFor,
 } from "../../../scripts/service-template/recipes.mjs";
@@ -165,7 +166,71 @@ describe("the committed service-template corpus", () => {
   });
 });
 
+const IRREPLACEABLE = "Irreplaceable Habitat";
+const YES = "Yes";
+// The tables each layer bng-library's irreplaceableLayers names is on.
+const LAYER_TABLES = {
+  habitats: ["Area Habitats Baseline", "Area Habitats Post-Intervention"],
+  trees: [
+    "Individual Trees Baseline",
+    "Individual Trees Post-Intervention",
+  ],
+};
+
+/** The feature tables of `file` that hold a row marked irreplaceable. */
+function irreplaceableTables(file) {
+  const db = new Database(file, { readonly: true });
+  try {
+    const tables = db
+      .prepare(
+        "SELECT table_name AS name FROM gpkg_contents WHERE data_type = 'features'",
+      )
+      .all()
+      .map((row) => row.name);
+    return tables.filter((table) => {
+      const columns = db.pragma(`table_info("${table}")`).map((c) => c.name);
+      return (
+        columns.includes(IRREPLACEABLE) &&
+        db
+          .prepare(`SELECT 1 FROM "${table}" WHERE "${IRREPLACEABLE}" = ?`)
+          .get(YES) !== undefined
+      );
+    });
+  } finally {
+    db.close();
+  }
+}
+
+/** The irreplaceableLayers a generated or derived recipe's file is drawn with. */
+function irreplaceableLayersOf(recipe) {
+  const source = recipe.kind === KIND_DERIVED ? recipeFor(recipe.from) : recipe;
+  return source.options.irreplaceableLayers;
+}
+
 describe("the built fixtures", () => {
+  // A repin that ignored or renamed irreplaceableLayers would rebuild the
+  // corpus to match itself, so the byte-for-byte test alone would not see it.
+  it("mark a habitat irreplaceable only in the files whose recipe names its layer, in both stages", () => {
+    const drawn = BUILDABLE.filter(
+      (r) => r.kind === KIND_GENERATED || r.kind === KIND_DERIVED,
+    );
+    for (const recipe of drawn) {
+      const expected = irreplaceableLayersOf(recipe).flatMap(
+        (layer) => LAYER_TABLES[layer],
+      );
+      expect(irreplaceableTables(built(recipe)).sort(), recipe.path).toEqual(
+        expected.sort(),
+      );
+    }
+    const marked = drawn.filter(
+      (r) => irreplaceableLayersOf(r).length > 0,
+    );
+    expect(marked.map((r) => r.path).sort()).toEqual([
+      "attribute-problems/irreplaceable-area-habitat.gpkg",
+      "attribute-problems/irreplaceable-tree.gpkg",
+    ]);
+  });
+
   it("hold only values the template offers, in every valid file", () => {
     for (const recipe of RECIPES.filter((r) => r.path.startsWith("valid/"))) {
       expect(checkTemplateValues(built(recipe)), recipe.path).toEqual([]);
