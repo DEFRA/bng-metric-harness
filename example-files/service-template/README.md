@@ -13,6 +13,10 @@ stages. **Expected** is the outcome the service should give the file with the
 service-template flag on (`SERVICE_TEMPLATE_ENABLED=true`); an error code is
 the one the legacy upload gives the same fault.
 
+No generated file marks a habitat irreplaceable unless its **Built from**
+names the layer (bng-library's `irreplaceableLayers`): the service refuses an
+irreplaceable habitat, so a file meant to trip one check, or none, holds none.
+
 Every file regenerates to the same bytes:
 
 ```sh
@@ -53,7 +57,7 @@ Valid files, combined and baseline-stage: each should upload cleanly.
 
 | File | Covers | Expected | Built from |
 | ---- | ------ | -------- | ---------- |
-| `default-site.gpkg` | The default site, holding both stages and every feature only the new template records: vertical area habitats, comments, an irreplaceable parcel and tree, an Enhanced tree, habitats that get worse on each layer, a re-meandered and a shorter watercourse, and Habitat Refs that repeat | accepted | seed 1 |
+| `default-site.gpkg` | The default site, holding both stages and every feature only the new template records: vertical area habitats, comments, an Enhanced tree, habitats that get worse on each layer, a re-meandered and a shorter watercourse, and Habitat Refs that repeat. It marks nothing irreplaceable, as the service refuses an irreplaceable habitat (see `attribute-problems/irreplaceable-*.gpkg`) | accepted | seed 1 |
 | `default-site-baseline.gpkg` | The default site's baseline-stage file: the post-intervention tables are present and empty | accepted | seed 1, baseline stage |
 | `plain-site.gpkg` | The default site without the template-only features: what the legacy generator draws, in the new format | accepted | seed 1, no template-only features |
 | `small-site.gpkg` | A 3-parcel site, holding both stages | accepted | seed 2, 3 parcels |
@@ -127,6 +131,9 @@ Valid schema and geometry: an attribute value trips a later validator, or a habi
 | `degrade-advance-missing.gpkg` | a hedgerow that gets worse (Created in its own type, linked to its parent, in a lower condition) has no years created in advance, where the Metric asks for 30 plus | refused. Accepted today: the service does not check habitats that get worse yet | seed 1, flaw `degrade-advance-missing` |
 | `degrade-not-worse.gpkg` | a same-type creation that is not worse: a hedgerow Created in its own type, linked to its parent, with 30+ years in advance, in its baseline condition (a 30+ on a row that does not get worse overstates its units) | refused. Accepted today: the service does not check habitats that get worse yet | seed 1, flaw `degrade-not-worse` |
 | `degrade-watercourse-retained-and-created.gpkg` | a baseline watercourse has both a Retained and a Created post-intervention part. The template records part of a stretch changing by splitting it at the baseline survey, as the service cannot measure part of a watercourse | refused. Accepted today: the service does not check habitats that get worse yet | seed 1, flaw `degrade-watercourse-retained-and-created` |
+| `degrade-habitat-ref-blank.gpkg` | an area habitat that gets worse has an empty Habitat Ref on its post-intervention row only; its baseline row keeps its ref, so only a check of the post-intervention tables finds it | HABITAT_REF_MISSING | seed 1, flaw `degrade-habitat-ref-blank` |
+| `irreplaceable-area-habitat.gpkg` | `valid/default-site.gpkg` with its woodland parcel marked irreplaceable (Irreplaceable Habitat `Yes`) in both stages | refused (BMD-1176). Accepted today: the service does not check irreplaceable habitats yet | seed 1, irreplaceable `habitats` |
+| `irreplaceable-tree.gpkg` | `valid/default-site.gpkg` with one Retained tree marked irreplaceable (a veteran tree) in both stages | refused (BMD-1172). Accepted today: the service does not check irreplaceable habitats yet | seed 1, irreplaceable `trees` |
 
 ## lineage-problems/
 
@@ -189,6 +196,6 @@ A valid file; only the upload's own file name is invalid.
 
 ## Gaps
 
-- A natural river left out of a watercourse that gets worse, a habitat that gets worse with a blank Habitat Ref, and an irreplaceable tree that gets worse: bng-library has no degrade flaw for these yet (BMD-1080 follow-up).
+- A natural river left out, and an irreplaceable tree that gets worse: the service refuses either file for another reason first, so a fixture could not show the rule. Natural rivers (Other rivers and streams, High; Priority habitat, V.High) are out of the service's scope, and only canals and ditches may be lost; an irreplaceable tree is refused whether or not it gets worse (`attribute-problems/irreplaceable-tree.gpkg`).
 - Individual trees with varied counts: the template has no Count column, and how several trees are recorded is undecided (BMD-1171, BMD-1172).
 - The harness's import-timing scenarios: they edit legacy files, so `permutations/` builds them in the legacy format only.

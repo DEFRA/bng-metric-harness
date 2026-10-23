@@ -112,6 +112,9 @@ function flawInfo(name) {
   return flaw;
 }
 
+const IRREPLACEABLE_NOT_CHECKED =
+  "Accepted today: the service does not check irreplaceable habitats yet";
+
 const DEGRADE_NOT_CHECKED =
   "Accepted today: the service does not check habitats that get worse yet";
 
@@ -160,8 +163,19 @@ function expectedForFlaw(name, flaw) {
   return BACKEND_CODES[name] ?? flaw.errorCode;
 }
 
+/**
+ * A file bng-library draws. It marks no feature irreplaceable unless the
+ * recipe asks: the service refuses an irreplaceable habitat (BMD-1176,
+ * BMD-1172), so a file that should trip one check, or none, holds none.
+ */
 function generated(path, covers, expected, options) {
-  return { path, kind: KIND_GENERATED, covers, expected, options };
+  return {
+    path,
+    kind: KIND_GENERATED,
+    covers,
+    expected,
+    options: { irreplaceableLayers: [], ...options },
+  };
 }
 
 /**
@@ -193,7 +207,7 @@ function derived(path, covers, edits) {
 const VALID = [
   generated(
     VALID_BASE,
-    "The default site, holding both stages and every feature only the new template records: vertical area habitats, comments, an irreplaceable parcel and tree, an Enhanced tree, habitats that get worse on each layer, a re-meandered and a shorter watercourse, and Habitat Refs that repeat",
+    "The default site, holding both stages and every feature only the new template records: vertical area habitats, comments, an Enhanced tree, habitats that get worse on each layer, a re-meandered and a shorter watercourse, and Habitat Refs that repeat. It marks nothing irreplaceable, as the service refuses an irreplaceable habitat (see `attribute-problems/irreplaceable-*.gpkg`)",
     ACCEPTED,
     { seed: SEED },
   ),
@@ -366,7 +380,23 @@ const ATTRIBUTE = [
   "degrade-advance-missing",
   "degrade-not-worse",
   "degrade-watercourse-retained-and-created",
+  "degrade-habitat-ref-blank",
 ].map((name) => flawFixture("attribute-problems", name));
+
+const IRREPLACEABLE = [
+  generated(
+    "attribute-problems/irreplaceable-area-habitat.gpkg",
+    "`valid/default-site.gpkg` with its woodland parcel marked irreplaceable (Irreplaceable Habitat `Yes`) in both stages",
+    `refused (BMD-1176). ${IRREPLACEABLE_NOT_CHECKED}`,
+    { seed: SEED, irreplaceableLayers: ["habitats"] },
+  ),
+  generated(
+    "attribute-problems/irreplaceable-tree.gpkg",
+    "`valid/default-site.gpkg` with one Retained tree marked irreplaceable (a veteran tree) in both stages",
+    `refused (BMD-1172). ${IRREPLACEABLE_NOT_CHECKED}`,
+    { seed: SEED, irreplaceableLayers: ["trees"] },
+  ),
+];
 
 const LINEAGE = [
   "lineage-parent-missing",
@@ -513,6 +543,7 @@ export const RECIPES = [
   ...INVALID_SCHEMA,
   ...EMPTY_LAYER,
   ...ATTRIBUTE,
+  ...IRREPLACEABLE,
   ...LINEAGE,
   ...INCOMPLETE,
   ...VERSION,
@@ -526,7 +557,7 @@ export const RECIPES = [
  * visible rather than silent.
  */
 export const GAPS = [
-  "A natural river left out of a watercourse that gets worse, a habitat that gets worse with a blank Habitat Ref, and an irreplaceable tree that gets worse: bng-library has no degrade flaw for these yet (BMD-1080 follow-up).",
+  "A natural river left out, and an irreplaceable tree that gets worse: the service refuses either file for another reason first, so a fixture could not show the rule. Natural rivers (Other rivers and streams, High; Priority habitat, V.High) are out of the service's scope, and only canals and ditches may be lost; an irreplaceable tree is refused whether or not it gets worse (`attribute-problems/irreplaceable-tree.gpkg`).",
   "Individual trees with varied counts: the template has no Count column, and how several trees are recorded is undecided (BMD-1171, BMD-1172).",
   "The harness's import-timing scenarios: they edit legacy files, so `permutations/` builds them in the legacy format only.",
 ];

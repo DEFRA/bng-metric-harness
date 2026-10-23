@@ -28,6 +28,9 @@ function generatedFrom({ options }) {
   if (options.templateFeatures === false) {
     parts.push("no template-only features");
   }
+  for (const layer of options.irreplaceableLayers ?? []) {
+    parts.push(`irreplaceable \`${layer}\``);
+  }
   for (const flaw of options.flaws ?? []) {
     parts.push(`flaw \`${flaw}\``);
   }
@@ -126,6 +129,10 @@ export function renderReadme() {
     "stages. **Expected** is the outcome the service should give the file with the",
     "service-template flag on (`SERVICE_TEMPLATE_ENABLED=true`); an error code is",
     "the one the legacy upload gives the same fault.",
+    "",
+    "No generated file marks a habitat irreplaceable unless its **Built from**",
+    "names the layer (bng-library's `irreplaceableLayers`): the service refuses an",
+    "irreplaceable habitat, so a file meant to trip one check, or none, holds none.",
     "",
     "Every file regenerates to the same bytes:",
     "",
