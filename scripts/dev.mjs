@@ -70,8 +70,10 @@ function loadB2cEnv() {
 // without it, a value the developer set reaches both as it is.
 // Called after the header so its logging lands under the banner, not above it.
 function buildChildEnv() {
-  const env = childEnvFor(options, process.env, loadB2cEnv);
-  const source = flagSource(options, env);
+  // Read once, so the banner can tell a value from the .env from the shell's.
+  const b2cEnv = options.b2c ? loadB2cEnv() : {};
+  const env = childEnvFor(options, process.env, () => b2cEnv);
+  const source = flagSource(options, process.env, b2cEnv);
   if (source) {
     info(
       `  service template: ${SERVICE_TEMPLATE_FLAG}=${env[SERVICE_TEMPLATE_FLAG]} (from ${source})`,

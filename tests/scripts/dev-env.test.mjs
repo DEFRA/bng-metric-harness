@@ -75,18 +75,40 @@ describe("the environment npm run dev gives both apps", () => {
     expect(env[SERVICE_TEMPLATE_FLAG]).toBe("true");
   });
 
-  it("says where the flag comes from", () => {
-    const options = devOptions([]);
-    expect(flagSource(options, BASE)).toBeNull();
-    expect(
-      flagSource(options, { ...BASE, [SERVICE_TEMPLATE_FLAG]: "true" }),
-    ).toBe("your environment");
-    expect(
-      flagSource(devOptions(["--service-template"]), {
-        ...BASE,
-        [SERVICE_TEMPLATE_FLAG]: "true",
-      }),
-    ).toBe("--service-template");
+  describe("says where the flag comes from", () => {
+    const SET = { [SERVICE_TEMPLATE_FLAG]: "true" };
+    const NONE = devOptions([]);
+
+    it("nowhere, when nothing sets it", () => {
+      expect(flagSource(NONE, BASE, {})).toBeNull();
+    });
+
+    it("the shell, when only the shell sets it", () => {
+      expect(flagSource(NONE, { ...BASE, ...SET }, {})).toBe("your shell");
+    });
+
+    it("the B2C .env, when only the .env sets it", () => {
+      expect(flagSource(devOptions(["--b2c"]), BASE, SET)).toBe("the B2C .env");
+    });
+
+    it("the B2C .env, when both set it, as its value is the one the apps get", () => {
+      const options = devOptions(["--b2c"]);
+      const shell = { ...BASE, [SERVICE_TEMPLATE_FLAG]: "false" };
+      expect(flagSource(options, shell, SET)).toBe("the B2C .env");
+      expect(
+        childEnvFor(options, shell, () => SET)[SERVICE_TEMPLATE_FLAG],
+      ).toBe("true");
+    });
+
+    it("the option, whatever else sets it", () => {
+      expect(
+        flagSource(
+          devOptions(["--b2c", "--service-template"]),
+          { ...BASE, ...SET },
+          SET,
+        ),
+      ).toBe("--service-template");
+    });
   });
 
   it("names the options in force in the banner", () => {

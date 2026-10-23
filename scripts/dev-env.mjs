@@ -41,17 +41,23 @@ export function childEnvFor(options, baseEnv, loadB2cEnv) {
 }
 
 /**
- * Where the flag both apps get comes from, for the banner: the option, the
- * inherited environment, or nowhere (null: off, the apps' default).
+ * Where the flag both apps get comes from, for the banner, checked in the
+ * order `childEnvFor` applies them: the option, then the B2C .env (which wins
+ * over the shell), then the shell. Null when nothing sets it: off, the apps'
+ * default.
  *
  * @param {{ serviceTemplate: boolean }} options
- * @param {NodeJS.ProcessEnv} childEnv  from `childEnvFor`
+ * @param {NodeJS.ProcessEnv} shellEnv  the ambient environment
+ * @param {Record<string, string>} b2cEnv  the B2C .env's values ({} without --b2c)
  */
-export function flagSource(options, childEnv) {
+export function flagSource(options, shellEnv, b2cEnv) {
   if (options.serviceTemplate) {
     return "--service-template";
   }
-  return SERVICE_TEMPLATE_FLAG in childEnv ? "your environment" : null;
+  if (SERVICE_TEMPLATE_FLAG in b2cEnv) {
+    return "the B2C .env";
+  }
+  return SERVICE_TEMPLATE_FLAG in shellEnv ? "your shell" : null;
 }
 
 /** A banner suffix naming the options in force, e.g. " [B2C, service template]". */
