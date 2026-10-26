@@ -93,8 +93,16 @@ export function prepareImportTiming(file, cases = []) {
 }
 
 /** Independent input policy from BMD-1060 and BMD-1070; no service results. */
-export function metricTiming(retention, rawAdvance, rawDelay) {
-  if (retention === "Retained" || retention === "Lost") {
+export function metricTiming(
+  retention,
+  rawAdvance,
+  rawDelay,
+  layer = "Habitats",
+) {
+  if (
+    retention === "Retained" ||
+    (retention === "Lost" && layer !== "Habitats")
+  ) {
     return { advanceYears: 0, delayYears: 0 };
   }
   const advanceYears = timingValue(rawAdvance);
@@ -148,20 +156,25 @@ export function expectedImport(cases) {
   }
   return {
     accepted: true,
-    features: cases.map((item) => ({
-      layer: TIMING_LAYERS[item.layer].document,
-      ref: item.ref,
-      ...(item.retention === "Lost" && item.layer !== "Habitats"
-        ? { absent: true }
-        : {
-            proposed: { advanceYears: null, delayYears: null },
-            status: ["Retained", "Lost"].includes(item.retention)
-              ? "Complete"
-              : "Incomplete",
-            ...(["Retained", "Lost"].includes(item.retention)
-              ? {}
-              : { units: null }),
-          }),
-    })),
+    features: cases.map((item) => {
+      const retained = item.retention === "Retained";
+      const timing = retained
+        ? { advanceYears: null, delayYears: null }
+        : metricTiming(item.retention, item.advance, item.delay, item.layer);
+      const complete =
+        retained ||
+        (timing.advanceYears !== null && timing.delayYears !== null);
+      return {
+        layer: TIMING_LAYERS[item.layer].document,
+        ref: item.ref,
+        ...(item.retention === "Lost" && item.layer !== "Habitats"
+          ? { absent: true }
+          : {
+              proposed: timing,
+              status: complete ? "Complete" : "Incomplete",
+              ...(complete ? {} : { units: null }),
+            }),
+      };
+    }),
   };
 }

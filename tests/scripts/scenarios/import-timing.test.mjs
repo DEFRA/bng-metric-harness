@@ -59,7 +59,9 @@ describe("independent AC3-AC5 workbook timing inputs", () => {
     ["Enhanced", 0, null, 0, null],
     ["Created", " ", "0", null, 0],
     ["Retained", 4, 0, 0, 0],
-    ["Lost", 0, 4, 0, 0],
+    ["Lost", 0, 4, 0, 4],
+    ["Lost", 2, 3, null, null],
+    ["Lost", null, null, null, null],
   ])(
     "%s timing %s/%s becomes %s/%s only in workbook inputs",
     (retention, advance, delay, a, d) => {
@@ -125,24 +127,19 @@ describe("independent AC3-AC5 workbook timing inputs", () => {
     expect(timingChanges).toEqual([]);
   });
 
-  it("prices Lost replacements without timing credit and retains the baseline loss", () => {
+  it("prices Lost replacements with their timing credit and retains the baseline loss", () => {
     const { baseline, pi } = pair("invalid-timing-retained-lost");
     const { rows, timingChanges } = importWorkbookRows(baseline, pi);
     expect(rows.habitatCreation).toEqual([
       expect.objectContaining({
         reference: "H002",
         condition: "Good",
-        advanceYears: 0,
+        advanceYears: 4,
         delayYears: 0,
       }),
     ]);
     expect(rows.habitatBaseline.map((r) => r.reference)).toContain("H002");
-    expect(timingChanges).toHaveLength(1);
-    expect(timingChanges[0]).toMatchObject({
-      retention: "Lost",
-      raw: { advanceYears: "4", delayYears: "0" },
-      metric: { advanceYears: 0, delayYears: 0 },
-    });
+    expect(timingChanges).toEqual([]);
   });
 
   it.each(cases)(
@@ -206,7 +203,7 @@ describe.skipIf(!isBackendInstalled())(
 );
 
 describe("generator net-gain checks use the expected import timing", () => {
-  it("does not count advance credit on a raw Lost area", async () => {
+  it("counts advance credit on a raw Lost area replacement", async () => {
     const { pi } = pair("invalid-timing-retained-lost");
     const engine = await loadEngine();
     const db = new Database(pi, { readonly: true });
@@ -228,7 +225,7 @@ describe("generator net-gain checks use the expected import timing", () => {
         areas[1].area / 10000,
         "Grassland - Modified grassland",
         "Good",
-        0,
+        4,
         0,
       ).units;
     const expectedBaseline = areas.reduce(

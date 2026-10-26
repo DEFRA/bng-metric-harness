@@ -134,6 +134,24 @@ function manifestDirectory(expectations, duplicate = false) {
   return directory;
 }
 describe("manifest acceptance contracts", () => {
+  it("loads preserved replacement timing and rejects a mutation to null or zero", () => {
+    const contract = structuredClone(expected);
+    contract.features[0].proposed = { advanceYears: 4, delayYears: 0 };
+    const loaded = [
+      ...readImportExpectations(manifestDirectory(contract)).values(),
+    ][0];
+    expect(() =>
+      assertExpectedImport(
+        imported({ advanceYears: 4, delayYears: 0 }),
+        loaded,
+      ),
+    ).not.toThrow();
+    for (const advanceYears of [null, 0]) {
+      expect(() =>
+        assertExpectedImport(imported({ advanceYears, delayYears: 0 }), loaded),
+      ).toThrow("expected 4");
+    }
+  });
   it("loads the explicit acceptance and attribute assertions by file", () => {
     const directory = manifestDirectory(expected);
     expect(

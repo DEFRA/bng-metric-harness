@@ -21,7 +21,12 @@ function restoreAreaBaseline(rows, baselineRows, inputs) {
 }
 
 function applyRowTiming(row, input, sheet, changes) {
-  const timing = metricTiming(input.retention, input.advance, input.delay);
+  const timing = metricTiming(
+    input.retention,
+    input.advance,
+    input.delay,
+    input.table,
+  );
   if (timing.advanceYears === null || timing.delayYears === null) {
     // The workbook treats blank timing as zero. A blank required condition
     // makes its own formulas leave this row unpriced, while keeping positional
@@ -37,14 +42,7 @@ function applyRowTiming(row, input, sheet, changes) {
     Object.assign(row, timing, { condition: null });
     return;
   }
-  if (input.retention === "Lost") {
-    changes.push({
-      sheet,
-      reference: input.ref,
-      retention: input.retention,
-      raw: { advanceYears: input.advance, delayYears: input.delay },
-      metric: timing,
-    });
+  if (input.retention === "Lost" && input.table === "Habitats") {
     Object.assign(row, timing);
   }
 }
