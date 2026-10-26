@@ -201,6 +201,40 @@ function irreplaceableTables(file) {
   }
 }
 
+const THIRTY_PLUS = "30+";
+const ADVANCE = "Habitat created in advance/years";
+const DELAY = "Delay in starting habitat creation/years";
+// Each post-intervention table, with its advance and delay columns.
+const TIMING_COLUMNS = {
+  "Area Habitats Post-Intervention": [ADVANCE, DELAY],
+  "Hedgerows Post-Intervention": [ADVANCE, DELAY],
+  "Watercourses Post-Intervention": [ADVANCE, DELAY],
+  "Vertical Area Habitats Post-Intervention": [ADVANCE, DELAY],
+  "Individual Trees Post-Intervention": [
+    "Habitat Created/Enhanced in advance/years",
+    "Delay in starting habitat creation/enhancement in years",
+  ],
+};
+
+/** The rows of each post-intervention table of `file` delayed by 30+ years. */
+function thirtyPlusDelays(file) {
+  const db = new Database(file, { readonly: true });
+  try {
+    return Object.fromEntries(
+      Object.entries(TIMING_COLUMNS).map(([table, [advance, delay]]) => {
+        const rows = db
+          .prepare(
+            `SELECT "Retention Category" AS retention, "${advance}" AS advance FROM "${table}" WHERE "${delay}" = ?`,
+          )
+          .all(THIRTY_PLUS);
+        return [table, rows];
+      }),
+    );
+  } finally {
+    db.close();
+  }
+}
+
 /** The irreplaceableLayers a generated or derived recipe's file is drawn with. */
 function irreplaceableLayersOf(recipe) {
   const source = recipe.kind === KIND_DERIVED ? recipeFor(recipe.from) : recipe;
@@ -229,6 +263,21 @@ describe("the built fixtures", () => {
       "attribute-problems/irreplaceable-area-habitat.gpkg",
       "attribute-problems/irreplaceable-tree.gpkg",
     ]);
+  });
+
+  // As for irreplaceableLayers: a repin that dropped the 30+ delay would
+  // rebuild the corpus without it, and the byte-for-byte test would pass.
+  it("delay a Created or Enhanced habitat by 30+ years on each layer of the default site, its advance blank", () => {
+    const delays = thirtyPlusDelays(
+      built(recipeFor("valid/default-site.gpkg")),
+    );
+    for (const [table, rows] of Object.entries(delays)) {
+      expect(rows.length, table).toBeGreaterThanOrEqual(1);
+      for (const row of rows) {
+        expect(["Created", "Enhanced"], table).toContain(row.retention);
+        expect(row.advance, table).toBeNull();
+      }
+    }
   });
 
   it("hold only values the template offers, in every valid file", () => {
