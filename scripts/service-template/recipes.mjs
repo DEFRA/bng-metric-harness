@@ -207,7 +207,7 @@ function derived(path, covers, edits) {
 const VALID = [
   generated(
     VALID_BASE,
-    "The default site, holding both stages and every feature only the new template records: vertical area habitats, comments, an Enhanced tree, habitats that get worse on each layer, a re-meandered and a shorter watercourse, and Habitat Refs that repeat. It marks nothing irreplaceable, as the service refuses an irreplaceable habitat (see `attribute-problems/irreplaceable-*.gpkg`)",
+    "The default site, holding both stages and every feature only the new template records: vertical area habitats, comments, an Enhanced tree, habitats that get worse on each layer, a re-meandered and a shorter watercourse, Habitat Refs that repeat, and a habitat on each layer delayed by 30+ years. It marks nothing irreplaceable, as the service refuses an irreplaceable habitat (see `attribute-problems/irreplaceable-*.gpkg`)",
     ACCEPTED,
     { seed: SEED },
   ),
