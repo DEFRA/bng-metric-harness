@@ -2962,6 +2962,201 @@
       }
     },
     {
+      "id": "area-coastal-saltmarsh",
+      "purpose": "intervention",
+      "title": "Area habitat — the coastal saltmarsh habitat the service accepts, enhanced and created",
+      "description": "Artificial saltmarshes and saline reedbeds is the only Coastal saltmarsh habitat of a distinctiveness the service accepts (Low). H001, in Poor condition, is enhanced to Moderate (6 years). H002, Modified grassland, is replaced by it, created in Moderate condition (7 years). H003 is retained. Covers a broad habitat type no other scenario uses.",
+      "size": 3,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "enhanced and created coastal saltmarsh"
+      },
+      "files": {
+        "geoPackage": "intervention/area-coastal-saltmarsh.gpkg",
+        "baselineStage": "intervention/area-coastal-saltmarsh-baseline.gpkg",
+        "workbook": "intervention/area-coastal-saltmarsh.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "every value one the BNG Service template offers",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "every post-intervention feature names its parent",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "enhanced time to target on H001",
+          "expected": "6 (×0.8075396961)",
+          "actual": "6 (×0.8075396961)",
+          "passed": true
+        },
+        {
+          "check": "created time to target on H002",
+          "expected": "7 (×0.7792758067)",
+          "actual": "7 (×0.7792758067)",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookSource": "cf4e6b1b690c5a4bc1b6ad90bdea250cbc3aaaf884be2c3417f0dcac2c1961b6",
+      "inputRows": {
+        "habitatBaseline": 3,
+        "habitatCreation": 1,
+        "habitatEnhancement": 1,
+        "hedgerowBaseline": 0,
+        "hedgerowCreation": 0,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 0,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 0
+      },
+      "rejectedInputs": [],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 210.808621869901,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "postInterventionUnits": {
+            "area": 174.724930720741,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netUnitChange": {
+            "area": -36.0836911491602,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netPercentChange": {
+            "area": -0.171168004558319,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netGainMessage": {
+            "area": "On-site net gain is less than target set ⚠",
+            "hedgerow": null,
+            "watercourse": null
+          },
+          "unitsRequired": {
+            "area": 231.889484056891,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "unitDeficit": {
+            "area": 57.1645533361503,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "No - Check Trading Summaries ▲",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "No ▲"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": -36.0836911491602
+        },
+        "sheetWarnings": [
+          {
+            "sheet": "habitatBaseline",
+            "cell": "L5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "habitatCreation",
+            "cell": "K5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "habitatEnhancement",
+            "cell": "T5",
+            "message": "No - check trading summaries ▲"
+          }
+        ],
+        "rowWarnings": []
+      }
+    },
+    {
       "id": "area-enhanced-very-low",
       "purpose": "intervention",
       "title": "Area habitat — enhancement of a Very Low habitat",
