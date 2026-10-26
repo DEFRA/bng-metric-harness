@@ -126,9 +126,6 @@ const DEGRADE_NOT_CHECKED =
 const NOT_ENFORCED_YET = {
   "lineage-parent-geom-missing":
     "refused. Accepted today: the service skips the shape check on a linked row with no parent_geom",
-  "degrade-advance-missing": `refused. ${DEGRADE_NOT_CHECKED}`,
-  "degrade-not-worse": `refused. ${DEGRADE_NOT_CHECKED}`,
-  "degrade-watercourse-retained-and-created": `refused. ${DEGRADE_NOT_CHECKED}`,
   "degrade-watercourse-advance-not-encroachment": `saved as Incomplete. ${DEGRADE_NOT_CHECKED}`,
   "degrade-watercourse-encroachment-no-advance": `saved as Incomplete. ${DEGRADE_NOT_CHECKED}`,
 };
@@ -557,7 +554,7 @@ export const RECIPES = [
  * visible rather than silent.
  */
 export const GAPS = [
-  "A natural river left out, and an irreplaceable tree that gets worse: the service refuses either file for another reason first, so a fixture could not show the rule. Natural rivers (Other rivers and streams, High; Priority habitat, V.High) are out of the service's scope, and only canals and ditches may be lost; an irreplaceable tree is refused whether or not it gets worse (`attribute-problems/irreplaceable-tree.gpkg`).",
+  "A natural river left out, and an irreplaceable tree that gets worse: the service refuses either file for another reason first, so a fixture could not show the rule. Natural rivers (Other rivers and streams, High; Priority habitat, V.High) are out of the service's scope, and only canals and ditches may be lost (a culvert left out is refused, STAGED_NATURAL_WATERCOURSE_LOST); an irreplaceable tree is refused whether or not it gets worse (`attribute-problems/irreplaceable-tree.gpkg`).",
   "Individual trees with varied counts: the template has no Count column, and how several trees are recorded is undecided (BMD-1171, BMD-1172).",
   "The harness's import-timing scenarios: they edit legacy files, so `permutations/` builds them in the legacy format only.",
 ];
