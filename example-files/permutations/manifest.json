@@ -2812,7 +2812,7 @@
       "id": "area-coastal-saltmarsh",
       "purpose": "intervention",
       "title": "Area habitat — the coastal saltmarsh habitat the service accepts, enhanced and created",
-      "description": "Artificial saltmarshes and saline reedbeds is the only Coastal saltmarsh habitat of a distinctiveness the service accepts (Low). H001, in Poor condition, is enhanced to Moderate (6 years). H002, Modified grassland, is replaced by it, created in Moderate condition (7 years). H003 is retained. Covers a broad habitat type no other scenario uses.",
+      "description": "Artificial saltmarshes and saline reedbeds is the only Coastal saltmarsh habitat of a distinctiveness the service accepts (Low). H001, in Poor condition, is enhanced to Moderate (6 years). H002, Artificial unvegetated, unsealed surface (Very Low), is replaced by it, created in Moderate condition (7 years): no Low units are lost, so the trading rules are met. H003 is retained. Covers a broad habitat type no other scenario uses.",
       "size": 3,
       "subject": {
         "layer": "Habitats",
@@ -2851,7 +2851,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "cf4e6b1b690c5a4bc1b6ad90bdea250cbc3aaaf884be2c3417f0dcac2c1961b6",
+      "workbookSource": "afa76df256689c505c4905e1f0ca298d7bf8f8ce2d8aa8969cc5ced6e18e6d3a",
       "inputRows": {
         "habitatBaseline": 3,
         "habitatCreation": 1,
@@ -2868,7 +2868,7 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 210.808621869901,
+            "area": 119.893571850026,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -2878,32 +2878,32 @@
             "watercourse": 0
           },
           "netUnitChange": {
-            "area": -36.0836911491602,
+            "area": 54.8313588707144,
             "hedgerow": 0,
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": -0.171168004558319,
+            "area": 0.457333600330988,
             "hedgerow": 0,
             "watercourse": 0
           },
           "netGainMessage": {
-            "area": "On-site net gain is less than target set ⚠",
+            "area": null,
             "hedgerow": null,
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 231.889484056891,
+            "area": 131.882929035029,
             "hedgerow": 0,
             "watercourse": 0
           },
           "unitDeficit": {
-            "area": 57.1645533361503,
+            "area": 0,
             "hedgerow": 0,
             "watercourse": 0
           },
           "target": 0.1,
-          "tradingRulesSatisfied": "No - Check Trading Summaries ▲",
+          "tradingRulesSatisfied": "Yes ✓",
           "messages": [
             "Input errors/rule breaks present in metric ▲"
           ]
@@ -2924,7 +2924,7 @@
             },
             {
               "distinctiveness": "Low",
-              "satisfied": "No ▲"
+              "satisfied": "Yes ✓"
             }
           ],
           "hedgerow": [
@@ -2969,25 +2969,9 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": -36.0836911491602
+          "areaCumulativeSurplus": 54.8313588707144
         },
-        "sheetWarnings": [
-          {
-            "sheet": "habitatBaseline",
-            "cell": "L5",
-            "message": "No - check trading summaries ▲"
-          },
-          {
-            "sheet": "habitatCreation",
-            "cell": "K5",
-            "message": "No - check trading summaries ▲"
-          },
-          {
-            "sheet": "habitatEnhancement",
-            "cell": "T5",
-            "message": "No - check trading summaries ▲"
-          }
-        ],
+        "sheetWarnings": [],
         "rowWarnings": []
       }
     },
