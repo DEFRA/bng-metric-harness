@@ -57,7 +57,7 @@ Valid files, combined and baseline-stage: each should upload cleanly.
 
 | File | Covers | Expected | Built from |
 | ---- | ------ | -------- | ---------- |
-| `default-site.gpkg` | The default site, holding both stages and every feature only the new template records: vertical area habitats, comments, an Enhanced tree, habitats that get worse on each layer, a re-meandered and a shorter watercourse, and Habitat Refs that repeat. It marks nothing irreplaceable, as the service refuses an irreplaceable habitat (see `attribute-problems/irreplaceable-*.gpkg`) | accepted | seed 1 |
+| `default-site.gpkg` | The default site, holding both stages and every feature only the new template records: vertical area habitats, comments, an Enhanced tree, habitats that get worse on each layer, a re-meandered and a shorter watercourse, Habitat Refs that repeat, and a habitat on each layer delayed by 30+ years. It marks nothing irreplaceable, as the service refuses an irreplaceable habitat (see `attribute-problems/irreplaceable-*.gpkg`) | accepted | seed 1 |
 | `default-site-baseline.gpkg` | The default site's baseline-stage file: the post-intervention tables are present and empty | accepted | seed 1, baseline stage |
 | `plain-site.gpkg` | The default site without the template-only features: what the legacy generator draws, in the new format | accepted | seed 1, no template-only features |
 | `small-site.gpkg` | A 3-parcel site, holding both stages | accepted | seed 2, 3 parcels |
