@@ -2817,7 +2817,7 @@
       "subject": {
         "layer": "Habitats",
         "ref": "H001",
-        "note": "enhanced and created coastal saltmarsh"
+        "note": "enhanced coastal saltmarsh; H002 is created as saltmarsh"
       },
       "files": {
         "baseline": "intervention/area-coastal-saltmarsh-baseline.gpkg",
