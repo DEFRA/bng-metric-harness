@@ -1,5 +1,6 @@
 {
   "seed": 1,
+  "format": "legacy",
   "template": "The_Statutory_Metric_Macro_Disabled_1.0.4.xlsx",
   "corrections": [
     {
@@ -2802,6 +2803,173 @@
         },
         "corrected": {
           "areaCumulativeSurplus": 67.5113541220178
+        },
+        "sheetWarnings": [],
+        "rowWarnings": []
+      }
+    },
+    {
+      "id": "area-coastal-saltmarsh",
+      "purpose": "intervention",
+      "title": "Area habitat — the coastal saltmarsh habitat the service accepts, enhanced and created",
+      "description": "Artificial saltmarshes and saline reedbeds is the only Coastal saltmarsh habitat of a distinctiveness the service accepts (Low). H001, in Poor condition, is enhanced to Moderate (6 years). H002, Artificial unvegetated, unsealed surface (Very Low), is replaced by it, created in Moderate condition (7 years): no Low units are lost, so the trading rules are met. H003 is retained. Covers a broad habitat type no other scenario uses.",
+      "size": 3,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "enhanced coastal saltmarsh; H002 is created as saltmarsh"
+      },
+      "files": {
+        "baseline": "intervention/area-coastal-saltmarsh-baseline.gpkg",
+        "postIntervention": "intervention/area-coastal-saltmarsh-post-intervention.gpkg",
+        "workbook": "intervention/area-coastal-saltmarsh.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "enhanced time to target on H001",
+          "expected": "6 (×0.8075396961)",
+          "actual": "6 (×0.8075396961)",
+          "passed": true
+        },
+        {
+          "check": "created time to target on H002",
+          "expected": "7 (×0.7792758067)",
+          "actual": "7 (×0.7792758067)",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookSource": "afa76df256689c505c4905e1f0ca298d7bf8f8ce2d8aa8969cc5ced6e18e6d3a",
+      "inputRows": {
+        "habitatBaseline": 3,
+        "habitatCreation": 1,
+        "habitatEnhancement": 1,
+        "hedgerowBaseline": 0,
+        "hedgerowCreation": 0,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 0,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 0
+      },
+      "rejectedInputs": [],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 119.893571850026,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "postInterventionUnits": {
+            "area": 174.724930720741,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netUnitChange": {
+            "area": 54.8313588707144,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netPercentChange": {
+            "area": 0.457333600330988,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netGainMessage": {
+            "area": null,
+            "hedgerow": null,
+            "watercourse": null
+          },
+          "unitsRequired": {
+            "area": 131.882929035029,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "unitDeficit": {
+            "area": 0,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "Yes ✓",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": 54.8313588707144
         },
         "sheetWarnings": [],
         "rowWarnings": []
