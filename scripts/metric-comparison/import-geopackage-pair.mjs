@@ -88,15 +88,21 @@ async function importFile(
     validation.sizes,
   );
   const config = { projectDocumentKey };
-  const { document, schemaError } = backend.extractAndValidateDocument({
-    handlers: backend.saveHandlersForConfig(config),
-    layersWithIds,
-    storedProject,
-    context: { uploadId: null, filename: null, fileSize: null },
-    logger,
-    config,
-    habitatSizes: backend.calculateHabitatSizes(layersForSizing),
-  });
+  const { document, schemaError, validationError } =
+    backend.extractAndValidateDocument({
+      handlers: backend.saveHandlersForConfig(config),
+      layersWithIds,
+      storedProject,
+      context: { uploadId: null, filename: null, fileSize: null },
+      logger,
+      config,
+      habitatSizes: backend.calculateHabitatSizes(layersForSizing),
+    });
+  // A file the pipeline refuses once its document is built, such as one that
+  // enhances a baseline the service cannot enhance (BMD-1182).
+  if (validationError) {
+    return { errors: [validationError] };
+  }
   if (schemaError) {
     return {
       errors: [{ code: "DOCUMENT_SCHEMA", message: schemaError.message }],

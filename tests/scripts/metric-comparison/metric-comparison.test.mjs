@@ -16,7 +16,10 @@ import { afterAll, describe, expect, it } from "vitest";
 import { OUTCOME, findScenarios, readWorkbookAnswers } from "#metric-compare";
 import { readImportExpectations } from "../../../scripts/metric-comparison/import-expectations.mjs";
 import { findUnexplained } from "../../../scripts/metric-comparison/unexplained.mjs";
-import { isBackendInstalled } from "../../../scripts/metric-comparison/backend.mjs";
+import {
+  isBackendInstalled,
+  loadBackendPipeline,
+} from "../../../scripts/metric-comparison/backend.mjs";
 import { importGeoPackagePair } from "../../../scripts/metric-comparison/import-geopackage-pair.mjs";
 import {
   compareCorpusScenario,
@@ -29,6 +32,16 @@ const CORPUS_TIMEOUT_MS = 60_000;
 
 const { scenarios } = findScenarios(DEFAULT_CORPUS_DIR);
 const scenario = (id) => scenarios.find((s) => s.id === id);
+
+// Only a backend with bng-metric-backend#544 (BMD-1182) refuses a file once
+// its document is built; until it merges, backend main still accepts it.
+const refusesBuiltDocuments = isBackendInstalled()
+  ? Boolean(
+      (await loadBackendPipeline()).saveHandlersForConfig({
+        projectDocumentKey: "postIntervention",
+      }).refuseDocument,
+    )
+  : false;
 
 describe.skipIf(!isBackendInstalled())("importGeoPackagePair", () => {
   const scratch = mkdtempSync(path.join(tmpdir(), "import-pair-"));
@@ -92,6 +105,22 @@ describe.skipIf(!isBackendInstalled())("importGeoPackagePair", () => {
     expect(result).toMatchObject({ accepted: false, rejectedFile: "baseline" });
     expect(result.errors[0].code).toEqual(expect.any(String));
   });
+
+  it.skipIf(!refusesBuiltDocuments)(
+    "refuses a post-intervention file the pipeline refuses once its document is built",
+    async () => {
+      const result = await importGeoPackagePair(
+        scenario("invalid-interventions/invalid-hedgerow-very-low-enhanced")
+          .files,
+      );
+
+      expect(result).toMatchObject({
+        accepted: false,
+        rejectedFile: "postIntervention",
+      });
+      expect(result.errors[0].code).toBe("BASELINE_NOT_ENHANCEABLE");
+    },
+  );
 });
 
 describe.skipIf(!isBackendInstalled())("runMetricComparison", () => {
