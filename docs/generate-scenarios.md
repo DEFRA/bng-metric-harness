@@ -5,11 +5,11 @@ Every scenario in the bng-library catalogue
 (`src/permutations/scenarios.json`) becomes, in a folder named after its
 purpose:
 
-| File | What it is |
-| --- | --- |
-| `<scenario>-baseline.gpkg` | The baseline GeoPackage to upload |
-| `<scenario>-post-intervention.gpkg` | The post-intervention GeoPackage to upload |
-| `<scenario>.xlsx` | The Defra metric workbook describing the same site |
+| File                                | What it is                                         |
+| ----------------------------------- | -------------------------------------------------- |
+| `<scenario>-baseline.gpkg`          | The baseline GeoPackage to upload                  |
+| `<scenario>-post-intervention.gpkg` | The post-intervention GeoPackage to upload         |
+| `<scenario>.xlsx`                   | The Defra metric workbook describing the same site |
 
 The workbooks are recalculated headlessly and saved with their calculated
 values in, so the metric's own answers can be read straight from each workbook:
@@ -41,16 +41,16 @@ deliberately contains data the metric rejects (an enhancement that lowers
 condition, a culvert enhanced, proposed data left blank) has an id starting
 `invalid-`, so its files do too, and it states which errors it expects.
 Every other scenario is valid throughout, including the features the
-generator fills in at random around the one being tested. See *Valid and
-invalid data*.
+generator fills in at random around the one being tested. See _Valid and
+invalid data_.
 
 Every scenario is checked as it is built: the two GeoPackages must share a
 redline, the scenario's subject feature must be present, and a net-gain
 scenario must land on its expected side of 10% when priced through our own
 engine (`bng-library/metric`). With workbooks, the metric's own verdicts are
-checked too (see *Scenario expectations*), and every workbook is linted for
-the faults Excel would "repair" on opening (see *Opening the workbooks in
-Excel*). A failed check is reported and the command exits non-zero.
+checked too (see _Scenario expectations_), and every workbook is linted for
+the faults Excel would "repair" on opening (see _Opening the workbooks in
+Excel_). A failed check is reported and the command exits non-zero.
 
 ### The BNG Service template format
 
@@ -131,27 +131,33 @@ restores Lost rows across all four layers and asserts their saved behaviour.
 
 The workbook reads both halves of the pair so that changing a PI label does not
 remove the original baseline loss. For every generated PI row, expected
-calculation inputs follow AC3/AC5 independently of the backend. Under BMD-1070,
-missing or conflicting timing on actual Created/Enhanced rows leaves those rows
-unpriced. Retained/Lost timing is redundant: it is saved null and pricing uses
-no advance/delay credit. The GeoPackage keeps its raw values. The workbook
-projection is recorded in `workbookTimingChanges`; no calculated service result
-is copied into it.
+calculation inputs follow AC3/AC5 independently of the backend. Lost area
+replacements follow the Created rules: valid advance/delay values are retained
+and used for pricing. For Created/Enhanced rows, including Lost area replacements,
+conflicting positive values are both nulled; missing required timing also leaves
+the row unpriced under BMD-1070. Retained timing is redundant: it is saved null
+and pricing uses no advance/delay credit. Lost hedgerows, watercourses and trees
+remain absent from PI; their baseline loss remains. The GeoPackage keeps its raw
+values. Changes to the workbook inputs are recorded in `workbookTimingChanges`;
+no calculated service result is copied into it.
 
-`expectedImport` separately requires acceptance and the saved null attributes
-(or the existing exclusion of Lost hedgerows, watercourses and trees). The
-comparison fails if those assertions fail, then compares every workbook figure
-normally. Raw-invalid filenames remain `invalid-...`; their successful cleansing
-is an explicit contract rather than a blanket exception.
+`expectedImport` separately requires acceptance, the exact saved timing values,
+and the expected status. Incomplete timing cases also require null units; valid
+Lost area timing, such as H002's advance 4 / delay 0, must remain populated.
+Lost hedgerows, watercourses and trees must remain absent from PI. The comparison
+fails if those assertions fail, then compares every workbook figure normally.
+Raw-invalid filenames remain `invalid-...`; their successful cleansing is an
+explicit contract rather than a blanket exception.
 
-The `import-timing` purpose covers Created/Enhanced conflicting timing, null
-timing, and Retained/Lost redundant timing across all four layers. The existing
-advance/difficulty scenarios retain genuine Created controls with advance
-credit, and the raw conflicting area/tree scenarios now expect acceptance.
+The `import-timing` purpose covers Created/Enhanced conflicting and missing
+timing, valid and incomplete Lost area replacement timing, Retained redundant
+timing, and excluded Lost linear/tree rows. The existing advance/difficulty
+scenarios retain genuine Created controls with advance credit, and the raw
+conflicting area/tree scenarios now expect acceptance.
 
 ### Why the answers can be trusted
 
-A corpus built by writing *our* numbers into spreadsheets would only prove
+A corpus built by writing _our_ numbers into spreadsheets would only prove
 that the service agrees with itself. So the generator writes **inputs only**
 into a real copy of the Defra workbook. Once the workbook is recalculated, its
 figures are the metric's own.
@@ -171,8 +177,8 @@ formula written in its place. `manifest.json` repeats them under
 the correction expects, for example because a newer Defra release changed it,
 the run stops. It doesn't patch a formula nobody has checked.
 
-| Bug | Cell | Published | Corrected |
-| --- | --- | --- | --- |
+| Bug                                                                                                                                                                                                                                                                                                                                                         | Cell                                                                                                                   | Published | Corrected             |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------- | --------------------- |
 | The Medium deficit is netted off the Medium surplus before it is offered to the Low band. The trading rules don't let one Medium broad habitat make good another, so the deficit must be offset by trading up and shouldn't also shrink what the Low band may use. The metric then reports the Low rule breached on sites where the service reports it met. | Trading Summary Area Habitats `K91`, the "Cumulative surplus of units" feeding `K123`, `K125` and the Low verdict `G8` | `K90+K88` | `IF(K90>0,K90,0)+K88` |
 
 The corrected sum is the Medium surplus carried down whole, plus any higher
@@ -204,7 +210,7 @@ file:
 ### What you need
 
 - **Nothing, for the metric template.** By default the generator uses the
-  calculation tool Defra publishes on GOV.UK (*The Statutory Metric*, macro-free
+  calculation tool Defra publishes on GOV.UK (_The Statutory Metric_, macro-free
   `.xlsx`, release 1.0.4). It downloads it on first use, checks it against a
   pinned checksum, and keeps it in the gitignored `.cache/metric-template/`.
   Every scenario's verdict was validated against this release; it gives the
@@ -217,8 +223,9 @@ file:
   are written. The generator checks a fingerprint of header cells before
   writing, so a template with a different layout fails loudly rather than
   taking inputs in the wrong cells.
+
 - **LibreOffice** (`apt-get install libreoffice-calc`, or `brew install
-  --cask libreoffice`) to recalculate — or run it all in Docker (below). Point `SOFFICE_PATH` at the binary if
+--cask libreoffice`) to recalculate — or run it all in Docker (below). Point `SOFFICE_PATH` at the binary if
   it is not on `PATH` as `soffice`. One LibreOffice process runs per CPU, and
   each recalculated workbook is saved over itself with its values in, then
   read straight away. On a
@@ -304,15 +311,15 @@ open a few workbooks in Excel as well.
 
 For each scenario, `manifest.json` records:
 
-| Field | What it holds |
-| --- | --- |
-| `metric.headline` | Baseline and post-intervention units, net change (units and %), units required and deficit, per habitat type, as *Headline Results* shows them |
-| `metric.trading` | Each trading summary's verdict per distinctiveness band |
-| `metric.rowWarnings` | Every warning the metric shows on a feature's row (`Check Data ⚠`, `Error - Can not reduce condition ▲`, …), keyed to the feature's reference |
-| `metric.sheetWarnings` | Warnings in a sheet's summary block, which apply to the sheet as a whole |
-| `rejectedInputs` | Inputs the workbook's own drop-down lists do not offer; see below |
-| `checks` | The scenario's declared expectations, checked against the metric's verdict, and the workbook lint |
-| `lintIssues` | Only when the lint fails: every fault, as `{ rule, part, ref, message }` |
+| Field                  | What it holds                                                                                                                                  |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `metric.headline`      | Baseline and post-intervention units, net change (units and %), units required and deficit, per habitat type, as _Headline Results_ shows them |
+| `metric.trading`       | Each trading summary's verdict per distinctiveness band                                                                                        |
+| `metric.rowWarnings`   | Every warning the metric shows on a feature's row (`Check Data ⚠`, `Error - Can not reduce condition ▲`, …), keyed to the feature's reference  |
+| `metric.sheetWarnings` | Warnings in a sheet's summary block, which apply to the sheet as a whole                                                                       |
+| `rejectedInputs`       | Inputs the workbook's own drop-down lists do not offer; see below                                                                              |
+| `checks`               | The scenario's declared expectations, checked against the metric's verdict, and the workbook lint                                              |
+| `lintIssues`           | Only when the lint fails: every fault, as `{ rule, part, ref, message }`                                                                       |
 
 **Rejected inputs are worth reading.** The metric's formulas wrap their
 lookups in `IFERROR`. So a value the workbook does not know, even one that
@@ -325,7 +332,7 @@ translation is listed explicitly in bng-library's `WORKBOOK_SPELLINGS`.
 Anything else is reported, not converted.
 
 In a scenario not named `invalid-`, any rejected input fails the run (see
-*Valid and invalid data*). In an `invalid-` one, the scenario says which
+_Valid and invalid data_). In an `invalid-` one, the scenario says which
 inputs must be rejected.
 
 ### The trading-rule matrix
@@ -335,21 +342,21 @@ scenarios, 24 files to upload. Area habitats, hedgerows and watercourses trade
 independently, so most scenarios carry a case for each, and each scenario
 states the verdict of every band in play:
 
-| Scenario | Area habitats | Hedgerows | Watercourses |
-| --- | --- | --- | --- |
-| `trading-all-met` | nothing lost: all met | nothing lost: all met | nothing lost: all met |
-| `trading-like-for-like` | Medium replaced by the same broad habitat, enough units: met | Medium replaced by Medium: met | ditch replaced by a ditch: met |
-| `trading-too-few-units` | Medium replaced one-for-one by the same broad habitat: **Medium breached** | Medium replaced by a late, poor Medium: **Medium breached** | ditch replaced by a late, poor ditch: **Medium breached** |
-| `trading-wrong-habitat` | Medium grassland replaced by more Medium heathland: **Medium breached** | Medium replaced by Low: **Medium breached** | ditch replaced by a canal: **Medium breached** |
-| `trading-trade-down` | Medium replaced by Low: **Medium breached** | Low replaced by Very Low: **Low breached** | ditch replaced by a culvert: **Medium breached** |
-| `trading-trade-up` | Low replaced by Medium: met | Low replaced by Medium: met | culvert replaced by a ditch: met |
-| `trading-low-for-low` | Low replaced by Low in another broad habitat: met | Very Low replaced by Low: met | — |
-| `trading-lost-to-development` | Low built over: **Low breached** | Very Low removed: **Very Low breached** | — |
-| `trading-lower-deficit-covered-from-above` | Low deficit, Medium surplus: met | Low deficit, Medium surplus: met | — |
-| `trading-higher-deficit-not-covered-from-below` | Medium deficit, Low surplus: **Medium breached**, Low met | Medium deficit, Low surplus: **Medium breached**, Low met | — |
-| `trading-surplus-in-another-broad-habitat` | grassland surplus, heathland deficit: **Medium breached** | — | — |
-| `trading-low-deficit-covered-beside-medium-deficit` | Low grassland enhanced into Medium grassland, Medium heathland built over: **Medium breached**, Low met (the published metric wrongly reports **Low breached**; see *Known bugs in the metric are corrected*) | — | — |
-| `trading-low-to-medium` | Low enhanced to Medium, with random other layers | | |
+| Scenario                                            | Area habitats                                                                                                                                                                                                 | Hedgerows                                                   | Watercourses                                              |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------- |
+| `trading-all-met`                                   | nothing lost: all met                                                                                                                                                                                         | nothing lost: all met                                       | nothing lost: all met                                     |
+| `trading-like-for-like`                             | Medium replaced by the same broad habitat, enough units: met                                                                                                                                                  | Medium replaced by Medium: met                              | ditch replaced by a ditch: met                            |
+| `trading-too-few-units`                             | Medium replaced one-for-one by the same broad habitat: **Medium breached**                                                                                                                                    | Medium replaced by a late, poor Medium: **Medium breached** | ditch replaced by a late, poor ditch: **Medium breached** |
+| `trading-wrong-habitat`                             | Medium grassland replaced by more Medium heathland: **Medium breached**                                                                                                                                       | Medium replaced by Low: **Medium breached**                 | ditch replaced by a canal: **Medium breached**            |
+| `trading-trade-down`                                | Medium replaced by Low: **Medium breached**                                                                                                                                                                   | Low replaced by Very Low: **Low breached**                  | ditch replaced by a culvert: **Medium breached**          |
+| `trading-trade-up`                                  | Low replaced by Medium: met                                                                                                                                                                                   | Low replaced by Medium: met                                 | culvert replaced by a ditch: met                          |
+| `trading-low-for-low`                               | Low replaced by Low in another broad habitat: met                                                                                                                                                             | Very Low replaced by Low: met                               | —                                                         |
+| `trading-lost-to-development`                       | Low built over: **Low breached**                                                                                                                                                                              | Very Low removed: **Very Low breached**                     | —                                                         |
+| `trading-lower-deficit-covered-from-above`          | Low deficit, Medium surplus: met                                                                                                                                                                              | Low deficit, Medium surplus: met                            | —                                                         |
+| `trading-higher-deficit-not-covered-from-below`     | Medium deficit, Low surplus: **Medium breached**, Low met                                                                                                                                                     | Medium deficit, Low surplus: **Medium breached**, Low met   | —                                                         |
+| `trading-surplus-in-another-broad-habitat`          | grassland surplus, heathland deficit: **Medium breached**                                                                                                                                                     | —                                                           | —                                                         |
+| `trading-low-deficit-covered-beside-medium-deficit` | Low grassland enhanced into Medium grassland, Medium heathland built over: **Medium breached**, Low met (the published metric wrongly reports **Low breached**; see _Known bugs in the metric are corrected_) | —                                                           | —                                                         |
+| `trading-low-to-medium`                             | Low enhanced to Medium, with random other layers                                                                                                                                                              |                                                             |                                                           |
 
 Every rule is a test of units as well as of habitat: `trading-too-few-units`
 and `trading-wrong-habitat` separate the two.
@@ -369,7 +376,7 @@ enforces the wording would disagree with the metric on such a file.
 The scenarios are configuration, not code. They live in one JSON file in
 bng-library, `src/permutations/scenarios.json`, and the harness builds
 whatever it holds. To add, change or remove a scenario, edit that file; its
-fields are documented in bng-library's README under *Scenario catalogue*.
+fields are documented in bng-library's README under _Scenario catalogue_.
 
 The file is checked when it is loaded. A misspelt field or an override the
 generator does not recognise stops the run with the exact place in the file,
@@ -383,7 +390,7 @@ npm run generate:scenarios -- --scenario <id>          # build just that one
 
 When the change is merged in bng-library, bump the `bng-library` pin in
 `package.json`. If the committed fixtures in `example-files/permutations/`
-should follow, refresh them as shown under *The committed fixtures*, and update the
+should follow, refresh them as shown under _The committed fixtures_, and update the
 trading-rule table above if the matrix changed.
 
 ### Valid and invalid data
@@ -399,10 +406,10 @@ let you enhance, are never enhanced.
 So invalid data only appears where a scenario pins it, and such a scenario
 is named for it:
 
-| Scenario | Holds invalid data | Checked |
-| --- | --- | --- |
-| id starts `invalid-` | Yes, deliberately | The errors it declares are raised on its subject |
-| any other | No | *valid data*: no metric error on any row and no rejected input |
+| Scenario             | Holds invalid data | Checked                                                        |
+| -------------------- | ------------------ | -------------------------------------------------------------- |
+| id starts `invalid-` | Yes, deliberately  | The errors it declares are raised on its subject               |
+| any other            | No                 | _valid data_: no metric error on any row and no rejected input |
 
 A metric error is a row warning marked ▲ (`Error - Can not reduce condition
 ▲`, `Not Possible ▲`), a `Check Data` warning, or an Excel error value. A ⚠
@@ -423,15 +430,15 @@ The `invalid-interventions` and `trading-rules` scenarios isolate their subject
 feature by generating the other layers empty. They, and the `advance-delay`
 scenarios, also declare what the metric should make of it:
 
-| Field | Meaning |
-| --- | --- |
-| `expectGain` | `met` or `unmet`: the area net gain against the workbook's target |
-| `expectMetricWarnings` | Text of warnings the metric must raise on the subject feature; `invalid-` scenarios only |
-| `expectTrading` | Each distinctiveness band's trading-rule verdict, `met` or `breached`, per habitat type |
-| `expectRejectedInputs` | Subject inputs the workbook must not accept, as `sheet.field`; `invalid-` scenarios only |
-| `expectUnitOrder` | Features whose units at one stage must fall strictly in the order listed |
-| `expectUnitsEqual` | Features whose units at one stage must all be the same |
-| `expectTimeToTarget` | The final time to target condition (years, or `"30+"`) and its multiplier the metric must give each created or enhanced feature listed |
+| Field                  | Meaning                                                                                                                                |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `expectGain`           | `met` or `unmet`: the area net gain against the workbook's target                                                                      |
+| `expectMetricWarnings` | Text of warnings the metric must raise on the subject feature; `invalid-` scenarios only                                               |
+| `expectTrading`        | Each distinctiveness band's trading-rule verdict, `met` or `breached`, per habitat type                                                |
+| `expectRejectedInputs` | Subject inputs the workbook must not accept, as `sheet.field`; `invalid-` scenarios only                                               |
+| `expectUnitOrder`      | Features whose units at one stage must fall strictly in the order listed                                                               |
+| `expectUnitsEqual`     | Features whose units at one stage must all be the same                                                                                 |
+| `expectTimeToTarget`   | The final time to target condition (years, or `"30+"`) and its multiplier the metric must give each created or enhanced feature listed |
 
 If a check fails, the command exits non-zero. A scenario that no longer
 demonstrates what it claims to is caught before anyone compares a service run
@@ -439,19 +446,19 @@ against it.
 
 ### Options
 
-| Option | Meaning |
-| --- | --- |
-| `--only PURPOSE` | One purpose only, merged into the existing corpus (see below) |
-| `--scenario ID` | One scenario only (repeatable), merged into the existing corpus (see below) |
-| `--outdir DIR` | Output folder (default `test-data/scenarios`); must be inside the harness |
-| `--format F` | `legacy` (default): a baseline / post-intervention pair per scenario; `bng-service`: per scenario, one BNG Service GeoPackage holding both stages and its baseline-stage file, drawn natively (see above) |
-| `--seed N` | Run seed, for byte-identical GeoPackages. Defaults to a random seed, which is recorded in the manifest so a run can be repeated; a filtered run defaults to the existing corpus's seed. Each scenario derives its own seed from it, so a fixture reproduces however many scenarios you run |
-| `--centre E,N` | Red Line Boundary centre, BNG/EPSG:27700 (default `530000,180000`) |
-| `--no-workbooks` | GeoPackages only: no template, no LibreOffice |
-| `--no-recalc` | Write the workbooks without recalculating them |
-| `--template PATH` | The metric v4 workbook to write into (default `$METRIC_TEMPLATE`, else the published tool); must be inside the harness |
-| `--download-template` | Download the published template into the cache and exit |
-| `--list` | Print the catalogue and exit |
+| Option                | Meaning                                                                                                                                                                                                                                                                                    |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--only PURPOSE`      | One purpose only, merged into the existing corpus (see below)                                                                                                                                                                                                                              |
+| `--scenario ID`       | One scenario only (repeatable), merged into the existing corpus (see below)                                                                                                                                                                                                                |
+| `--outdir DIR`        | Output folder (default `test-data/scenarios`); must be inside the harness                                                                                                                                                                                                                  |
+| `--format F`          | `legacy` (default): a baseline / post-intervention pair per scenario; `bng-service`: per scenario, one BNG Service GeoPackage holding both stages and its baseline-stage file, drawn natively (see above)                                                                                  |
+| `--seed N`            | Run seed, for byte-identical GeoPackages. Defaults to a random seed, which is recorded in the manifest so a run can be repeated; a filtered run defaults to the existing corpus's seed. Each scenario derives its own seed from it, so a fixture reproduces however many scenarios you run |
+| `--centre E,N`        | Red Line Boundary centre, BNG/EPSG:27700 (default `530000,180000`)                                                                                                                                                                                                                         |
+| `--no-workbooks`      | GeoPackages only: no template, no LibreOffice                                                                                                                                                                                                                                              |
+| `--no-recalc`         | Write the workbooks without recalculating them                                                                                                                                                                                                                                             |
+| `--template PATH`     | The metric v4 workbook to write into (default `$METRIC_TEMPLATE`, else the published tool); must be inside the harness                                                                                                                                                                     |
+| `--download-template` | Download the published template into the cache and exit                                                                                                                                                                                                                                    |
+| `--list`              | Print the catalogue and exit                                                                                                                                                                                                                                                               |
 
 A full rerun into the same folder first replaces the purpose folders it
 regenerates, so a scenario dropped from the catalogue doesn't linger. Nothing
@@ -479,13 +486,15 @@ workbooks for download.
 ### BMD-1070: incomplete habitat calculations
 
 The import timing scenarios retain their raw GeoPackage values. Their manifest
-contracts assert both saved null timing and null units with Incomplete status
-for actual Created/Enhanced habitats. Retained habitats and original Lost area
-replacements still calculate without timing credit.
+contracts assert the saved timing and require null units with Incomplete status
+when required timing is missing or conflicting on Created/Enhanced habitats,
+including original Lost area replacements. Valid Lost area timing is retained
+and priced. Retained habitats save redundant timing as null and calculate
+without timing credit. Lost linear features and trees remain absent from PI.
 
 The workbook treats blank timing cells as zero, so an incomplete Created or
-Enhanced row is left unpriced by blanking its required condition in the workbook
-input projection. The row remains in position so enhancement pairing is preserved;
+Enhanced row, including a Lost area replacement, is left unpriced by blanking
+its required condition in the workbook input projection. The row remains in position so enhancement pairing is preserved;
 its baseline row and loss/allocation remain. The manifest records this projection.
 This is an independent input policy,
 not a copied service result or a discrepancy exemption. Numerical comparisons
