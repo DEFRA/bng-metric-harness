@@ -384,8 +384,11 @@ it enhances a Very Low hedgerow, a baseline the service cannot enhance at all,
 so the file is refused rather than the enhancement nulled. Its `INCOMPLETE_FEATURES` entry stays until #544 merges,
 because the backend's workflow runs the harness's `main`: without the entry, a
 run against a backend that still accepts the file would fail as an accepted
-invalid scenario nothing explains. Once #544 merges the entry is reported as
-stale, a warning, and can be removed.
+invalid scenario nothing explains. For the same reason the `importGeoPackagePair`
+test that expects the refusal skips against a backend without it (one whose
+post-intervention save handlers have no `refuseDocument`), so this harness can
+merge before #544. Once #544 merges the entry is reported as stale, a warning,
+and can be removed, and the test runs.
 
 How it got here:
 
