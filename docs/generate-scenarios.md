@@ -342,7 +342,8 @@ states the verdict of every band in play:
 | `trading-too-few-units` | Medium replaced one-for-one by the same broad habitat: **Medium breached** | Medium replaced by a late, poor Medium: **Medium breached** | ditch replaced by a late, poor ditch: **Medium breached** |
 | `trading-wrong-habitat` | Medium grassland replaced by more Medium heathland: **Medium breached** | Medium replaced by Low: **Medium breached** | ditch replaced by a canal: **Medium breached** |
 | `trading-trade-down` | Medium replaced by Low: **Medium breached** | Low replaced by Very Low: **Low breached** | ditch replaced by a culvert: **Medium breached** |
-| `trading-trade-up` | Low replaced by Medium: met | Low replaced by Medium: met | culvert replaced by a ditch: met |
+| `trading-trade-up` (legacy only) | Low replaced by Medium: met | Low replaced by Medium: met | culvert replaced by a ditch: met |
+| `trading-trade-up-without-watercourse` (BNG Service only) | Low replaced by Medium: met | Low replaced by Medium: met | — (the template cannot record a lost culvert) |
 | `trading-low-for-low` | Low replaced by Low in another broad habitat: met | Very Low replaced by Low: met | — |
 | `trading-lost-to-development` | Low built over: **Low breached** | Very Low removed: **Very Low breached** | — |
 | `trading-lower-deficit-covered-from-above` | Low deficit, Medium surplus: met | Low deficit, Medium surplus: met | — |

@@ -128,9 +128,9 @@ Valid schema and geometry: an attribute value trips a later validator, or a habi
 | `missing-habitat-ref.gpkg` | a habitat parcel whose Parcel Ref is only spaces | HABITAT_REF_MISSING | seed 1, flaw `missing-habitat-ref` |
 | `habitat-ref-invalid-characters.gpkg` | a habitat parcel whose Parcel Ref holds the character a decoder puts in place of invalid UTF-8 | HABITAT_REF_INVALID_CHARACTERS | seed 1, flaw `habitat-ref-invalid-characters` |
 | `advance-delay-both-set.gpkg` | a created habitat carries both advance and delayed creation years | ADVANCE_AND_DELAY_BOTH_SET | seed 1, flaw `advance-delay-both-set` |
-| `degrade-advance-missing.gpkg` | a hedgerow that gets worse (Created in its own type, linked to its parent, in a lower condition) has no years created in advance, where the Metric asks for 30 plus | refused. Accepted today: the service does not check habitats that get worse yet | seed 1, flaw `degrade-advance-missing` |
-| `degrade-not-worse.gpkg` | a same-type creation that is not worse: a hedgerow Created in its own type, linked to its parent, with 30+ years in advance, in its baseline condition (a 30+ on a row that does not get worse overstates its units) | refused. Accepted today: the service does not check habitats that get worse yet | seed 1, flaw `degrade-not-worse` |
-| `degrade-watercourse-retained-and-created.gpkg` | a baseline watercourse has both a Retained and a Created post-intervention part. The template records part of a stretch changing by splitting it at the baseline survey, as the service cannot measure part of a watercourse | refused. Accepted today: the service does not check habitats that get worse yet | seed 1, flaw `degrade-watercourse-retained-and-created` |
+| `degrade-advance-missing.gpkg` | a hedgerow that gets worse (Created in its own type, linked to its parent, in a lower condition) has no years created in advance, where the Metric asks for 30 plus | STAGED_DEGRADE_ADVANCE_NOT_30_PLUS | seed 1, flaw `degrade-advance-missing` |
+| `degrade-not-worse.gpkg` | a same-type creation that is not worse: a hedgerow Created in its own type, linked to its parent, with 30+ years in advance, in its baseline condition (a 30+ on a row that does not get worse overstates its units) | STAGED_DEGRADE_NOT_WORSE | seed 1, flaw `degrade-not-worse` |
+| `degrade-watercourse-retained-and-created.gpkg` | a baseline watercourse has both a Retained and a Created post-intervention part. The template records part of a stretch changing by splitting it at the baseline survey, as the service cannot measure part of a watercourse | STAGED_WATERCOURSE_RETAINED_AND_CREATED | seed 1, flaw `degrade-watercourse-retained-and-created` |
 | `degrade-habitat-ref-blank.gpkg` | an area habitat that gets worse has an empty Habitat Ref on its post-intervention row only; its baseline row keeps its ref, so only a check of the post-intervention tables finds it | HABITAT_REF_MISSING | seed 1, flaw `degrade-habitat-ref-blank` |
 | `irreplaceable-area-habitat.gpkg` | `valid/default-site.gpkg` with its woodland parcel marked irreplaceable (Irreplaceable Habitat `Yes`) in both stages | refused (BMD-1176). Accepted today: the service does not check irreplaceable habitats yet | seed 1, irreplaceable `habitats` |
 | `irreplaceable-tree.gpkg` | `valid/default-site.gpkg` with one Retained tree marked irreplaceable (a veteran tree) in both stages | refused (BMD-1172). Accepted today: the service does not check irreplaceable habitats yet | seed 1, irreplaceable `trees` |
@@ -141,11 +141,11 @@ A post-intervention feature names its baseline parent wrongly. `npm run check:li
 
 | File | Covers | Expected | Built from |
 | ---- | ------ | -------- | ---------- |
-| `lineage-parent-missing.gpkg` | a Retained area habitat carries no Parent Ref, parent_uuid or parent_geom, so its parent must be inferred from its shape | STAGED_PARENT_INFERRED | seed 1, flaw `lineage-parent-missing` |
+| `lineage-parent-missing.gpkg` | a Retained area habitat carries no Parent Ref, parent_uuid or parent_geom, so it names no baseline habitat it continues | STAGED_PARENT_LINK_MISSING | seed 1, flaw `lineage-parent-missing` |
 | `lineage-parent-unknown.gpkg` | a Retained area habitat names a parent, by Parent Ref and parent_uuid, that is not in the baseline | STAGED_UNKNOWN_PARENT_REF | seed 1, flaw `lineage-parent-unknown` |
-| `lineage-parent-wrong.gpkg` | a Retained area habitat names another baseline parcel as its parent, so it lies outside the parent it names | STAGED_PI_OUTSIDE_PARENT | seed 1, flaw `lineage-parent-wrong` |
+| `lineage-parent-wrong.gpkg` | a Retained area habitat names another baseline parcel as its parent, so it lies outside the parent it names | refused. Accepted today: the service compares the parent's shape with the one the row recorded, not with the row's own shape | seed 1, flaw `lineage-parent-wrong` |
 | `lineage-parent-geom-mismatch.gpkg` | a Retained area habitat's parent_geom is its parent's shape moved 5 m, as if the baseline changed after the copy | STAGED_BASELINE_DRIFTED | seed 1, flaw `lineage-parent-geom-mismatch` |
-| `lineage-parent-geom-missing.gpkg` | a Retained area habitat names its parent by Parent Ref and parent_uuid, but has no parent_geom, so the parent's shape cannot be compared | refused. Accepted today: the service skips the shape check on a linked row with no parent_geom | seed 1, flaw `lineage-parent-geom-missing` |
+| `lineage-parent-geom-missing.gpkg` | a Retained area habitat names its parent by Parent Ref and parent_uuid, but has no parent_geom, so the parent's shape cannot be compared | STAGED_BASELINE_DRIFTED | seed 1, flaw `lineage-parent-geom-missing` |
 
 ## incomplete/
 
@@ -153,8 +153,8 @@ A watercourse that gets worse is recorded in a way the service saves as Incomple
 
 | File | Covers | Expected | Built from |
 | ---- | ------ | -------- | ---------- |
-| `degrade-watercourse-advance-not-encroachment.gpkg` | a watercourse whose condition gets worse, with no change of encroachment, is created 10 years in advance, which the Metric allows only where encroachment increases with no other impact | saved as Incomplete. Accepted today: the service does not check habitats that get worse yet | seed 1, flaw `degrade-watercourse-advance-not-encroachment` |
-| `degrade-watercourse-encroachment-no-advance.gpkg` | a watercourse whose only change is more encroachment has no years created in advance, though the Metric allows 10 or more for it | saved as Incomplete. Accepted today: the service does not check habitats that get worse yet | seed 1, flaw `degrade-watercourse-encroachment-no-advance` |
+| `degrade-watercourse-advance-not-encroachment.gpkg` | a watercourse whose condition gets worse, with no change of encroachment, is created 10 years in advance, which the Metric allows only where encroachment increases with no other impact | saved as Incomplete, with its years created in advance cleared | seed 1, flaw `degrade-watercourse-advance-not-encroachment` |
+| `degrade-watercourse-encroachment-no-advance.gpkg` | a watercourse whose only change is more encroachment has no years created in advance, though the Metric allows 10 or more for it | saved as Incomplete, for want of years created in advance | seed 1, flaw `degrade-watercourse-encroachment-no-advance` |
 
 ## version-problems/
 
@@ -196,6 +196,6 @@ A valid file; only the upload's own file name is invalid.
 
 ## Gaps
 
-- A natural river left out, and an irreplaceable tree that gets worse: the service refuses either file for another reason first, so a fixture could not show the rule. Natural rivers (Other rivers and streams, High; Priority habitat, V.High) are out of the service's scope, and only canals and ditches may be lost; an irreplaceable tree is refused whether or not it gets worse (`attribute-problems/irreplaceable-tree.gpkg`).
+- A natural river left out, and an irreplaceable tree that gets worse: the service refuses either file for another reason first, so a fixture could not show the rule. Natural rivers (Other rivers and streams, High; Priority habitat, V.High) are out of the service's scope, and only canals and ditches may be lost (a culvert left out is refused, STAGED_NATURAL_WATERCOURSE_LOST); an irreplaceable tree is refused whether or not it gets worse (`attribute-problems/irreplaceable-tree.gpkg`).
 - Individual trees with varied counts: the template has no Count column, and how several trees are recorded is undecided (BMD-1171, BMD-1172).
 - The harness's import-timing scenarios: they edit legacy files, so `permutations/` builds them in the legacy format only.

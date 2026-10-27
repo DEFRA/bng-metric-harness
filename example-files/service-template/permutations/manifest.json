@@ -57,7 +57,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "e965ebac749175326755083af7eb30f1d8d0971776c60e89a89313454260abd0",
+      "workbookSource": "d38c24fa7ababdf5b0e275cb8fe318a3e9a65a4f011fc1032c762cf2f853cd77",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 1,
@@ -74,24 +74,24 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 459.867736439843,
+            "area": 459.643136439843,
             "hedgerow": 2.07728759233196,
-            "watercourse": 3.19366617819561
+            "watercourse": 1.58262696113172
           },
           "postInterventionUnits": {
-            "area": 459.515770093372,
+            "area": 459.51355029861,
             "hedgerow": 3.4560267896255,
-            "watercourse": 0
+            "watercourse": 1.58262696113172
           },
           "netUnitChange": {
-            "area": -0.35196634647059,
+            "area": -0.129586141233062,
             "hedgerow": 1.37873919729354,
-            "watercourse": -3.19366617819561
+            "watercourse": 0
           },
           "netPercentChange": {
-            "area": -0.000765364296254845,
+            "area": -0.00028192771948421,
             "hedgerow": 0.663720903346737,
-            "watercourse": -1
+            "watercourse": 0
           },
           "netGainMessage": {
             "area": "On-site net gain is less than target set ⚠",
@@ -99,14 +99,14 @@
             "watercourse": "On-site net gain is less than target set ⚠"
           },
           "unitsRequired": {
-            "area": 505.854510083827,
+            "area": 505.607450083827,
             "hedgerow": 2.28501635156516,
-            "watercourse": 3.51303279601517
+            "watercourse": 1.74088965724489
           },
           "unitDeficit": {
-            "area": 46.3387399904549,
+            "area": 46.0938997852174,
             "hedgerow": 0,
-            "watercourse": 3.51303279601517
+            "watercourse": 0.158262696113172
           },
           "target": 0.1,
           "tradingRulesSatisfied": "No - Check Trading Summaries ▲",
@@ -166,11 +166,11 @@
             },
             {
               "distinctiveness": "Medium",
-              "satisfied": "No ▲"
+              "satisfied": "Yes ✓"
             },
             {
               "distinctiveness": "Low",
-              "satisfied": "No ▲"
+              "satisfied": "Yes ✓"
             }
           ]
         },
@@ -180,13 +180,13 @@
         "sheetWarnings": [
           {
             "sheet": "habitatBaseline",
-            "cell": "L5",
-            "message": "No - check trading summaries ▲"
+            "cell": "Q2",
+            "message": "A 'Fairly' Category has been used - check evidence to ensure this is appropriate ⚠"
           },
           {
-            "sheet": "habitatCreation",
-            "cell": "S2",
-            "message": "A 'Fairly' Category has been used - check evidence to ensure this is appropriate ⚠"
+            "sheet": "habitatBaseline",
+            "cell": "L5",
+            "message": "No - check trading summaries ▲"
           },
           {
             "sheet": "habitatCreation",
@@ -202,26 +202,6 @@
             "sheet": "habitatEnhancement",
             "cell": "T5",
             "message": "No - check trading summaries ▲"
-          },
-          {
-            "sheet": "watercourseBaseline",
-            "cell": "L2",
-            "message": "A 'Fairly' Category has been used for ditches - check evidence to ensure this is appropriate ⚠"
-          },
-          {
-            "sheet": "watercourseBaseline",
-            "cell": "I5",
-            "message": "No - check trading summary ▲"
-          },
-          {
-            "sheet": "watercourseCreation",
-            "cell": "M6",
-            "message": "No - check trading summary ▲"
-          },
-          {
-            "sheet": "watercourseEnhancement",
-            "cell": "P5",
-            "message": "No - check trading summary ▲"
           }
         ],
         "rowWarnings": [
@@ -287,11 +267,11 @@
           "passed": true
         }
       ],
-      "workbookSource": "515b5e4169b20aa2cd50d406426f8d4c8c38fe805e6bf99caf42e036c5c9ecfd",
+      "workbookSource": "a69967da4f55a49ce85cab1ceb6bf74de595bf944f42006f456b56e63edd9274",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 1,
-        "habitatEnhancement": 9,
+        "habitatEnhancement": 6,
         "hedgerowBaseline": 1,
         "hedgerowCreation": 2,
         "hedgerowEnhancement": 0,
@@ -304,24 +284,24 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 427.404187557887,
+            "area": 427.615987557887,
             "hedgerow": 3.92568424141002,
-            "watercourse": 3.01225460366222
+            "watercourse": 0.732779861127764
           },
           "postInterventionUnits": {
-            "area": 577.315282347484,
+            "area": 577.058781787459,
             "hedgerow": 6.29059750445822,
-            "watercourse": 2.77988440745426
+            "watercourse": 0.732779861127764
           },
           "netUnitChange": {
-            "area": 149.911094789596,
+            "area": 149.442794229572,
             "hedgerow": 2.36491326304819,
-            "watercourse": -0.232370196207955
+            "watercourse": 0
           },
           "netPercentChange": {
-            "area": 0.350747838120544,
+            "area": 0.349478968461958,
             "hedgerow": 0.602420652711174,
-            "watercourse": -0.0771416187481117
+            "watercourse": 0
           },
           "netGainMessage": {
             "area": null,
@@ -329,17 +309,17 @@
             "watercourse": "On-site net gain is less than target set ⚠"
           },
           "unitsRequired": {
-            "area": 470.144606313676,
+            "area": 470.377586313676,
             "hedgerow": 4.31825266555102,
-            "watercourse": 3.31348006402844
+            "watercourse": 0.806057847240541
           },
           "unitDeficit": {
             "area": 0,
             "hedgerow": 0,
-            "watercourse": 0.533595656574177
+            "watercourse": 0.0732779861127765
           },
           "target": 0.1,
-          "tradingRulesSatisfied": "No - Check Trading Summaries ▲",
+          "tradingRulesSatisfied": "Yes ✓",
           "messages": [
             "Input errors/rule breaks present in metric ▲"
           ]
@@ -400,12 +380,12 @@
             },
             {
               "distinctiveness": "Low",
-              "satisfied": "No ▲"
+              "satisfied": "Yes ✓"
             }
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 149.911094789596
+          "areaCumulativeSurplus": 149.442794229572
         },
         "sheetWarnings": [
           {
@@ -414,44 +394,9 @@
             "message": "A 'Fairly' Category has been used - check evidence to ensure this is appropriate ⚠"
           },
           {
-            "sheet": "habitatCreation",
-            "cell": "S2",
-            "message": "A 'Fairly' Category has been used - check evidence to ensure this is appropriate ⚠"
-          },
-          {
-            "sheet": "habitatEnhancement",
-            "cell": "V2",
-            "message": "A 'Fairly' Category has been used - check evidence to ensure this is appropriate ⚠"
-          },
-          {
-            "sheet": "habitatEnhancement",
-            "cell": "AD2",
-            "message": "Note; Habitat selected has a time to target condition greater than 30 years. Non standard agreement may be required ⚠"
-          },
-          {
             "sheet": "hedgerowCreation",
             "cell": "M3",
             "message": "Note; Habitat selected has a time to target condition greater than 30 years. Non standard agreement may be required. ⚠"
-          },
-          {
-            "sheet": "watercourseBaseline",
-            "cell": "L2",
-            "message": "A 'Fairly' Category has been used for ditches - check evidence to ensure this is appropriate ⚠"
-          },
-          {
-            "sheet": "watercourseBaseline",
-            "cell": "I5",
-            "message": "No - check trading summary ▲"
-          },
-          {
-            "sheet": "watercourseCreation",
-            "cell": "M6",
-            "message": "No - check trading summary ▲"
-          },
-          {
-            "sheet": "watercourseEnhancement",
-            "cell": "P5",
-            "message": "No - check trading summary ▲"
           }
         ],
         "rowWarnings": [
@@ -525,11 +470,11 @@
           "passed": true
         }
       ],
-      "workbookSource": "fdbd97feb4a1d68b81f1d19ddadf6c2f94de0028aad89deaa5543bbf0bfdb8f9",
+      "workbookSource": "d3a60fc0e4f7cdd643cc36183b99b2f7e30a1ddf91261deacb7b06603bad1289",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 7,
-        "habitatEnhancement": 1,
+        "habitatEnhancement": 3,
         "hedgerowBaseline": 3,
         "hedgerowCreation": 0,
         "hedgerowEnhancement": 1,
@@ -542,24 +487,24 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 373.789128121985,
+            "area": 187.568464060992,
             "hedgerow": 13.0904015236333,
-            "watercourse": 2.41684849062092
+            "watercourse": 0.809057945380143
           },
           "postInterventionUnits": {
-            "area": 433.819905734483,
+            "area": 433.721123507867,
             "hedgerow": 1.75239942366598,
-            "watercourse": 0
+            "watercourse": 0.809057945380143
           },
           "netUnitChange": {
-            "area": 60.0307776124979,
+            "area": 246.152659446875,
             "hedgerow": -11.3380020999673,
-            "watercourse": -2.41684849062092
+            "watercourse": 0
           },
           "netPercentChange": {
-            "area": 0.160600651800946,
+            "area": 1.31233499553972,
             "hedgerow": -0.866130964699424,
-            "watercourse": -1
+            "watercourse": 0
           },
           "netGainMessage": {
             "area": null,
@@ -567,14 +512,14 @@
             "watercourse": "On-site net gain is less than target set ⚠"
           },
           "unitsRequired": {
-            "area": 411.168040934183,
+            "area": 206.325310467092,
             "hedgerow": 14.3994416759967,
-            "watercourse": 2.65853333968301
+            "watercourse": 0.889963739918157
           },
           "unitDeficit": {
             "area": 0,
             "hedgerow": 12.6470422523307,
-            "watercourse": 2.65853333968301
+            "watercourse": 0.0809057945380144
           },
           "target": 0.1,
           "tradingRulesSatisfied": "No - Check Trading Summaries ▲",
@@ -634,16 +579,16 @@
             },
             {
               "distinctiveness": "Medium",
-              "satisfied": "No ▲"
+              "satisfied": "Yes ✓"
             },
             {
               "distinctiveness": "Low",
-              "satisfied": "No ▲"
+              "satisfied": "Yes ✓"
             }
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 60.0307776124979
+          "areaCumulativeSurplus": 246.152659446875
         },
         "sheetWarnings": [
           {
@@ -652,9 +597,14 @@
             "message": "A 'Fairly' Category has been used - check evidence to ensure this is appropriate ⚠"
           },
           {
-            "sheet": "habitatCreation",
-            "cell": "S2",
+            "sheet": "habitatEnhancement",
+            "cell": "V2",
             "message": "A 'Fairly' Category has been used - check evidence to ensure this is appropriate ⚠"
+          },
+          {
+            "sheet": "habitatEnhancement",
+            "cell": "AD2",
+            "message": "Note; Habitat selected has a time to target condition greater than 30 years. Non standard agreement may be required ⚠"
           },
           {
             "sheet": "hedgerowBaseline",
@@ -669,26 +619,6 @@
           {
             "sheet": "hedgerowEnhancement",
             "cell": "O5",
-            "message": "No - check trading summary ▲"
-          },
-          {
-            "sheet": "watercourseBaseline",
-            "cell": "L2",
-            "message": "A 'Fairly' Category has been used for ditches - check evidence to ensure this is appropriate ⚠"
-          },
-          {
-            "sheet": "watercourseBaseline",
-            "cell": "I5",
-            "message": "No - check trading summary ▲"
-          },
-          {
-            "sheet": "watercourseCreation",
-            "cell": "M6",
-            "message": "No - check trading summary ▲"
-          },
-          {
-            "sheet": "watercourseEnhancement",
-            "cell": "P5",
             "message": "No - check trading summary ▲"
           }
         ],
@@ -4130,7 +4060,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "e9ac05adab630a64f86e4397fe0fef0cce5ad3292f3e1cc750b5cee6efe31086",
+      "workbookSource": "eac57b45f50c79ed4e0798faa90167b844f9b19c2c8132acd3bb6d4cc55a3048",
       "inputRows": {
         "habitatBaseline": 2,
         "habitatCreation": 1,
@@ -4147,7 +4077,7 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 389.045981366006,
+            "area": 314.853803956911,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -4157,12 +4087,12 @@
             "watercourse": 0
           },
           "netUnitChange": {
-            "area": -148.384354818189,
+            "area": -74.1921774090947,
             "hedgerow": 0,
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": -0.381405699905156,
+            "area": -0.235640085896019,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -4172,12 +4102,12 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 427.950579502606,
+            "area": 346.339184352602,
             "hedgerow": 0,
             "watercourse": 0
           },
           "unitDeficit": {
-            "area": 187.28895295479,
+            "area": 105.677557804786,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -4199,11 +4129,11 @@
             },
             {
               "distinctiveness": "Medium",
-              "satisfied": "No ▲"
+              "satisfied": "Yes ✓"
             },
             {
               "distinctiveness": "Low",
-              "satisfied": "Yes ✓"
+              "satisfied": "No ▲"
             }
           ],
           "hedgerow": [
@@ -4248,7 +4178,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 0
+          "areaCumulativeSurplus": -74.1921774090947
         },
         "sheetWarnings": [
           {
@@ -7377,7 +7307,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "902623a95e000ff82aa9772fcb4b04856df279b52ec3d26b2ffbe02e88a0056e",
+      "workbookSource": "2ffbf911b7c400be96978a63659d36d70dbe906f2ec95fa41118671945d88b3c",
       "inputRows": {
         "habitatBaseline": 7,
         "habitatCreation": 3,
@@ -7387,49 +7317,49 @@
         "hedgerowEnhancement": 1,
         "watercourseBaseline": 2,
         "watercourseCreation": 0,
-        "watercourseEnhancement": 0
+        "watercourseEnhancement": 1
       },
       "rejectedInputs": [],
       "notes": [],
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 420.287656304205,
+            "area": 287.063474957617,
             "hedgerow": 3.21134801770006,
-            "watercourse": 2.19242758484213
+            "watercourse": 1.70375712548203
           },
           "postInterventionUnits": {
-            "area": 557.949948585035,
+            "area": 557.892482144556,
             "hedgerow": 6.13399769753602,
-            "watercourse": 1.36829771855668
+            "watercourse": 2.41409105505491
           },
           "netUnitChange": {
-            "area": 137.66229228083,
+            "area": 270.829007186939,
             "hedgerow": 2.92264967983596,
-            "watercourse": -0.824129866285456
+            "watercourse": 0.71033392957288
           },
           "netPercentChange": {
-            "area": 0.327543029674872,
+            "area": 0.943446417998408,
             "hedgerow": 0.910100575747981,
-            "watercourse": -0.375898329314625
+            "watercourse": 0.416922059458392
           },
           "netGainMessage": {
             "area": null,
             "hedgerow": null,
-            "watercourse": "On-site net gain is less than target set ⚠"
+            "watercourse": null
           },
           "unitsRequired": {
-            "area": 462.316421934625,
+            "area": 315.769822453378,
             "hedgerow": 3.53248281947006,
-            "watercourse": 2.41167034332635
+            "watercourse": 1.87413283803024
           },
           "unitDeficit": {
             "area": 0,
             "hedgerow": 0,
-            "watercourse": 1.04337262476967
+            "watercourse": 0
           },
           "target": 0.1,
-          "tradingRulesSatisfied": "No - Check Trading Summaries ▲",
+          "tradingRulesSatisfied": "Yes ✓",
           "messages": [
             "Input errors/rule breaks present in metric ▲"
           ]
@@ -7490,43 +7420,18 @@
             },
             {
               "distinctiveness": "Low",
-              "satisfied": "No ▲"
+              "satisfied": "Yes ✓"
             }
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 137.66229228083
+          "areaCumulativeSurplus": 270.829007186939
         },
         "sheetWarnings": [
           {
             "sheet": "habitatBaseline",
             "cell": "Q2",
             "message": "A 'Fairly' Category has been used - check evidence to ensure this is appropriate ⚠"
-          },
-          {
-            "sheet": "habitatEnhancement",
-            "cell": "V2",
-            "message": "A 'Fairly' Category has been used - check evidence to ensure this is appropriate ⚠"
-          },
-          {
-            "sheet": "watercourseBaseline",
-            "cell": "L2",
-            "message": "A 'Fairly' Category has been used for ditches - check evidence to ensure this is appropriate ⚠"
-          },
-          {
-            "sheet": "watercourseBaseline",
-            "cell": "I5",
-            "message": "No - check trading summary ▲"
-          },
-          {
-            "sheet": "watercourseCreation",
-            "cell": "M6",
-            "message": "No - check trading summary ▲"
-          },
-          {
-            "sheet": "watercourseEnhancement",
-            "cell": "P5",
-            "message": "No - check trading summary ▲"
           }
         ],
         "rowWarnings": [
@@ -9359,10 +9264,10 @@
       }
     },
     {
-      "id": "trading-trade-up",
+      "id": "trading-trade-up-without-watercourse",
       "purpose": "trading-rules",
-      "title": "Trading rules — replaced by a higher distinctiveness",
-      "description": "Area: a Low grassland is replaced by a Medium one. Hedgerows: a Low hedgerow is replaced by two Medium hedgerows. Watercourses: a culvert (Low) is replaced by a ditch (Medium). Trading up is always allowed, so every rule is met.",
+      "title": "Trading rules — replaced by a higher distinctiveness, area and hedgerows",
+      "description": "Area: a Low grassland is replaced by a Medium one. Hedgerows: a Low hedgerow is replaced by two Medium hedgerows. Trading up is always allowed, so every rule is met.",
       "size": 2,
       "subject": {
         "layer": "Habitats",
@@ -9370,9 +9275,9 @@
         "note": "the first area parcel; see the description for every layer"
       },
       "files": {
-        "geoPackage": "trading-rules/trading-trade-up.gpkg",
-        "baselineStage": "trading-rules/trading-trade-up-baseline.gpkg",
-        "workbook": "trading-rules/trading-trade-up.xlsx"
+        "geoPackage": "trading-rules/trading-trade-up-without-watercourse.gpkg",
+        "baselineStage": "trading-rules/trading-trade-up-without-watercourse-baseline.gpkg",
+        "workbook": "trading-rules/trading-trade-up-without-watercourse.xlsx"
       },
       "gain": null,
       "checks": [
@@ -9425,25 +9330,13 @@
           "passed": true
         },
         {
-          "check": "watercourse trading rule, Medium",
-          "expected": "met",
-          "actual": "met",
-          "passed": true
-        },
-        {
-          "check": "watercourse trading rule, Low",
-          "expected": "met",
-          "actual": "met",
-          "passed": true
-        },
-        {
           "check": "valid data (no metric errors or rejected inputs)",
           "expected": "none",
           "actual": "none",
           "passed": true
         }
       ],
-      "workbookSource": "ace51f4518155ddd4689434101f08c212b9fc823ba672d6fba9d61e392cd3e37",
+      "workbookSource": "09f800f60abf65723f14fc39a571ff47650a815d773b267a20b1cc966d9fd5d4",
       "inputRows": {
         "habitatBaseline": 2,
         "habitatCreation": 1,
@@ -9451,8 +9344,8 @@
         "hedgerowBaseline": 1,
         "hedgerowCreation": 2,
         "hedgerowEnhancement": 0,
-        "watercourseBaseline": 1,
-        "watercourseCreation": 1,
+        "watercourseBaseline": 0,
+        "watercourseCreation": 0,
         "watercourseEnhancement": 0
       },
       "rejectedInputs": [],
@@ -9460,24 +9353,24 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 285.341033215437,
-            "hedgerow": 1.33704528769208,
-            "watercourse": 0.49033532939438
+            "area": 280.2890538844,
+            "hedgerow": 1.37859705565932,
+            "watercourse": 0
           },
           "postInterventionUnits": {
-            "area": 397.25667066395,
-            "hedgerow": 4.89155478509069,
-            "watercourse": 1.77318979159721
+            "area": 420.845090186335,
+            "hedgerow": 5.26692258246767,
+            "watercourse": 0
           },
           "netUnitChange": {
-            "area": 111.915637448513,
-            "hedgerow": 3.55450949739861,
-            "watercourse": 1.28285446220283
+            "area": 140.556036301935,
+            "hedgerow": 3.88832552680835,
+            "watercourse": 0
           },
           "netPercentChange": {
-            "area": 0.392217117136515,
-            "hedgerow": 2.65848100293908,
-            "watercourse": 2.61627989112533
+            "area": 0.501468160650699,
+            "hedgerow": 2.82049458240627,
+            "watercourse": 0
           },
           "netGainMessage": {
             "area": null,
@@ -9485,9 +9378,9 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 313.875136536981,
-            "hedgerow": 1.47074981646129,
-            "watercourse": 0.539368862333818
+            "area": 308.31795927284,
+            "hedgerow": 1.51645676122525,
+            "watercourse": 0
           },
           "unitDeficit": {
             "area": 0,
@@ -9561,7 +9454,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 111.915637448513
+          "areaCumulativeSurplus": 140.556036301935
         },
         "sheetWarnings": [],
         "rowWarnings": []
@@ -11045,7 +10938,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "4987f3fcd865a6609c553055d8760aeb354696f7985238ee3075567ff6d0a5dd",
+      "workbookSource": "82dae8b74f6d919dc9f8f754b5844e9cf0ccaf718d36c2475600348a603100df",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 7,
@@ -11062,7 +10955,7 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 372.212111884021,
+            "area": 186.88255594201,
             "hedgerow": 0.923652131091217,
             "watercourse": 1.73962693530979
           },
@@ -11072,12 +10965,12 @@
             "watercourse": 1.73962693530979
           },
           "netUnitChange": {
-            "area": 215.666354817255,
+            "area": 400.995910759266,
             "hedgerow": 1.63949096775981,
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": 0.57941788547831,
+            "area": 2.14571075795696,
             "hedgerow": 1.77500913230492,
             "watercourse": 0
           },
@@ -11087,7 +10980,7 @@
             "watercourse": "On-site net gain is less than target set ⚠"
           },
           "unitsRequired": {
-            "area": 409.433323072423,
+            "area": 205.570811536211,
             "hedgerow": 1.01601734420034,
             "watercourse": 1.91358962884077
           },
@@ -11163,7 +11056,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 216.560182639231
+          "areaCumulativeSurplus": 401.889738581241
         },
         "sheetWarnings": [
           {
@@ -11295,11 +11188,11 @@
           "passed": true
         }
       ],
-      "workbookSource": "2caf72c8522e221625ae98b394279777304e35b6c135dfbba0a8a16841258c3c",
+      "workbookSource": "3c8a2fed1794d29753b79a7a34e4425b5f62e50550ac06c73588dd1fca7fc6f5",
       "inputRows": {
         "habitatBaseline": 10,
         "habitatCreation": 7,
-        "habitatEnhancement": 0,
+        "habitatEnhancement": 2,
         "hedgerowBaseline": 2,
         "hedgerowCreation": 1,
         "hedgerowEnhancement": 2,
@@ -11312,24 +11205,24 @@
       "metric": {
         "headline": {
           "baselineUnits": {
-            "area": 291.841299305167,
+            "area": 146.091749652584,
             "hedgerow": 9.7205456152689,
-            "watercourse": 3.40664014689593
+            "watercourse": 3.01810380843347
           },
           "postInterventionUnits": {
-            "area": 391.431892609802,
+            "area": 391.776402550093,
             "hedgerow": 16.7954088970876,
-            "watercourse": 4.41159603506983
+            "watercourse": 7.1695228326086
           },
           "netUnitChange": {
-            "area": 99.5905933046352,
+            "area": 245.68465289751,
             "hedgerow": 7.07486328181867,
-            "watercourse": 1.00495588817391
+            "watercourse": 4.15141902417513
           },
           "netPercentChange": {
-            "area": 0.341249143084774,
+            "area": 1.68171476816292,
             "hedgerow": 0.727825737549709,
-            "watercourse": 0.294999132529336
+            "watercourse": 1.37550571076278
           },
           "netGainMessage": {
             "area": null,
@@ -11337,9 +11230,9 @@
             "watercourse": null
           },
           "unitsRequired": {
-            "area": 321.025429235684,
+            "area": 160.700924617842,
             "hedgerow": 10.6926001767958,
-            "watercourse": 3.74730416158552
+            "watercourse": 3.31991418927682
           },
           "unitDeficit": {
             "area": 0,
@@ -11347,7 +11240,7 @@
             "watercourse": 0
           },
           "target": 0.1,
-          "tradingRulesSatisfied": "No - Check Trading Summaries ▲",
+          "tradingRulesSatisfied": "Yes ✓",
           "messages": [
             "Input errors/rule breaks present in metric ▲"
           ]
@@ -11364,7 +11257,7 @@
             },
             {
               "distinctiveness": "Medium",
-              "satisfied": "No ▲"
+              "satisfied": "Yes ✓"
             },
             {
               "distinctiveness": "Low",
@@ -11413,7 +11306,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 100.2390225699
+          "areaCumulativeSurplus": 245.68465289751
         },
         "sheetWarnings": [
           {
@@ -11422,29 +11315,14 @@
             "message": "A 'Fairly' Category has been used - check evidence to ensure this is appropriate ⚠"
           },
           {
-            "sheet": "habitatBaseline",
-            "cell": "L5",
-            "message": "No - check trading summaries ▲"
-          },
-          {
             "sheet": "habitatCreation",
             "cell": "S2",
             "message": "A 'Fairly' Category has been used - check evidence to ensure this is appropriate ⚠"
           },
           {
-            "sheet": "habitatCreation",
-            "cell": "K5",
-            "message": "No - check trading summaries ▲"
-          },
-          {
             "sheet": "habitatEnhancement",
-            "cell": "T5",
-            "message": "No - check trading summaries ▲"
-          },
-          {
-            "sheet": "watercourseEnhancement",
-            "cell": "S2",
-            "message": "A 'Fairly' Category has been used for ditches - check evidence to ensure this is appropriate ⚠"
+            "cell": "V2",
+            "message": "A 'Fairly' Category has been used - check evidence to ensure this is appropriate ⚠"
           }
         ],
         "rowWarnings": [
@@ -11494,14 +11372,6 @@
             "message": "Check details- Delay in starting habitat in required condition? ⚠",
             "cells": [
               "R16"
-            ]
-          },
-          {
-            "sheet": "habitatCreation",
-            "reference": "T005",
-            "message": "Check details - Is there evidence habitat creation in place? ⚠",
-            "cells": [
-              "R17"
             ]
           },
           {
