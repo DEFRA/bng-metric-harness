@@ -92,6 +92,19 @@ describe.skipIf(!isBackendInstalled())("importGeoPackagePair", () => {
     expect(result).toMatchObject({ accepted: false, rejectedFile: "baseline" });
     expect(result.errors[0].code).toEqual(expect.any(String));
   });
+
+  it("refuses a post-intervention file the pipeline refuses once its document is built", async () => {
+    const result = await importGeoPackagePair(
+      scenario("invalid-interventions/invalid-hedgerow-very-low-enhanced")
+        .files,
+    );
+
+    expect(result).toMatchObject({
+      accepted: false,
+      rejectedFile: "postIntervention",
+    });
+    expect(result.errors[0].code).toBe("BASELINE_NOT_ENHANCEABLE");
+  });
 });
 
 describe.skipIf(!isBackendInstalled())("runMetricComparison", () => {

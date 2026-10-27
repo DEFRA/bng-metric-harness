@@ -82,8 +82,6 @@ export const INCOMPLETE_FEATURES = Object.freeze({
     "The service accepts an enhancement of a Low hedgerow whose time to target the metric gives as Not Possible, and saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
   "invalid-interventions/invalid-hedgerow-medium-trading-down":
     "The service accepts an enhancement of a Medium hedgerow to a Low one, and saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
-  "invalid-interventions/invalid-hedgerow-very-low-enhanced":
-    "The service accepts an enhancement of a Very Low hedgerow, which the metric does not allow, and saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
   "invalid-interventions/invalid-watercourse-culvert-enhanced":
     "The service accepts a culvert enhanced in place, which the metric does not offer, and saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
   "invalid-interventions/invalid-watercourse-medium-condition-reduced":
