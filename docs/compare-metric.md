@@ -17,34 +17,34 @@ needs `npm run install:be` first; `BNG_BACKEND_DIR` names another checkout (a
 worktree of a backend branch, say). The report is written to
 `metric-comparison/` in this repo:
 
-| File          | What it is                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| File | What it is |
+| --- | --- |
 | `report.html` | A short summary, in this order: the Met / Not met answers that differ from the metric, the values that differ for no known reason, the known causes of the rest, and what the service doesn't implement yet. Then each scenario, which opens to its full list of differences. Values are shown to 4 decimal places with their unit, and each difference is the service's value less the metric's, in the same unit |
-| `report.xlsx` | Every difference at full precision: a summary sheet, a guide to the units and columns, then one row per scenario, per difference and per figure not implemented, each with a frozen, filterable header and real numbers to sort by                                                                                                                                                                                 |
-| `report.md`   | The same, as Markdown                                                                                                                                                                                                                                                                                                                                                                                              |
-| `summary.md`  | The report without each scenario's detail (the CI job summary)                                                                                                                                                                                                                                                                                                                                                     |
-| `report.json` | Every result, for tooling                                                                                                                                                                                                                                                                                                                                                                                          |
+| `report.xlsx` | Every difference at full precision: a summary sheet, a guide to the units and columns, then one row per scenario, per difference and per figure not implemented, each with a frozen, filterable header and real numbers to sort by |
+| `report.md` | The same, as Markdown |
+| `summary.md` | The report without each scenario's detail (the CI job summary) |
+| `report.json` | Every result, for tooling |
 
-**Every value names its unit.** Each discrepancy carries its unit: habitat, hedgerow or watercourse units, % of baseline units for a net change, or Met / Not met for a verdict. A difference is in the same unit, except that two percentages differ by percentage points. Each per-feature row also gives the size the feature was priced on by each side, in ha or km, and the metric's strategic significance multiplier. Both reports open with a guide to every unit and column; in the spreadsheet it is the _Guide_ sheet.
+**Every value names its unit.** Each discrepancy carries its unit: habitat, hedgerow or watercourse units, % of baseline units for a net change, or Met / Not met for a verdict. A difference is in the same unit, except that two percentages differ by percentage points. Each per-feature row also gives the size the feature was priced on by each side, in ha or km, and the metric's strategic significance multiplier. Both reports open with a guide to every unit and column; in the spreadsheet it is the *Guide* sheet.
 
 **It singles out what nothing explains.** Every difference is reported, and
-the reports lead with the _unexplained_ ones. With `--fail-on-unexplained`, an
+the reports lead with the *unexplained* ones. With `--fail-on-unexplained`, an
 unexplained difference also makes the command exit non-zero, after the reports
 are written. CI passes that flag; see
 [What fails the build](#what-fails-the-build). A scenario the service throws an
-error on is reported too, as _Import failed in the service_ with the error,
+error on is reported too, as *Import failed in the service* with the error,
 and the run carries on with the rest: a crash in the service is a finding like
 any other, and is unexplained.
 
 ### What is compared
 
-| What                          | Figures                                                                                                                                                 |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unit calculations per feature | Each feature's baseline, retained, enhanced and created units, matched by reference (A-1 to C-3 in the workbook)                                        |
-| Unit totals                   | Baseline, post-intervention and net change, for each module                                                                                             |
-| Net gain                      | Net change (%) and the 10% verdict, for each module the site has                                                                                        |
-| Trading rules figures         | Each habitat's net change, the Medium broad habitat totals, Medium surplus and deficit, Low net change and the cumulative figure (area and watercourse) |
-| Trading rules statuses        | Met / Not met for each distinctiveness band                                                                                                             |
+| What | Figures |
+| --- | --- |
+| Unit calculations per feature | Each feature's baseline, retained, enhanced and created units, matched by reference (A-1 to C-3 in the workbook) |
+| Unit totals | Baseline, post-intervention and net change, for each module |
+| Net gain | Net change (%) and the 10% verdict, for each module the site has |
+| Trading rules figures | Each habitat's net change, the Medium broad habitat totals, Medium surplus and deficit, Low net change and the cumulative figure (area and watercourse) |
+| Trading rules statuses | Met / Not met for each distinctiveness band |
 
 **The comparison allows only floating-point noise.** Two numbers match when
 they differ by less than 1e-12 of the metric's value, or by less than 1e-12
@@ -220,7 +220,6 @@ does can skip the Sonar scan in `check-pull-request.yml`.
   The harness's own bng-library pin, the comparator and workbook reader, is
   the measuring instrument and stays as it is on both legs. The frontend
   plays no part, so it isn't watched.
-
 - **Whenever it runs.** The workflow runs on each harness merge, three times
   each weekday (07:17, 12:17 and 15:17 UTC) to pick up library merges within
   a few hours, and by hand from the Actions tab. The comparison takes
@@ -279,17 +278,16 @@ whether a run would pass.
 `scripts/metric-comparison/unexplained.mjs` decides which differences have a
 known explanation. A difference is explained when:
 
-| Difference                                                               | Explained when                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| A feature's units                                                        | Every cause bng-library finds for it is one the service does not implement yet: today, strategic significance. _Priced on a different size_ explains nothing: the service has fixed it, so it would be a regression.                                                                                                                                                                                                                                                     |
-| A unit total                                                             | Its module's feature units differ, all of them for a cause not implemented yet, and the total differs by exactly what those differences add up to: the baseline total by the baseline features' differences, the post-intervention total by the retained, enhanced and created features', and the net change by the second less the first. A total that moves further than its features do is unexplained, as is a differing total in a module whose features all match. |
-| The net change percentage and net gain verdict                           | The module's totals all reconcile as above, and the service's percentage is the metric's recomputed on totals moved by that much. The verdict is explained only where that percentage differs, since the service's verdict follows from its percentage.                                                                                                                                                                                                                  |
-| A trading rules figure or status                                         | The module's totals all reconcile as above. The feature figures do not say which habitat or band a feature is in, so trading figures cannot yet be reconciled feature by feature; this is the weakest of the checks.                                                                                                                                                                                                                                                     |
-| Any figure in a scenario built on invalid data that the service accepts  | `VALIDATION_GAPS` names the scenario and the check the service does not make yet. The metric computes nothing meaningful for invalid rows.                                                                                                                                                                                                                                                                                                                               |
-| A feature's units the metric has none for and the service prices at zero | `INCOMPLETE_FEATURES` names the scenario: the service accepts the feature by design and saves it Incomplete, with zero units: a blank or invalid strategic significance (BMD-1051), or an enhancement that breaks the enhancement rules, whose proposed attributes are nulled (BMD-820). Only those features are excused (_Saved Incomplete_); every other figure in the scenario is held to the rules above.                                                            |
+| Difference | Explained when |
+| --- | --- |
+| A feature's units | Every cause bng-library finds for it is one the service does not implement yet: today, strategic significance. *Priced on a different size* explains nothing: the service has fixed it, so it would be a regression. |
+| A unit total | Its module's feature units differ, all of them for a cause not implemented yet, and the total differs by exactly what those differences add up to: the baseline total by the baseline features' differences, the post-intervention total by the retained, enhanced and created features', and the net change by the second less the first. A total that moves further than its features do is unexplained, as is a differing total in a module whose features all match. |
+| The net change percentage and net gain verdict | The module's totals all reconcile as above, and the service's percentage is the metric's recomputed on totals moved by that much. The verdict is explained only where that percentage differs, since the service's verdict follows from its percentage. |
+| A trading rules figure or status | The module's totals all reconcile as above. The feature figures do not say which habitat or band a feature is in, so trading figures cannot yet be reconciled feature by feature; this is the weakest of the checks. |
+| Any figure in a scenario built on invalid data that the service accepts | `VALIDATION_GAPS` names the scenario and the check the service does not make yet. The metric computes nothing meaningful for invalid rows. |
+| A feature's units the metric has none for and the service prices at zero | `INCOMPLETE_FEATURES` names the scenario: the service accepts the feature by design and saves it Incomplete, with zero units: a blank or invalid strategic significance (BMD-1051), or an enhancement that breaks the enhancement rules, whose proposed attributes are nulled (BMD-820). Only those features are excused (*Saved Incomplete*); every other figure in the scenario is held to the rules above. |
 
 Everything else is unexplained:
-
 - a figure that differs for no known reason;
 - a figure one side has and the other does not;
 - a valid scenario the service refuses;
@@ -304,8 +302,8 @@ it can be removed.
 Strategic significance should soon explain nothing. The corpus follows the
 LNRS guidance (Low baselines; Low or High proposed values), and once
 bng-metric-backend#439 (hedgerows read their proposed value) has merged, no
-difference has that cause. bng-library should then stop treating it as _not
-implemented yet_, so a strategic significance difference fails like any other.
+difference has that cause. bng-library should then stop treating it as *not
+implemented yet*, so a strategic significance difference fails like any other.
 
 The service deliberately departs from the metric on strategic significance in
 two ways (BMD-1051), neither of which the corpus exercises: Medium (×1.10) is
@@ -318,7 +316,7 @@ rejects any `proposedStrategicSignificance` other than Low or High, so a
 scenario pinning Medium fails to load, and the one blank
 (`data-completeness/invalid-data-incomplete`) is excused, feature by feature,
 in `INCOMPLETE_FEATURES`. Should either become a corpus case, it needs its own
-cause, not the _Strategic significance not applied_ one.
+cause, not the *Strategic significance not applied* one.
 
 To accept a new kind of expected difference, explain it in `unexplained.mjs`
 (or, for a feature's units, as a cause in bng-library's
@@ -378,8 +376,8 @@ today reports different counts (one change is described after the list):
     nothing for these enhancements, while the service nulls their proposed
     attributes and saves them Incomplete at zero units. Their other figures
     all match.
-  - **`invalid-watercourse-encroachment-worsened`**: the metric reports _Check
-    Data_ and _N/A_, while the service computes its totals.
+  - **`invalid-watercourse-encroachment-worsened`**: the metric reports *Check
+    Data* and *N/A*, while the service computes its totals.
   - **`invalid-data-incomplete`** H004 to H006: the metric prices nothing for
     these enhancements with no proposed condition or strategic significance,
     while the service saves them Incomplete at zero units. Its other figures
@@ -403,16 +401,16 @@ and can be removed, and the test runs.
 
 How it got here:
 
-| Was                                        | Differences                                                     | What changed                                                                                                                                                                                                          |
-| ------------------------------------------ | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sizes rounded before pricing               | 488 per-feature, up to 0.005 units each                         | The service prices the measured size, unrounded, and the service and the workbooks both measure it with `bng-library/measure` (BMD-1042). The _Priced on a different size_ cause is kept to name it if it comes back. |
-| Floating-point noise in totals             | 38 figures, up to about 1e-13 of the value                      | Figures match within a tolerance of 1e-12 of the metric's value (BMD-1042).                                                                                                                                           |
-| Baseline strategic significance            | about 160 per-feature, and the totals and verdicts they flipped | The service prices every baseline at Low, as Defra's LNRS guidance requires; the corpus gave baselines High or Medium. It now follows the guidance (bng-library#68).                                                  |
-| Hedgerows' proposed strategic significance | 18 per-feature                                                  | The service never read a hedgerow's Proposed Strategic Significance, so priced it at Low (bng-metric-backend#439).                                                                                                    |
-| A habitat the metric spells two ways       | 2 trading figures                                               | "Ruderal/ephemeral" and "Ruderal/Ephemeral" are matched as one habitat (bng-library#68).                                                                                                                              |
+| Was | Differences | What changed |
+| --- | --- | --- |
+| Sizes rounded before pricing | 488 per-feature, up to 0.005 units each | The service prices the measured size, unrounded, and the service and the workbooks both measure it with `bng-library/measure` (BMD-1042). The *Priced on a different size* cause is kept to name it if it comes back. |
+| Floating-point noise in totals | 38 figures, up to about 1e-13 of the value | Figures match within a tolerance of 1e-12 of the metric's value (BMD-1042). |
+| Baseline strategic significance | about 160 per-feature, and the totals and verdicts they flipped | The service prices every baseline at Low, as Defra's LNRS guidance requires; the corpus gave baselines High or Medium. It now follows the guidance (bng-library#68). |
+| Hedgerows' proposed strategic significance | 18 per-feature | The service never read a hedgerow's Proposed Strategic Significance, so priced it at Low (bng-metric-backend#439). |
+| A habitat the metric spells two ways | 2 trading figures | "Ruderal/ephemeral" and "Ruderal/Ephemeral" are matched as one habitat (bng-library#68). |
 
 Until #439 merges, a run against the backend's `main` or #426 alone shows the
-hedgerow differences, explained as _Strategic significance not applied_.
+hedgerow differences, explained as *Strategic significance not applied*.
 
 ### BMD-1070: incomplete habitat calculations
 
