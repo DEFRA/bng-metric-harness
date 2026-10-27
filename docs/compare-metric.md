@@ -336,7 +336,9 @@ hedgerows read their proposed strategic significance), and on its main on
 on 2026-10-13 with the enhancement rules as revised (a culvert can no longer
 stay a culvert, and every enhancement needs a time to target the metric does
 not give as Not Possible), and on 2026-10-14 with a scenario for every
-enhancement rule the corpus did not yet cover:
+enhancement rule the corpus did not yet cover. The figures below are a snapshot
+of that 2026-10-14 run; the corpus and the service have changed since, so a run
+today reports different counts (one change is described after the list):
 
 - **All 39 valid scenarios match the metric**, in every figure compared.
 - `invalid-area-advance-and-delay` and `invalid-tree-advance-and-delay` are
@@ -376,10 +378,10 @@ enhancement rule the corpus did not yet cover:
 - 291 figures are not implemented in the service yet: the hedgerow trading
   statuses, and the Very High and High trading band statuses.
 
-With BMD-1182 (bng-metric-backend#544), `invalid-hedgerow-very-low-enhanced`
-is refused by the service, as expected: it enhances a Very Low hedgerow, a
-baseline the service cannot enhance at all, so the file is refused rather than
-the enhancement nulled. Its `INCOMPLETE_FEATURES` entry stays until #544 merges,
+Since that snapshot, with BMD-1182 (bng-metric-backend#544),
+`invalid-hedgerow-very-low-enhanced` is refused by the service, as expected:
+it enhances a Very Low hedgerow, a baseline the service cannot enhance at all,
+so the file is refused rather than the enhancement nulled. Its `INCOMPLETE_FEATURES` entry stays until #544 merges,
 because the backend's workflow runs the harness's `main`: without the entry, a
 run against a backend that still accepts the file would fail as an accepted
 invalid scenario nothing explains. Once #544 merges the entry is reported as
