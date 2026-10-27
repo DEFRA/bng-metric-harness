@@ -381,14 +381,8 @@ today reports different counts (one change is described after the list):
 Since that snapshot, with BMD-1182 (bng-metric-backend#544),
 `invalid-hedgerow-very-low-enhanced` is refused by the service, as expected:
 it enhances a Very Low hedgerow, a baseline the service cannot enhance at all,
-so the file is refused rather than the enhancement nulled. Its `INCOMPLETE_FEATURES` entry stays until #544 merges,
-because the backend's workflow runs the harness's `main`: without the entry, a
-run against a backend that still accepts the file would fail as an accepted
-invalid scenario nothing explains. For the same reason the `importGeoPackagePair`
-test that expects the refusal skips against a backend without it (one whose
-post-intervention save handlers have no `refuseDocument`), so this harness can
-merge before #544. Once #544 merges the entry is reported as stale, a warning,
-and can be removed, and the test runs.
+so the file is refused rather than the enhancement nulled, and it has no entry
+in `INCOMPLETE_FEATURES`.
 
 How it got here:
 
