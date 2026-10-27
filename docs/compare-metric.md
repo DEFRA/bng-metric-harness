@@ -376,6 +376,11 @@ enhancement rule the corpus did not yet cover:
 - 291 figures are not implemented in the service yet: the hedgerow trading
   statuses, and the Very High and High trading band statuses.
 
+Since BMD-1182 (2026-10-27), `invalid-hedgerow-very-low-enhanced` is refused
+by the service, as expected: it enhances a Very Low hedgerow, a baseline the
+service cannot enhance at all, so the file is refused rather than the
+enhancement nulled, and its entry has left `INCOMPLETE_FEATURES`.
+
 How it got here:
 
 | Was | Differences | What changed |
