@@ -9264,6 +9264,203 @@
       }
     },
     {
+      "id": "trading-trade-up-without-watercourse",
+      "purpose": "trading-rules",
+      "title": "Trading rules — replaced by a higher distinctiveness, area and hedgerows",
+      "description": "Area: a Low grassland is replaced by a Medium one. Hedgerows: a Low hedgerow is replaced by two Medium hedgerows. Trading up is always allowed, so every rule is met.",
+      "size": 2,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H001",
+        "note": "the first area parcel; see the description for every layer"
+      },
+      "files": {
+        "geoPackage": "trading-rules/trading-trade-up-without-watercourse.gpkg",
+        "baselineStage": "trading-rules/trading-trade-up-without-watercourse-baseline.gpkg",
+        "workbook": "trading-rules/trading-trade-up-without-watercourse.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "every value one the BNG Service template offers",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "every post-intervention feature names its parent",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "area trading rule, Medium",
+          "expected": "met",
+          "actual": "met",
+          "passed": true
+        },
+        {
+          "check": "area trading rule, Low",
+          "expected": "met",
+          "actual": "met",
+          "passed": true
+        },
+        {
+          "check": "hedgerow trading rule, Medium",
+          "expected": "met",
+          "actual": "met",
+          "passed": true
+        },
+        {
+          "check": "hedgerow trading rule, Low",
+          "expected": "met",
+          "actual": "met",
+          "passed": true
+        },
+        {
+          "check": "hedgerow trading rule, Very Low",
+          "expected": "met",
+          "actual": "met",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookSource": "09f800f60abf65723f14fc39a571ff47650a815d773b267a20b1cc966d9fd5d4",
+      "inputRows": {
+        "habitatBaseline": 2,
+        "habitatCreation": 1,
+        "habitatEnhancement": 0,
+        "hedgerowBaseline": 1,
+        "hedgerowCreation": 2,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 0,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 0
+      },
+      "rejectedInputs": [],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 280.2890538844,
+            "hedgerow": 1.37859705565932,
+            "watercourse": 0
+          },
+          "postInterventionUnits": {
+            "area": 420.845090186335,
+            "hedgerow": 5.26692258246767,
+            "watercourse": 0
+          },
+          "netUnitChange": {
+            "area": 140.556036301935,
+            "hedgerow": 3.88832552680835,
+            "watercourse": 0
+          },
+          "netPercentChange": {
+            "area": 0.501468160650699,
+            "hedgerow": 2.82049458240627,
+            "watercourse": 0
+          },
+          "netGainMessage": {
+            "area": null,
+            "hedgerow": null,
+            "watercourse": null
+          },
+          "unitsRequired": {
+            "area": 308.31795927284,
+            "hedgerow": 1.51645676122525,
+            "watercourse": 0
+          },
+          "unitDeficit": {
+            "area": 0,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "Yes ✓",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": 140.556036301935
+        },
+        "sheetWarnings": [],
+        "rowWarnings": []
+      }
+    },
+    {
       "id": "trading-low-for-low",
       "purpose": "trading-rules",
       "title": "Trading rules — Low replaced by Low in another habitat",
