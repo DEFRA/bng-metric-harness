@@ -115,49 +115,29 @@ function flawInfo(name) {
 const IRREPLACEABLE_NOT_CHECKED =
   "Accepted today: the service does not check irreplaceable habitats yet";
 
-const DEGRADE_NOT_CHECKED =
-  "Accepted today: the service does not check habitats that get worse yet";
-
 /**
- * The outcome BMD-1081 asks for, where the service does not give it yet.
- * bng-library's note on these flaws describes today's behaviour, which reads
- * as the expectation in a README, so each says both.
+ * What the backend does with these flaws, where bng-library's code or note
+ * for the flaw says otherwise. Each wins over the library's, so a stale code
+ * there cannot reach the README; delete an entry once the library agrees.
+ * Checked against DEFRA/bng-metric-backend#541 and #542 (BMD-1083).
  */
-const NOT_ENFORCED_YET = {
-  "lineage-parent-geom-missing":
-    "refused. Accepted today: the service skips the shape check on a linked row with no parent_geom",
-  "degrade-watercourse-advance-not-encroachment": `saved as Incomplete. ${DEGRADE_NOT_CHECKED}`,
-  "degrade-watercourse-encroachment-no-advance": `saved as Incomplete. ${DEGRADE_NOT_CHECKED}`,
+const BACKEND_OUTCOMES = {
+  "lineage-parent-missing": "STAGED_PARENT_LINK_MISSING",
+  "lineage-parent-wrong":
+    "refused. Accepted today: the service compares the parent's shape with the one the row recorded, not with the row's own shape",
+  "lineage-parent-geom-missing": "STAGED_BASELINE_DRIFTED",
+  "degrade-watercourse-advance-not-encroachment":
+    "saved as Incomplete, with its years created in advance cleared",
+  "degrade-watercourse-encroachment-no-advance":
+    "saved as Incomplete, for want of years created in advance",
 };
 
 /**
- * The code the backend refuses these flaws with, where bng-library records
- * none for them yet (its NO_BACKEND_CODE_YET). The backend gives them with the
- * service-template flag on, as it does every BNG Service template outcome here.
- * Used only while the library has its placeholder, so once a repin brings the
- * library's own code, that code wins and these entries can be deleted.
- */
-const BACKEND_CODES = {
-  "version-record-missing": "TEMPLATE_VERSION_MISSING",
-  "version-record-duplicated": "TEMPLATE_VERSION_DUPLICATED",
-  "version-unsupported": "TEMPLATE_VERSION_UNSUPPORTED",
-};
-
-/** A backend error code, such as TEMPLATE_VERSION_MISSING, not a placeholder. */
-const BACKEND_CODE = /^[A-Z][A-Z0-9_]*$/;
-
-/**
- * What the service does with a file carrying the named flaw: the outcome asked
- * for where it is not enforced yet, else the library's code, else ours.
+ * What the service does with a file carrying the named flaw: ours where we
+ * record it, else the library's code.
  */
 function expectedForFlaw(name, flaw) {
-  if (NOT_ENFORCED_YET[name]) {
-    return NOT_ENFORCED_YET[name];
-  }
-  if (BACKEND_CODE.test(flaw.errorCode)) {
-    return flaw.errorCode;
-  }
-  return BACKEND_CODES[name] ?? flaw.errorCode;
+  return BACKEND_OUTCOMES[name] ?? flaw.errorCode;
 }
 
 /**

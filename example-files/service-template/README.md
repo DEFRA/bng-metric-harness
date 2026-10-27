@@ -141,11 +141,11 @@ A post-intervention feature names its baseline parent wrongly. `npm run check:li
 
 | File | Covers | Expected | Built from |
 | ---- | ------ | -------- | ---------- |
-| `lineage-parent-missing.gpkg` | a Retained area habitat carries no Parent Ref, parent_uuid or parent_geom, so its parent must be inferred from its shape | STAGED_PARENT_INFERRED | seed 1, flaw `lineage-parent-missing` |
+| `lineage-parent-missing.gpkg` | a Retained area habitat carries no Parent Ref, parent_uuid or parent_geom, so its parent must be inferred from its shape | STAGED_PARENT_LINK_MISSING | seed 1, flaw `lineage-parent-missing` |
 | `lineage-parent-unknown.gpkg` | a Retained area habitat names a parent, by Parent Ref and parent_uuid, that is not in the baseline | STAGED_UNKNOWN_PARENT_REF | seed 1, flaw `lineage-parent-unknown` |
-| `lineage-parent-wrong.gpkg` | a Retained area habitat names another baseline parcel as its parent, so it lies outside the parent it names | STAGED_PI_OUTSIDE_PARENT | seed 1, flaw `lineage-parent-wrong` |
+| `lineage-parent-wrong.gpkg` | a Retained area habitat names another baseline parcel as its parent, so it lies outside the parent it names | refused. Accepted today: the service compares the parent's shape with the one the row recorded, not with the row's own shape | seed 1, flaw `lineage-parent-wrong` |
 | `lineage-parent-geom-mismatch.gpkg` | a Retained area habitat's parent_geom is its parent's shape moved 5 m, as if the baseline changed after the copy | STAGED_BASELINE_DRIFTED | seed 1, flaw `lineage-parent-geom-mismatch` |
-| `lineage-parent-geom-missing.gpkg` | a Retained area habitat names its parent by Parent Ref and parent_uuid, but has no parent_geom, so the parent's shape cannot be compared | refused. Accepted today: the service skips the shape check on a linked row with no parent_geom | seed 1, flaw `lineage-parent-geom-missing` |
+| `lineage-parent-geom-missing.gpkg` | a Retained area habitat names its parent by Parent Ref and parent_uuid, but has no parent_geom, so the parent's shape cannot be compared | STAGED_BASELINE_DRIFTED | seed 1, flaw `lineage-parent-geom-missing` |
 
 ## incomplete/
 
@@ -153,8 +153,8 @@ A watercourse that gets worse is recorded in a way the service saves as Incomple
 
 | File | Covers | Expected | Built from |
 | ---- | ------ | -------- | ---------- |
-| `degrade-watercourse-advance-not-encroachment.gpkg` | a watercourse whose condition gets worse, with no change of encroachment, is created 10 years in advance, which the Metric allows only where encroachment increases with no other impact | saved as Incomplete. Accepted today: the service does not check habitats that get worse yet | seed 1, flaw `degrade-watercourse-advance-not-encroachment` |
-| `degrade-watercourse-encroachment-no-advance.gpkg` | a watercourse whose only change is more encroachment has no years created in advance, though the Metric allows 10 or more for it | saved as Incomplete. Accepted today: the service does not check habitats that get worse yet | seed 1, flaw `degrade-watercourse-encroachment-no-advance` |
+| `degrade-watercourse-advance-not-encroachment.gpkg` | a watercourse whose condition gets worse, with no change of encroachment, is created 10 years in advance, which the Metric allows only where encroachment increases with no other impact | saved as Incomplete, with its years created in advance cleared | seed 1, flaw `degrade-watercourse-advance-not-encroachment` |
+| `degrade-watercourse-encroachment-no-advance.gpkg` | a watercourse whose only change is more encroachment has no years created in advance, though the Metric allows 10 or more for it | saved as Incomplete, for want of years created in advance | seed 1, flaw `degrade-watercourse-encroachment-no-advance` |
 
 ## version-problems/
 
