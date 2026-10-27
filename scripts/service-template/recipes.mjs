@@ -116,16 +116,15 @@ const IRREPLACEABLE_NOT_CHECKED =
   "Accepted today: the service does not check irreplaceable habitats yet";
 
 /**
- * What the backend does with these flaws, where bng-library's code or note
- * for the flaw says otherwise. Each wins over the library's, so a stale code
- * there cannot reach the README; delete an entry once the library agrees.
- * Checked against DEFRA/bng-metric-backend#541 and #542 (BMD-1083).
+ * What the README says for these flaws in place of bng-library's note: the
+ * two Incomplete outcomes in plain words, and the refusal lineage-parent-wrong
+ * still waits for, where the library records only that it is accepted today.
+ * Each wins over the library's code. Checked against
+ * DEFRA/bng-metric-backend#541 and #542 (BMD-1083).
  */
 const BACKEND_OUTCOMES = {
-  "lineage-parent-missing": "STAGED_PARENT_LINK_MISSING",
   "lineage-parent-wrong":
     "refused. Accepted today: the service compares the parent's shape with the one the row recorded, not with the row's own shape",
-  "lineage-parent-geom-missing": "STAGED_BASELINE_DRIFTED",
   "degrade-watercourse-advance-not-encroachment":
     "saved as Incomplete, with its years created in advance cleared",
   "degrade-watercourse-encroachment-no-advance":
