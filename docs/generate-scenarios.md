@@ -131,23 +131,29 @@ restores Lost rows across all four layers and asserts their saved behaviour.
 
 The workbook reads both halves of the pair so that changing a PI label does not
 remove the original baseline loss. For every generated PI row, expected
-calculation inputs follow AC3/AC5 independently of the backend. Under BMD-1070,
-missing or conflicting timing on actual Created/Enhanced rows leaves those rows
-unpriced. Retained/Lost timing is redundant: it is saved null and pricing uses
-no advance/delay credit. The GeoPackage keeps its raw values. The workbook
-projection is recorded in `workbookTimingChanges`; no calculated service result
-is copied into it.
+calculation inputs follow AC3/AC5 independently of the backend. Lost area
+replacements follow the Created rules: valid advance/delay values are retained
+and used for pricing. For Created/Enhanced rows, including Lost area replacements,
+conflicting positive values are both nulled; missing required timing also leaves
+the row unpriced under BMD-1070. Retained timing is redundant: it is saved null
+and pricing uses no advance/delay credit. Lost hedgerows, watercourses and trees
+remain absent from PI; their baseline loss remains. The GeoPackage keeps its raw
+values. Changes to the workbook inputs are recorded in `workbookTimingChanges`;
+no calculated service result is copied into it.
 
-`expectedImport` separately requires acceptance and the saved null attributes
-(or the existing exclusion of Lost hedgerows, watercourses and trees). The
-comparison fails if those assertions fail, then compares every workbook figure
-normally. Raw-invalid filenames remain `invalid-...`; their successful cleansing
-is an explicit contract rather than a blanket exception.
+`expectedImport` separately requires acceptance, the exact saved timing values,
+and the expected status. Incomplete timing cases also require null units; valid
+Lost area timing, such as H002's advance 4 / delay 0, must remain populated.
+Lost hedgerows, watercourses and trees must remain absent from PI. The comparison
+fails if those assertions fail, then compares every workbook figure normally.
+Raw-invalid filenames remain `invalid-...`; their successful cleansing is an
+explicit contract rather than a blanket exception.
 
-The `import-timing` purpose covers Created/Enhanced conflicting timing, null
-timing, and Retained/Lost redundant timing across all four layers. The existing
-advance/difficulty scenarios retain genuine Created controls with advance
-credit, and the raw conflicting area/tree scenarios now expect acceptance.
+The `import-timing` purpose covers Created/Enhanced conflicting and missing
+timing, valid and incomplete Lost area replacement timing, Retained redundant
+timing, and excluded Lost linear/tree rows. The existing advance/difficulty
+scenarios retain genuine Created controls with advance credit, and the raw
+conflicting area/tree scenarios now expect acceptance.
 
 ### Why the answers can be trusted
 
@@ -480,13 +486,15 @@ workbooks for download.
 ### BMD-1070: incomplete habitat calculations
 
 The import timing scenarios retain their raw GeoPackage values. Their manifest
-contracts assert both saved null timing and null units with Incomplete status
-for actual Created/Enhanced habitats. Retained habitats and original Lost area
-replacements still calculate without timing credit.
+contracts assert the saved timing and require null units with Incomplete status
+when required timing is missing or conflicting on Created/Enhanced habitats,
+including original Lost area replacements. Valid Lost area timing is retained
+and priced. Retained habitats save redundant timing as null and calculate
+without timing credit. Lost linear features and trees remain absent from PI.
 
 The workbook treats blank timing cells as zero, so an incomplete Created or
-Enhanced row is left unpriced by blanking its required condition in the workbook
-input projection. The row remains in position so enhancement pairing is preserved;
+Enhanced row, including a Lost area replacement, is left unpriced by blanking
+its required condition in the workbook input projection. The row remains in position so enhancement pairing is preserved;
 its baseline row and loss/allocation remain. The manifest records this projection.
 This is an independent input policy,
 not a copied service result or a discrepancy exemption. Numerical comparisons

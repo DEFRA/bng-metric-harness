@@ -12474,7 +12474,7 @@
       "subject": {
         "layer": "Habitats",
         "ref": "H001",
-        "note": "Raw timing remains on the GeoPackage; saved timing must be null."
+        "note": "Raw timing remains on the GeoPackage; saved timing follows the import rules."
       },
       "files": {
         "baseline": "import-timing/invalid-timing-conflicting-created-enhanced-baseline.gpkg",
@@ -13102,7 +13102,7 @@
       "subject": {
         "layer": "Habitats",
         "ref": "H001",
-        "note": "Raw timing remains on the GeoPackage; saved timing must be null."
+        "note": "Raw timing remains on the GeoPackage; saved timing follows the import rules."
       },
       "files": {
         "baseline": "import-timing/null-timing-created-enhanced-baseline.gpkg",
@@ -13739,13 +13739,13 @@
     {
       "id": "invalid-timing-retained-lost",
       "purpose": "import-timing",
-      "title": "Retained and Lost: redundant timing is cleared",
-      "description": "AC5: populated timing is cleared on Retained/Lost features. Lost linear features and trees remain absent from the PI document; the baseline is preserved.",
+      "title": "Retained and Lost: redundant timing is cleared except area replacements",
+      "description": "AC5: populated timing is cleared on Retained features. Lost area replacements retain their timing as Created; Lost linear features and trees remain absent from the PI document; the baseline is preserved.",
       "size": 2,
       "subject": {
         "layer": "Habitats",
         "ref": "H001",
-        "note": "Raw timing remains on the GeoPackage; saved timing must be null."
+        "note": "Raw timing remains on the GeoPackage; saved timing follows the import rules."
       },
       "files": {
         "baseline": "import-timing/invalid-timing-retained-lost-baseline.gpkg",
@@ -13768,8 +13768,8 @@
             "layer": "habitats",
             "ref": "H002",
             "proposed": {
-              "advanceYears": null,
-              "delayYears": null
+              "advanceYears": 4,
+              "delayYears": 0
             },
             "status": "Complete"
           },
@@ -13832,22 +13832,7 @@
           "passed": true
         }
       ],
-      "workbookTimingChanges": [
-        {
-          "sheet": "habitatCreation",
-          "reference": "H002",
-          "retention": "Lost",
-          "raw": {
-            "advanceYears": "4",
-            "delayYears": "0"
-          },
-          "metric": {
-            "advanceYears": 0,
-            "delayYears": 0
-          }
-        }
-      ],
-      "workbookSource": "67c8ce64ba807521c3b3e4f54208b2c73fa35e03002fd085b10566d5b6729813",
+      "workbookSource": "cd00b812881f39df0d8da4b3b06341d829faa4c1d39ddc59a3ca25cab6a87ee7",
       "inputRows": {
         "habitatBaseline": 4,
         "habitatCreation": 1,
@@ -13869,22 +13854,22 @@
             "watercourse": 7.13975669574493
           },
           "postInterventionUnits": {
-            "area": 235.256781299572,
+            "area": 257.25241546837,
             "hedgerow": 1.81798846631207,
             "watercourse": 3.51491534785856
           },
           "netUnitChange": {
-            "area": 20.7194273099153,
+            "area": 42.7150614787138,
             "hedgerow": -3.15287860243445,
             "watercourse": -3.62484134788637
           },
           "netPercentChange": {
-            "area": 0.0965772483187906,
+            "area": 0.199103143039479,
             "hedgerow": -0.63427135725629,
             "watercourse": -0.507698161485904
           },
           "netGainMessage": {
-            "area": "On-site net gain is less than target set ⚠",
+            "area": null,
             "hedgerow": "On-site net gain is less than target set ⚠",
             "watercourse": "On-site net gain is less than target set ⚠"
           },
@@ -13894,7 +13879,7 @@
             "watercourse": 7.85373236531942
           },
           "unitDeficit": {
-            "area": 0.734308089050359,
+            "area": 0,
             "hedgerow": 3.6499653093091,
             "watercourse": 4.33881701746087
           },
@@ -13965,7 +13950,7 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 20.7522273099153
+          "areaCumulativeSurplus": 42.7478614787138
         },
         "sheetWarnings": [
           {
@@ -14014,7 +13999,16 @@
             "message": "No - check trading summary ▲"
           }
         ],
-        "rowWarnings": []
+        "rowWarnings": [
+          {
+            "sheet": "habitatCreation",
+            "reference": "H002",
+            "message": "Check details - Is there evidence habitat creation started and the threshold for Poor condition reached? ⚠",
+            "cells": [
+              "R11"
+            ]
+          }
+        ]
       }
     }
   ]

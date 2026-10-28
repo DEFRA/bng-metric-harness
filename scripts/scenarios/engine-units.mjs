@@ -52,6 +52,7 @@ function postInterventionUnits(engine, row, sizeHa) {
   const { advanceYears: advance, delayYears: delay } = metricTiming(
     retention,
     ...row.timing,
+    "Habitats",
   );
 
   if (retention === RETAINED) {

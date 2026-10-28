@@ -80,7 +80,7 @@ function timingScenario(id, title, description, retentions, advance, delay) {
     subject: {
       layer: "Habitats",
       ref: "H001",
-      note: "Raw timing remains on the GeoPackage; saved timing must be null.",
+      note: "Raw timing remains on the GeoPackage; saved timing follows the import rules.",
     },
   };
 }
@@ -103,8 +103,8 @@ const additions = [
   ),
   timingScenario(
     "invalid-timing-retained-lost",
-    "Retained and Lost: redundant timing is cleared",
-    "AC5: populated timing is cleared on Retained/Lost features. Lost linear features and trees remain absent from the PI document; the baseline is preserved.",
+    "Retained and Lost: redundant timing is cleared except area replacements",
+    "AC5: populated timing is cleared on Retained features. Lost area replacements retain their timing as Created; Lost linear features and trees remain absent from the PI document; the baseline is preserved.",
     ["Retained", "Lost"],
     "4",
     "0",

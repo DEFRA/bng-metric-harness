@@ -10,6 +10,7 @@ import {
   filterProjectedInputIssues,
 } from "../../../scripts/scenarios/import-workbook-rows.mjs";
 import {
+  expectedImport,
   metricTiming,
   readTimingInputs,
 } from "../../../scripts/scenarios/import-timing.mjs";
@@ -47,6 +48,54 @@ function pair(id) {
   };
 }
 
+describe("Lost area saved-value contracts", () => {
+  it.each([
+    ["4", "0", 4, 0, "Complete"],
+    ["0", "4", 0, 4, "Complete"],
+    ["30+", "0", 30, 0, "Complete"],
+    ["2", "3", null, null, "Incomplete"],
+    [null, "0", null, 0, "Incomplete"],
+    ["0", null, 0, null, "Incomplete"],
+    [null, null, null, null, "Incomplete"],
+  ])(
+    "asserts Lost area timing %j/%j and completeness",
+    (advance, delay, advanceYears, delayYears, status) => {
+      const contract = expectedImport([
+        { layer: "Habitats", ref: "H002", retention: "Lost", advance, delay },
+      ]);
+      expect(contract).toEqual({
+        accepted: true,
+        features: [
+          {
+            layer: "habitats",
+            ref: "H002",
+            proposed: { advanceYears, delayYears },
+            status,
+            ...(status === "Incomplete" ? { units: null } : {}),
+          },
+        ],
+      });
+      expect(Object.hasOwn(contract.features[0], "units")).toBe(
+        status === "Incomplete",
+      );
+    },
+  );
+
+  it("writes preserved Lost-area timing into the generated manifest contract", () => {
+    const { entry } = pair("invalid-timing-retained-lost");
+    const saved = entry.expectedImport.features.find(
+      (f) => f.layer === "habitats" && f.ref === "H002",
+    );
+    expect(saved).toEqual({
+      layer: "habitats",
+      ref: "H002",
+      proposed: { advanceYears: 4, delayYears: 0 },
+      status: "Complete",
+    });
+    expect(Object.hasOwn(saved, "units")).toBe(false);
+  });
+});
+
 describe("independent AC3-AC5 workbook timing inputs", () => {
   it.each([
     ["Created", 2, 3, null, null],
@@ -59,7 +108,9 @@ describe("independent AC3-AC5 workbook timing inputs", () => {
     ["Enhanced", 0, null, 0, null],
     ["Created", " ", "0", null, 0],
     ["Retained", 4, 0, 0, 0],
-    ["Lost", 0, 4, 0, 0],
+    ["Lost", 0, 4, 0, 4],
+    ["Lost", 2, 3, null, null],
+    ["Lost", null, null, null, null],
   ])(
     "%s timing %s/%s becomes %s/%s only in workbook inputs",
     (retention, advance, delay, a, d) => {
@@ -125,24 +176,19 @@ describe("independent AC3-AC5 workbook timing inputs", () => {
     expect(timingChanges).toEqual([]);
   });
 
-  it("prices Lost replacements without timing credit and retains the baseline loss", () => {
+  it("prices Lost replacements with their timing credit and retains the baseline loss", () => {
     const { baseline, pi } = pair("invalid-timing-retained-lost");
     const { rows, timingChanges } = importWorkbookRows(baseline, pi);
     expect(rows.habitatCreation).toEqual([
       expect.objectContaining({
         reference: "H002",
         condition: "Good",
-        advanceYears: 0,
+        advanceYears: 4,
         delayYears: 0,
       }),
     ]);
     expect(rows.habitatBaseline.map((r) => r.reference)).toContain("H002");
-    expect(timingChanges).toHaveLength(1);
-    expect(timingChanges[0]).toMatchObject({
-      retention: "Lost",
-      raw: { advanceYears: "4", delayYears: "0" },
-      metric: { advanceYears: 0, delayYears: 0 },
-    });
+    expect(timingChanges).toEqual([]);
   });
 
   it.each(cases)(
@@ -206,7 +252,7 @@ describe.skipIf(!isBackendInstalled())(
 );
 
 describe("generator net-gain checks use the expected import timing", () => {
-  it("does not count advance credit on a raw Lost area", async () => {
+  it("counts advance credit on a raw Lost area replacement", async () => {
     const { pi } = pair("invalid-timing-retained-lost");
     const engine = await loadEngine();
     const db = new Database(pi, { readonly: true });
@@ -228,7 +274,7 @@ describe("generator net-gain checks use the expected import timing", () => {
         areas[1].area / 10000,
         "Grassland - Modified grassland",
         "Good",
-        0,
+        4,
         0,
       ).units;
     const expectedBaseline = areas.reduce(

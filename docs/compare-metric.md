@@ -147,21 +147,30 @@ flowchart LR
 ### Cleansed import expectations
 
 For BMD-1060 timing cases, `manifest.json` declares `expectedImport`: the service
-must accept the file and save both timing fields as null on the named features.
-Lost linear features and trees must remain absent from PI, as in the existing
-importer. A rejection, missing/duplicate feature, or zero instead of null fails
-the comparison before any numerical checks. Malformed contracts, missing PI
+must accept the file and save the exact timing values and status on the named
+features. Retained timing is redundant and must save as null. Lost area
+replacements follow Created rules: valid timing is retained (for example,
+H002's advance 4 / delay 0), while conflicting positive values are both nulled.
+Missing required timing or a conflict leaves Created/Enhanced rows, including
+Lost area replacements, Incomplete with null units. Lost linear features and
+trees must remain absent from PI, as in the existing importer. A rejection,
+missing/duplicate feature, an unexpected timing value, or zero instead of a
+required null fails the comparison before any numerical checks. Malformed contracts, missing PI
 files and directories used as files also fail. A full run additionally rejects
 contracts whose PI file does not belong to a discovered scenario (a complete
 GeoPackage pair and workbook). Filtered `--only` runs allow contracts for
 unselected scenarios; their referenced files must still exist.
 
 The corresponding workbook is recalculated from independently prepared expected
-inputs: AC3/AC5 clear timing, and the existing calculation treats null timing as
-zero. Raw geopackages retain the entered values. After the attribute assertions
-pass, every feature unit, total and trading figure is compared normally. No new
-entries are added to `VALIDATION_GAPS` or `INCOMPLETE_FEATURES`. The JSON result
-retains `rawInvalidData` and the contract even when the cleansed scenario matches.
+inputs. Valid Lost area timing is used for its Created replacement calculation;
+Retained rows receive no timing credit. Because the workbook treats blank timing
+as zero, a Created/Enhanced row with incomplete timing, including a Lost area
+replacement, is left unpriced by blanking its required condition in the workbook
+projection. Raw GeoPackages retain the entered values. After the attribute
+assertions pass, every feature unit, total and trading figure is compared
+normally. No new entries are added to `VALIDATION_GAPS` or `INCOMPLETE_FEATURES`.
+The JSON result retains `rawInvalidData` and the contract even when the cleansed
+scenario matches.
 
 The pair adapter uses the explicit baseline file as the arithmetic comparison
 baseline. It does not test the combined upload route's replacement/derivation

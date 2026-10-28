@@ -27,10 +27,14 @@ function validateFeature(expected) {
   if (
     expected.absent ||
     fields.length !== TIMING_FIELDS.size ||
-    fields.some(([key, value]) => !TIMING_FIELDS.has(key) || value !== null)
+    fields.some(
+      ([key, value]) =>
+        !TIMING_FIELDS.has(key) ||
+        (value !== null && (!Number.isFinite(value) || value < 0)),
+    )
   ) {
     throw new Error(
-      "Import expectations require saved null timing fields or explicit absence",
+      "Import expectations require saved numeric or null timing fields or explicit absence",
     );
   }
 }
