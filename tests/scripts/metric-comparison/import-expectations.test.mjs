@@ -161,6 +161,18 @@ describe("manifest acceptance contracts", () => {
     ).toEqual(expected);
   });
   it.each([
+    ...["advanceYears", "delayYears"].flatMap((field) =>
+      [-1, "4"].map((value) => ({
+        accepted: true,
+        features: [
+          {
+            layer: "habitats",
+            ref: "H001",
+            proposed: { advanceYears: 0, delayYears: 0, [field]: value },
+          },
+        ],
+      })),
+    ),
     { accepted: false, features: expected.features },
     { accepted: true, features: [] },
     {
@@ -189,6 +201,25 @@ describe("manifest acceptance contracts", () => {
       expect(() =>
         readImportExpectations(manifestDirectory(contract)),
       ).toThrow();
+    },
+  );
+  it.each(["NaN", "1e400", "-1e400"])(
+    "refuses non-finite timing in the manifest: %s",
+    (rawValue) => {
+      const contract = structuredClone(expected);
+      contract.features[0].proposed.advanceYears = 4;
+      const directory = manifestDirectory(contract);
+      const file = path.join(directory, "manifest.json");
+      // JSON.stringify turns NaN/Infinity into null. Write the raw token so
+      // NaN exercises invalid JSON and overflow exercises numeric validation.
+      writeFileSync(
+        file,
+        readFileSync(file, "utf8").replace(
+          '"advanceYears":4',
+          `"advanceYears":${rawValue}`,
+        ),
+      );
+      expect(() => readImportExpectations(directory)).toThrow();
     },
   );
   it.each(["missing.gpkg", undefined, ""])(
