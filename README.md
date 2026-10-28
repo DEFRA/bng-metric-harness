@@ -268,7 +268,7 @@ npm run perf
 
 This drives **bng-perf-tests' own container** — the same image, `entrypoint.sh` and plan a CDP task runs — rather than a second copy of the pipeline maintained here. Minting the stub token, seeding the owner's projects, staging the uploads, running JMeter and summarising the result all live in that container, so a local run is literally what CDP runs. The harness only builds the image, tells it where the local stack is, and reports the outcome.
 
-The suite is a **single** plan, `bng-perf-tests/scenarios/bng-perf.jmx`, holding every thread group: the public home page, the authenticated project-list endpoints ([BMD-933](https://eaflood.atlassian.net/browse/BMD-933)), and the upload size and concurrency ramps with a background probe running alongside them ([BMD-982](https://eaflood.atlassian.net/browse/BMD-982)). One run, one report — the HTML dashboard lands in `bng-perf-tests/reports/`, and a plain-English summary is printed to the terminal.
+The suite is a **single** plan, `bng-perf-tests/scenarios/bng-perf.jmx` (with a generated twin for the BNG Service template, below), holding every thread group: the public home page, the authenticated project-list endpoints ([BMD-933](https://eaflood.atlassian.net/browse/BMD-933)), and the upload size and concurrency ramps with a background probe running alongside them ([BMD-982](https://eaflood.atlassian.net/browse/BMD-982)). One run, one report — the HTML dashboard lands in `bng-perf-tests/reports/`, and a plain-English summary is printed to the terminal.
 
 Budget **~5 minutes** for the run plus up to a minute of staging: the upload phases generate real GeoPackages and push them through the CDP Uploader before JMeter starts, so what they measure is the service's `validate` call and not the uploader's scan.
 
@@ -284,6 +284,21 @@ Assertion failures **do not** fail the run. The project-list group encodes unshi
 | `PERF_HOST`                                                                            | `localhost`                   | Where the stack is; `localhost` is translated to `host.docker.internal` for the container. |
 | `PERF_FRONTEND_PORT` / `PERF_BACKEND_PORT` / `PERF_STUB_PORT` / `PERF_UPLOADER_PORT`   | `3000` / `3001` / `3200` / `7337` | Ports on that host.                                                                    |
 | `PERF_SCENARIO`                                                                        | unset                         | Escape hatch for a different `scenarios/<name>.jmx`.                                       |
+| `PERF_TEMPLATE`                                                                        | unset (`legacy`)              | `service` runs the suite with the BNG Service template — see below.                        |
+
+#### The BNG Service template — `PERF_TEMPLATE=service`
+
+The backend accepts one upload template or the other, never both, so the run has to match how the stack was started:
+
+```sh
+npm run dev                                    # legacy template (the default)
+npm run perf
+
+npm run dev:service-template                   # SERVICE_TEMPLATE_ENABLED=true
+PERF_TEMPLATE=service npm run perf
+```
+
+`PERF_TEMPLATE=service` becomes the container's `UPLOAD_TEMPLATE=service`: it runs `scenarios/bng-perf-template.jmx`, the same suite generated for the template, uploading one `fixtures/template-<size>.gpkg` per size that holds both stages. Its summary lines up row for row with a legacy run's. A mismatch with the stack's flag stops the run at staging, naming the flag the stack needs, rather than measuring rejections. Details in [bng-perf-tests' README](https://github.com/DEFRA/bng-perf-tests#the-bng-service-template--upload_templateservice).
 
 The per-phase tunables — file sizes, phase durations, concurrency steps, latency budgets — belong to the container rather than to the harness, and are documented in [bng-perf-tests' README](https://github.com/DEFRA/bng-perf-tests#readme). To change one, run that container directly (`docker compose up --build` in `bng-perf-tests`).
 
