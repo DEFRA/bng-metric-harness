@@ -30,7 +30,7 @@ jobs:
       # The Python the committed bng-500/ files were converted with, so a
       # runner image's new Python cannot change them.
       - name: Setup Python
-        uses: actions/setup-python@v7.0.0
+        uses: actions/setup-python@v7.1.0
         with:
           python-version: '3.13'
 
