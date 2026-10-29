@@ -336,8 +336,8 @@ inputs must be rejected.
 
 ### The trading-rule matrix
 
-`--only trading-rules` builds the scenarios that test the trading rules: 12
-scenarios, 24 files to upload. Area habitats, hedgerows and watercourses trade
+`--only trading-rules` builds the scenarios that test the trading rules: 15
+in the legacy corpus, 30 files to upload. Area habitats, hedgerows and watercourses trade
 independently, so most scenarios carry a case for each, and each scenario
 states the verdict of every band in play:
 
@@ -355,8 +355,11 @@ states the verdict of every band in play:
 | `trading-lower-deficit-covered-from-above` | Low deficit, Medium surplus: met | Low deficit, Medium surplus: met | — |
 | `trading-higher-deficit-not-covered-from-below` | Medium deficit, Low surplus: **Medium breached**, Low met | Medium deficit, Low surplus: **Medium breached**, Low met | — |
 | `trading-surplus-in-another-broad-habitat` | grassland surplus, heathland deficit: **Medium breached** | — | — |
+| `trading-heathland-replaced-by-grassland` (legacy only, the harness's) | the same site, its heathland recorded `Lost`: **Medium breached**; one edit to H004 in the service meets it (see below) | — | — |
 | `trading-low-deficit-covered-beside-medium-deficit` | Low grassland enhanced into Medium grassland, Medium heathland built over: **Medium breached**, Low met (the published metric wrongly reports **Low breached**; see *Known bugs in the metric are corrected*) | — | — |
 | `trading-low-to-medium` | Low enhanced to Medium, with random other layers | | |
+
+`trading-heathland-replaced-by-grassland` is the harness's own (`scripts/scenarios/catalogue.mjs`), for demonstrating the trading rules. It is `trading-surplus-in-another-broad-habitat` with H004, the replaced heathland, kept `Lost`, as a user's legacy file records it. The import-timing relabel (*Imported timing validation*) writes every other legacy scenario's replaced area `Created`, and a real upload reads a `Created` row as new habitat on empty land: the heathland drops out of the baseline and the Medium rule is met. Uploaded, this pair shows the Medium rule breached despite a net gain of about 68%. In the service, open H004 under the post-intervention area habitats' **Created** tab, change it to Heathland and shrub, Mixed scrub, Good (3), and save: the rule is met.
 
 Every rule is a test of units as well as of habitat: `trading-too-few-units`
 and `trading-wrong-habitat` separate the two.
