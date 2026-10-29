@@ -93,18 +93,54 @@ describe.skipIf(!isBackendInstalled())("importGeoPackagePair", () => {
     expect(result.errors[0].code).toEqual(expect.any(String));
   });
 
-  it("refuses a post-intervention file the pipeline refuses once its document is built", async () => {
+  // BMD-1182: each enhances a baseline the service cannot enhance at all, so
+  // the post-intervention file is refused once its document is built, and
+  // for that reason, not at an earlier gate.
+  it.each([
+    "invalid-area-medium-good-enhanced",
+    "invalid-tree-good-enhanced",
+    "invalid-hedgerow-medium-good-enhanced",
+    "invalid-watercourse-medium-good-enhanced",
+    "invalid-hedgerow-very-low-enhanced",
+    "invalid-hedgerow-low-good-no-medium-target",
+  ])("refuses %s as a baseline the service cannot enhance", async (id) => {
     const result = await importGeoPackagePair(
-      scenario("invalid-interventions/invalid-hedgerow-very-low-enhanced")
-        .files,
+      scenario(`invalid-interventions/${id}`).files,
     );
 
     expect(result).toMatchObject({
       accepted: false,
       rejectedFile: "postIntervention",
     });
-    expect(result.errors[0].code).toBe("BASELINE_NOT_ENHANCEABLE");
+    expect(result.errors.map((e) => e.code)).toEqual([
+      "BASELINE_NOT_ENHANCEABLE",
+    ]);
   });
+
+  // BMD-820: a hedgerow move the metric's G-6 allowed-moves table does not
+  // allow, from a baseline that can still be enhanced, is nulled, not refused.
+  it.each([
+    "invalid-hedgerow-bank-or-ditch-dropped",
+    "invalid-hedgerow-medium-type-change",
+  ])(
+    "accepts %s and saves HG001 Incomplete, its proposed side cleared",
+    async (id) => {
+      const result = await importGeoPackagePair(
+        scenario(`invalid-interventions/${id}`).files,
+      );
+
+      expect(result.accepted).toBe(true);
+      const hedgerow = result.project.project.postIntervention.hedgerows.find(
+        (h) => h.ref === "HG001",
+      );
+      expect(hedgerow).toMatchObject({
+        retentionCategory: "Enhanced",
+        status: "Incomplete",
+        units: null,
+        proposed: { type: null, condition: null, strategicSignificance: null },
+      });
+    },
+  );
 });
 
 describe.skipIf(!isBackendInstalled())("runMetricComparison", () => {

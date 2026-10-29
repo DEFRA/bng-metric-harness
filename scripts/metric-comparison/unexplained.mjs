@@ -78,8 +78,12 @@ export const INCOMPLETE_FEATURES = Object.freeze({
     "The service accepts an enhancement of a Very Low habitat whose time to target the metric gives as Not Possible, and saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
   "invalid-interventions/invalid-hedgerow-condition-reduced":
     "The service accepts a hedgerow enhancement that reduces condition and saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-hedgerow-bank-or-ditch-dropped":
+    "The service accepts an enhancement of a Line of trees - associated with bank or ditch to a Native hedgerow with trees, a move the metric's G-6 allowed-moves table does not allow, and saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
   "invalid-interventions/invalid-hedgerow-low-not-possible":
     "The service accepts an enhancement of a Low hedgerow whose time to target the metric gives as Not Possible, and saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-hedgerow-medium-type-change":
+    "The service accepts an enhancement of a Native hedgerow with trees to a Species-rich native hedgerow, a move the metric's G-6 allowed-moves table does not allow, and saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
   "invalid-interventions/invalid-hedgerow-medium-trading-down":
     "The service accepts an enhancement of a Medium hedgerow to a Low one, and saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
   "invalid-interventions/invalid-watercourse-culvert-enhanced":
