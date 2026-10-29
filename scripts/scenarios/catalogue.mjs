@@ -1,5 +1,6 @@
 import {
   FORMAT_BNG_SERVICE,
+  FORMAT_LEGACY,
   PERMUTATION_PURPOSES,
   PERMUTATION_SCENARIOS,
   scenarioInFormat,
@@ -110,6 +111,40 @@ const additions = [
     "0",
   ),
 ];
+// The library's surplus-in-another-broad-habitat site, with its replaced
+// heathland recorded the way a user's legacy file records it: Lost, which the
+// service saves as the baseline loss plus a Created replacement. The relabel
+// in prepareImportTiming writes every other Lost area Created, which a real
+// upload reads as new habitat on empty land, so the baseline loses H004 and
+// the Medium rule is met. keepLost leaves H004 Lost, so a real upload is
+// refused the Medium rule, and one edit to the Created replacement in the
+// service meets it: a quick trading-rules demonstration. It is not an
+// import-timing case (importCases), so it carries no timing contract.
+const SURPLUS_SITE_ID = "trading-surplus-in-another-broad-habitat";
+const SURPLUS_SITE = PERMUTATION_SCENARIOS.find(
+  (scenario) => scenario.id === SURPLUS_SITE_ID,
+);
+if (!SURPLUS_SITE) {
+  // Without it the scenario would be drawn at random, with no trading
+  // expectations to fail, under a title that promises a Medium breach.
+  throw new Error(
+    `bng-library no longer has ${SURPLUS_SITE_ID}, which trading-heathland-replaced-by-grassland is built on`,
+  );
+}
+const lostReplacement = {
+  ...SURPLUS_SITE,
+  id: "trading-heathland-replaced-by-grassland",
+  title:
+    "Trading rules — a lost Medium heathland replaced by a Low grassland, met by one edit",
+  description:
+    "Area: three Medium grasslands are improved from Poor to Good, a large Medium surplus, while H004, a Medium heathland (Mixed scrub, Moderate), is Lost and a Low grassland (Modified grassland, Good) created on its land. The grassland surplus cannot make good the heathland loss, so the Medium rule is breached despite a net gain of over 50%. In the service, change H004's created habitat to Heathland and shrub, Mixed scrub, in Good (3) condition, and the Medium rule is met: a quick trading-rules demonstration.",
+  keepLost: ["H004"],
+  subject: {
+    layer: "Habitats",
+    ref: "H004",
+    note: "the lost heathland; edit its created habitat to Mixed scrub to meet the Medium rule",
+  },
+};
 const existingTiming = new Map([
   [
     "invalid-area-advance-and-delay",
@@ -138,7 +173,9 @@ const existingTiming = new Map([
 ]);
 
 export const HARNESS_SCENARIOS = [
-  ...PERMUTATION_SCENARIOS.map((scenario) =>
+  ...PERMUTATION_SCENARIOS.filter((scenario) =>
+    scenarioInFormat(scenario, FORMAT_LEGACY),
+  ).map((scenario) =>
     existingTiming.has(scenario.id)
       ? {
           ...scenario,
@@ -149,12 +186,15 @@ export const HARNESS_SCENARIOS = [
       : scenario,
   ),
   ...additions,
+  lostReplacement,
 ];
 export const HARNESS_PURPOSES = [...PERMUTATION_PURPOSES, "import-timing"];
 
 /**
  * The scenarios and purposes a corpus in `format` holds. The legacy corpus
- * holds the harness catalogue above. The BNG Service corpus holds the
+ * holds the harness catalogue above: the library's legacy scenarios (less any
+ * that lists only other formats, such as trading-trade-up-without-watercourse)
+ * and the harness's own. The BNG Service corpus holds the
  * library's catalogue, less any scenario that lists only other formats
  * (`scenarioInFormat`); the harness's import-timing scenarios stay legacy
  * only, as they work by editing a legacy file after it is generated.

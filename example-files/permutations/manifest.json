@@ -15370,6 +15370,189 @@
           }
         ]
       }
+    },
+    {
+      "id": "trading-heathland-replaced-by-grassland",
+      "purpose": "trading-rules",
+      "title": "Trading rules — a lost Medium heathland replaced by a Low grassland, met by one edit",
+      "description": "Area: three Medium grasslands are improved from Poor to Good, a large Medium surplus, while H004, a Medium heathland (Mixed scrub, Moderate), is Lost and a Low grassland (Modified grassland, Good) created on its land. The grassland surplus cannot make good the heathland loss, so the Medium rule is breached despite a net gain of over 50%. In the service, change H004's created habitat to Heathland and shrub, Mixed scrub, in Good (3) condition, and the Medium rule is met: a quick trading-rules demonstration.",
+      "size": 4,
+      "subject": {
+        "layer": "Habitats",
+        "ref": "H004",
+        "note": "the lost heathland; edit its created habitat to Mixed scrub to meet the Medium rule"
+      },
+      "files": {
+        "baseline": "trading-rules/trading-heathland-replaced-by-grassland-baseline.gpkg",
+        "postIntervention": "trading-rules/trading-heathland-replaced-by-grassland-post-intervention.gpkg",
+        "workbook": "trading-rules/trading-heathland-replaced-by-grassland.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "area trading rule, Medium",
+          "expected": "breached",
+          "actual": "breached",
+          "passed": true
+        },
+        {
+          "check": "area trading rule, Low",
+          "expected": "met",
+          "actual": "met",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookSource": "0b2a6bbc65e82ac5235f04e36202c10c72eb99eb61e2a3c839040dfb47ba1f48",
+      "inputRows": {
+        "habitatBaseline": 4,
+        "habitatCreation": 1,
+        "habitatEnhancement": 3,
+        "hedgerowBaseline": 0,
+        "hedgerowCreation": 0,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 0,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 0
+      },
+      "rejectedInputs": [],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 262.87570957038,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "postInterventionUnits": {
+            "area": 440.578647848655,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netUnitChange": {
+            "area": 177.702938278275,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netPercentChange": {
+            "area": 0.675996038465084,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netGainMessage": {
+            "area": null,
+            "hedgerow": null,
+            "watercourse": null
+          },
+          "unitsRequired": {
+            "area": 289.163280527418,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "unitDeficit": {
+            "area": 0,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "No - Check Trading Summaries ▲",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "No ▲"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": 259.838209925764
+        },
+        "sheetWarnings": [
+          {
+            "sheet": "habitatBaseline",
+            "cell": "L5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "habitatCreation",
+            "cell": "K5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "habitatEnhancement",
+            "cell": "T5",
+            "message": "No - check trading summaries ▲"
+          }
+        ],
+        "rowWarnings": []
+      }
     }
   ]
 }
