@@ -391,7 +391,19 @@ Since that snapshot, with BMD-1182 (bng-metric-backend#544),
 `invalid-hedgerow-very-low-enhanced` is refused by the service, as expected:
 it enhances a Very Low hedgerow, a baseline the service cannot enhance at all,
 so the file is refused rather than the enhancement nulled, and it has no entry
-in `INCOMPLETE_FEATURES`.
+in `INCOMPLETE_FEATURES`. Five scenarios added since are refused the same way:
+`invalid-area-medium-good-enhanced` and `invalid-tree-good-enhanced` (a Medium
+area habitat or a tree in Good condition, AC1),
+`invalid-hedgerow-medium-good-enhanced` (AC2),
+`invalid-watercourse-medium-good-enhanced` (AC3) and
+`invalid-hedgerow-low-good-no-medium-target` (AC5).
+Two hedgerow moves the metric's G-6 allowed-moves table does not allow,
+`invalid-hedgerow-bank-or-ditch-dropped` and
+`invalid-hedgerow-medium-type-change`, start from a baseline that can still be
+enhanced, so the service accepts them and saves HG001 Incomplete (BMD-820),
+and `INCOMPLETE_FEATURES` explains both.
+`metric-comparison.test.mjs` checks each import: the refusal's code, and
+HG001's saved status, units and cleared proposed side.
 
 How it got here:
 
