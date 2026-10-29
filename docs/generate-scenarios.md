@@ -119,18 +119,24 @@ removed — so Excel has nothing to repair on opening. The workbooks are about
 ### Imported timing validation (BMD-1060)
 
 The harness extends the library catalogue in `scripts/scenarios/catalogue.mjs`
-with import-specific timing cases. Its synthetic generator uses the legacy
-`Lost` label for Created area replacements; the harness changes those generated
-PI labels to `Created` after deriving the separate baseline half. Baseline
-attributes, geometry and valid advance/delay values remain intact.
-This is a temporary adapter for the pinned library. Follow-up work should fix
-its generator label, move the timing recipes into its catalogue, and remove the
-harness relabel/overrides together. Until then, genuine raw `Lost` area coverage
-is confined to `import-timing/invalid-timing-retained-lost`, which explicitly
-restores Lost rows across all four layers and asserts their saved behaviour.
+with import-specific timing cases, written onto the generated PI file after its
+separate baseline half is derived. Baseline attributes, geometry and valid
+advance/delay values remain intact. The synthetic generator records an area
+habitat created in place of a baseline one as a user's legacy file does: `Lost`,
+with the replacement's habitat and timing. The service saves that as the
+baseline loss plus a Created replacement. Nothing relabels it: a `Created` row
+has no baseline habitat, so the service would leave the parcel out of the
+baseline it rebuilds from the PI file, while the workbook still counted the
+loss. So an area timing case that creates habitat on a baseline parcel is
+written `Lost` too (`import-timing/invalid-timing-conflicting-created-enhanced`,
+`import-timing/null-timing-created-enhanced`,
+`invalid-interventions/invalid-area-advance-and-delay`); hedgerow, watercourse
+and tree cases keep `Created`. `import-timing/invalid-timing-retained-lost`
+also sets Lost rows across all four layers and asserts their saved behaviour.
 
-The workbook reads both halves of the pair so that changing a PI label does not
-remove the original baseline loss. For every generated PI row, expected
+The workbook's area baseline is the baseline half's, less any row the PI file
+does not hold as a baseline habitat, which is the baseline the service saves.
+For every generated PI row, expected
 calculation inputs follow AC3/AC5 independently of the backend. Lost area
 replacements follow the Created rules: valid advance/delay values are retained
 and used for pricing. For Created/Enhanced rows, including Lost area replacements,
@@ -355,11 +361,11 @@ states the verdict of every band in play:
 | `trading-lower-deficit-covered-from-above` | Low deficit, Medium surplus: met | Low deficit, Medium surplus: met | — |
 | `trading-higher-deficit-not-covered-from-below` | Medium deficit, Low surplus: **Medium breached**, Low met | Medium deficit, Low surplus: **Medium breached**, Low met | — |
 | `trading-surplus-in-another-broad-habitat` | grassland surplus, heathland deficit: **Medium breached** | — | — |
-| `trading-heathland-replaced-by-grassland` (legacy only, the harness's) | the same site, its heathland recorded `Lost`: **Medium breached**; one edit to H004 in the service meets it (see below) | — | — |
+| `trading-heathland-replaced-by-grassland` (legacy only, the harness's) | the same site: **Medium breached**; one edit to H004 in the service meets it (see below) | — | — |
 | `trading-low-deficit-covered-beside-medium-deficit` | Low grassland enhanced into Medium grassland, Medium heathland built over: **Medium breached**, Low met (the published metric wrongly reports **Low breached**; see *Known bugs in the metric are corrected*) | — | — |
 | `trading-low-to-medium` | Low enhanced to Medium, with random other layers | | |
 
-`trading-heathland-replaced-by-grassland` is the harness's own (`scripts/scenarios/catalogue.mjs`), for demonstrating the trading rules. It is `trading-surplus-in-another-broad-habitat` with H004, the replaced heathland, kept `Lost`, as a user's legacy file records it. The import-timing relabel (*Imported timing validation*) writes every other legacy scenario's replaced area `Created`, and a real upload reads a `Created` row as new habitat on empty land: the heathland drops out of the baseline and the Medium rule is met. Uploaded, this pair shows the Medium rule breached despite a net gain of about 68%. In the service, open H004 under the post-intervention area habitats' **Created** tab, change it to Heathland and shrub, Mixed scrub, Good (3), and save: the rule is met.
+`trading-heathland-replaced-by-grassland` is the harness's own (`scripts/scenarios/catalogue.mjs`), for demonstrating the trading rules. It is `trading-surplus-in-another-broad-habitat`, with the same files, under a title and description that walk through the demonstration: H004, the replaced heathland, is `Lost`, as a user's legacy file records it, so the service saves the heathland as a baseline loss. Uploaded, either pair shows the Medium rule breached despite a net gain of about 68%. In the service, open H004 under the post-intervention area habitats' **Created** tab, change it to Heathland and shrub, Mixed scrub, Good (3), and save: the rule is met.
 
 Every rule is a test of units as well as of habitat: `trading-too-few-units`
 and `trading-wrong-habitat` separate the two.

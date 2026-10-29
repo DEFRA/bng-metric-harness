@@ -3936,7 +3936,7 @@
         {
           "sheet": "habitatCreation",
           "reference": "H001",
-          "retention": "Created",
+          "retention": "Lost",
           "raw": {
             "advanceYears": "2",
             "delayYears": "3"
@@ -13829,7 +13829,7 @@
       "id": "invalid-timing-conflicting-created-enhanced",
       "purpose": "import-timing",
       "title": "Created and Enhanced: conflicting timing is cleared",
-      "description": "AC3: both timing values are positive on Created/Enhanced features in all four layers. Import succeeds and saves null timing; BMD-1070 leaves these incomplete habitats unpriced in the workbook.",
+      "description": "AC3: both timing values are positive on Created/Enhanced features in all four layers, the created area habitat recorded Lost as a replacement, as a legacy file records it. Import succeeds and saves null timing; BMD-1070 leaves these incomplete habitats unpriced in the workbook.",
       "size": 2,
       "subject": {
         "layer": "Habitats",
@@ -13945,7 +13945,7 @@
         {
           "sheet": "habitatCreation",
           "reference": "H001",
-          "retention": "Created",
+          "retention": "Lost",
           "raw": {
             "advanceYears": "2",
             "delayYears": "3"
@@ -14457,7 +14457,7 @@
       "id": "null-timing-created-enhanced",
       "purpose": "import-timing",
       "title": "Created and Enhanced: null timing stays null",
-      "description": "AC4: both timing values are null on Created/Enhanced features in all four layers. Import succeeds and preserves nulls.",
+      "description": "AC4: both timing values are null on Created/Enhanced features in all four layers, the created area habitat recorded Lost as a replacement, as a legacy file records it. Import succeeds and preserves nulls.",
       "size": 2,
       "subject": {
         "layer": "Habitats",
@@ -14573,7 +14573,7 @@
         {
           "sheet": "habitatCreation",
           "reference": "H001",
-          "retention": "Created",
+          "retention": "Lost",
           "raw": {
             "advanceYears": null,
             "delayYears": null

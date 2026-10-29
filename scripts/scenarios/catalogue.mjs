@@ -54,6 +54,13 @@ function overrides(retentions) {
     })),
   };
 }
+// A user's legacy file records an area habitat created in place of a baseline
+// one as Lost, with the replacement's habitat and timing: a Created row has
+// no baseline habitat, so the service would leave the parcel's baseline out.
+// Hedgerows, watercourses and trees have no such replacement.
+function caseRetention(layer, retention) {
+  return layer === "Habitats" && retention === "Created" ? "Lost" : retention;
+}
 function cases(retentions, advance, delay) {
   return TABLES.flatMap((layer) =>
     retentions.map((retention, index) => ({
@@ -62,7 +69,7 @@ function cases(retentions, advance, delay) {
         "001",
         String(index + 1).padStart(REFERENCE_NUMBER_WIDTH, "0"),
       ),
-      retention,
+      retention: caseRetention(layer, retention),
       advance,
       delay,
     })),
@@ -89,7 +96,7 @@ const additions = [
   timingScenario(
     "invalid-timing-conflicting-created-enhanced",
     "Created and Enhanced: conflicting timing is cleared",
-    "AC3: both timing values are positive on Created/Enhanced features in all four layers. Import succeeds and saves null timing; BMD-1070 leaves these incomplete habitats unpriced in the workbook.",
+    "AC3: both timing values are positive on Created/Enhanced features in all four layers, the created area habitat recorded Lost as a replacement, as a legacy file records it. Import succeeds and saves null timing; BMD-1070 leaves these incomplete habitats unpriced in the workbook.",
     ["Created", "Enhanced"],
     "2",
     "3",
@@ -97,7 +104,7 @@ const additions = [
   timingScenario(
     "null-timing-created-enhanced",
     "Created and Enhanced: null timing stays null",
-    "AC4: both timing values are null on Created/Enhanced features in all four layers. Import succeeds and preserves nulls.",
+    "AC4: both timing values are null on Created/Enhanced features in all four layers, the created area habitat recorded Lost as a replacement, as a legacy file records it. Import succeeds and preserves nulls.",
     ["Created", "Enhanced"],
     null,
     null,
@@ -111,15 +118,11 @@ const additions = [
     "0",
   ),
 ];
-// The library's surplus-in-another-broad-habitat site, with its replaced
-// heathland recorded the way a user's legacy file records it: Lost, which the
-// service saves as the baseline loss plus a Created replacement. The relabel
-// in prepareImportTiming writes every other Lost area Created, which a real
-// upload reads as new habitat on empty land, so the baseline loses H004 and
-// the Medium rule is met. keepLost leaves H004 Lost, so a real upload is
-// refused the Medium rule, and one edit to the Created replacement in the
-// service meets it: a quick trading-rules demonstration. It is not an
-// import-timing case (importCases), so it carries no timing contract.
+// The library's surplus-in-another-broad-habitat site, presented as a
+// trading-rules demonstration: H004, the replaced heathland, is Lost, which
+// the service saves as the baseline loss plus a Created replacement, so a
+// real upload breaches the Medium rule, and one edit to the Created
+// replacement in the service meets it. Its files are the library scenario's.
 const SURPLUS_SITE_ID = "trading-surplus-in-another-broad-habitat";
 const SURPLUS_SITE = PERMUTATION_SCENARIOS.find(
   (scenario) => scenario.id === SURPLUS_SITE_ID,
@@ -138,7 +141,6 @@ const lostReplacement = {
     "Trading rules — a lost Medium heathland replaced by a Low grassland, met by one edit",
   description:
     "Area: three Medium grasslands are improved from Poor to Good, a large Medium surplus, while H004, a Medium heathland (Mixed scrub, Moderate), is Lost and a Low grassland (Modified grassland, Good) created on its land. The grassland surplus cannot make good the heathland loss, so the Medium rule is breached despite a net gain of over 50%. In the service, change H004's created habitat to Heathland and shrub, Mixed scrub, in Good (3) condition, and the Medium rule is met: a quick trading-rules demonstration.",
-  keepLost: ["H004"],
   subject: {
     layer: "Habitats",
     ref: "H004",
@@ -152,7 +154,7 @@ const existingTiming = new Map([
       {
         layer: "Habitats",
         ref: "H001",
-        retention: "Created",
+        retention: "Lost",
         advance: "2",
         delay: "3",
       },

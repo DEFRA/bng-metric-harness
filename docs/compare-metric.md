@@ -120,26 +120,41 @@ flowchart LR
 - **The comparison.** bng-library's `metric-compare` turns each side into
   comparable figures and compares them.
 - **The service's answers.** `importGeoPackagePair`
-  (`scripts/metric-comparison/`) runs the same code the backend's validate
-  route does, in the same order, without S3, the worker pool or a database.
-  That code is the format gate, the GEOS geometry checks, the data-quality
-  checks, feature IDs, sizing, extraction, enrichment and the schema. It is
-  the backend's own: each module is imported from the backend checkout, and
-  resolves its dependencies, the engine included, from the backend's
-  `node_modules` at the version the backend pins. Nothing is copied, so the
-  comparison measures what the service would deploy. It returns the body
-  `GET /projects/{id}` would return. The whole corpus runs in a few seconds.
+  (`scripts/metric-comparison/`) uploads the pair as a user does, the
+  baseline file and then the post-intervention file, each through the
+  backend's `importUploadFile`, without S3, the worker pool or a database.
+  That one function is the format gate, the GEOS geometry checks, the
+  data-quality checks, then `buildUploadDocuments` (feature IDs, sizing,
+  extraction, enrichment and the schema) and the project the write leaves
+  stored. `buildUploadDocuments` is also what the upload route calls before it
+  persists, so the harness re-creates none of the route's steps and cannot
+  fall out of step with them. It is the backend's own code: it is imported
+  from the backend checkout, and resolves its dependencies, the engine
+  included, from the backend's `node_modules` at the version the backend
+  pins. Nothing is copied, so the comparison measures what the service would
+  deploy. It returns the body `GET /projects/{id}` would return. The whole
+  corpus runs in a few seconds.
+  - **It saves the baseline the service saves.** A legacy post-intervention
+    upload replaces the project's baseline with one rebuilt from the file's
+    own `Baseline …` columns (BMD-1056): `Created` rows are left out, and a
+    `Lost` row is kept as the baseline loss, its proposed habitat its Created
+    replacement. A file that derives no area habitats, or has a Retained or
+    Enhanced row with no Baseline type, is refused
+    (`NO_DERIVED_BASELINE_HABITATS`, `BASELINE_TYPE_MISSING`). So a parcel a
+    real upload drops from the baseline is dropped here too, and the
+    comparison sees it.
   - **Nothing is really uploaded.** The files are read from disk and handed
     straight to that code. There is no HTTP request to the Hapi server, so no
     authentication or route validation; no CDP Uploader, so no S3 and no virus
-    scan; no worker pool; and no database, so nothing is persisted. The
-    comparison tests what the service calculates from a file, not the upload
-    journey. The journey tests (bng-metric-journey-tests) drive that journey
-    through the CDP Uploader against a running stack.
-  - The backend exports what the import calls (`runDataQualityChecks`,
-    `layersForUpload`, `extractAndValidateDocument`, `saveHandlersForConfig`,
-    DEFRA/bng-metric-backend#417). A backend that predates them fails with a
-    message saying so.
+    scan; no worker pool, so the geometry checks run on the calling thread
+    (`inThread`); and no database, so nothing is persisted, though each
+    document passes the schema check a write makes. The comparison tests what
+    the service calculates from a file, not the upload journey. The journey
+    tests (bng-metric-journey-tests) drive that journey through the CDP
+    Uploader against a running stack.
+  - The backend exports what the import calls (`importUploadFile` and
+    `toProjectResponse`). A backend that predates them fails with a message
+    saying so.
   - **Without an installed backend** the command stops with a pointer to
     `npm run bootstrap` and `npm run install:be`, and the comparison's tests
     (`tests/scripts/metric-comparison/`) skip.
@@ -172,11 +187,12 @@ normally. No new entries are added to `VALIDATION_GAPS` or `INCOMPLETE_FEATURES`
 The JSON result retains `rawInvalidData` and the contract even when the cleansed
 scenario matches.
 
-The pair adapter uses the explicit baseline file as the arithmetic comparison
-baseline. It does not test the combined upload route's replacement/derivation
-of the project baseline or database persistence; backend integration tests cover
-that route. Correcting a legacy PI label must not silently remove baseline
-losses from the paired workbook or its arithmetic comparison.
+The comparison's baseline is the one the service saves: rebuilt from the
+post-intervention file, as the upload route rebuilds it. Database persistence is
+not tested; backend integration tests cover that. A generated area replacement
+is written `Lost`, as a user's legacy file records it, never `Created`: a
+`Created` row has no baseline habitat, so its parcel's loss would drop out of
+the saved baseline while the workbook still counted it.
 
 ### Why it lives in the harness
 

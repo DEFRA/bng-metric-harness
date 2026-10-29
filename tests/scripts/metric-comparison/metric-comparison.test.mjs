@@ -9,9 +9,10 @@
 // an installed backend beside the harness (or BNG_BACKEND_DIR), and skip
 // without one.
 
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import Database from "better-sqlite3";
 import { afterAll, describe, expect, it } from "vitest";
 import { OUTCOME, findScenarios, readWorkbookAnswers } from "#metric-compare";
 import { readImportExpectations } from "../../../scripts/metric-comparison/import-expectations.mjs";
@@ -76,6 +77,93 @@ describe.skipIf(!isBackendInstalled())("importGeoPackagePair", () => {
     expect(habitat.proposed).toMatchObject({
       advanceYears: null,
       delayYears: null,
+    });
+  });
+
+  describe("saves the baseline rebuilt from the post-intervention file", () => {
+    const SURPLUS = "trading-rules/trading-surplus-in-another-broad-habitat";
+
+    // A copy of the scenario's post-intervention file, with `sql` run on it.
+    function editedPostIntervention(name, sql) {
+      const copy = path.join(scratch, `${name}.gpkg`);
+      copyFileSync(scenario(SURPLUS).files.postIntervention, copy);
+      const db = new Database(copy);
+      try {
+        db.exec(sql);
+      } finally {
+        db.close();
+      }
+      return copy;
+    }
+
+    it("keeps a Lost area as the baseline loss", async () => {
+      const result = await importGeoPackagePair(scenario(SURPLUS).files);
+
+      const { baseline } = result.project.project;
+      expect(baseline.habitats.map((h) => [h.ref, h.type])).toEqual([
+        ["H001", "Other neutral grassland"],
+        ["H002", "Other neutral grassland"],
+        ["H003", "Other neutral grassland"],
+        ["H004", "Mixed scrub"],
+      ]);
+      expect(result.project.tradingRuleStatuses.areaHabitats.medium).toBe(
+        "Not met",
+      );
+    });
+
+    it("takes it from the post-intervention file, not the baseline file", async () => {
+      const result = await importGeoPackagePair({
+        baseline: scenario("trading-rules/trading-all-met").files.baseline,
+        postIntervention: scenario(SURPLUS).files.postIntervention,
+      });
+      const expected = await importGeoPackagePair(scenario(SURPLUS).files);
+
+      const typesOf = (r) =>
+        r.project.project.baseline.habitats.map((h) => [h.ref, h.type]);
+      expect(typesOf(result)).toEqual(typesOf(expected));
+      expect(result.project.project.baseline.units.habitatsTotal).toBeCloseTo(
+        expected.project.project.baseline.units.habitatsTotal,
+        10,
+      );
+    });
+
+    it("leaves a Created row out of it", async () => {
+      const result = await importGeoPackagePair({
+        baseline: scenario(SURPLUS).files.baseline,
+        postIntervention: editedPostIntervention(
+          "h004-created",
+          `UPDATE Habitats SET "Retention Category" = 'Created' WHERE "Parcel Ref" = 'H004'`,
+        ),
+      });
+
+      expect(result.accepted).toBe(true);
+      expect(
+        result.project.project.baseline.habitats.map((h) => h.ref),
+      ).toEqual(["H001", "H002", "H003"]);
+    });
+
+    it.each([
+      [
+        "NO_DERIVED_BASELINE_HABITATS",
+        "all-created",
+        `UPDATE Habitats SET "Retention Category" = 'Created'`,
+      ],
+      [
+        "BASELINE_TYPE_MISSING",
+        "blank-baseline-type",
+        `UPDATE Habitats SET "Baseline Habitat Type" = NULL WHERE "Parcel Ref" = 'H001'`,
+      ],
+    ])("refuses with %s, as the route does", async (code, name, sql) => {
+      const result = await importGeoPackagePair({
+        baseline: scenario(SURPLUS).files.baseline,
+        postIntervention: editedPostIntervention(name, sql),
+      });
+
+      expect(result).toMatchObject({
+        accepted: false,
+        rejectedFile: "postIntervention",
+      });
+      expect(result.errors.map((e) => e.code)).toEqual([code]);
     });
   });
 
@@ -172,14 +260,21 @@ describe.skipIf(!isBackendInstalled())("runMetricComparison", () => {
     ]);
   });
 
-  it.each(["invalid-area-advance-and-delay", "invalid-tree-advance-and-delay"])(
+  // The area cases among them record their created habitat as a Lost
+  // replacement, so the baseline the service saves keeps the parcel's loss.
+  it.each([
+    ["invalid-interventions/invalid-area-advance-and-delay", true],
+    ["invalid-interventions/invalid-tree-advance-and-delay", true],
+    ["import-timing/invalid-timing-conflicting-created-enhanced", true],
+    ["import-timing/null-timing-created-enhanced", false],
+  ])(
     "compares cleansed %s in full with its explicit contract",
-    async (id) => {
+    async (id, rawInvalidData) => {
       const { results } = await runMetricComparison({ only: [id] });
 
       expect(results[0].outcome).toBe(OUTCOME.matched);
       expect(results[0].expectedImport?.accepted).toBe(true);
-      expect(results[0].rawInvalidData).toBe(true);
+      expect(Boolean(results[0].rawInvalidData)).toBe(rawInvalidData);
       expect(results[0].compared).toBeGreaterThan(0);
     },
   );

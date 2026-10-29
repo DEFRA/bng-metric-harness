@@ -57,44 +57,19 @@ function attributeDatabase(file) {
 }
 
 /**
- * Each of `refs` must name exactly one Lost area habitat, so a scenario whose
- * site has changed fails here rather than keeping nothing Lost.
- */
-function checkKeptLost(db, refs) {
-  for (const ref of refs) {
-    const { count } = db
-      .prepare(
-        `SELECT COUNT(*) AS count FROM Habitats WHERE "${PARCEL_REF}" = ? AND "Retention Category" = 'Lost'`,
-      )
-      .get(ref);
-    if (count !== 1) {
-      throw new Error(`keepLost ${ref} matched ${count} Lost area habitats`);
-    }
-  }
-}
-
-/**
- * Temporary adapter for the pinned library's legacy Lost label on Created areas.
- * Follow-up: correct the generator and consolidate timing recipes in its catalogue,
- * then remove this relabel. Genuine Lost coverage is deliberately restored by
- * invalid-timing-retained-lost below, across all four layers.
+ * Write each import-timing case's retention and raw timing onto its row of a
+ * generated post-intervention file, after its baseline half is derived.
  *
- * `keepLost` lists the Parcel Refs of area habitats left Lost, as a user's
- * legacy file records a replaced area, for a scenario that needs a real upload
- * to count the loss (a real upload reads a Created row as new habitat on empty
- * land). It is not an import-timing case, so it adds no timing contract.
+ * Nothing else is relabelled: the generator records a replaced area as a user's
+ * legacy file does, `Lost` with its Created replacement's habitat and timing,
+ * and the service saves that as the baseline loss plus the replacement. A row
+ * written `Created` has no baseline habitat, so a case that replaces an area
+ * habitat is written `Lost` (BMD-1060 AC5 gives it the Created timing rules).
  */
-export function prepareImportTiming(file, cases = [], keepLost = []) {
+export function prepareImportTiming(file, cases = []) {
   const db = attributeDatabase(file);
   try {
     db.transaction(() => {
-      checkKeptLost(db, keepLost);
-      const kept = keepLost.map(() => "?").join(", ");
-      db.prepare(
-        `UPDATE Habitats SET "Retention Category" = 'Created' WHERE "Retention Category" = 'Lost'${
-          keepLost.length > 0 ? ` AND "${PARCEL_REF}" NOT IN (${kept})` : ""
-        }`,
-      ).run(...keepLost);
       for (const item of cases) {
         const layer = TIMING_LAYERS[item.layer];
         if (!layer) {
