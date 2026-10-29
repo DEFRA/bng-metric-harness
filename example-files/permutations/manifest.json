@@ -15387,20 +15387,6 @@
         "postIntervention": "trading-rules/trading-heathland-replaced-by-grassland-post-intervention.gpkg",
         "workbook": "trading-rules/trading-heathland-replaced-by-grassland.xlsx"
       },
-      "expectedImport": {
-        "accepted": true,
-        "features": [
-          {
-            "layer": "habitats",
-            "ref": "H004",
-            "proposed": {
-              "advanceYears": 0,
-              "delayYears": 0
-            },
-            "status": "Complete"
-          }
-        ]
-      },
       "gain": null,
       "checks": [
         {

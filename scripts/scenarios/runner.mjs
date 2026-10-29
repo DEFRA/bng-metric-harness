@@ -227,7 +227,7 @@ function generateLegacyScenario(scenario, files, { outDir, centre, seed }) {
   mkdirSync(path.dirname(piFile), { recursive: true });
   generateOne(piFile, centre, syntheticOptions(scenario, seed));
   deriveBaselineFromSynthetic(piFile, baselineFile);
-  prepareImportTiming(piFile, scenario.importCases);
+  prepareImportTiming(piFile, scenario.importCases, scenario.keepLost);
   verifyPair(baselineFile, piFile);
   verifySubject(piFile, scenario.subject);
   return { source: { baselineFile, piFile }, checks: [] };

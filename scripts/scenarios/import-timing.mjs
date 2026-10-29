@@ -57,18 +57,44 @@ function attributeDatabase(file) {
 }
 
 /**
+ * Each of `refs` must name exactly one Lost area habitat, so a scenario whose
+ * site has changed fails here rather than keeping nothing Lost.
+ */
+function checkKeptLost(db, refs) {
+  for (const ref of refs) {
+    const { count } = db
+      .prepare(
+        `SELECT COUNT(*) AS count FROM Habitats WHERE "${PARCEL_REF}" = ? AND "Retention Category" = 'Lost'`,
+      )
+      .get(ref);
+    if (count !== 1) {
+      throw new Error(`keepLost ${ref} matched ${count} Lost area habitats`);
+    }
+  }
+}
+
+/**
  * Temporary adapter for the pinned library's legacy Lost label on Created areas.
  * Follow-up: correct the generator and consolidate timing recipes in its catalogue,
  * then remove this relabel. Genuine Lost coverage is deliberately restored by
  * invalid-timing-retained-lost below, across all four layers.
+ *
+ * `keepLost` lists the Parcel Refs of area habitats left Lost, as a user's
+ * legacy file records a replaced area, for a scenario that needs a real upload
+ * to count the loss (a real upload reads a Created row as new habitat on empty
+ * land). It is not an import-timing case, so it adds no timing contract.
  */
-export function prepareImportTiming(file, cases = []) {
+export function prepareImportTiming(file, cases = [], keepLost = []) {
   const db = attributeDatabase(file);
   try {
     db.transaction(() => {
+      checkKeptLost(db, keepLost);
+      const kept = keepLost.map(() => "?").join(", ");
       db.prepare(
-        `UPDATE Habitats SET "Retention Category" = 'Created' WHERE "Retention Category" = 'Lost'`,
-      ).run();
+        `UPDATE Habitats SET "Retention Category" = 'Created' WHERE "Retention Category" = 'Lost'${
+          keepLost.length > 0 ? ` AND "${PARCEL_REF}" NOT IN (${kept})` : ""
+        }`,
+      ).run(...keepLost);
       for (const item of cases) {
         const layer = TIMING_LAYERS[item.layer];
         if (!layer) {

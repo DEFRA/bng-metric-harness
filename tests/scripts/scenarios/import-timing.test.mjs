@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
@@ -12,6 +12,7 @@ import {
 import {
   expectedImport,
   metricTiming,
+  prepareImportTiming,
   readTimingInputs,
 } from "../../../scripts/scenarios/import-timing.mjs";
 import { isBackendInstalled } from "../../../scripts/metric-comparison/backend.mjs";
@@ -305,6 +306,63 @@ describe("timing fixture databases use existing local files", () => {
     path.join(tmpdir(), "nonexistent-timing.gpkg"),
   ])("refuses database URI or nonexistent filename %s", (file) => {
     expect(() => readTimingInputs(file)).toThrow();
+  });
+});
+
+describe("keepLost leaves a replaced area Lost", () => {
+  const KEPT = "trading-heathland-replaced-by-grassland";
+  const RELABELLED = "trading-surplus-in-another-broad-habitat";
+  let keptDirectory;
+  let built;
+  beforeAll(async () => {
+    keptDirectory = mkdtempSync(path.join(tmpdir(), "harness-keep-lost-"));
+    built = await buildScenarioCorpus({
+      scenarios: HARNESS_SCENARIOS.filter((s) =>
+        [KEPT, RELABELLED].includes(s.id),
+      ),
+      outDir: keptDirectory,
+      centre: DEFAULT_CENTRE,
+      seed: 1,
+      recalculate: false,
+    });
+  });
+  afterAll(() => rmSync(keptDirectory, { recursive: true, force: true }));
+
+  function retentionOf(id, ref) {
+    const entry = built.find((e) => e.id === id);
+    const db = new Database(
+      path.join(keptDirectory, entry.files.postIntervention),
+      { readonly: true },
+    );
+    try {
+      return db
+        .prepare(
+          'SELECT "Retention Category" AS retention FROM Habitats WHERE "Parcel Ref" = ?',
+        )
+        .get(ref).retention;
+    } finally {
+      db.close();
+    }
+  }
+
+  it("keeps H004 Lost in the demonstration scenario, and relabels it in the library's", () => {
+    expect(retentionOf(KEPT, "H004")).toBe("Lost");
+    expect(retentionOf(RELABELLED, "H004")).toBe("Created");
+  });
+
+  it("is not an import-timing case, so adds no timing contract", () => {
+    const scenario = HARNESS_SCENARIOS.find((s) => s.id === KEPT);
+    expect(scenario.importCases).toBeUndefined();
+    expect(built.find((e) => e.id === KEPT).expectedImport).toBeUndefined();
+  });
+
+  it("refuses a ref that is not exactly one Lost area habitat", () => {
+    const entry = built.find((e) => e.id === KEPT);
+    const copy = path.join(keptDirectory, "keep-lost-copy.gpkg");
+    copyFileSync(path.join(keptDirectory, entry.files.postIntervention), copy);
+    expect(() => prepareImportTiming(copy, [], ["H001"])).toThrow(
+      "keepLost H001 matched 0 Lost area habitats",
+    );
   });
 });
 
