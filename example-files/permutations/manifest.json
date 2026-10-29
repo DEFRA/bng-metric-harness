@@ -6561,7 +6561,7 @@
       "id": "invalid-hedgerow-very-low-enhanced",
       "purpose": "invalid-interventions",
       "title": "Hedgerow — an enhanced Very Low hedgerow",
-      "description": "HG001, a Non-native and ornamental hedgerow in Poor condition, is \"enhanced\" to a Native hedgerow in Good condition. A Very Low hedgerow cannot be enhanced at all, so it is not a valid enhancement (BMD-820 AC8).",
+      "description": "HG001, a Non-native and ornamental hedgerow in Poor condition, is \"enhanced\" to a Native hedgerow in Good condition. A Very Low hedgerow cannot be enhanced in any condition, so the service cannot enhance it at all and refuses the file (BMD-1182 AC4).",
       "size": 1,
       "subject": {
         "layer": "Hedgerows",
