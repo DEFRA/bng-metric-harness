@@ -1,4 +1,4 @@
-import { copyFileSync, mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
@@ -22,6 +22,10 @@ import { loadEngine } from "../../../scripts/scenarios/engine.mjs";
 import { priceHabitats } from "../../../scripts/scenarios/engine-units.mjs";
 import { DEFAULT_CENTRE } from "../../../scripts/centre.mjs";
 
+const COMMITTED_CORPUS = path.resolve(
+  import.meta.dirname,
+  "../../../example-files/permutations",
+);
 const cases = HARNESS_SCENARIOS.filter((s) => s.importCases);
 const advanceScenario = HARNESS_SCENARIOS.find(
   (s) => s.id === "advance-delay-created-advance-difficulty",
@@ -364,7 +368,7 @@ describe("no generated area replacement is written Created", () => {
     }
   }
 
-  it("writes no area habitat with a baseline habitat Created, in any timing or trading scenario", () => {
+  it("writes no area habitat with a baseline habitat Created, in the timing and trading scenarios it builds", () => {
     const corpora = [
       ...entries.map((entry) => [directory, entry]),
       ...built.map((entry) => [builtDirectory, entry]),
@@ -373,6 +377,22 @@ describe("no generated area replacement is written Created", () => {
       const inBaseline = baselineRefs(dir, entry);
       expect(
         createdRefs(dir, entry).filter((ref) => inBaseline.has(ref)),
+        entry.id,
+      ).toEqual([]);
+    }
+  });
+
+  it("holds no area habitat with a baseline habitat Created, in any scenario of the committed legacy corpus", () => {
+    const manifest = JSON.parse(
+      readFileSync(path.join(COMMITTED_CORPUS, "manifest.json"), "utf8"),
+    );
+    expect(manifest.scenarios.length).toBeGreaterThan(0);
+    for (const entry of manifest.scenarios) {
+      const inBaseline = baselineRefs(COMMITTED_CORPUS, entry);
+      expect(
+        createdRefs(COMMITTED_CORPUS, entry).filter((ref) =>
+          inBaseline.has(ref),
+        ),
         entry.id,
       ).toEqual([]);
     }

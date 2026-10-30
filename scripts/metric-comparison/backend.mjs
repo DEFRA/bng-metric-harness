@@ -44,12 +44,16 @@ export function isBackendInstalled(dir = backendDir()) {
 let pipeline;
 
 /**
- * Import the backend's upload pipeline, once.
+ * Import the backend's upload pipeline, once. A load that fails is not kept,
+ * so the next call tries again rather than failing for the same reason.
  *
  * @returns {Promise<object>} every export in PIPELINE_EXPORTS
  */
 export async function loadBackendPipeline() {
-  pipeline ??= importPipeline(backendDir());
+  pipeline ??= importPipeline(backendDir()).catch((error) => {
+    pipeline = undefined;
+    throw error;
+  });
   return pipeline;
 }
 
