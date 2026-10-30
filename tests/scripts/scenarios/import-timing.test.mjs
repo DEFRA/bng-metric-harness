@@ -1,4 +1,4 @@
-import { copyFileSync, mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
@@ -22,6 +22,10 @@ import { loadEngine } from "../../../scripts/scenarios/engine.mjs";
 import { priceHabitats } from "../../../scripts/scenarios/engine-units.mjs";
 import { DEFAULT_CENTRE } from "../../../scripts/centre.mjs";
 
+const COMMITTED_CORPUS = path.resolve(
+  import.meta.dirname,
+  "../../../example-files/permutations",
+);
 const cases = HARNESS_SCENARIOS.filter((s) => s.importCases);
 const advanceScenario = HARNESS_SCENARIOS.find(
   (s) => s.id === "advance-delay-created-advance-difficulty",
@@ -162,10 +166,10 @@ describe("independent AC3-AC5 workbook timing inputs", () => {
     },
   );
 
-  it("keeps all six advance/difficulty controls Created, with their original advance and baseline", () => {
+  it("keeps all six advance/difficulty controls Lost replacements, with their original advance and baseline", () => {
     const { pi, baseline } = pair(advanceScenario.id);
     const raw = readTimingInputs(pi).filter((i) => i.table === "Habitats");
-    expect(raw.map((i) => i.retention)).toEqual(Array(6).fill("Created"));
+    expect(raw.map((i) => i.retention)).toEqual(Array(6).fill("Lost"));
     const { rows, timingChanges } = importWorkbookRows(baseline, pi);
     expect(rows.habitatBaseline).toHaveLength(6);
     expect(rows.habitatCreation.map((r) => r.advanceYears)).toEqual([
@@ -175,6 +179,24 @@ describe("independent AC3-AC5 workbook timing inputs", () => {
       Array(6).fill(0),
     );
     expect(timingChanges).toEqual([]);
+  });
+
+  it("refuses a pair whose post-intervention file holds a baseline habitat the baseline half lacks", () => {
+    const { baseline, pi } = pair("invalid-timing-retained-lost");
+    const copy = path.join(directory, "unmatched-baseline-ref.gpkg");
+    copyFileSync(pi, copy);
+    const db = new Database(copy);
+    try {
+      db.prepare(
+        `UPDATE Habitats SET "Parcel Ref" = 'H999' WHERE "Parcel Ref" = 'H001'`,
+      ).run();
+    } finally {
+      db.close();
+    }
+
+    expect(() => importWorkbookRows(baseline, copy)).toThrow(
+      "The post-intervention file holds baseline habitats the baseline half does not: H999",
+    );
   });
 
   it("prices Lost replacements with their timing credit and retains the baseline loss", () => {
@@ -249,6 +271,92 @@ describe.skipIf(!isBackendInstalled())(
       },
       30_000,
     );
+
+    // A replaced area is recorded Lost, which the service saves as a Created
+    // replacement before any timing rule runs. A row recorded Created takes
+    // the same timing rules, and differs only in having no baseline habitat:
+    // the service leaves it out of the baseline it rebuilds, and so does the
+    // workbook projection.
+    const areaReplacements = cases.filter((scenario) =>
+      scenario.importCases.some(
+        (c) => c.layer === "Habitats" && c.retention === "Lost",
+      ),
+    );
+    it.each(areaReplacements)(
+      "applies the same timing rules to $id's area row recorded Created",
+      async (scenario) => {
+        const { baseline, pi } = pair(scenario.id);
+        const asCreated = scenario.importCases.map((c) =>
+          c.layer === "Habitats" && c.retention === "Lost"
+            ? { ...c, retention: "Created" }
+            : c,
+        );
+        const relabelled = asCreated.filter(
+          (c, i) => c !== scenario.importCases[i],
+        );
+        const copy = path.join(directory, `${scenario.id}-created.gpkg`);
+        copyFileSync(pi, copy);
+        prepareImportTiming(copy, relabelled);
+
+        const result = await importGeoPackagePair({
+          baseline,
+          postIntervention: copy,
+        });
+
+        expect(result.accepted, JSON.stringify(result.errors)).toBe(true);
+        expect(expectedImport(asCreated)).toEqual(
+          expectedImport(scenario.importCases),
+        );
+        expect(() =>
+          assertExpectedImport(result, expectedImport(asCreated)),
+        ).not.toThrow();
+        // Exactly the baseline the Lost labels give, less the relabelled
+        // parcels: every other row as it was, so a regression that drops or
+        // changes more than those parcels fails here.
+        const original = await importGeoPackagePair({
+          baseline,
+          postIntervention: pi,
+        });
+        const refs = new Set(relabelled.map((c) => c.ref));
+        const kept = (rows, refOf) =>
+          rows.filter((row) => !refs.has(refOf(row)));
+        // Less featureId: each import is a new project, with ids of its own.
+        const savedHabitat = (h) => ({
+          ref: h.ref,
+          type: h.type,
+          condition: h.condition,
+          strategicSignificance: h.strategicSignificance,
+          retentionCategory: h.retentionCategory,
+          area: h.area,
+          units: h.units,
+        });
+        const before = original.project.project.baseline;
+        const after = result.project.project.baseline;
+        expect(after.habitats.map(savedHabitat)).toEqual(
+          kept(before.habitats, (h) => h.ref).map(savedHabitat),
+        );
+        expect(after.habitats.length).toBeGreaterThan(0);
+        const removedUnits = before.habitats
+          .filter((h) => refs.has(h.ref))
+          .reduce((total, h) => total + h.units, 0);
+        expect(removedUnits).toBeGreaterThan(0);
+        expect(after.units.habitatsTotal).toBeCloseTo(
+          before.units.habitatsTotal - removedUnits,
+          10,
+        );
+
+        // The workbook's baseline rows, allocation fields included.
+        const workbookBefore = importWorkbookRows(baseline, pi).rows
+          .habitatBaseline;
+        const workbookAfter = importWorkbookRows(baseline, copy).rows
+          .habitatBaseline;
+        expect(workbookAfter.length).toBeGreaterThan(0);
+        expect(workbookAfter).toEqual(
+          kept(workbookBefore, (row) => row.reference),
+        );
+      },
+      30_000,
+    );
   },
 );
 
@@ -309,60 +417,113 @@ describe("timing fixture databases use existing local files", () => {
   });
 });
 
-describe("keepLost leaves a replaced area Lost", () => {
-  const KEPT = "trading-heathland-replaced-by-grassland";
-  const RELABELLED = "trading-surplus-in-another-broad-habitat";
-  let keptDirectory;
+describe("no generated area replacement is written Created", () => {
+  // A Created row has no baseline habitat, so the service leaves its parcel
+  // out of the baseline it rebuilds from the post-intervention file: an area
+  // drawn with a baseline habitat must stay Lost, as a user's file records it.
+  let builtDirectory;
   let built;
   beforeAll(async () => {
-    keptDirectory = mkdtempSync(path.join(tmpdir(), "harness-keep-lost-"));
+    builtDirectory = mkdtempSync(path.join(tmpdir(), "harness-replaced-"));
     built = await buildScenarioCorpus({
       scenarios: HARNESS_SCENARIOS.filter((s) =>
-        [KEPT, RELABELLED].includes(s.id),
+        [
+          "trading-heathland-replaced-by-grassland",
+          "trading-surplus-in-another-broad-habitat",
+        ].includes(s.id),
       ),
-      outDir: keptDirectory,
+      outDir: builtDirectory,
       centre: DEFAULT_CENTRE,
       seed: 1,
       recalculate: false,
     });
   });
-  afterAll(() => rmSync(keptDirectory, { recursive: true, force: true }));
+  afterAll(() => rmSync(builtDirectory, { recursive: true, force: true }));
 
-  function retentionOf(id, ref) {
-    const entry = built.find((e) => e.id === id);
-    const db = new Database(
-      path.join(keptDirectory, entry.files.postIntervention),
-      { readonly: true },
-    );
+  function baselineRefs(dir, entry) {
+    const db = new Database(path.join(dir, entry.files.baseline), {
+      readonly: true,
+    });
     try {
-      return db
-        .prepare(
-          'SELECT "Retention Category" AS retention FROM Habitats WHERE "Parcel Ref" = ?',
-        )
-        .get(ref).retention;
+      return new Set(
+        db
+          .prepare('SELECT "Parcel Ref" AS ref FROM Habitats')
+          .all()
+          .map((row) => row.ref),
+      );
     } finally {
       db.close();
     }
   }
 
-  it("keeps H004 Lost in the demonstration scenario, and relabels it in the library's", () => {
-    expect(retentionOf(KEPT, "H004")).toBe("Lost");
-    expect(retentionOf(RELABELLED, "H004")).toBe("Created");
+  function createdRefs(dir, entry) {
+    const db = new Database(path.join(dir, entry.files.postIntervention), {
+      readonly: true,
+    });
+    try {
+      return db
+        .prepare(
+          `SELECT "Parcel Ref" AS ref FROM Habitats WHERE "Retention Category" = 'Created'`,
+        )
+        .all()
+        .map((row) => row.ref);
+    } finally {
+      db.close();
+    }
+  }
+
+  it("writes no area habitat with a baseline habitat Created, in the timing and trading scenarios it builds", () => {
+    const corpora = [
+      ...entries.map((entry) => [directory, entry]),
+      ...built.map((entry) => [builtDirectory, entry]),
+    ];
+    for (const [dir, entry] of corpora) {
+      const inBaseline = baselineRefs(dir, entry);
+      expect(
+        createdRefs(dir, entry).filter((ref) => inBaseline.has(ref)),
+        entry.id,
+      ).toEqual([]);
+    }
   });
 
-  it("is not an import-timing case, so adds no timing contract", () => {
-    const scenario = HARNESS_SCENARIOS.find((s) => s.id === KEPT);
-    expect(scenario.importCases).toBeUndefined();
-    expect(built.find((e) => e.id === KEPT).expectedImport).toBeUndefined();
-  });
-
-  it("refuses a ref that is not exactly one Lost area habitat", () => {
-    const entry = built.find((e) => e.id === KEPT);
-    const copy = path.join(keptDirectory, "keep-lost-copy.gpkg");
-    copyFileSync(path.join(keptDirectory, entry.files.postIntervention), copy);
-    expect(() => prepareImportTiming(copy, [], ["H001"])).toThrow(
-      "keepLost H001 matched 0 Lost area habitats",
+  it("holds no area habitat with a baseline habitat Created, in any scenario of the committed legacy corpus", () => {
+    const manifest = JSON.parse(
+      readFileSync(path.join(COMMITTED_CORPUS, "manifest.json"), "utf8"),
     );
+    expect(manifest.scenarios.length).toBeGreaterThan(0);
+    for (const entry of manifest.scenarios) {
+      const inBaseline = baselineRefs(COMMITTED_CORPUS, entry);
+      expect(
+        createdRefs(COMMITTED_CORPUS, entry).filter((ref) =>
+          inBaseline.has(ref),
+        ),
+        entry.id,
+      ).toEqual([]);
+    }
+  });
+
+  it("writes the replaced heathland Lost in both trading-rules scenarios", () => {
+    for (const id of [
+      "trading-heathland-replaced-by-grassland",
+      "trading-surplus-in-another-broad-habitat",
+    ]) {
+      const entry = built.find((e) => e.id === id);
+      const { retention } = readTimingInputs(
+        path.join(builtDirectory, entry.files.postIntervention),
+      ).find((i) => i.table === "Habitats" && i.ref === "H004");
+      expect(retention, id).toBe("Lost");
+    }
+  });
+
+  it("refuses a timing case that matches no row", () => {
+    const entry = built[0];
+    const copy = path.join(builtDirectory, "timing-copy.gpkg");
+    copyFileSync(path.join(builtDirectory, entry.files.postIntervention), copy);
+    expect(() =>
+      prepareImportTiming(copy, [
+        { layer: "Habitats", ref: "H999", retention: "Lost" },
+      ]),
+    ).toThrow("Timing case Habitats/H999 matched 0 rows");
   });
 });
 

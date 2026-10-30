@@ -1,22 +1,31 @@
 import { workbookRowsFromGeoPackage } from "#workbook-writer";
 import { metricTiming, readTimingInputs } from "./import-timing.mjs";
 
-function restoreAreaBaseline(rows, baselineRows, inputs) {
-  const createdRefs = new Set(
-    inputs
-      .filter((i) => i.table === "Habitats" && i.retention === "Created")
-      .map((i) => i.ref),
-  );
+function restoreAreaBaseline(rows, baselineRows) {
   const current = new Map(
     rows.habitatBaseline.map((row) => [row.reference, row]),
   );
-  // The baseline half is derived BEFORE replacing legacy Lost labels. Keep its
-  // lost area rows, alongside each retained/enhanced row's allocation fields.
+  const inBaselineHalf = new Set(
+    baselineRows.habitatBaseline.map((row) => row.reference),
+  );
+  // The service saves every baseline habitat the post-intervention file
+  // holds, so one the baseline half lacks would be under-counted here: the
+  // pair disagrees, and is refused rather than priced.
+  const unmatched = [...current.keys()].filter(
+    (ref) => !inBaselineHalf.has(ref),
+  );
+  if (unmatched.length > 0) {
+    throw new Error(
+      `The post-intervention file holds baseline habitats the baseline half does not: ${unmatched.join(", ")}`,
+    );
+  }
+  // The baseline the service saves is rebuilt from the post-intervention file,
+  // whose Created rows have no baseline habitat. Keep the baseline half's
+  // order, with each kept row's allocation fields from the post-intervention
+  // file.
   rows.habitatBaseline = baselineRows.habitatBaseline.flatMap((row) => {
     const proposedBaseline = current.get(row.reference);
-    return proposedBaseline || createdRefs.has(row.reference)
-      ? [proposedBaseline ?? row]
-      : [];
+    return proposedBaseline ? [proposedBaseline] : [];
   });
 }
 
@@ -74,7 +83,7 @@ export function importWorkbookRows(baselineFile, piFile) {
   const { rows, notes } = workbookRowsFromGeoPackage(piFile);
   const baseline = workbookRowsFromGeoPackage(baselineFile);
   const inputs = readTimingInputs(piFile);
-  restoreAreaBaseline(rows, baseline.rows, inputs);
+  restoreAreaBaseline(rows, baseline.rows);
   const timingChanges = applyTiming(rows, inputs);
   return { rows, notes, timingChanges };
 }

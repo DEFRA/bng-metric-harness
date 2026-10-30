@@ -22,28 +22,12 @@ export const BACKEND_DIR_ENV = "BNG_BACKEND_DIR";
 
 /** Each module the import uses, by its path in the backend repo. */
 const PIPELINE_MODULES = [
-  "src/validation/geopackage/geos/index.js",
-  "src/validation/geopackage/geopackage.js",
-  "src/validation/geopackage/index.js",
-  "src/validation/geopackage/read-feature-tables.js",
-  "src/services/upload/calculate-habitat-sizes.js",
-  "src/services/upload/save-upload-for-project.js",
+  "src/services/upload/import-upload-file.js",
   "src/utilities/project/to-project-response.js",
 ];
 
 /** What the import calls; a backend without them predates the comparison. */
-const PIPELINE_EXPORTS = [
-  "validateGeoPackageLayersGeos",
-  "readGeoPackage",
-  "validateGpkgFile",
-  "runDataQualityChecks",
-  "FEATURE_READ_MODE",
-  "calculateHabitatSizes",
-  "extractAndValidateDocument",
-  "layersForUpload",
-  "saveHandlersForConfig",
-  "toProjectResponse",
-];
+const PIPELINE_EXPORTS = ["importUploadFile", "toProjectResponse"];
 
 /** The backend checkout the comparison runs. */
 export function backendDir(env = process.env) {
@@ -60,12 +44,16 @@ export function isBackendInstalled(dir = backendDir()) {
 let pipeline;
 
 /**
- * Import the backend's upload pipeline, once.
+ * Import the backend's upload pipeline, once. A load that fails is not kept,
+ * so the next call tries again rather than failing for the same reason.
  *
  * @returns {Promise<object>} every export in PIPELINE_EXPORTS
  */
 export async function loadBackendPipeline() {
-  pipeline ??= importPipeline(backendDir());
+  pipeline ??= importPipeline(backendDir()).catch((error) => {
+    pipeline = null;
+    throw error;
+  });
   return pipeline;
 }
 
@@ -74,6 +62,14 @@ async function importPipeline(dir) {
   // evidence is noise here.
   process.env.LOG_LEVEL ??= "silent";
 
+  const absent = PIPELINE_MODULES.filter(
+    (file) => !existsSync(path.join(dir, file)),
+  );
+  if (absent.length > 0) {
+    throw new Error(
+      `The backend at ${dir} has no ${absent.join(", ")}: it predates the import the metric comparison calls (importUploadFile). Pull its main branch.`,
+    );
+  }
   const modules = await Promise.all(
     PIPELINE_MODULES.map(
       (file) => import(pathToFileURL(path.join(dir, file)).href),
@@ -83,7 +79,7 @@ async function importPipeline(dir) {
   const missing = PIPELINE_EXPORTS.filter((name) => !(name in loaded));
   if (missing.length > 0) {
     throw new Error(
-      `The backend at ${dir} does not export ${missing.join(", ")}: it predates the metric comparison (DEFRA/bng-metric-backend#417). Pull its main branch.`,
+      `The backend at ${dir} does not export ${missing.join(", ")}: it predates the import the metric comparison calls (importUploadFile). Pull its main branch.`,
     );
   }
   return loaded;
