@@ -51,7 +51,7 @@ let pipeline;
  */
 export async function loadBackendPipeline() {
   pipeline ??= importPipeline(backendDir()).catch((error) => {
-    pipeline = undefined;
+    pipeline = null;
     throw error;
   });
   return pipeline;

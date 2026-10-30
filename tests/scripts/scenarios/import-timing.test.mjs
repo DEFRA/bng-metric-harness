@@ -253,6 +253,60 @@ describe.skipIf(!isBackendInstalled())(
       },
       30_000,
     );
+
+    // A replaced area is recorded Lost, which the service saves as a Created
+    // replacement before any timing rule runs. A row recorded Created takes
+    // the same timing rules, and differs only in having no baseline habitat:
+    // the service leaves it out of the baseline it rebuilds, and so does the
+    // workbook projection.
+    const areaReplacements = cases.filter((scenario) =>
+      scenario.importCases.some(
+        (c) => c.layer === "Habitats" && c.retention === "Lost",
+      ),
+    );
+    it.each(areaReplacements)(
+      "applies the same timing rules to $id's area row recorded Created",
+      async (scenario) => {
+        const { baseline, pi } = pair(scenario.id);
+        const asCreated = scenario.importCases.map((c) =>
+          c.layer === "Habitats" && c.retention === "Lost"
+            ? { ...c, retention: "Created" }
+            : c,
+        );
+        const relabelled = asCreated.filter(
+          (c, i) => c !== scenario.importCases[i],
+        );
+        const copy = path.join(directory, `${scenario.id}-created.gpkg`);
+        copyFileSync(pi, copy);
+        prepareImportTiming(copy, relabelled);
+
+        const result = await importGeoPackagePair({
+          baseline,
+          postIntervention: copy,
+        });
+
+        expect(result.accepted, JSON.stringify(result.errors)).toBe(true);
+        expect(expectedImport(asCreated)).toEqual(
+          expectedImport(scenario.importCases),
+        );
+        expect(() =>
+          assertExpectedImport(result, expectedImport(asCreated)),
+        ).not.toThrow();
+        const refs = relabelled.map((c) => c.ref);
+        const savedBaseline = result.project.project.baseline.habitats.map(
+          (h) => h.ref,
+        );
+        const workbookBaseline = importWorkbookRows(
+          baseline,
+          copy,
+        ).rows.habitatBaseline.map((row) => row.reference);
+        for (const ref of refs) {
+          expect(savedBaseline).not.toContain(ref);
+          expect(workbookBaseline).not.toContain(ref);
+        }
+      },
+      30_000,
+    );
   },
 );
 
