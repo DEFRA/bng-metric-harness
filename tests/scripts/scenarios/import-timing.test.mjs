@@ -292,18 +292,50 @@ describe.skipIf(!isBackendInstalled())(
         expect(() =>
           assertExpectedImport(result, expectedImport(asCreated)),
         ).not.toThrow();
-        const refs = relabelled.map((c) => c.ref);
-        const savedBaseline = result.project.project.baseline.habitats.map(
-          (h) => h.ref,
-        );
-        const workbookBaseline = importWorkbookRows(
+        // Exactly the baseline the Lost labels give, less the relabelled
+        // parcels: every other row as it was, so a regression that drops or
+        // changes more than those parcels fails here.
+        const original = await importGeoPackagePair({
           baseline,
-          copy,
-        ).rows.habitatBaseline.map((row) => row.reference);
-        for (const ref of refs) {
-          expect(savedBaseline).not.toContain(ref);
-          expect(workbookBaseline).not.toContain(ref);
-        }
+          postIntervention: pi,
+        });
+        const refs = new Set(relabelled.map((c) => c.ref));
+        const kept = (rows, refOf) =>
+          rows.filter((row) => !refs.has(refOf(row)));
+        // Less featureId: each import is a new project, with ids of its own.
+        const savedHabitat = (h) => ({
+          ref: h.ref,
+          type: h.type,
+          condition: h.condition,
+          strategicSignificance: h.strategicSignificance,
+          retentionCategory: h.retentionCategory,
+          area: h.area,
+          units: h.units,
+        });
+        const before = original.project.project.baseline;
+        const after = result.project.project.baseline;
+        expect(after.habitats.map(savedHabitat)).toEqual(
+          kept(before.habitats, (h) => h.ref).map(savedHabitat),
+        );
+        expect(after.habitats.length).toBeGreaterThan(0);
+        const removedUnits = before.habitats
+          .filter((h) => refs.has(h.ref))
+          .reduce((total, h) => total + h.units, 0);
+        expect(removedUnits).toBeGreaterThan(0);
+        expect(after.units.habitatsTotal).toBeCloseTo(
+          before.units.habitatsTotal - removedUnits,
+          10,
+        );
+
+        // The workbook's baseline rows, allocation fields included.
+        const workbookBefore = importWorkbookRows(baseline, pi).rows
+          .habitatBaseline;
+        const workbookAfter = importWorkbookRows(baseline, copy).rows
+          .habitatBaseline;
+        expect(workbookAfter.length).toBeGreaterThan(0);
+        expect(workbookAfter).toEqual(
+          kept(workbookBefore, (row) => row.reference),
+        );
       },
       30_000,
     );
