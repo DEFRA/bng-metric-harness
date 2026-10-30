@@ -5,6 +5,20 @@ function restoreAreaBaseline(rows, baselineRows) {
   const current = new Map(
     rows.habitatBaseline.map((row) => [row.reference, row]),
   );
+  const inBaselineHalf = new Set(
+    baselineRows.habitatBaseline.map((row) => row.reference),
+  );
+  // The service saves every baseline habitat the post-intervention file
+  // holds, so one the baseline half lacks would be under-counted here: the
+  // pair disagrees, and is refused rather than priced.
+  const unmatched = [...current.keys()].filter(
+    (ref) => !inBaselineHalf.has(ref),
+  );
+  if (unmatched.length > 0) {
+    throw new Error(
+      `The post-intervention file holds baseline habitats the baseline half does not: ${unmatched.join(", ")}`,
+    );
+  }
   // The baseline the service saves is rebuilt from the post-intervention file,
   // whose Created rows have no baseline habitat. Keep the baseline half's
   // order, with each kept row's allocation fields from the post-intervention

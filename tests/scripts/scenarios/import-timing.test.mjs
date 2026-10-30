@@ -181,6 +181,24 @@ describe("independent AC3-AC5 workbook timing inputs", () => {
     expect(timingChanges).toEqual([]);
   });
 
+  it("refuses a pair whose post-intervention file holds a baseline habitat the baseline half lacks", () => {
+    const { baseline, pi } = pair("invalid-timing-retained-lost");
+    const copy = path.join(directory, "unmatched-baseline-ref.gpkg");
+    copyFileSync(pi, copy);
+    const db = new Database(copy);
+    try {
+      db.prepare(
+        `UPDATE Habitats SET "Parcel Ref" = 'H999' WHERE "Parcel Ref" = 'H001'`,
+      ).run();
+    } finally {
+      db.close();
+    }
+
+    expect(() => importWorkbookRows(baseline, copy)).toThrow(
+      "The post-intervention file holds baseline habitats the baseline half does not: H999",
+    );
+  });
+
   it("prices Lost replacements with their timing credit and retains the baseline loss", () => {
     const { baseline, pi } = pair("invalid-timing-retained-lost");
     const { rows, timingChanges } = importWorkbookRows(baseline, pi);

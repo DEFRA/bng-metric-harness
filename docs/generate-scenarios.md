@@ -136,6 +136,8 @@ also sets Lost rows across all four layers and asserts their saved behaviour.
 
 The workbook's area baseline is the baseline half's, less any row the PI file
 does not hold as a baseline habitat, which is the baseline the service saves.
+A pair whose PI file holds a baseline habitat the baseline half lacks is
+refused rather than priced, since the workbook would under-count it.
 For every generated PI row, expected
 calculation inputs follow AC3/AC5 independently of the backend. Lost area
 replacements follow the Created rules: valid advance/delay values are retained
