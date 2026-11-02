@@ -37,6 +37,7 @@ const SEEN = {
 const GROUP_ORDER = [
   'File name',
   'File format',
+  'Template version',
   'Layers',
   'Coordinate reference system',
   'Geometry registration and declared type',
@@ -46,6 +47,7 @@ const GROUP_ORDER = [
   'Valid shapes',
   'How the shapes fit together',
   'Habitat data',
+  'Links to the baseline',
   'Service faults, not your file'
 ]
 

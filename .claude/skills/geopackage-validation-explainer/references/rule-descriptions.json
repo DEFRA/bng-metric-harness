@@ -204,10 +204,6 @@
     "group": "Habitat data",
     "checks": "A parcel reference on the area habitat, hedgerow or watercourse layer contains bytes that are not valid UTF-8 text, or is stored as raw bytes rather than text. It is detected after the text is decoded, so a reference that genuinely contains the Unicode replacement character is rejected too. Every such habitat is reported together as one error."
   },
-  "ADVANCE_AND_DELAY_BOTH_SET": {
-    "group": "Habitat data",
-    "checks": "One feature carries both advance years and delay years, which the statutory metric forbids as they are opposite directions on the same timeline. Applies to area habitats, hedgerows and watercourses; urban trees are excluded because the service does not read those columns on that layer."
-  },
   "SIZING_FAILED": {
     "group": "Service faults, not your file",
     "checks": "The database call that measures habitat sizes failed, after the file had already passed every check. Nothing about the upload was wrong."
@@ -249,5 +245,103 @@
   "VALIDATION_UNAVAILABLE": {
     "group": "Service faults, not your file",
     "checks": "The part of the service that checks file shapes has stopped working and cannot restart itself, so no file can be checked until it is fixed. Nothing about the upload was wrong, and trying again straight away meets the same fault."
+  },
+  "VERTICAL_HABITATS_OUTSIDE_REDLINE": {
+    "group": "How the shapes fit together",
+    "checks": "Vertical area habitat length falling outside the boundary. A vertical habitat, such as a green wall, is drawn as a line along the face it covers, so it is judged on the same terms as hedgerows.",
+    "tolerance": "OUTSIDE_BOUNDARY_TOLERANCE_M",
+    "toleranceIs": "Tolerance"
+  },
+  "HABITAT_REF_IN_USE": {
+    "group": "Habitat data",
+    "checks": "Raised when editing a habitat on screen, not on upload: the new reference is already used by another baseline habitat in the same layer, with hedgerows and watercourses counting as one layer. The reference is what ties each post-intervention habitat to its baseline habitat, so allowing it would merge two habitats' records. An uploaded file may still repeat a reference."
+  },
+  "ENHANCEMENT_NOT_VALID": {
+    "group": "Habitat data",
+    "checks": "Raised when editing a habitat on screen, not on upload: the change would leave an enhanced habitat that is not a permitted enhancement of the habitat it started as."
+  },
+  "BASELINE_NOT_ENHANCEABLE": {
+    "group": "Habitat data",
+    "checks": "A post-intervention habitat is recorded as Enhanced, but its baseline habitat is one the service cannot enhance at all — for example a medium distinctiveness habitat already in good condition. The whole file is refused rather than the enhancement being dropped, and every such habitat is named at once."
+  },
+  "VERTICAL_HABITAT_AREA_NOT_POSITIVE": {
+    "group": "Habitat data",
+    "checks": "A vertical area habitat's Area is blank, zero, negative or not a number. The surveyor types this in, in square metres, as the face area estimated on site; the line drawn on the map cannot supply it, so without it there is nothing to value the habitat on. Every such habitat is named at once."
+  },
+  "NO_DERIVED_BASELINE_HABITATS": {
+    "group": "Habitat data",
+    "checks": "The file yields no baseline area habitats at all. Saving it would replace the site's stored baseline, including any edits made on screen, with an empty one. Typically a file whose baseline columns are blank or hold placeholders, or a BNG Service template file whose Area Habitats Baseline table is empty."
+  },
+  "BASELINE_TYPE_MISSING": {
+    "group": "Habitat data",
+    "checks": "A post-intervention habitat recorded as Retained or Enhanced does not say what habitat it was at baseline. That habitat has to appear in the baseline, and leaving it out would understate the baseline and overstate the gain."
+  },
+  "TEMPLATE_VERSION_MISSING": {
+    "group": "Template version",
+    "checks": "The file carries no record of which BNG Service template version it was made from, and it is not a file from the older Natural England template either, so the service cannot tell what it is."
+  },
+  "TEMPLATE_VERSION_DUPLICATED": {
+    "group": "Template version",
+    "checks": "The file carries more than one template version record, so which version it was made from is ambiguous. Usually the result of merging two template files."
+  },
+  "TEMPLATE_VERSION_INVALID": {
+    "group": "Template version",
+    "checks": "The template version record is present but cannot be read, or does not say that the file is a BNG Service template and which version."
+  },
+  "TEMPLATE_VERSION_UNSUPPORTED": {
+    "group": "Template version",
+    "checks": "The file names a BNG Service template version the service does not read, such as one newer than the service or one it no longer supports."
+  },
+  "LEGACY_TEMPLATE_NOT_ACCEPTED": {
+    "group": "Template version",
+    "checks": "The file was made from the older Natural England template while the service is taking BNG Service template files. The template's QGIS plugin converts one to the other."
+  },
+  "POST_INTERVENTION_TABLES_EMPTY": {
+    "group": "Habitat data",
+    "checks": "A BNG Service template file uploaded as a baseline and post-intervention file has nothing in any of its post-intervention tables, so there is no post-intervention stage to save."
+  },
+  "STAGED_PARENT_LINK_MISSING": {
+    "group": "Links to the baseline",
+    "checks": "A post-intervention habitat recorded as Retained or Enhanced is not linked to the baseline habitat it continues. The service does not guess the link; it has to be made in the template."
+  },
+  "STAGED_UNKNOWN_PARENT_REF": {
+    "group": "Links to the baseline",
+    "checks": "A post-intervention habitat is linked to a baseline habitat that is not in the file, in the same layer."
+  },
+  "STAGED_AMBIGUOUS_PARENT": {
+    "group": "Links to the baseline",
+    "checks": "A post-intervention habitat is linked to a baseline identity that more than one baseline habitat in its layer shares, so which one it continues cannot be told. Copying and pasting a baseline feature can cause this."
+  },
+  "STAGED_BASELINE_DRIFTED": {
+    "group": "Links to the baseline",
+    "checks": "A baseline habitat's shape no longer matches the shape its linked post-intervention habitats recorded when they were copied from it, allowing only for rounding — the baseline was redrawn after the copy. Also raised where that recorded shape is missing or unreadable, as the link then cannot be checked."
+  },
+  "STAGED_HEDGEROW_CHILDREN_TOO_LONG": {
+    "group": "Links to the baseline",
+    "checks": "The post-intervention hedgerows linked to one baseline hedgerow, created ones included, are longer in total than the baseline hedgerow itself."
+  },
+  "STAGED_VERTICAL_CHILDREN_TOO_LARGE": {
+    "group": "Links to the baseline",
+    "checks": "The post-intervention vertical area habitats linked to one baseline vertical area habitat, created ones included, have a larger total Area than the baseline habitat itself."
+  },
+  "STAGED_WATERCOURSE_RETAINED_AND_CREATED": {
+    "group": "Links to the baseline",
+    "checks": "One baseline watercourse has both a Retained or Enhanced part and a Created part after intervention. The service cannot split one watercourse's length between what continues and what is lost, so the baseline watercourse has to be drawn as two."
+  },
+  "STAGED_NATURAL_WATERCOURSE_LOST": {
+    "group": "Links to the baseline",
+    "checks": "A baseline watercourse that is neither a canal nor a ditch has no post-intervention habitat. The statutory metric allows only a canal or a ditch to be permanently lost."
+  },
+  "STAGED_DEGRADE_NOT_WORSE": {
+    "group": "Links to the baseline",
+    "checks": "An area habitat or hedgerow is recorded as Created in the same habitat type as its baseline and linked to it, but is not in a lower condition and has no delay — so it was in fact kept. A habitat with a delay is one lost for a time and put back, which passes."
+  },
+  "STAGED_DEGRADE_ADVANCE_NOT_30_PLUS": {
+    "group": "Links to the baseline",
+    "checks": "An area habitat or hedgerow recorded as lost and created again in a lower condition, in the same habitat type and linked to its baseline, does not give its years created in advance as 30+, which the statutory metric asks for in that case."
+  },
+  "STAGED_WATERCOURSE_NO_INTERVENTION": {
+    "group": "Links to the baseline",
+    "checks": "A watercourse is recorded as Created in the same river type as its baseline and linked to it, but with no lower condition, no more encroachment, no shorter length and no delay — so nothing was done to it."
   }
 }

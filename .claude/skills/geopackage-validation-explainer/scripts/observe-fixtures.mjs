@@ -15,6 +15,11 @@
  * in the pipeline; for those, validation-facts.mjs reads the error-code columns
  * in example-files/README.md instead. Between the two, nothing is hand-authored.
  *
+ * The service-template corpus goes through the BNG Service template gate
+ * (`validateServiceTemplateGpkgFile`) instead, the one the service-template
+ * flag selects. Through the legacy gate every one of its files would report a
+ * missing or unexpected layer, whatever it was built to show.
+ *
  * INVALID_FILENAME sits outside the gate entirely — it is a Joi check on the
  * upload's own filename, not on anything inside the file — so the gate never
  * reports it no matter what a fixture is named. This script checks each
@@ -54,6 +59,16 @@ const GATE_MODULE = path.join(
   'geopackage',
   'geopackage.js'
 )
+const SERVICE_TEMPLATE_GATE_MODULE = path.join(
+  'src',
+  'validation',
+  'geopackage',
+  'service-template',
+  'service-template-gate.js'
+)
+// The BNG Service template corpus. Its files are checked by the gate the
+// service-template flag selects; every other fixture is a legacy file.
+const SERVICE_TEMPLATE_DIR = `service-template${path.sep}`
 const FILENAME_RULES_MODULE = path.join(
   'src',
   'validation',
@@ -62,10 +77,21 @@ const FILENAME_RULES_MODULE = path.join(
 const INVALID_FILENAME_CODE = 'INVALID_FILENAME'
 const JSON_INDENT = 2
 
+/**
+ * Both gates, as one function of a fixture's path: the BNG Service template
+ * gate for the service-template corpus, the legacy gate for the rest — the
+ * pair the service-template flag chooses between.
+ */
 async function loadGate(backendDir) {
   try {
-    const module = await import(`file://${path.join(backendDir, GATE_MODULE)}`)
-    return module.validateGpkg
+    const legacy = await import(`file://${path.join(backendDir, GATE_MODULE)}`)
+    const serviceTemplate = await import(
+      `file://${path.join(backendDir, SERVICE_TEMPLATE_GATE_MODULE)}`
+    )
+    return (absolutePath, relative) =>
+      relative.startsWith(SERVICE_TEMPLATE_DIR)
+        ? serviceTemplate.validateServiceTemplateGpkgFile(absolutePath)
+        : legacy.validateGpkg(readFileSync(absolutePath))
   } catch (error) {
     console.error(
       `Could not load the validation gate from ${backendDir}.\n` +
@@ -141,10 +167,10 @@ function trackedFixtures() {
 }
 
 /** Codes the gate reports for one fixture, or null when it could not be read. */
-function observe(validateGpkg, absolutePath) {
+function observe(gate, absolutePath, relative) {
   let result
   try {
-    result = validateGpkg(readFileSync(absolutePath))
+    result = gate(absolutePath, relative)
   } catch (error) {
     return { codes: [], failed: error.message }
   }
@@ -166,7 +192,7 @@ if (!existsSync(EXAMPLE_FILES_DIR)) {
 }
 
 const backendDir = locateSource('backend')
-const validateGpkg = await loadGate(backendDir)
+const gate = await loadGate(backendDir)
 const filenameRule = await loadFilenameRule(backendDir)
 const tracked = trackedFixtures()
 const onDisk = walkSourceFiles(EXAMPLE_FILES_DIR, ['.gpkg']).map(
@@ -187,7 +213,7 @@ const unreadable = []
 let rejected = 0
 
 for (const { absolutePath, relative } of fixtures) {
-  const { codes: gateCodes, failed } = observe(validateGpkg, absolutePath)
+  const { codes: gateCodes, failed } = observe(gate, absolutePath, relative)
   if (failed) {
     unreadable.push(`${relative} — ${failed}`)
     continue

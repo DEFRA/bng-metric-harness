@@ -2,7 +2,7 @@
 
 Every rule the BNG Metric service applies to an uploaded GeoPackage: what each one checks, and which example file demonstrates it.
 
-**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `400fc7a`, frontend `aba2c32` and bng-library `5d2b589`, all on `main`, and was generated on 2026-10-12.
+**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `9a54913`, frontend `59a638b` and bng-library `c762526`, all on `main`, and was generated on 2026-11-02.
 
 For how biodiversity units are calculated once a file is accepted, see [rules-engine-explained.md](rules-engine-explained.md).
 
@@ -13,7 +13,7 @@ Every rule below **rejects the upload**: nothing is saved and the file must be c
 Two things worth knowing before using the table:
 
 - **The structural rules run first and stop the upload.** Nothing in the geometry or habitat-data groups is reached until the file format, layer, column and coordinate-system rules all pass. Expect to fix a file in two rounds rather than one.
-- **What you see on screen often does not identify the rule.** Of 57 rules, 19 have a message of their own, 5 show a placeholder, and 33 fall back to a generic message about layer and column names. Each row records which applies.
+- **What you see on screen often does not identify the rule.** Of 80 rules, 21 have a message of their own, 5 show a placeholder, and 54 fall back to a generic message about layer and column names. Each row records which applies.
 
 Example files are paths under `example-files/` in this repository, worked out by running the real validation gate over every fixture and recording which rule it reports. That directory is a reference corpus for people, not something the service reads, and `journey-tests` and `backend` keep their own separate copies — so a rule with an example file here is not necessarily covered by an automated test.
 
@@ -23,29 +23,39 @@ Example files are paths under `example-files/` in this repository, worked out by
 
 | Rule and example file | What it checks |
 | --- | --- |
-| `INVALID_FILENAME` — *filename-problems/Baseline [invalid chars].gpkg* | The name of the uploaded file contains a character the service does not accept. Letters, numbers, spaces, full stops, underscores, hyphens and round brackets all pass, and the name has to begin with a letter or number; nothing inside the file is looked at. The user sees its own message. |
+| `INVALID_FILENAME` — *filename-problems/Baseline [invalid chars].gpkg; service-template/filename-problems/default site [invalid chars].gpkg* | The name of the uploaded file contains a character the service does not accept. Letters, numbers, spaces, full stops, underscores, hyphens and round brackets all pass, and the name has to begin with a letter or number; nothing inside the file is looked at. The user sees its own message. |
 | `FILENAME_TOO_LONG` — *no geopackage fixture* | The name of the uploaded file is longer than the service accepts. Nothing inside the file is looked at. The user sees a generic message. |
 
 ### File format
 
 | Rule and example file | What it checks |
 | --- | --- |
-| `GPKG_INVALID_FILE` — *malformed/Not a valid geopackage.gpkg* | The upload cannot be opened as a database at all. Usually something that is not a GeoPackage — a shapefile, a zip, a spreadsheet — or a .gpkg truncated by an interrupted copy. The user sees a generic message. |
+| `GPKG_INVALID_FILE` — *malformed/Not a valid geopackage.gpkg; service-template/malformed/not-a-geopackage.gpkg* | The upload cannot be opened as a database at all. Usually something that is not a GeoPackage — a shapefile, a zip, a spreadsheet — or a .gpkg truncated by an interrupted copy. The user sees a generic message. |
 | `GPKG_NOT_A_GEOPACKAGE` — *no geopackage fixture* | The file opens as a database but is not stamped as a GeoPackage. Typically a SpatiaLite or plain SQLite database given a .gpkg name; the stamp is inside the file, so renaming the extension does not help. The user sees a generic message. |
 | `GPKG_MISSING_SYSTEM_TABLE` — *no geopackage fixture* | One of the GeoPackage's own internal housekeeping tables is absent, so the file is broken at the format level rather than merely wrong. Reported once per missing table. The user sees a generic message. |
+
+### Template version
+
+| Rule and example file | What it checks |
+| --- | --- |
+| `TEMPLATE_VERSION_MISSING` — *service-template/version-problems/version-record-missing.gpkg* | The file carries no record of which BNG Service template version it was made from, and it is not a file from the older Natural England template either, so the service cannot tell what it is. The user sees a generic message. |
+| `TEMPLATE_VERSION_DUPLICATED` — *service-template/version-problems/version-record-duplicated.gpkg* | The file carries more than one template version record, so which version it was made from is ambiguous. Usually the result of merging two template files. The user sees a generic message. |
+| `TEMPLATE_VERSION_INVALID` — *no geopackage fixture* | The template version record is present but cannot be read, or does not say that the file is a BNG Service template and which version. The user sees a generic message. |
+| `TEMPLATE_VERSION_UNSUPPORTED` — *service-template/version-problems/version-unsupported.gpkg* | The file names a BNG Service template version the service does not read, such as one newer than the service or one it no longer supports. The user sees a generic message. |
+| `LEGACY_TEMPLATE_NOT_ACCEPTED` — *service-template/invalid-schema/legacy-template.gpkg* | The file was made from the older Natural England template while the service is taking BNG Service template files. The template's QGIS plugin converts one to the other. The user sees a generic message. |
 
 ### Layers
 
 | Rule and example file | What it checks |
 | --- | --- |
-| `GPKG_MISSING_LAYER` — *invalid-schema/Baseline - no habitats table (three rlb polygons).gpkg; invalid-schema/Baseline - no habitats table.gpkg; invalid-schema/Post-intervention - no geometry column in RLB layer.gpkg* | A layer the template requires is absent. Habitats and Red Line Boundary are both required; a layer that exists under a different name counts as missing. The user sees a generic message. |
+| `GPKG_MISSING_LAYER` — *invalid-schema/Baseline - no habitats table (three rlb polygons).gpkg; invalid-schema/Baseline - no habitats table.gpkg; invalid-schema/Post-intervention - no geometry column in RLB layer.gpkg; service-template/invalid-schema/no-area-habitats-baseline-table.gpkg; service-template/invalid-schema/no-post-intervention-tables.gpkg* | A layer the template requires is absent. Habitats and Red Line Boundary are both required; a layer that exists under a different name counts as missing. The user sees a generic message. |
 | `GPKG_UNEXPECTED_FEATURE_LAYER` — *spatial-problems/Baseline - iggi outside.gpkg* | The file carries a vector mapping layer the template does not list — a constraints layer, a site plan, a working copy. Raster and tile layers are not examined, so an embedded basemap is not caught. The user sees a generic message. |
 
 ### Coordinate reference system
 
 | Rule and example file | What it checks |
 | --- | --- |
-| `GPKG_BASELINE_SRS_ID` — *invalid-schema/Baseline - rlb has wrong spatial reference.gpkg* | A layer is not in British National Grid (EPSG:27700), or no usable coordinate system number can be read for it. Latitude and longitude and Web Mercator are both rejected. Reported once per layer. The user sees a generic message. |
+| `GPKG_BASELINE_SRS_ID` — *invalid-schema/Baseline - rlb has wrong spatial reference.gpkg; service-template/invalid-schema/red-line-boundary-wrong-spatial-reference.gpkg* | A layer is not in British National Grid (EPSG:27700), or no usable coordinate system number can be read for it. Latitude and longitude and Web Mercator are both rejected. Reported once per layer. The user sees a generic message. |
 | `GPKG_BASELINE_GPKG_SRS_INCONSISTENT` — *no geopackage fixture* | The file records one layer's coordinate system in two places and the two disagree. A GIS package will display such a layer without complaint. The user sees a generic message. |
 
 ### Geometry registration and declared type
@@ -53,19 +63,19 @@ Example files are paths under `example-files/` in this repository, worked out by
 | Rule and example file | What it checks |
 | --- | --- |
 | `GPKG_BASELINE_CONTENTS_DATA_TYPE` — *no geopackage fixture* | A layer is registered as something other than a vector mapping layer. Believed unreachable in practice: only layers already registered as mapping layers are ever examined. The user sees a generic message. |
-| `GPKG_BASELINE_INVALID_GEOMETRY_COLUMN_NAME` — *no geopackage fixture* | The column holding a layer's shapes has a name containing something other than letters, digits and underscores. The name itself is not compared against the template — only its validity. The user sees a generic message. |
-| `GPKG_BASELINE_MULTIPLE_GEOMETRY_COLUMNS` — *invalid-schema/Post-intervention - multiple geometry columns in RLB layer.gpkg* | A layer has more than one column holding shapes, either in its registration or in the table itself. Usually the result of a merge or join carrying a second geometry across. The user sees a generic message. |
-| `GPKG_BASELINE_GEOMETRY_TYPE_NAME` — *invalid-schema/Baseline - wrong geometry type in Habitats.gpkg; invalid-schema/Baseline - wrong geometry type in Hedgerows.gpkg; invalid-schema/Baseline - wrong geometry type in Rivers.gpkg; invalid-schema/Post-intervention - wrong geometry type in RLB layer.gpkg* | A layer's declared shape type differs from the template, regardless of what was actually drawn. Habitats must be declared MultiPolygon and Red Line Boundary Polygon — the two required layers want opposite things. The user sees a generic message. |
+| `GPKG_BASELINE_INVALID_GEOMETRY_COLUMN_NAME` — *service-template/invalid-schema/wrong-geometry-column-name-in-red-line-boundary.gpkg* | The column holding a layer's shapes has a name containing something other than letters, digits and underscores. The name itself is not compared against the template — only its validity. The user sees a generic message. |
+| `GPKG_BASELINE_MULTIPLE_GEOMETRY_COLUMNS` — *invalid-schema/Post-intervention - multiple geometry columns in RLB layer.gpkg; service-template/invalid-schema/multiple-geometry-columns-in-red-line-boundary.gpkg* | A layer has more than one column holding shapes, either in its registration or in the table itself. Usually the result of a merge or join carrying a second geometry across. The user sees a generic message. |
+| `GPKG_BASELINE_GEOMETRY_TYPE_NAME` — *invalid-schema/Baseline - wrong geometry type in Habitats.gpkg; invalid-schema/Baseline - wrong geometry type in Hedgerows.gpkg; invalid-schema/Baseline - wrong geometry type in Rivers.gpkg; invalid-schema/Post-intervention - wrong geometry type in RLB layer.gpkg; service-template/invalid-schema/wrong-geometry-type-in-area-habitats.gpkg; service-template/invalid-schema/wrong-geometry-type-in-hedgerows.gpkg; service-template/invalid-schema/wrong-geometry-type-in-red-line-boundary.gpkg; service-template/invalid-schema/wrong-geometry-type-in-watercourses.gpkg* | A layer's declared shape type differs from the template, regardless of what was actually drawn. Habitats must be declared MultiPolygon and Red Line Boundary Polygon — the two required layers want opposite things. The user sees a generic message. |
 | `GPKG_BASELINE_GEOMETRY_REGISTRATION_MISSING` — *no geopackage fixture* | A layer is listed as a mapping layer but the file never records which of its columns holds the shapes, so no GIS tool can draw it. Applies to the optional layers; the two required layers have their own rules. The user sees a generic message. |
 | `GPKG_HABITATS_NO_GEOMETRY_COLUMN` — *no geopackage fixture* | The same missing registration, reported specifically for the Habitats layer. The user sees a generic message. |
-| `GPKG_RLB_NO_GEOMETRY_COLUMN` — *no geopackage fixture* | The same missing registration, reported specifically for the Red Line Boundary layer. The user sees a generic message. |
+| `GPKG_RLB_NO_GEOMETRY_COLUMN` — *service-template/invalid-schema/no-geometry-column-in-red-line-boundary.gpkg* | The same missing registration, reported specifically for the Red Line Boundary layer. The user sees a generic message. |
 
 ### Columns
 
 | Rule and example file | What it checks |
 | --- | --- |
-| `GPKG_BASELINE_MISSING_COLUMN` — *invalid-schema/Baseline - missing and wrong column names in Habitats.gpkg; invalid-schema/Baseline - missing columns in Habitats.gpkg; invalid-schema/Baseline - wrong column names in Habitats.gpkg* | A column the template defines is absent, which includes any template column that has been renamed. Reported once per missing column per layer, so a stripped-down layer produces many at once. The user sees a generic message. |
-| `GPKG_BASELINE_COLUMN_SQLITE_TYPE` — *invalid-schema/Baseline - wrong column data types in Habitats.gpkg; invalid-schema/Baseline - wrong geometry type in Habitats.gpkg; invalid-schema/Baseline - wrong geometry type in Hedgerows.gpkg; invalid-schema/Baseline - wrong geometry type in Rivers.gpkg* | A column exists with the right name but holds the wrong kind of value — text where a number is expected, or the reverse. Column length is never compared, so a text field of any size passes. The user sees a generic message. |
+| `GPKG_BASELINE_MISSING_COLUMN` — *invalid-schema/Baseline - missing and wrong column names in Habitats.gpkg; invalid-schema/Baseline - missing columns in Habitats.gpkg; invalid-schema/Baseline - wrong column names in Habitats.gpkg; service-template/invalid-schema/missing-columns-in-area-habitats.gpkg; service-template/invalid-schema/wrong-column-names-in-area-habitats.gpkg* | A column the template defines is absent, which includes any template column that has been renamed. Reported once per missing column per layer, so a stripped-down layer produces many at once. The user sees a generic message. |
+| `GPKG_BASELINE_COLUMN_SQLITE_TYPE` — *invalid-schema/Baseline - wrong column data types in Habitats.gpkg; invalid-schema/Baseline - wrong geometry type in Habitats.gpkg; invalid-schema/Baseline - wrong geometry type in Hedgerows.gpkg; invalid-schema/Baseline - wrong geometry type in Rivers.gpkg; service-template/invalid-schema/wrong-column-data-types-in-area-habitats.gpkg; service-template/invalid-schema/wrong-geometry-type-in-area-habitats.gpkg; service-template/invalid-schema/wrong-geometry-type-in-hedgerows.gpkg; service-template/invalid-schema/wrong-geometry-type-in-red-line-boundary.gpkg; service-template/invalid-schema/wrong-geometry-type-in-watercourses.gpkg* | A column exists with the right name but holds the wrong kind of value — text where a number is expected, or the reverse. Column length is never compared, so a text field of any size passes. The user sees a generic message. |
 | `GPKG_BASELINE_COLUMN_NOT_NULL` — *no geopackage fixture* | A column's must-always-have-a-value setting differs from the template. Only the row identifier is required to carry one, so this fires either because it lost that setting or because another column gained it. The user sees a generic message. |
 | `GPKG_BASELINE_COLUMN_PRIMARY_KEY` — *no geopackage fixture* | The column acting as the layer's unique row identifier is not the one the template expects. The user sees a generic message. |
 
@@ -115,6 +125,7 @@ Example files are paths under `example-files/` in this repository, worked out by
 | `REDLINE_OUTSIDE_ENGLAND` — *spatial-problems/Baseline - redline not in england.gpkg* | Part of the boundary falls outside a reference outline of England. That outline is heavily generalised, so genuinely English coastal and border sites can fail it. Tolerance 0.5 m². The user sees a placeholder. |
 | `REDLINE_AREA_TOO_LARGE` — *no geopackage fixture* | The boundary encloses more land than any real site plausibly would, so in practice this catches a coordinate system error or a stray vertex. The cap is 100 km². The user sees a placeholder. |
 | `AREA_PARCELS_TOO_SMALL` — *spatial-problems/Baseline - parcel too small.gpkg* | A single habitat parcel covers less ground than the smallest area a genuine parcel is expected to occupy, marking it as a stray digitising artefact rather than a real habitat. It is judged on area alone, so a long, thin parcel passes as long as its total footprint is large enough. The minimum parcel area is 1 m². The user sees its own message. |
+| `VERTICAL_HABITATS_OUTSIDE_REDLINE` — *no geopackage fixture* | Vertical area habitat length falling outside the boundary. A vertical habitat, such as a green wall, is drawn as a line along the face it covers, so it is judged on the same terms as hedgerows. Tolerance 0.1 m. The user sees a generic message. |
 
 ### Habitat data
 
@@ -123,8 +134,30 @@ Example files are paths under `example-files/` in this repository, worked out by
 | `HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE` — *attribute-problems/Baseline - habitat distinctiveness out of scope.gpkg* | A habitat falls in the High or Very High distinctiveness band, which this service does not yet handle. Applies to area habitats, hedgerows and watercourses, and to habitats proposed as well as existing. Around half of all area habitat types are affected, and an ordinary river or stream always is. The user sees its own message. |
 | `HABITAT_REF_MISSING` — *attribute-problems/Baseline - missing habitat ref.gpkg; attribute-problems/Baseline - missing habitat refs on every layer.gpkg; attribute-problems/Post-intervention - missing habitat ref.gpkg* | A habitat on the area habitat, hedgerow or watercourse layer has no parcel reference, or one made up only of spaces. Every such habitat is reported together as one error rather than one each. Urban trees are not checked, as they carry a tree reference instead. Habitats may share a reference, and a reference longer than the service keeps is shortened on save rather than rejected. The user sees its own message. |
 | `HABITAT_REF_INVALID_CHARACTERS` — *attribute-problems/Baseline - habitat ref invalid UTF-8 bytes.gpkg; attribute-problems/Baseline - habitat ref invalid characters.gpkg* | A parcel reference on the area habitat, hedgerow or watercourse layer contains bytes that are not valid UTF-8 text, or is stored as raw bytes rather than text. It is detected after the text is decoded, so a reference that genuinely contains the Unicode replacement character is rejected too. Every such habitat is reported together as one error. The user sees its own message. |
-| `ADVANCE_AND_DELAY_BOTH_SET` — *attribute-problems/Post-intervention - advance and delay both set.gpkg* | One feature carries both advance years and delay years, which the statutory metric forbids as they are opposite directions on the same timeline. Applies to area habitats, hedgerows and watercourses; urban trees are excluded because the service does not read those columns on that layer. The user sees its own message. |
 | `TREE_COUNT_NOT_WHOLE` — *no geopackage fixture* | An individual tree point's Count, the number of trees it stands for, is filled in with something other than a whole number of one or more. A blank Count passes, and is read as one tree. The user sees its own message. |
+| `HABITAT_REF_IN_USE` — *no geopackage fixture* | Raised when editing a habitat on screen, not on upload: the new reference is already used by another baseline habitat in the same layer, with hedgerows and watercourses counting as one layer. The reference is what ties each post-intervention habitat to its baseline habitat, so allowing it would merge two habitats' records. An uploaded file may still repeat a reference. The user sees a generic message. |
+| `ENHANCEMENT_NOT_VALID` — *no geopackage fixture* | Raised when editing a habitat on screen, not on upload: the change would leave an enhanced habitat that is not a permitted enhancement of the habitat it started as. The user sees a generic message. |
+| `BASELINE_NOT_ENHANCEABLE` — *no geopackage fixture* | A post-intervention habitat is recorded as Enhanced, but its baseline habitat is one the service cannot enhance at all — for example a medium distinctiveness habitat already in good condition. The whole file is refused rather than the enhancement being dropped, and every such habitat is named at once. The user sees its own message. |
+| `VERTICAL_HABITAT_AREA_NOT_POSITIVE` — *no geopackage fixture* | A vertical area habitat's Area is blank, zero, negative or not a number. The surveyor types this in, in square metres, as the face area estimated on site; the line drawn on the map cannot supply it, so without it there is nothing to value the habitat on. Every such habitat is named at once. The user sees a generic message. |
+| `NO_DERIVED_BASELINE_HABITATS` — *no geopackage fixture* | The file yields no baseline area habitats at all. Saving it would replace the site's stored baseline, including any edits made on screen, with an empty one. Typically a file whose baseline columns are blank or hold placeholders, or a BNG Service template file whose Area Habitats Baseline table is empty. The user sees its own message. |
+| `BASELINE_TYPE_MISSING` — *attribute-problems/Post-intervention - blank and placeholder baseline types on every layer.gpkg* | A post-intervention habitat recorded as Retained or Enhanced does not say what habitat it was at baseline. That habitat has to appear in the baseline, and leaving it out would understate the baseline and overstate the gain. The user sees its own message. |
+| `POST_INTERVENTION_TABLES_EMPTY` — *no geopackage fixture* | A BNG Service template file uploaded as a baseline and post-intervention file has nothing in any of its post-intervention tables, so there is no post-intervention stage to save. The user sees a generic message. |
+
+### Links to the baseline
+
+| Rule and example file | What it checks |
+| --- | --- |
+| `STAGED_PARENT_LINK_MISSING` — *no geopackage fixture* | A post-intervention habitat recorded as Retained or Enhanced is not linked to the baseline habitat it continues. The service does not guess the link; it has to be made in the template. The user sees a generic message. |
+| `STAGED_UNKNOWN_PARENT_REF` — *no geopackage fixture* | A post-intervention habitat is linked to a baseline habitat that is not in the file, in the same layer. The user sees a generic message. |
+| `STAGED_AMBIGUOUS_PARENT` — *no geopackage fixture* | A post-intervention habitat is linked to a baseline identity that more than one baseline habitat in its layer shares, so which one it continues cannot be told. Copying and pasting a baseline feature can cause this. The user sees a generic message. |
+| `STAGED_BASELINE_DRIFTED` — *no geopackage fixture* | A baseline habitat's shape no longer matches the shape its linked post-intervention habitats recorded when they were copied from it, allowing only for rounding — the baseline was redrawn after the copy. Also raised where that recorded shape is missing or unreadable, as the link then cannot be checked. The user sees a generic message. |
+| `STAGED_HEDGEROW_CHILDREN_TOO_LONG` — *no geopackage fixture* | The post-intervention hedgerows linked to one baseline hedgerow, created ones included, are longer in total than the baseline hedgerow itself. The user sees a generic message. |
+| `STAGED_VERTICAL_CHILDREN_TOO_LARGE` — *no geopackage fixture* | The post-intervention vertical area habitats linked to one baseline vertical area habitat, created ones included, have a larger total Area than the baseline habitat itself. The user sees a generic message. |
+| `STAGED_WATERCOURSE_RETAINED_AND_CREATED` — *no geopackage fixture* | One baseline watercourse has both a Retained or Enhanced part and a Created part after intervention. The service cannot split one watercourse's length between what continues and what is lost, so the baseline watercourse has to be drawn as two. The user sees a generic message. |
+| `STAGED_NATURAL_WATERCOURSE_LOST` — *no geopackage fixture* | A baseline watercourse that is neither a canal nor a ditch has no post-intervention habitat. The statutory metric allows only a canal or a ditch to be permanently lost. The user sees a generic message. |
+| `STAGED_DEGRADE_NOT_WORSE` — *no geopackage fixture* | An area habitat or hedgerow is recorded as Created in the same habitat type as its baseline and linked to it, but is not in a lower condition and has no delay — so it was in fact kept. A habitat with a delay is one lost for a time and put back, which passes. The user sees a generic message. |
+| `STAGED_DEGRADE_ADVANCE_NOT_30_PLUS` — *no geopackage fixture* | An area habitat or hedgerow recorded as lost and created again in a lower condition, in the same habitat type and linked to its baseline, does not give its years created in advance as 30+, which the statutory metric asks for in that case. The user sees a generic message. |
+| `STAGED_WATERCOURSE_NO_INTERVENTION` — *no geopackage fixture* | A watercourse is recorded as Created in the same river type as its baseline and linked to it, but with no lower condition, no more encroachment, no shorter length and no delay — so nothing was done to it. The user sees a generic message. |
 
 ### Service faults, not your file
 
@@ -139,16 +172,16 @@ Example files are paths under `example-files/` in this repository, worked out by
 
 | Measure | Count |
 | --- | --- |
-| Rules that can reject an upload | 57 |
-| With a message written for them | 19 |
+| Rules that can reject an upload | 80 |
+| With a message written for them | 21 |
 | Showing a placeholder message | 5 |
-| Falling back to a generic message | 33 |
-| With an example .gpkg in this repository | 26 |
-| With a generator flaw that reproduces them | 18 |
+| Falling back to a generic message | 54 |
+| With an example .gpkg in this repository | 32 |
+| With a generator flaw that reproduces them | 17 |
 
-**31 of 57 rules have no example file.** Almost all are structural — the file format, layer, column and coordinate-system rules — which is also the group the user is told least about. The generator has no schema flaw family, so those fixtures cannot be produced with `npm run generate:gpkg` and would have to be built by hand.
+**48 of 80 rules have no example file.** Almost all are structural — the file format, layer, column and coordinate-system rules — which is also the group the user is told least about. The generator has no schema flaw family, so those fixtures cannot be produced with `npm run generate:gpkg` and would have to be built by hand.
 
-120 `.gpkg` files in `example-files/` are not mapped to any rule. Most are valid fixtures or real survey data rather than rule demonstrations, so that is expected rather than a gap.
+353 `.gpkg` files in `example-files/` are not mapped to any rule. Most are valid fixtures or real survey data rather than rule demonstrations, so that is expected rather than a gap.
 
 ## Known gaps recorded by this run
 
@@ -164,8 +197,8 @@ Example files are paths under `example-files/` in this repository, worked out by
 
 | Repository | Commit | Supplies |
 | --- | --- | --- |
-| bng-metric-backend | `400fc7a` | The rules, and the message each one raises |
-| bng-metric-frontend | `aba2c32` | What the user is shown for each rule |
-| bng-library | `5d2b589` | The generator flaws that reproduce fixtures |
+| bng-metric-backend | `9a54913` | The rules, and the message each one raises |
+| bng-metric-frontend | `59a638b` | What the user is shown for each rule |
+| bng-library | `c762526` | The generator flaws that reproduce fixtures |
 
 Rule descriptions are held in `references/rule-descriptions.json` in the skill; the rule list, message status and fixture mapping are extracted from the three repositories on every run.
