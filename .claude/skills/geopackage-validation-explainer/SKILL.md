@@ -25,7 +25,7 @@ The document is a table, assembled deterministically from three inputs:
 | Input | Supplies |
 | --- | --- |
 | `bng-metric-backend` | Which rules exist, where each is enforced, the message it raises |
-| `bng-metric-frontend` | Whether the user sees a bespoke message, a placeholder, or a generic catch-all |
+| `bng-metric-frontend` | Whether the user sees a bespoke message, the service's own message as a list, a placeholder, or a generic catch-all |
 | `bng-library` + `example-files/` | Which generator flaw exercises each rule, and — by running the real gate over every fixture — which `.gpkg` demonstrates it |
 | `references/rule-descriptions.json` | What each rule checks, in plain English. Created and topped up by the skill; names the constant for any threshold rather than stating the number |
 
@@ -101,7 +101,7 @@ node .claude/skills/geopackage-validation-explainer/scripts/validation-facts.mjs
 
 Writes every rule with its raise sites and message, the copy status the user experiences, the generator flaw and example `.gpkg` that exercise it, and the commit of each repository. Passing the same path to `--compare` diffs against the previous run before overwriting.
 
-**Read the summary.** The counts are content — the document's coverage section is built from them.
+**Read the summary.** It counts every code in the registry, the two raised only by edits on screen included. The document's coverage section counts the upload rules only: `build-document.mjs` works its counts out from the facts file, leaving out the rules in the `Edits made on screen` group, so its total is the summary's less those.
 
 **In check mode, act on the diff:**
 

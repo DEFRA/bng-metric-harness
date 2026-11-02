@@ -383,12 +383,13 @@ const stillDrafted = Object.keys(facts.codes).filter(
 mkdirSync(path.dirname(path.resolve(outPath)), { recursive: true })
 writeFileSync(outPath, buildDocument(facts, descriptions))
 
-const withFile = Object.values(facts.codes).filter(
-  (entry) => entry.exampleFiles.length > 0
-).length
+const upload = uploadSummary(facts, descriptions)
+const editRules = Object.keys(facts.codes).length - upload.total
 console.log(`Wrote ${outPath}`)
-console.log(`  ${Object.keys(facts.codes).length} rules, all described`)
-console.log(`  ${withFile} with an example .gpkg`)
+console.log(
+  `  ${Object.keys(facts.codes).length} rules, all described: ${upload.total} upload rules, ${editRules} edit rules`
+)
+console.log(`  ${upload.withExampleFile} upload rules with an example .gpkg`)
 
 if (stillDrafted.length > 0) {
   console.log(

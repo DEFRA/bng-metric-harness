@@ -594,7 +594,9 @@ function reportDiff(diff) {
 
 function reportSummary(facts) {
   const s = facts.summary
-  console.log(`Codes in registry:        ${s.total}`)
+  console.log(
+    `Codes in registry:        ${s.total} (upload and edit rules alike; the document counts upload rules only)`
+  )
   console.log(`  bespoke user copy:      ${s.dedicatedCopy}`)
   console.log(`  the backend's message:  ${s.backendMessageCopy}`)
   console.log(`  placeholder copy:       ${s.placeholderCopy}`)
