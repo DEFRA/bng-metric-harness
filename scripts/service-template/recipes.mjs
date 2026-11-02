@@ -141,7 +141,7 @@ function expectedForFlaw(name, flaw) {
 
 /**
  * A file bng-library draws. It marks no feature irreplaceable unless the
- * recipe asks: the service refuses an irreplaceable habitat (BMD-1176,
+ * recipe asks: the service refuses an irreplaceable habitat (BMD-1099,
  * BMD-1172), so a file that should trip one check, or none, holds none.
  */
 function generated(path, covers, expected, options) {
@@ -363,7 +363,7 @@ const IRREPLACEABLE = [
   generated(
     "attribute-problems/irreplaceable-area-habitat.gpkg",
     "`valid/default-site.gpkg` with its woodland parcel marked irreplaceable (Irreplaceable Habitat `Yes`) in both stages",
-    `refused (BMD-1176). ${IRREPLACEABLE_NOT_CHECKED}`,
+    `refused (BMD-1099). ${IRREPLACEABLE_NOT_CHECKED}`,
     { seed: SEED, irreplaceableLayers: ["habitats"] },
   ),
   generated(
