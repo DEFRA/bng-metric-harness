@@ -12,12 +12,14 @@
 
 import Database from "better-sqlite3";
 
+// Each layer's size column and its unit: an area habitat's Area is measured in
+// hectares, a vertical one's typed in square metres.
 const LAYERS = [
-  ["Area Habitats", "Habitat Type", "Area"],
-  ["Vertical Area Habitats", "Habitat Type", "Area"],
-  ["Hedgerows", "Hedge Type", "Length"],
-  ["Watercourses", "River Type", "Length"],
-  ["Individual Trees", null, null],
+  ["Area Habitats", "Habitat Type", "Area", "ha"],
+  ["Vertical Area Habitats", "Habitat Type", "Area", "m²"],
+  ["Hedgerows", "Hedge Type", "Length", "m"],
+  ["Watercourses", "River Type", "Length", "m"],
+  ["Individual Trees", null, null, null],
 ];
 const ADVANCE = "Habitat created in advance/years";
 const DEGRADED_ADVANCE = "30+";
@@ -57,8 +59,9 @@ function worseRows(layer, typeColumn, sizeColumn) {
   }));
 }
 
-const summary = LAYERS.map(([layer, typeColumn, sizeColumn]) => ({
+const summary = LAYERS.map(([layer, typeColumn, sizeColumn, unit]) => ({
   layer,
+  unit,
   baseline: all(`SELECT count(*) n FROM "${layer} Baseline"`)[0].n,
   postIntervention: all(
     `SELECT count(*) n FROM "${layer} Post-Intervention"`,
@@ -89,7 +92,7 @@ if (flag === "--json") {
     );
     for (const w of s.worse) {
       console.log(
-        `  worse: ${w.ref} (parent ${w.parent}) ${w.type}: ${w.fromCondition} -> ${w.toCondition}, advance ${w.advance ?? "blank"}, ${w.size ?? "?"}`,
+        `  worse: ${w.ref} (parent ${w.parent}) ${w.type}: ${w.fromCondition} -> ${w.toCondition}, advance ${w.advance ?? "blank"}, ${w.size ?? "?"} ${s.unit}`,
       );
     }
   }
