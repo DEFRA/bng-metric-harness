@@ -132,8 +132,8 @@ Valid schema and geometry: an attribute value trips a later validator, or a habi
 | `degrade-not-worse.gpkg` | a same-type creation that is not worse: a hedgerow Created in its own type, linked to its parent, with 30+ years in advance, in its baseline condition (a 30+ on a row that does not get worse overstates its units) | STAGED_DEGRADE_NOT_WORSE | seed 1, flaw `degrade-not-worse` |
 | `degrade-watercourse-retained-and-created.gpkg` | a baseline watercourse has both a Retained and a Created post-intervention part. The template records part of a stretch changing by splitting it at the baseline survey, as the service cannot measure part of a watercourse | STAGED_WATERCOURSE_RETAINED_AND_CREATED | seed 1, flaw `degrade-watercourse-retained-and-created` |
 | `degrade-habitat-ref-blank.gpkg` | an area habitat that gets worse has an empty Habitat Ref on its post-intervention row only; its baseline row keeps its ref, so only a check of the post-intervention tables finds it | HABITAT_REF_MISSING | seed 1, flaw `degrade-habitat-ref-blank` |
-| `irreplaceable-area-habitat.gpkg` | `valid/default-site.gpkg` with its woodland parcel marked irreplaceable (Irreplaceable Habitat `Yes`) in both stages | refused (BMD-1099). Accepted today: the service does not check irreplaceable habitats yet | seed 1, irreplaceable `habitats` |
-| `irreplaceable-tree.gpkg` | `valid/default-site.gpkg` with one Retained tree marked irreplaceable (a veteran tree) in both stages | refused (BMD-1172). Accepted today: the service does not check irreplaceable habitats yet | seed 1, irreplaceable `trees` |
+| `irreplaceable-area-habitat.gpkg` | `valid/default-site.gpkg` with its woodland parcel marked irreplaceable (Irreplaceable Habitat `Yes`) in both stages | refused. Accepted today: the service does not check irreplaceable habitats yet | seed 1, irreplaceable `habitats` |
+| `irreplaceable-tree.gpkg` | `valid/default-site.gpkg` with one Retained tree marked irreplaceable (a veteran tree) in both stages | refused. Accepted today: the service does not check irreplaceable habitats yet | seed 1, irreplaceable `trees` |
 
 ## lineage-problems/
 
