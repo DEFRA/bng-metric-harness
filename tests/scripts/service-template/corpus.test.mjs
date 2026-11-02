@@ -254,9 +254,19 @@ describe("the committed service-template corpus's areas", () => {
       (r) => r.geom && typeof r.area === "number",
     );
     const wrong = rows
+      // A line of any other kind has no length lineLength can measure, and
+      // a height that is not a number passes every comparison, so both fail.
       .filter((r) => {
-        const height = r.area / lineLength(wkbToGeoJSON(r.geom).coordinates);
-        return height < MIN_WALL_HEIGHT_M || height > MAX_WALL_HEIGHT_M;
+        const geometry = wkbToGeoJSON(r.geom);
+        if (geometry.type !== "LineString") {
+          return true;
+        }
+        const height = r.area / lineLength(geometry.coordinates);
+        return (
+          !Number.isFinite(height) ||
+          height < MIN_WALL_HEIGHT_M ||
+          height > MAX_WALL_HEIGHT_M
+        );
       })
       .map((r) => `${r.file} ${r.table} ${r.ref}: ${r.area}`);
     expect(rows.length).toBeGreaterThan(0);
