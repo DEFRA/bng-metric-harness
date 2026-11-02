@@ -12,18 +12,19 @@
 
 import Database from "better-sqlite3";
 
-// Each layer's size column and its unit: an area habitat's Area is measured in
-// hectares, a vertical one's typed in square metres.
+// Each layer's size column, its unit and the decimal places to print: an area
+// habitat's Area is measured in hectares, so it keeps four places (a square
+// metre) and a small parcel never prints as "0 ha"; a vertical one's is typed
+// in square metres.
 const LAYERS = [
-  ["Area Habitats", "Habitat Type", "Area", "ha"],
-  ["Vertical Area Habitats", "Habitat Type", "Area", "m²"],
-  ["Hedgerows", "Hedge Type", "Length", "m"],
-  ["Watercourses", "River Type", "Length", "m"],
-  ["Individual Trees", null, null, null],
+  ["Area Habitats", "Habitat Type", "Area", "ha", 4],
+  ["Vertical Area Habitats", "Habitat Type", "Area", "m²", 1],
+  ["Hedgerows", "Hedge Type", "Length", "m", 1],
+  ["Watercourses", "River Type", "Length", "m", 1],
+  ["Individual Trees", null, null, null, null],
 ];
 const ADVANCE = "Habitat created in advance/years";
 const DEGRADED_ADVANCE = "30+";
-const ROUND = 1;
 
 const [file, flag] = process.argv.slice(2);
 if (!file) {
@@ -34,7 +35,7 @@ if (!file) {
 const db = new Database(file, { readonly: true });
 const all = (sql) => db.prepare(sql).all();
 
-function worseRows(layer, typeColumn, sizeColumn) {
+function worseRows(layer, typeColumn, sizeColumn, places) {
   if (!typeColumn) {
     return [];
   }
@@ -55,11 +56,11 @@ function worseRows(layer, typeColumn, sizeColumn) {
       ORDER BY fid`,
   ).map((r) => ({
     ...r,
-    size: r.size == null ? null : Number(r.size.toFixed(ROUND)),
+    size: r.size == null ? null : Number(r.size.toFixed(places)),
   }));
 }
 
-const summary = LAYERS.map(([layer, typeColumn, sizeColumn, unit]) => ({
+const summary = LAYERS.map(([layer, typeColumn, sizeColumn, unit, places]) => ({
   layer,
   unit,
   baseline: all(`SELECT count(*) n FROM "${layer} Baseline"`)[0].n,
@@ -76,7 +77,7 @@ const summary = LAYERS.map(([layer, typeColumn, sizeColumn, unit]) => ({
       WHERE NOT EXISTS (SELECT 1 FROM "${layer} Post-Intervention" p WHERE p.parent_uuid = b.feature_uuid)
       ORDER BY b.fid`,
   ).map((r) => r.ref),
-  worse: worseRows(layer, typeColumn, sizeColumn),
+  worse: worseRows(layer, typeColumn, sizeColumn, places),
 }));
 db.close();
 
