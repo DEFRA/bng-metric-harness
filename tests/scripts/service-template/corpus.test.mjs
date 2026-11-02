@@ -25,6 +25,7 @@ import {
   listFlaws,
   readVersionRecords,
 } from "#bng-lib";
+import { polygonAreaSqm, wkbToGeoJSON } from "#gpkg-io";
 import { checkFile } from "../../../scripts/lineage-check.mjs";
 import {
   buildRecipe,
@@ -166,15 +167,140 @@ describe("the committed service-template corpus", () => {
   });
 });
 
+// The units of each layer's Area, checked against the geometry rather than
+// the generator, so a pin that wrote the wrong unit, and a corpus rebuilt
+// from it, would still fail (BMD-1084). An area habitat's Area is its
+// polygon's area in hectares. A vertical area habitat's is the face area the
+// surveyor typed in, in square metres, so it is its line's length times a
+// wall height: in hectares it would be thousands of times too small.
+const SQ_METRES_PER_HECTARE = 10_000;
+// bng-500/'s converter rounds Area to 4 decimal places of a hectare: a
+// square metre, so up to half of one either way. A wrong unit is out by a
+// factor of ten thousand.
+const AREA_TOLERANCE_SQ_M = 0.5 + 1e-6;
+const MIN_WALL_HEIGHT_M = 1;
+const MAX_WALL_HEIGHT_M = 50;
+const STAGES = ["Baseline", "Post-Intervention"];
+
+function lineLength(coordinates) {
+  return coordinates
+    .slice(1)
+    .reduce(
+      (sum, [x, y], i) =>
+        sum + Math.hypot(x - coordinates[i][0], y - coordinates[i][1]),
+      0,
+    );
+}
+
+/**
+ * Every row of a layer, at both stages, across the corpus, with its file.
+ * The malformed and invalid-schema fixtures are broken on purpose: a file
+ * SQLite cannot read, or a table without an Area or geometry column, holds
+ * no area to check.
+ */
+function corpusRows(layer) {
+  return familyFiles(CORPUS).flatMap((file) => {
+    const db = new Database(path.join(CORPUS, file), { readonly: true });
+    try {
+      return STAGES.map((stage) => `${layer} ${stage}`).flatMap((table) => {
+        const columns = new Set(
+          db
+            .prepare(`PRAGMA table_info("${table}")`)
+            .all()
+            .map((c) => c.name),
+        );
+        if (!columns.has("Area") || !columns.has("geom")) {
+          return [];
+        }
+        return db
+          .prepare(
+            `SELECT "Habitat Ref" AS ref, Area AS area, geom FROM "${table}"`,
+          )
+          .all()
+          .map((row) => ({ file, table, ...row }));
+      });
+    } catch (error) {
+      if (error.code === "SQLITE_NOTADB") {
+        return [];
+      }
+      throw error;
+    } finally {
+      db.close();
+    }
+  });
+}
+
+describe("the committed service-template corpus's areas", () => {
+  it("gives each area habitat its polygon's area in hectares", () => {
+    const rows = corpusRows("Area Habitats").filter(
+      (r) => r.geom && typeof r.area === "number",
+    );
+    const wrong = rows
+      .map((r) => ({ ...r, sqm: polygonAreaSqm(wkbToGeoJSON(r.geom)) }))
+      // A shape with no area (a bowtie) is a geometry flaw, not a unit.
+      .filter((r) => r.sqm > 0)
+      .filter(
+        (r) =>
+          Math.abs(r.area * SQ_METRES_PER_HECTARE - r.sqm) >
+          AREA_TOLERANCE_SQ_M,
+      )
+      .map((r) => `${r.file} ${r.table} ${r.ref}: ${r.area}`);
+    expect(rows.length).toBeGreaterThan(0);
+    expect(wrong).toEqual([]);
+  });
+
+  it("gives each vertical area habitat its face area in square metres", () => {
+    const rows = corpusRows("Vertical Area Habitats").filter(
+      (r) => r.geom && typeof r.area === "number",
+    );
+    const wrong = rows
+      // A line of any other kind has no length lineLength can measure, and
+      // a height that is not a number passes every comparison, so both fail.
+      .filter((r) => {
+        const geometry = wkbToGeoJSON(r.geom);
+        if (geometry.type !== "LineString") {
+          return true;
+        }
+        const height = r.area / lineLength(geometry.coordinates);
+        return (
+          !Number.isFinite(height) ||
+          height < MIN_WALL_HEIGHT_M ||
+          height > MAX_WALL_HEIGHT_M
+        );
+      })
+      .map((r) => `${r.file} ${r.table} ${r.ref}: ${r.area}`);
+    expect(rows.length).toBeGreaterThan(0);
+    expect(wrong).toEqual([]);
+  });
+
+  // DEFRA/bng-library#126 moved this from 0.009332 (hectares) to 93.
+  it.each(STAGES)(
+    "holds V001 at 93 m² in valid/default-site.gpkg's %s table",
+    (stage) => {
+      const db = new Database(path.join(CORPUS, "valid/default-site.gpkg"), {
+        readonly: true,
+      });
+      try {
+        expect(
+          db
+            .prepare(
+              `SELECT Area AS area FROM "Vertical Area Habitats ${stage}" WHERE "Habitat Ref" = 'V001'`,
+            )
+            .get().area,
+        ).toBe(93);
+      } finally {
+        db.close();
+      }
+    },
+  );
+});
+
 const IRREPLACEABLE = "Irreplaceable Habitat";
 const YES = "Yes";
 // The tables each layer bng-library's irreplaceableLayers names is on.
 const LAYER_TABLES = {
   habitats: ["Area Habitats Baseline", "Area Habitats Post-Intervention"],
-  trees: [
-    "Individual Trees Baseline",
-    "Individual Trees Post-Intervention",
-  ],
+  trees: ["Individual Trees Baseline", "Individual Trees Post-Intervention"],
 };
 
 /** The feature tables of `file` that hold a row marked irreplaceable. */
@@ -256,9 +382,7 @@ describe("the built fixtures", () => {
         expected.sort(),
       );
     }
-    const marked = drawn.filter(
-      (r) => irreplaceableLayersOf(r).length > 0,
-    );
+    const marked = drawn.filter((r) => irreplaceableLayersOf(r).length > 0);
     expect(marked.map((r) => r.path).sort()).toEqual([
       "attribute-problems/irreplaceable-area-habitat.gpkg",
       "attribute-problems/irreplaceable-tree.gpkg",
