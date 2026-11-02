@@ -29,9 +29,19 @@ const DESCRIPTIONS_FILE = path.join(
 const NO_FIXTURE = 'no geopackage fixture'
 const SEEN = {
   dedicated: 'its own message',
+  'backend-message': "the service's own message, listing what it names",
   placeholder: 'a placeholder',
   'catch-all': 'a generic message'
 }
+
+/**
+ * The group for rules raised when a habitat is edited on screen, not on
+ * upload. They get a section of their own, after the upload rules, and are
+ * left out of every upload count. The upload error page never shows them, so
+ * their rows say nothing about what the user sees.
+ */
+const EDIT_GROUP = 'Edits made on screen'
+
 
 /** Group order in the document. Any group not listed is appended alphabetically. */
 const GROUP_ORDER = [
@@ -115,7 +125,8 @@ function toleranceSentence(entry, description, tolerances) {
   return ` ${wording} ${shown}.`
 }
 
-function buildTable(codes, descriptions, tolerances) {
+/** Each group's rules, in the order of rule-descriptions.json. */
+function rulesByGroup(codes, descriptions) {
   // Row order follows rule-descriptions.json, not the registry. The registry is
   // ordered by how the code grew, which puts "the same rule, for this layer"
   // rows ahead of the general rule they refer back to.
@@ -124,23 +135,98 @@ function buildTable(codes, descriptions, tolerances) {
     const group = descriptions[code].group
     byGroup.set(group, [...(byGroup.get(group) ?? []), [code, codes[code]]])
   }
+  return byGroup
+}
 
+function tableRows(rules, descriptions, tolerances, { withSeen }) {
+  const lines = ['| Rule and example file | What it checks |', '| --- | --- |']
+  for (const [code, entry] of rules) {
+    const description = descriptions[code]
+    const threshold = toleranceSentence(entry, description, tolerances)
+    const seen = withSeen ? ` The user sees ${SEEN[entry.copy]}.` : ''
+    lines.push(
+      `| ${ruleCell(code, entry)} | ${cell(description.checks)}${threshold}${seen} |`
+    )
+  }
+  return lines
+}
+
+function buildTable(codes, descriptions, tolerances) {
+  const byGroup = rulesByGroup(codes, descriptions)
+  byGroup.delete(EDIT_GROUP)
   const lines = []
   for (const group of groupsInOrder(new Set(byGroup.keys()))) {
-    lines.push(`### ${group}`, '')
-    lines.push('| Rule and example file | What it checks |')
-    lines.push('| --- | --- |')
-    for (const [code, entry] of byGroup.get(group)) {
-      const description = descriptions[code]
-      const threshold = toleranceSentence(entry, description, tolerances)
-      const seen = SEEN[entry.copy]
-      lines.push(
-        `| ${ruleCell(code, entry)} | ${cell(description.checks)}${threshold} The user sees ${seen}. |`
-      )
-    }
-    lines.push('')
+    lines.push(
+      `### ${group}`,
+      '',
+      ...tableRows(byGroup.get(group), descriptions, tolerances, {
+        withSeen: true
+      }),
+      ''
+    )
   }
   return lines.join('\n')
+}
+
+/** The section for rules raised by edits on screen, or '' when there are none. */
+function buildEditSection(codes, descriptions, tolerances) {
+  const rules = rulesByGroup(codes, descriptions).get(EDIT_GROUP)
+  if (!rules) {
+    return ''
+  }
+  return [
+    `## ${EDIT_GROUP}`,
+    '',
+    'These rules refuse a change made to a habitat on screen, after a file has been accepted. They never refuse an upload, so they are not in the counts below.',
+    '',
+    ...tableRows(rules, descriptions, tolerances, { withSeen: false }),
+    '',
+    ''
+  ].join('\n')
+}
+
+/**
+ * The counts the document gives, over the upload rules only: the facts
+ * summary counts every code in the registry, edit rules included.
+ */
+function uploadSummary(facts, descriptions) {
+  const entries = Object.entries(facts.codes)
+    .filter(([code]) => descriptions[code].group !== EDIT_GROUP)
+    .map(([, entry]) => entry)
+  const withCopy = (copy) => entries.filter((e) => e.copy === copy).length
+  return {
+    total: entries.length,
+    dedicatedCopy: withCopy('dedicated'),
+    backendMessageCopy: withCopy('backend-message'),
+    placeholderCopy: withCopy('placeholder'),
+    catchAllCopy: withCopy('catch-all'),
+    withExampleFile: entries.filter((e) => e.exampleFiles.length > 0).length,
+    withFixture: entries.filter((e) => e.fixtures.length > 0).length
+  }
+}
+
+/**
+ * Which groups the upload rules with no example file are in, most first:
+ * worked out on every run, as any claim about them goes stale as fixtures
+ * are added.
+ */
+function noExampleSentence(facts, descriptions, total) {
+  const counts = new Map()
+  for (const [code, entry] of Object.entries(facts.codes)) {
+    const { group } = descriptions[code]
+    if (group !== EDIT_GROUP && entry.exampleFiles.length === 0) {
+      counts.set(group, (counts.get(group) ?? 0) + 1)
+    }
+  }
+  const missing = [...counts.values()].reduce((a, b) => a + b, 0)
+  if (missing === 0) {
+    return `**Every one of the ${total} upload rules has an example file.**`
+  }
+  const byGroup = [...counts]
+    .toSorted(([a, x], [b, y]) => y - x || a.localeCompare(b))
+    .map(([group, n]) => `${group} ${n}`)
+    .join(', ')
+  return `**${missing} of ${total} upload rules have no example file.** By group: ${byGroup}.`
 }
 
 /**
@@ -181,14 +267,11 @@ const SHORT_COMMIT_LENGTH = 7
 const ISO_DATE_LENGTH = 10
 
 function buildDocument(facts, descriptions) {
-  const codes = Object.keys(facts.codes)
-  const s = facts.summary
+  const s = uploadSummary(facts, descriptions)
   const p = facts.provenance
   const short = (commit) => commit?.slice(0, SHORT_COMMIT_LENGTH) ?? 'unknown'
   const date = facts.generatedAt.slice(0, ISO_DATE_LENGTH)
-  const noFixture = codes.filter(
-    (c) => facts.codes[c].exampleFiles.length === 0
-  )
+  const tolerances = facts.tolerances ?? {}
 
   return `# GeoPackage validation explained
 
@@ -200,41 +283,40 @@ For how biodiversity units are calculated once a file is accepted, see [rules-en
 
 ## How to read this
 
-Every rule below **rejects the upload**: nothing is saved and the file must be corrected and uploaded again. Separately, an accepted file can still contain features that score zero and show as **Incomplete**, when a habitat or condition is not recognised. Those are not upload rules and are not listed here, so a clean upload is not confirmation that every feature was understood.
+Every rule under [The rules](#the-rules) **rejects the upload**: nothing is saved and the file must be corrected and uploaded again. Separately, an accepted file can still contain features that score zero and show as **Incomplete**, when a habitat or condition is not recognised. Those are not upload rules and are not listed here, so a clean upload is not confirmation that every feature was understood.
 
 Two things worth knowing before using the table:
 
 - **The structural rules run first and stop the upload.** Nothing in the geometry or habitat-data groups is reached until the file format, layer, column and coordinate-system rules all pass. Expect to fix a file in two rounds rather than one.
-- **What you see on screen often does not identify the rule.** Of ${s.total} rules, ${s.dedicatedCopy} have a message of their own, ${s.placeholderCopy} show a placeholder, and ${s.catchAllCopy} fall back to a generic message about layer and column names. Each row records which applies.
+- **What you see on screen often does not identify the rule.** Of ${s.total} rules, ${s.dedicatedCopy} have a message of their own, ${s.backendMessageCopy} show the service's own message as a list of what it names, ${s.placeholderCopy} show a placeholder, and ${s.catchAllCopy} fall back to a generic message about layer and column names when they are the only fault. Each row records which applies.
 
 Example files are paths under \`example-files/\` in this repository, worked out by running the real validation gate over every fixture and recording which rule it reports. That directory is a reference corpus for people, not something the service reads, and \`journey-tests\` and \`backend\` keep their own separate copies — so a rule with an example file here is not necessarily covered by an automated test.
 
 ## The rules
 
-${buildTable(facts.codes, descriptions, facts.tolerances ?? {})}## Coverage
+${buildTable(facts.codes, descriptions, tolerances)}${buildEditSection(facts.codes, descriptions, tolerances)}## Coverage
 
 | Measure | Count |
 | --- | --- |
 | Rules that can reject an upload | ${s.total} |
 | With a message written for them | ${s.dedicatedCopy} |
+| Showing the service's own message, as a list | ${s.backendMessageCopy} |
 | Showing a placeholder message | ${s.placeholderCopy} |
 | Falling back to a generic message | ${s.catchAllCopy} |
 | With an example .gpkg in this repository | ${s.withExampleFile} |
 | With a generator flaw that reproduces them | ${s.withFixture} |
 
-**${noFixture.length} of ${s.total} rules have no example file.** Almost all are structural — the file format, layer, column and coordinate-system rules — which is also the group the user is told least about. The generator has no schema flaw family, so those fixtures cannot be produced with \`npm run generate:gpkg\` and would have to be built by hand.
+${noExampleSentence(facts, descriptions, s.total)}
 
 ${facts.exampleFilesClaimedByNoRule.length} \`.gpkg\` files in \`example-files/\` are not mapped to any rule. Most are valid fixtures or real survey data rather than rule demonstrations, so that is expected rather than a gap.
 
 ## Known gaps recorded by this run
 
-- The green infrastructure containment rule cannot fire. Running the real gate over the fixture built to exercise it shows the file rejected as an unexpected layer instead, because that layer is not in the template — so the containment check is never reached. One layer-type rule also cannot fail, because only layers already of the required type are examined.
-- \`example-files/README.md\` states that the green infrastructure fixture demonstrates the containment rule. It does not, per the above, and the entry is stale.
-- One fixture filed under \`invalid-schema/\` passes validation entirely: the one named for a wrong geometry column name. Column names are not compared against the template, only their syntactic validity, so there is nothing for it to trip.
-- The \`Water course enhancement through meanders\` layer is permitted by the template but never read, so no spatial rule is applied to anything in it.
-- Advance and delay values on the Urban Trees layer are silently discarded rather than merely unvalidated, because the column names on that layer differ from the ones the service reads. A five-year head start recorded there earns no credit and produces no warning.
-- The message shown for a gap between parcels tells the reader to redraw the parcel. There is no such parcel — the fault is a gap between two of them.
-- A file with exactly one fault gets the least informative message, because the specific technical detail is only listed when there is more than one error.
+- In the legacy template, the green infrastructure containment rule cannot fire. Running the real gate over the fixture built to exercise it shows the file rejected as an unexpected layer instead, because that layer is not in the template — so the containment check is never reached. One layer-type rule also cannot fail, because only layers already of the required type are examined. The BNG Service template draws an IGGI on its Vertical Area Habitats layers instead, where the vertical area habitat containment rule checks it.
+- In the legacy template, one fixture filed under \`invalid-schema/\` passes validation entirely: the one named for a wrong geometry column name. The legacy gate does not compare column names with the template, only their syntactic validity, so there is nothing for it to trip. The BNG Service template gate does compare them.
+- The legacy template's \`Water course enhancement through meanders\` layer is permitted but never read, so no spatial rule is applied to anything in it.
+- The message shown when habitat parcels, taken together, overhang the red line boundary tells the reader to redraw "this parcel". That rule names no parcel: it reports the overhang across all of them.
+- A file with exactly one fault, other than one shown as the service's own message, gets the least informative message, because the specific technical detail is only listed when there is more than one error.
 
 ## Where this comes from
 

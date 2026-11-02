@@ -14,7 +14,7 @@
   },
   "GPKG_MISSING_LAYER": {
     "group": "Layers",
-    "checks": "A layer the template requires is absent. Habitats and Red Line Boundary are both required; a layer that exists under a different name counts as missing."
+    "checks": "A layer the template requires is absent; a layer that exists under a different name counts as missing. In the legacy template, Habitats and Red Line Boundary are required. In the BNG Service template, every Baseline and Post-Intervention table the template version lists is required, the Post-Intervention ones included, even in a baseline-only file, where they are present and empty."
   },
   "GPKG_UNEXPECTED_FEATURE_LAYER": {
     "group": "Layers",
@@ -34,7 +34,7 @@
   },
   "GPKG_BASELINE_INVALID_GEOMETRY_COLUMN_NAME": {
     "group": "Geometry registration and declared type",
-    "checks": "The column holding a layer's shapes has a name containing something other than letters, digits and underscores. The name itself is not compared against the template — only its validity."
+    "checks": "The column holding a layer's shapes has the wrong name. In the legacy template, only its validity is checked: a name containing something other than letters, digits and underscores. In the BNG Service template, the name must also be the one the template gives that layer."
   },
   "GPKG_BASELINE_MULTIPLE_GEOMETRY_COLUMNS": {
     "group": "Geometry registration and declared type",
@@ -42,7 +42,7 @@
   },
   "GPKG_BASELINE_GEOMETRY_TYPE_NAME": {
     "group": "Geometry registration and declared type",
-    "checks": "A layer's declared shape type differs from the template, regardless of what was actually drawn. Habitats must be declared MultiPolygon and Red Line Boundary Polygon — the two required layers want opposite things."
+    "checks": "A layer's declared shape type differs from the template, regardless of what was actually drawn. In the legacy template, Habitats must be declared MultiPolygon and Red Line Boundary Polygon. In the BNG Service template, area habitats and the red line boundary are declared Polygon, hedgerows, watercourses and vertical area habitats LineString, and trees Point."
   },
   "GPKG_BASELINE_GEOMETRY_REGISTRATION_MISSING": {
     "group": "Geometry registration and declared type",
@@ -253,12 +253,12 @@
     "toleranceIs": "Tolerance"
   },
   "HABITAT_REF_IN_USE": {
-    "group": "Habitat data",
-    "checks": "Raised when editing a habitat on screen, not on upload: the new reference is already used by another baseline habitat in the same layer, with hedgerows and watercourses counting as one layer. The reference is what ties each post-intervention habitat to its baseline habitat, so allowing it would merge two habitats' records. An uploaded file may still repeat a reference."
+    "group": "Edits made on screen",
+    "checks": "The new reference is already used by another baseline habitat in the same layer, with hedgerows and watercourses counting as one layer. The reference is what ties each post-intervention habitat to its baseline habitat, so allowing it would merge two habitats' records. An uploaded file may still repeat a reference."
   },
   "ENHANCEMENT_NOT_VALID": {
-    "group": "Habitat data",
-    "checks": "Raised when editing a habitat on screen, not on upload: the change would leave an enhanced habitat that is not a permitted enhancement of the habitat it started as."
+    "group": "Edits made on screen",
+    "checks": "The change would leave an enhanced habitat that is not a permitted enhancement of the habitat it started as."
   },
   "BASELINE_NOT_ENHANCEABLE": {
     "group": "Habitat data",
