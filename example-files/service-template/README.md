@@ -81,7 +81,7 @@ Valid schema, invalid geometry: each trips one geometry validator. Baseline-stag
 | `hedgerow-outside-baseline.gpkg` | a hedgerow runs from inside to outside the redline | HEDGEROWS_OUTSIDE_REDLINE | seed 1, baseline stage, flaw `hedgerow-outside` |
 | `watercourse-outside-baseline.gpkg` | a watercourse runs from inside to outside the redline | WATERCOURSES_OUTSIDE_REDLINE | seed 1, baseline stage, flaw `watercourse-outside` |
 | `tree-outside-baseline.gpkg` | a tree is placed outside the redline | TREES_OUTSIDE_REDLINE | seed 1, baseline stage, flaw `tree-outside` |
-| `iggi-outside-baseline.gpkg` | an IGGI polygon is placed outside the redline | IGGIS_OUTSIDE_REDLINE | seed 1, baseline stage, flaw `iggi-outside` |
+| `iggi-outside-baseline.gpkg` | an IGGI, a vertical area habitat, is placed outside the redline | VERTICAL_HABITATS_OUTSIDE_REDLINE | seed 1, baseline stage, flaw `iggi-outside` |
 | `area-sum-mismatch-baseline.gpkg` | habitat parcels do not tile the redline | AREA_SUM_MISMATCH | seed 1, baseline stage, flaw `area-sum-mismatch` |
 | `redline-not-in-england-baseline.gpkg` | redline placed outside England (Snowdonia, Wales) | REDLINE_OUTSIDE_ENGLAND | seed 1, baseline stage, flaw `redline-not-in-england` |
 | `redline-too-large-baseline.gpkg` | redline area exceeds the 100 sq km limit | REDLINE_AREA_TOO_LARGE | seed 1, baseline stage, flaw `redline-too-large` |
