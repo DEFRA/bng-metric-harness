@@ -25,7 +25,7 @@ The document is a table, assembled deterministically from three inputs:
 | Input | Supplies |
 | --- | --- |
 | `bng-metric-backend` | Which rules exist, where each is enforced, the message it raises |
-| `bng-metric-frontend` | Whether the user sees a bespoke message, a placeholder, or a generic catch-all |
+| `bng-metric-frontend` | Whether the user sees a bespoke message, the service's own message as a list, a placeholder, or a generic catch-all |
 | `bng-library` + `example-files/` | Which generator flaw exercises each rule, and — by running the real gate over every fixture — which `.gpkg` demonstrates it |
 | `references/rule-descriptions.json` | What each rule checks, in plain English. Created and topped up by the skill; names the constant for any threshold rather than stating the number |
 
@@ -88,7 +88,7 @@ This is measured rather than authored, so it needs no upkeep when fixtures are a
 
 Only fixtures git tracks are observed. A stray `.gpkg` in a working copy is reported and skipped, because a document that cites a file nobody else has is worse than one that admits a rule has no example. Commit a new fixture before expecting it in the table.
 
-The gate covers the file-format, layer, column, coordinate-system and shape-presence rules. It cannot reach the spatial rules, which need PostGIS, or the habitat-data rules, which run later; for those the next step falls back to the error-code columns in `example-files/README.md`.
+The gate covers the file-format, layer, column, coordinate-system and shape-presence rules; files under `service-template/` go through the BNG Service template gate, the rest through the legacy one. It cannot reach the spatial rules, which need PostGIS, or the habitat-data and lineage rules, which run later; for those the next step falls back to the error-code columns of `example-files/README.md` (its last column) and `example-files/service-template/README.md` (its `Expected` column, where a cell that is not a bare code, such as "accepted" or "refused: …", claims nothing).
 
 ## Step 2 — Extract and diff the facts
 
@@ -101,7 +101,7 @@ node .claude/skills/geopackage-validation-explainer/scripts/validation-facts.mjs
 
 Writes every rule with its raise sites and message, the copy status the user experiences, the generator flaw and example `.gpkg` that exercise it, and the commit of each repository. Passing the same path to `--compare` diffs against the previous run before overwriting.
 
-**Read the summary.** The counts are content — the document's coverage section is built from them.
+**Read the summary.** It counts every code in the registry, the two raised only by edits on screen included. The document's coverage section counts the upload rules only: `build-document.mjs` works its counts out from the facts file, leaving out the rules in the `Edits made on screen` group, so its total is the summary's less those.
 
 **In check mode, act on the diff:**
 
@@ -112,7 +112,8 @@ Writes every rule with its raise sites and message, the copy status the user exp
 
 Also act on these, which are reported separately:
 
-- *Fixtures that no longer demonstrate what the README claims* — the gate rejects that file for a different rule than `example-files/README.md` says. The observation is right; the README entry is stale and worth correcting there.
+- *Fixtures that no longer demonstrate what the README claims* — the gate rejects that file for a different rule than its README says. The observation is right; the README entry is stale and worth correcting there.
+- *README entries naming an unknown code* — a README still claims a rule the backend no longer defines. The file is counted as mapped to no rule; correct or remove the entry in that README.
 - *Codes defined but never raised* — expected for the route-level ones; investigate any others.
 
 ## Step 3 — Create or top up the descriptions
@@ -190,7 +191,7 @@ The drift this catches is quiet: a rule added without documentation, a placehold
 - **Node 24.** `nvm use` first.
 - **The document is generated, never hand-edited.** A fix applied to the output is overwritten on the next run; change the generator, the descriptions or the spec.
 - **`docs/` is published.** Intermediates stay in `.geopackage-validation-explainer/`.
-- **Fixture mapping is observed, not authored, and observation wins.** `observe-fixtures.mjs` runs the real gate over every fixture; whatever it reports is authoritative. The error-code columns in `example-files/README.md` are used only for files the gate *passes*, since those fail later at a stage needing PostGIS that cannot be run here. Where the README claims a code for a file the gate rejects with something else, the run reports the disagreement — that means the fixture has stopped demonstrating what it was built for. This replaced a hand-written mapping file, which had to be remembered and which silently degraded a renamed fixture into a false "no geopackage fixture" claim.
+- **Fixture mapping is observed, not authored, and observation wins.** `observe-fixtures.mjs` runs the real gate over every fixture; whatever it reports is authoritative. The error-code columns of `example-files/README.md` and `example-files/service-template/README.md` are used only for files the gate *passes*, since those fail later at a stage needing PostGIS that cannot be run here. Where the README claims a code for a file the gate rejects with something else, the run reports the disagreement — that means the fixture has stopped demonstrating what it was built for. This replaced a hand-written mapping file, which had to be remembered and which silently degraded a renamed fixture into a false "no geopackage fixture" claim.
 - **The observe step needs the backend's dependencies installed**, because it loads the native SQLite binding. It exits with guidance if they are missing rather than producing an empty mapping that would strip every fixture from the document.
 - **The example corpus is nobody's dependency.** `example-files/` is a reference corpus for people; `journey-tests` and `backend` keep their own copies, already differing byte-for-byte in places. A rule with an example file here is not necessarily covered by an automated test.
 - **Flaw keys in the library are inconsistently quoted.** Most are quoted, `sliver` is not. The extractor handles both; if fixture attribution ever looks wrong, suspect that pattern first — a missed key silently attributes every later fixture to the previous one.

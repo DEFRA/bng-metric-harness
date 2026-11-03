@@ -8,7 +8,8 @@
  * so this skill's equivalent guarantee is a reconciliation across three repos:
  *
  *   backend   which codes exist, where each is raised, the literal message
- *   frontend  whether the user sees bespoke copy, a placeholder, or a catch-all
+ *   frontend  whether the user sees bespoke copy, the backend's own message,
+ *             a placeholder, or a catch-all
  *   library   whether a fixture exists that is meant to trigger the code
  *
  * A code that no fixture exercises, or that reaches the user as a generic
@@ -29,12 +30,29 @@ import {
   walkSourceFiles,
   balancedBraceBlock,
   lineOf,
-  argValue
+  argValue,
+  isMain
 } from './_lib.mjs'
 
 const ERRORS_FILE = path.join('src', 'validation', 'geopackage', 'errors.js')
 const COPY_FILE = path.join('src', 'server', 'error-file', 'single-error-copy.js')
-const FLAWS_FILE = path.join('src', 'synthetic', 'flaws.mjs')
+const CONTROLLER_FILE = path.join('src', 'server', 'error-file', 'controller.js')
+/**
+ * The library's flaw registries, legacy and BNG Service template, each by the
+ * export that holds it. REMAPPED_LEGACY_FLAWS gives the code the BNG Service
+ * template refuses a legacy flaw with, where it is a different one.
+ */
+const FLAW_REGISTRIES = [
+  { file: path.join('src', 'synthetic', 'flaws.mjs'), exportName: 'FLAWS' },
+  {
+    file: path.join('src', 'bng-service', 'flaws.mjs'),
+    exportName: 'BNG_SERVICE_FLAWS'
+  },
+  {
+    file: path.join('src', 'bng-service', 'flaws.mjs'),
+    exportName: 'REMAPPED_LEGACY_FLAWS'
+  }
+]
 /** Codes are raised from the validation pipeline and from the routes, so scan all of src. */
 const BACKEND_SOURCE_DIR = 'src'
 
@@ -47,6 +65,7 @@ const MAX_MESSAGE_CHARS = 200
 const CODE_KEY_PATTERN = /^ {2}([A-Z][A-Z0-9_]*):/gm
 const COPY_STATUS = Object.freeze({
   DEDICATED: 'dedicated',
+  BACKEND_MESSAGE: 'backend-message',
   PLACEHOLDER: 'placeholder',
   CATCH_ALL: 'catch-all'
 })
@@ -170,7 +189,7 @@ function extractRaiseSites(backendDir, codes) {
 }
 
 /** What the user is actually shown for each code. */
-function extractCopyStatus(frontendDir) {
+export function extractCopyStatus(frontendDir) {
   const text = readTextFile(path.join(frontendDir, COPY_FILE))
 
   const entriesBlock = balancedBraceBlock(text, text.indexOf('CODE_ENTRIES'))
@@ -191,38 +210,88 @@ function extractCopyStatus(frontendDir) {
       : []
   )
 
-  return { dedicated, placeholder }
+  return { dedicated, placeholder, shownAsList: extractShownAsList(frontendDir) }
 }
 
 /**
- * Which fixtures in the library are built to trigger which code.
+ * The codes the error page always shows as the backend's message, listing the
+ * habitats it names, and never through single-error copy: the lineage codes
+ * (the keys of LINEAGE_DESCRIBERS) and TEMPLATE_FILE_ERROR_CODES, in the
+ * controller's `isShownAsList`. Missing from a frontend that predates them.
+ */
+function extractShownAsList(frontendDir) {
+  const file = path.join(frontendDir, CONTROLLER_FILE)
+  if (!existsSync(file)) {
+    return new Set()
+  }
+  const text = readTextFile(file)
+  const codes = new Set()
+  const describers = text.indexOf('const LINEAGE_DESCRIBERS')
+  const describersBlock =
+    describers === -1 ? null : balancedBraceBlock(text, describers)
+  for (const [, code] of describersBlock?.matchAll(CODE_KEY_PATTERN) ?? []) {
+    codes.add(code)
+  }
+  const templateBlock =
+    /TEMPLATE_FILE_ERROR_CODES\s*=\s*new Set\(\[(.*?)\]\)/s.exec(text)
+  for (const [, code] of templateBlock?.[1].matchAll(/'([A-Z][A-Z0-9_]*)'/g) ??
+    []) {
+    codes.add(code)
+  }
+  return codes
+}
+
+/**
+ * Which fixtures in the library are built to trigger which code, from every
+ * registry in FLAW_REGISTRIES.
  *
  * Flaw keys are usually quoted but not always (`sliver` is bare), so both forms
  * have to match — miss one and every later flaw is attributed to the last key
- * that did match. The entry object is pushed by reference so `description`
- * lands whether it is declared before or after `errorCode`.
+ * that did match. An entry may be wrapped in `Object.freeze(`. The entry object
+ * is pushed by reference so `description` lands whether it is declared before
+ * or after `errorCode`, and on its own line or the next. An `errorCode` that is
+ * a constant rather than a quoted code (an outcome such as "accepted") is not
+ * a rule, and is skipped.
  */
-function extractFixtures(libraryDir) {
-  const text = readTextFile(path.join(libraryDir, FLAWS_FILE))
-  const block = balancedBraceBlock(text, text.indexOf('export const FLAWS'))
+export function extractFixtures(libraryDir) {
+  const byCode = {}
+  for (const { file, exportName } of FLAW_REGISTRIES) {
+    addRegistryFixtures(byCode, libraryDir, file, exportName)
+  }
+  return byCode
+}
+
+function registryBlock(libraryDir, file, exportName) {
+  const text = readTextFile(path.join(libraryDir, file))
+  const at = text.indexOf(`export const ${exportName} `)
+  const block = at === -1 ? null : balancedBraceBlock(text, at)
   if (!block) {
-    console.error(`Could not parse the FLAWS registry in ${FLAWS_FILE}.`)
+    console.error(`Could not parse the ${exportName} registry in ${file}.`)
     process.exit(1)
   }
+  return block
+}
 
-  const byCode = {}
+function addRegistryFixtures(byCode, libraryDir, file, exportName) {
   let current = null
-
-  for (const line of block.split('\n')) {
-    const flawMatch = /^ {2}'?([a-z][\w-]*)'?:\s*\{/.exec(line)
+  let descriptionNext = false
+  for (const line of registryBlock(libraryDir, file, exportName).split('\n')) {
+    const flawMatch =
+      /^ {2}'?([a-z][\w-]*)'?:\s*(?:Object\.freeze\()?\{/.exec(line)
     if (flawMatch) {
       current = { name: flawMatch[1], description: null }
+      descriptionNext = false
       continue
     }
     if (!current) {
       continue
     }
-    const descMatch = /^\s*description:\s*'(.*)'/.exec(line)
+    const quoted = /^\s*['"`](.*)['"`],?$/.exec(line)
+    if (descriptionNext && quoted) {
+      current.description = quoted[1]
+    }
+    descriptionNext = /^\s*description:\s*$/.test(line)
+    const descMatch = /^\s*description:\s*['"`](.*)['"`]/.exec(line)
     if (descMatch) {
       current.description = descMatch[1]
     }
@@ -232,7 +301,6 @@ function extractFixtures(libraryDir) {
       byCode[codeMatch[1]].push(current)
     }
   }
-  return byCode
 }
 
 // ------------------------------------------------------------------ tolerances
@@ -259,7 +327,7 @@ const TOLERANCE_FILES = [
  * Only plain numeric declarations are read, including simple products such as
  * `100 * 1000 * 1000`. Anything else is left out rather than guessed at.
  */
-function extractTolerances(backendDir) {
+export function extractTolerances(backendDir) {
   const file = TOLERANCE_FILES.map((name) => path.join(backendDir, name)).find(
     (candidate) => existsSync(candidate)
   )
@@ -282,16 +350,36 @@ function extractTolerances(backendDir) {
 // ------------------------------------------------------- example-file fixtures
 
 const EXAMPLE_FILES_DIR = path.join(HARNESS_ROOT, 'example-files')
-const EXAMPLE_README = path.join(EXAMPLE_FILES_DIR, 'README.md')
 
-/** The error-code column of the tables in example-files/README.md. */
-function readmeClaims() {
-  if (!existsSync(EXAMPLE_README)) {
+/**
+ * The READMEs that say which code each example file is refused with: where,
+ * the folder its paths are under, and which column, counting from the end of
+ * the row, holds the code. The legacy README's is its last column and quotes
+ * the code; the BNG Service template's is `Expected`, third from the end, and
+ * does not. A cell that is not a bare code ("accepted", "refused: …") claims
+ * nothing.
+ */
+export const EXAMPLE_READMES = [
+  { readme: path.join(EXAMPLE_FILES_DIR, 'README.md'), prefix: '', codeCell: -2 },
+  {
+    readme: path.join(EXAMPLE_FILES_DIR, 'service-template', 'README.md'),
+    prefix: 'service-template/',
+    codeCell: -3
+  }
+]
+
+/** The error-code column of the tables in every README in `readmes`. */
+export function readmeClaims(readmes = EXAMPLE_READMES) {
+  return Object.assign({}, ...readmes.map(oneReadmeClaims))
+}
+
+function oneReadmeClaims({ readme, prefix, codeCell }) {
+  if (!existsSync(readme)) {
     return {}
   }
   const claims = {}
   let dir = null
-  for (const line of readTextFile(EXAMPLE_README).split('\n')) {
+  for (const line of readTextFile(readme).split('\n')) {
     const heading = /^##\s+([\w-]+)\/\s*$/.exec(line)
     if (heading) {
       dir = heading[1]
@@ -302,9 +390,9 @@ function readmeClaims() {
     }
     const cells = line.split('|').map((cell) => cell.trim())
     const fileCell = /^`([^`]+\.gpkg)`$/.exec(cells[1] ?? '')
-    const codeCell = /^`([A-Z][A-Z0-9_]+)`$/.exec(cells.at(-2) ?? '')
-    if (fileCell && codeCell) {
-      claims[`${dir}/${fileCell[1]}`] = codeCell[1]
+    const code = /^`?([A-Z][A-Z0-9_]+)`?$/.exec(cells.at(codeCell) ?? '')
+    if (fileCell && code) {
+      claims[`${prefix}${dir}/${fileCell[1]}`] = code[1]
     }
   }
   return claims
@@ -320,7 +408,7 @@ function readmeClaims() {
  *  - **Observed** (`fixture-map.json`, from observe-fixtures.mjs) — what the real
  *    validation gate reports for each file. Authoritative wherever it has an
  *    opinion, because it is measured rather than claimed.
- *  - **Claimed** (the error-code columns in example-files/README.md) — used only
+ *  - **Claimed** (the error-code columns of the READMEs in EXAMPLE_READMES) — used only
  *    for files the gate passes. Those files are structurally fine and fail later,
  *    at a stage needing PostGIS that cannot be run here, so the README is the
  *    only available source.
@@ -329,7 +417,15 @@ function readmeClaims() {
  * something else, the observation wins and the disagreement is reported: it means
  * the fixture no longer demonstrates what it was built for.
  */
-function extractExampleFixtures(observedByCode, observedByFile) {
+export function extractExampleFixtures(
+  observedByCode,
+  observedByFile,
+  {
+    readmes = EXAMPLE_READMES,
+    examplesDir = EXAMPLE_FILES_DIR,
+    registryCodes = null
+  } = {}
+) {
   const byCode = {}
   const add = (code, file) => {
     byCode[code] ??= []
@@ -345,7 +441,14 @@ function extractExampleFixtures(observedByCode, observedByFile) {
   }
 
   const contradicted = []
-  for (const [file, claimedCode] of Object.entries(readmeClaims())) {
+  const withoutCode = []
+  for (const [file, claimedCode] of Object.entries(readmeClaims(readmes))) {
+    // A claim for a code the backend no longer defines would never become a
+    // row, yet would hide the file from the unclaimed list.
+    if (registryCodes && !registryCodes.has(claimedCode)) {
+      withoutCode.push(`${file} — README says ${claimedCode}`)
+      continue
+    }
     const observed = observedByFile[file]
     if (observed === undefined) {
       add(claimedCode, file)
@@ -367,20 +470,36 @@ function extractExampleFixtures(observedByCode, observedByFile) {
   }
 
   const claimed = new Set(Object.values(byCode).flat())
-  const onDisk = existsSync(EXAMPLE_FILES_DIR)
-    ? walkSourceFiles(EXAMPLE_FILES_DIR, ['.gpkg']).map((file) =>
-        path.relative(EXAMPLE_FILES_DIR, file)
+  const onDisk = existsSync(examplesDir)
+    ? walkSourceFiles(examplesDir, ['.gpkg']).map((file) =>
+        path.relative(examplesDir, file)
       )
     : []
 
   return {
     byCode,
     contradicted,
+    withoutCode,
     unclaimed: onDisk.filter((file) => !claimed.has(file)).sort()
   }
 }
 
 // ------------------------------------------------------------------ assembly
+
+/** What the user is shown for `code`, from the sets extractCopyStatus gives. */
+export function copyStatus(code, { dedicated, placeholder, shownAsList }) {
+  // Never reaches single-error copy, so neither of the others applies.
+  if (shownAsList.has(code)) {
+    return COPY_STATUS.BACKEND_MESSAGE
+  }
+  if (dedicated.has(code)) {
+    return COPY_STATUS.DEDICATED
+  }
+  if (placeholder.has(code)) {
+    return COPY_STATUS.PLACEHOLDER
+  }
+  return COPY_STATUS.CATCH_ALL
+}
 
 function buildFacts() {
   const dirs = Object.fromEntries(
@@ -389,28 +508,25 @@ function buildFacts() {
 
   const registry = extractRegistry(dirs.backend)
   const raiseSites = extractRaiseSites(dirs.backend, registry)
-  const { dedicated, placeholder } = extractCopyStatus(dirs.frontend)
+  const { dedicated, placeholder, shownAsList } = extractCopyStatus(
+    dirs.frontend
+  )
   const fixtures = extractFixtures(dirs.library)
   const observedPath = argValue('--observed')
   const observed =
     observedPath && existsSync(observedPath)
       ? JSON.parse(readTextFile(observedPath))
       : { byCode: {}, observed: {} }
-  const examples = extractExampleFixtures(observed.byCode, observed.observed)
+  const examples = extractExampleFixtures(observed.byCode, observed.observed, {
+    registryCodes: new Set(Object.keys(registry))
+  })
   const tolerances = extractTolerances(dirs.backend)
 
   const codes = {}
   for (const [code, meta] of Object.entries(registry)) {
-    let copy = COPY_STATUS.CATCH_ALL
-    if (dedicated.has(code)) {
-      copy = COPY_STATUS.DEDICATED
-    }
-    if (placeholder.has(code) && !dedicated.has(code)) {
-      copy = COPY_STATUS.PLACEHOLDER
-    }
     codes[code] = {
       description: meta.description,
-      copy,
+      copy: copyStatus(code, { dedicated, placeholder, shownAsList }),
       raisedAt: raiseSites[code] ?? [],
       fixtures: fixtures[code] ?? [],
       exampleFiles: examples.byCode[code] ?? []
@@ -426,6 +542,9 @@ function buildFacts() {
     summary: {
       total: values.length,
       dedicatedCopy: values.filter((c) => c.copy === COPY_STATUS.DEDICATED).length,
+      backendMessageCopy: values.filter(
+        (c) => c.copy === COPY_STATUS.BACKEND_MESSAGE
+      ).length,
       placeholderCopy: values.filter((c) => c.copy === COPY_STATUS.PLACEHOLDER)
         .length,
       catchAllCopy: values.filter((c) => c.copy === COPY_STATUS.CATCH_ALL).length,
@@ -437,6 +556,7 @@ function buildFacts() {
     tolerances,
     fixturesWithoutCode: Object.keys(fixtures).filter((code) => !codes[code]),
     exampleFilesContradictingReadme: examples.contradicted,
+    readmeClaimsWithoutCode: examples.withoutCode,
     exampleFilesClaimedByNoRule: examples.unclaimed
   }
 }
@@ -498,8 +618,11 @@ function reportDiff(diff) {
 
 function reportSummary(facts) {
   const s = facts.summary
-  console.log(`Codes in registry:        ${s.total}`)
+  console.log(
+    `Codes in registry:        ${s.total} (upload and edit rules alike; the document counts upload rules only)`
+  )
   console.log(`  bespoke user copy:      ${s.dedicatedCopy}`)
+  console.log(`  the backend's message:  ${s.backendMessageCopy}`)
   console.log(`  placeholder copy:       ${s.placeholderCopy}`)
   console.log(`  generic catch-all:      ${s.catchAllCopy}`)
   console.log(`  exercised by a fixture: ${s.withFixture}`)
@@ -521,26 +644,38 @@ function reportSummary(facts) {
       `\nFixtures naming an unknown code: ${facts.fixturesWithoutCode.join(', ')}`
     )
   }
+  if (facts.readmeClaimsWithoutCode.length > 0) {
+    console.log(`\nREADME entries naming an unknown code:`)
+    for (const entry of facts.readmeClaimsWithoutCode) {
+      console.log(`  ${entry}`)
+    }
+  }
 }
 
 // ---------------------------------------------------------------------- main
 
-const outPath = argValue('--out')
-if (!outPath) {
-  console.error('Usage: validation-facts.mjs --out <facts.json> [--compare <facts.json>]')
-  process.exit(1)
+function main() {
+  const outPath = argValue('--out')
+  if (!outPath) {
+    console.error('Usage: validation-facts.mjs --out <facts.json> [--compare <facts.json>]')
+    process.exit(1)
+  }
+
+  const facts = buildFacts()
+  reportSummary(facts)
+
+  const comparePath = argValue('--compare')
+  if (comparePath && existsSync(comparePath)) {
+    reportDiff(diffFacts(JSON.parse(readTextFile(comparePath)), facts))
+  } else if (comparePath) {
+    console.log('\nNo previous run to compare against — treating this as the baseline.')
+  }
+
+  mkdirSync(path.dirname(path.resolve(outPath)), { recursive: true })
+  writeFileSync(outPath, `${JSON.stringify(facts, null, 2)}\n`)
+  console.log(`\nWrote ${outPath}`)
 }
 
-const facts = buildFacts()
-reportSummary(facts)
-
-const comparePath = argValue('--compare')
-if (comparePath && existsSync(comparePath)) {
-  reportDiff(diffFacts(JSON.parse(readTextFile(comparePath)), facts))
-} else if (comparePath) {
-  console.log('\nNo previous run to compare against — treating this as the baseline.')
+if (isMain(import.meta.url)) {
+  main()
 }
-
-mkdirSync(path.dirname(path.resolve(outPath)), { recursive: true })
-writeFileSync(outPath, `${JSON.stringify(facts, null, 2)}\n`)
-console.log(`\nWrote ${outPath}`)

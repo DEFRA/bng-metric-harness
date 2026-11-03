@@ -18,10 +18,11 @@ Fixed, and owned by the script. In order:
 2. A provenance paragraph: generated, how to regenerate, the three commits, the date.
 3. A link to `rules-engine-explained.md` for the calculation side.
 4. **How to read this** — the reject-versus-Incomplete distinction, the two-rounds warning, the on-screen-message caveat, and what the example-file paths refer to.
-5. **The rules** — the substance. One subsection per group, each a two-column table.
-6. **Coverage** — counts, all from the facts file.
-7. **Known gaps recorded by this run.**
-8. **Where this comes from** — the three repositories and commits.
+5. **The rules** — the substance. One subsection per group, each a two-column table. Every rule here refuses an upload.
+6. **Edits made on screen** — the rules in that group, which refuse a change made to a habitat on screen, never an upload. The same table, without the sentence on what the user sees: the upload error page never shows them. Left out when no rule is in the group.
+7. **Coverage** — counts of the upload rules only, worked out from the facts file; the edit rules are not in them.
+8. **Known gaps recorded by this run.**
+9. **Where this comes from** — the three repositories and commits.
 
 Nothing else. No remedy sections, no GIS tutorials, no "things that surprise people" essay. A rule's description says what it checks; what to do about it is the error page's job and the service's content design, not this document's.
 
@@ -32,7 +33,7 @@ Two columns, and the left one carries both identifiers:
 | Column | Contents |
 | --- | --- |
 | Rule and example file | The error code, then the path of the `.gpkg` under `example-files/` that demonstrates it — or `no geopackage fixture`. Several paths are separated by a semicolon. |
-| What it checks | The `checks` text, followed by one generated sentence saying whether the user sees its own message, a placeholder, or a generic message. |
+| What it checks | The `checks` text, followed by one generated sentence saying whether the user sees its own message, the service's own message as a list of what it names, a placeholder, or a generic message. Edit rules have no such sentence. |
 
 **No `<br>`, so both parts of the left cell sit on one line** separated by an em dash, with the path in italics. A raw `<br>` renders as literal text in Confluence, which is the document's final destination.
 
@@ -59,6 +60,8 @@ Start from the draft's evidence, not the draft's wording. "Layer … baseline mi
 Set by the `group` field, ordered by `GROUP_ORDER` in `build-document.mjs`. A group not listed there is appended alphabetically, which is the signal to decide where it really belongs.
 
 Groups follow the order a file is actually checked in — format, then layers, columns and coordinate system, then shapes, then how the shapes fit together, then habitat data — so the table doubles as a description of the pipeline. The final group covers failures that are not the reader's fault at all.
+
+`Edits made on screen` (`EDIT_GROUP` in `build-document.mjs`) is not in that order: its rules refuse an edit, not an upload, so they get a section of their own after the upload rules and stay out of the upload counts. Put a rule in it only when the backend raises it from an edit route and never on upload.
 
 ## Formatting rules
 
