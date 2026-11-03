@@ -420,7 +420,11 @@ function oneReadmeClaims({ readme, prefix, codeCell }) {
 export function extractExampleFixtures(
   observedByCode,
   observedByFile,
-  { readmes = EXAMPLE_READMES, examplesDir = EXAMPLE_FILES_DIR } = {}
+  {
+    readmes = EXAMPLE_READMES,
+    examplesDir = EXAMPLE_FILES_DIR,
+    registryCodes = null
+  } = {}
 ) {
   const byCode = {}
   const add = (code, file) => {
@@ -437,7 +441,14 @@ export function extractExampleFixtures(
   }
 
   const contradicted = []
+  const withoutCode = []
   for (const [file, claimedCode] of Object.entries(readmeClaims(readmes))) {
+    // A claim for a code the backend no longer defines would never become a
+    // row, yet would hide the file from the unclaimed list.
+    if (registryCodes && !registryCodes.has(claimedCode)) {
+      withoutCode.push(`${file} — README says ${claimedCode}`)
+      continue
+    }
     const observed = observedByFile[file]
     if (observed === undefined) {
       add(claimedCode, file)
@@ -468,6 +479,7 @@ export function extractExampleFixtures(
   return {
     byCode,
     contradicted,
+    withoutCode,
     unclaimed: onDisk.filter((file) => !claimed.has(file)).sort()
   }
 }
@@ -505,7 +517,9 @@ function buildFacts() {
     observedPath && existsSync(observedPath)
       ? JSON.parse(readTextFile(observedPath))
       : { byCode: {}, observed: {} }
-  const examples = extractExampleFixtures(observed.byCode, observed.observed)
+  const examples = extractExampleFixtures(observed.byCode, observed.observed, {
+    registryCodes: new Set(Object.keys(registry))
+  })
   const tolerances = extractTolerances(dirs.backend)
 
   const codes = {}
@@ -542,6 +556,7 @@ function buildFacts() {
     tolerances,
     fixturesWithoutCode: Object.keys(fixtures).filter((code) => !codes[code]),
     exampleFilesContradictingReadme: examples.contradicted,
+    readmeClaimsWithoutCode: examples.withoutCode,
     exampleFilesClaimedByNoRule: examples.unclaimed
   }
 }
@@ -628,6 +643,12 @@ function reportSummary(facts) {
     console.log(
       `\nFixtures naming an unknown code: ${facts.fixturesWithoutCode.join(', ')}`
     )
+  }
+  if (facts.readmeClaimsWithoutCode.length > 0) {
+    console.log(`\nREADME entries naming an unknown code:`)
+    for (const entry of facts.readmeClaimsWithoutCode) {
+      console.log(`  ${entry}`)
+    }
   }
 }
 

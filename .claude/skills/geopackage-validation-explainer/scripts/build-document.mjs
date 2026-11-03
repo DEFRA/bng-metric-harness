@@ -223,8 +223,9 @@ export function noExampleSentence(facts, descriptions, total) {
   }
   const byGroup = [...counts]
     .toSorted(([a, x], [b, y]) => y - x || a.localeCompare(b))
+    // Semicolons, as a group name may itself hold a comma.
     .map(([group, n]) => `${group} ${n}`)
-    .join(', ')
+    .join('; ')
   return `**${missing} of ${total} upload rules have no example file.** By group: ${byGroup}.`
 }
 

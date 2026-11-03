@@ -111,11 +111,12 @@ describe("extractExampleFixtures", () => {
 | \`passes-gate.gpkg\` | | \`CODE_B\` |
 | \`contradicted.gpkg\` | | \`CODE_C\` |
 | \`not-observed.gpkg\` | | \`CODE_D\` |
+| \`stale.gpkg\` | | \`CODE_GONE\` |
 `;
 
   beforeAll(() => {
     dir = scratchDir();
-    for (const file of ["agrees", "passes-gate", "contradicted", "unclaimed"]) {
+    for (const file of ["agrees", "passes-gate", "contradicted", "stale", "unclaimed"]) {
       dir.write(`examples/dir/${file}.gpkg`, "");
     }
     const observedByCode = {
@@ -126,10 +127,12 @@ describe("extractExampleFixtures", () => {
       "dir/agrees.gpkg": ["CODE_A"],
       "dir/passes-gate.gpkg": [],
       "dir/contradicted.gpkg": ["CODE_Z"],
+      "dir/stale.gpkg": [],
     };
     result = extractExampleFixtures(observedByCode, observedByFile, {
       readmes: [{ readme: dir.write("README.md", README), prefix: "", codeCell: -2 }],
       examplesDir: path.join(dir.root, "examples"),
+      registryCodes: new Set(["CODE_A", "CODE_B", "CODE_C", "CODE_D", "CODE_Z"]),
     });
   });
 
@@ -152,8 +155,16 @@ describe("extractExampleFixtures", () => {
     ]);
   });
 
-  it("lists the files on disk that no rule claims", () => {
-    expect(result.unclaimed).toEqual([path.join("dir", "unclaimed.gpkg")]);
+  it("reports a README claim for a code the registry no longer defines, and maps no file to it", () => {
+    expect(result.byCode.CODE_GONE).toBeUndefined();
+    expect(result.withoutCode).toEqual(["dir/stale.gpkg — README says CODE_GONE"]);
+  });
+
+  it("lists the files on disk that no rule claims, a stale claim's included", () => {
+    expect(result.unclaimed).toEqual([
+      path.join("dir", "stale.gpkg"),
+      path.join("dir", "unclaimed.gpkg"),
+    ]);
   });
 });
 

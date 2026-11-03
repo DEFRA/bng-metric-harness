@@ -2,7 +2,7 @@
 
 Every rule the BNG Metric service applies to an uploaded GeoPackage: what each one checks, and which example file demonstrates it.
 
-**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `9a54913`, frontend `59a638b` and bng-library `c762526`, all on `main`, and was generated on 2026-11-02.
+**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `9a54913`, frontend `59a638b` and bng-library `c762526`, all on `main`, and was generated on 2026-11-03.
 
 For how biodiversity units are calculated once a file is accepted, see [rules-engine-explained.md](rules-engine-explained.md).
 
@@ -187,9 +187,9 @@ These rules refuse a change made to a habitat on screen, after a file has been a
 | With an example .gpkg in this repository | 40 |
 | With a generator flaw that reproduces them | 27 |
 
-**38 of 78 upload rules have no example file.** By group: Shapes present and of the right kind 7, Habitat data 5, Links to the baseline 5, Service faults, not your file 5, Unreadable shape data 4, Geometry registration and declared type 3, Columns 2, File format 2, How the shapes fit together 2, Coordinate reference system 1, File name 1, Template version 1.
+**38 of 78 upload rules have no example file.** By group: Shapes present and of the right kind 7; Habitat data 5; Links to the baseline 5; Service faults, not your file 5; Unreadable shape data 4; Geometry registration and declared type 3; Columns 2; File format 2; How the shapes fit together 2; Coordinate reference system 1; File name 1; Template version 1.
 
-328 `.gpkg` files in `example-files/` are not mapped to any rule. Most are valid fixtures or real survey data rather than rule demonstrations, so that is expected rather than a gap.
+330 `.gpkg` files in `example-files/` are not mapped to any rule. Most are valid fixtures or real survey data rather than rule demonstrations, so that is expected rather than a gap.
 
 ## Known gaps recorded by this run
 

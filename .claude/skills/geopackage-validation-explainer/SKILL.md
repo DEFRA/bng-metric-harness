@@ -113,6 +113,7 @@ Writes every rule with its raise sites and message, the copy status the user exp
 Also act on these, which are reported separately:
 
 - *Fixtures that no longer demonstrate what the README claims* — the gate rejects that file for a different rule than its README says. The observation is right; the README entry is stale and worth correcting there.
+- *README entries naming an unknown code* — a README still claims a rule the backend no longer defines. The file is counted as mapped to no rule; correct or remove the entry in that README.
 - *Codes defined but never raised* — expected for the route-level ones; investigate any others.
 
 ## Step 3 — Create or top up the descriptions

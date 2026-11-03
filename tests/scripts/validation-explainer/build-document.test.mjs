@@ -24,6 +24,8 @@ function factsFor(codes) {
 const UPLOAD_ONLY = {
   UPLOAD_A: { group: "Layers", checks: "Checks layer A." },
   UPLOAD_B: { group: "Columns", checks: "Checks column B." },
+  // A group name holding a comma, as "Service faults, not your file" does.
+  UPLOAD_C: { group: "Links, lineage", checks: "Checks link C." },
 };
 const WITH_EDITS = {
   ...UPLOAD_ONLY,
@@ -36,6 +38,7 @@ const CODES = {
     fixtures: [{ name: "a" }],
   }),
   UPLOAD_B: entry("catch-all"),
+  UPLOAD_C: entry("backend-message"),
   EDIT_A: entry("catch-all"),
 };
 
@@ -47,9 +50,9 @@ function rowFor(document, code) {
 describe("uploadSummary", () => {
   it("counts the upload rules only", () => {
     expect(uploadSummary(factsFor(CODES), WITH_EDITS)).toEqual({
-      total: 2,
+      total: 3,
       dedicatedCopy: 1,
-      backendMessageCopy: 0,
+      backendMessageCopy: 1,
       placeholderCopy: 0,
       catchAllCopy: 1,
       withExampleFile: 1,
@@ -60,15 +63,19 @@ describe("uploadSummary", () => {
 
 describe("noExampleSentence", () => {
   it("leaves the edit rules out of the rules with no example file", () => {
-    expect(noExampleSentence(factsFor(CODES), WITH_EDITS, 2)).toBe(
-      "**1 of 2 upload rules have no example file.** By group: Columns 1.",
+    expect(noExampleSentence(factsFor(CODES), WITH_EDITS, 3)).toBe(
+      "**2 of 3 upload rules have no example file.** By group: Columns 1; Links, lineage 1.",
     );
   });
 
   it("says so when every upload rule has an example file", () => {
-    const codes = { ...CODES, UPLOAD_B: entry("catch-all", { exampleFiles: ["b.gpkg"] }) };
-    expect(noExampleSentence(factsFor(codes), WITH_EDITS, 2)).toBe(
-      "**Every one of the 2 upload rules has an example file.**",
+    const codes = {
+      ...CODES,
+      UPLOAD_B: entry("catch-all", { exampleFiles: ["b.gpkg"] }),
+      UPLOAD_C: entry("backend-message", { exampleFiles: ["c.gpkg"] }),
+    };
+    expect(noExampleSentence(factsFor(codes), WITH_EDITS, 3)).toBe(
+      "**Every one of the 3 upload rules has an example file.**",
     );
   });
 });
@@ -88,17 +95,27 @@ describe("buildDocument", () => {
   it("says what the user sees for an upload rule, and nothing for an edit rule", () => {
     expect(rowFor(document, "UPLOAD_A")).toContain("The user sees its own message.");
     expect(rowFor(document, "UPLOAD_B")).toContain("The user sees a generic message.");
+    expect(rowFor(document, "UPLOAD_C")).toContain(
+      "The user sees the service's own message, listing what it names.",
+    );
     expect(rowFor(document, "EDIT_A")).not.toContain("The user sees");
   });
 
   it("counts the upload rules only in the prose and the coverage table", () => {
-    expect(document).toContain("Of 2 rules, 1 have a message of their own");
-    expect(document).toContain("| Rules that can reject an upload | 2 |");
+    expect(document).toContain(
+      "Of 3 rules, 1 have a message of their own, 1 show the service's own message as a list",
+    );
+    expect(document).toContain("| Rules that can reject an upload | 3 |");
+    expect(document).toContain("| Showing the service's own message, as a list | 1 |");
     expect(document).toContain("| Falling back to a generic message | 1 |");
   });
 
   it("leaves the edit section out when there are no edit rules", () => {
-    const codes = { UPLOAD_A: CODES.UPLOAD_A, UPLOAD_B: CODES.UPLOAD_B };
+    const codes = {
+      UPLOAD_A: CODES.UPLOAD_A,
+      UPLOAD_B: CODES.UPLOAD_B,
+      UPLOAD_C: CODES.UPLOAD_C,
+    };
     expect(buildEditSection(codes, UPLOAD_ONLY, {})).toBe("");
     const uploadOnly = buildDocument(factsFor(codes), UPLOAD_ONLY);
     expect(uploadOnly).not.toContain(`## ${EDIT_GROUP}`);
