@@ -16,6 +16,11 @@
 // plus up to two minutes of staging, and have cdp-uploader on :7337 (it ships in
 // the backend's compose) alongside the frontend, backend and stub.
 //
+// PERF_TEMPLATE=service runs the same suite with the BNG Service template —
+// one file per size holding both stages — against a stack started with
+// `npm run dev:service-template`. Unset, it uploads the legacy template, which
+// needs the flag OFF: the service accepts one template or the other, never both.
+//
 // Every phase is an env var away from being suppressed if you want a narrower run
 // — see "Running only the everyday half" in bng-perf-tests' README — but that is a
 // thing you reach for occasionally, not a second command to keep in step with this
@@ -38,6 +43,22 @@ import {
   run,
   warn,
 } from "./_lib.mjs";
+import {
+  PERF_TEMPLATE_SERVICE,
+  parsePerfTemplate,
+  uploadTemplateEnv,
+} from "./perf-template.mjs";
+
+// Rejected at load, before main() calls requireSibling or builds the image,
+// so a typo never reaches the banner or the container.
+function readPerfTemplate() {
+  try {
+    return parsePerfTemplate(process.env.PERF_TEMPLATE);
+  } catch (err) {
+    error(err.message);
+    return process.exit(1);
+  }
+}
 
 const cfg = {
   host: process.env.PERF_HOST ?? process.env.PERF_BACKEND_HOST ?? "localhost",
@@ -51,6 +72,7 @@ const cfg = {
   // TEST_SCENARIO is the container's own escape hatch; an unknown name falls back
   // to bng-perf, so this can never fail the run.
   scenario: process.env.PERF_SCENARIO ?? "",
+  template: readPerfTemplate(),
   image: process.env.PERF_IMAGE ?? "bng-perf-tests:local",
   failOnAssert: Boolean(process.env.PERF_FAIL_ON_ASSERT),
   skipBuild: Boolean(process.env.PERF_SKIP_BUILD),
@@ -250,6 +272,8 @@ function containerEnv() {
     env.TEST_SCENARIO = cfg.scenario;
   }
 
+  Object.assign(env, uploadTemplateEnv(cfg.template));
+
   // The entrypoint resolves this to localhost:7337 for ENVIRONMENT=local, which is
   // right for a process on the host and wrong from inside a container.
   env.CDP_UPLOADER_URL = `http://${containerHost}:${cfg.uploaderPort}`;
@@ -368,6 +392,20 @@ async function main() {
       ? "▸ PERF_QUICK — staging uploads, then ~2-3 minutes of JMeter (shape of the full plan, not its throughput numbers)"
       : "▸ running the full suite — staging uploads, then ~18 minutes of JMeter",
   );
+  // The flag lives in the running apps, which this cannot see, so say what the
+  // template needs before the build rather than after a failed staging.
+  if (cfg.template === PERF_TEMPLATE_SERVICE) {
+    info(
+      "▸ PERF_TEMPLATE=service — uploading the BNG Service template. The stack must " +
+        "be running with SERVICE_TEMPLATE_ENABLED=true: start it with " +
+        "`npm run dev:service-template`.",
+    );
+  } else {
+    info(
+      "▸ uploading the legacy template — the stack must be running WITHOUT the " +
+        "service template (`npm run dev`). PERF_TEMPLATE=service runs the template.",
+    );
+  }
 
   if (!(await checkStack())) {
     process.exit(1);
