@@ -8,6 +8,7 @@ import {
   INCOMPLETE_FEATURES,
   VALIDATION_GAPS,
   comparisonVerdict,
+  explanationsFor,
   findUnexplained,
   hasUnexplained,
   metricTotalsOf,
@@ -472,5 +473,41 @@ describe("comparisonVerdict", () => {
     expect(verdict.reasons.at(-1)).toBe(
       "and 2 more scenarios: see the table below.",
     );
+  });
+
+  describe("explanationsFor", () => {
+    const LEGACY_GAP =
+      "invalid-interventions/invalid-watercourse-encroachment-worsened";
+
+    it("gives the legacy corpus the legacy tables", () => {
+      expect(explanationsFor(false)).toEqual({
+        validationGaps: VALIDATION_GAPS,
+        incompleteFeatures: INCOMPLETE_FEATURES,
+      });
+    });
+
+    it("does not let a legacy entry excuse the BNG Service scenario of the same id", () => {
+      const { validationGaps, incompleteFeatures } = explanationsFor(true);
+      const results = [
+        result([featureUnits("area", "H1")], {
+          id: LEGACY_GAP,
+          outcome: OUTCOME.acceptedInvalid,
+        }),
+      ];
+      const found = findUnexplained(
+        results,
+        validationGaps,
+        incompleteFeatures,
+      );
+      expect(found.scenarios.map((s) => s.id)).toEqual([LEGACY_GAP]);
+    });
+
+    it("does not report a legacy entry stale when the service refuses the BNG Service scenario", () => {
+      const { validationGaps, incompleteFeatures } = explanationsFor(true);
+      const results = [{ id: LEGACY_GAP, outcome: OUTCOME.rejectedAsExpected }];
+      expect(
+        findUnexplained(results, validationGaps, incompleteFeatures).stale,
+      ).toEqual([]);
+    });
   });
 });

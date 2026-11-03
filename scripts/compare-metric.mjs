@@ -67,6 +67,7 @@ import {
 import { SERVICE_TEMPLATE_FLAG } from "./dev-env.mjs";
 import {
   comparisonVerdict,
+  explanationsFor,
   findUnexplained,
   hasUnexplained,
   renderUnexplained,
@@ -182,7 +183,13 @@ const context = [
   `Generated ${new Date().toISOString()} for backend ${await commitOf(backend)}, harness ${await commitOf(HARNESS_ROOT)}.`,
 ];
 
-const unexplained = findUnexplained(results);
+// Each corpus has its own explanation tables: the two share scenario ids.
+const { validationGaps, incompleteFeatures } = explanationsFor(serviceTemplate);
+const unexplained = findUnexplained(
+  results,
+  validationGaps,
+  incompleteFeatures,
+);
 const unexplainedReport = renderUnexplained(unexplained);
 
 mkdirSync(outDir, { recursive: true });
@@ -231,7 +238,12 @@ const failedSuffix = failed.length
   : "";
 // Every difference, figure by figure, so a CI log shows what differed
 // without opening the report.
-const differences = renderDifferences(results, unexplained);
+const differences = renderDifferences(
+  results,
+  unexplained,
+  validationGaps,
+  incompleteFeatures,
+);
 if (differences) {
   console.log(`\n${differences}\n`);
 }

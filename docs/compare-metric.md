@@ -343,6 +343,12 @@ Everything else is unexplained:
 When the service starts refusing an invalid scenario, its `VALIDATION_GAPS` or
 `INCOMPLETE_FEATURES` entry is reported as stale (a warning, not a failure), so
 it can be removed.
+
+Those two tables are for the legacy corpus. The BNG Service corpus reuses its
+scenario ids, but its files differ, so `--service-template` uses its own
+tables instead, `SERVICE_TEMPLATE_VALIDATION_GAPS` and
+`SERVICE_TEMPLATE_INCOMPLETE_FEATURES`. They start empty. An entry goes there
+only once it has been checked against the BNG Service file.
 Strategic significance should soon explain nothing. The corpus follows the
 LNRS guidance (Low baselines; Low or High proposed values), and once
 bng-metric-backend#439 (hedgerows read their proposed value) has merged, no

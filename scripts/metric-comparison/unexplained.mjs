@@ -92,6 +92,35 @@ export const INCOMPLETE_FEATURES = Object.freeze({
     "The service accepts a watercourse enhancement that reduces condition, and saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
 });
 
+/**
+ * The BNG Service template's corpus reuses the legacy corpus's scenario ids
+ * (purpose/name), but the tables above were checked against the legacy files
+ * only. A legacy entry must not excuse the BNG Service scenario of the same id,
+ * or report it stale when the service refuses it, so the BNG Service corpus
+ * has its own tables. An entry goes here only once someone has checked it
+ * against the BNG Service file.
+ */
+export const SERVICE_TEMPLATE_VALIDATION_GAPS = Object.freeze({});
+export const SERVICE_TEMPLATE_INCOMPLETE_FEATURES = Object.freeze({});
+
+/**
+ * The explanation tables for one template's corpus.
+ *
+ * @param {boolean} serviceTemplate whether the corpus is the BNG Service template's
+ * @returns {{ validationGaps: Record<string, string>, incompleteFeatures: Record<string, string> }}
+ */
+export function explanationsFor(serviceTemplate) {
+  return serviceTemplate
+    ? {
+        validationGaps: SERVICE_TEMPLATE_VALIDATION_GAPS,
+        incompleteFeatures: SERVICE_TEMPLATE_INCOMPLETE_FEATURES,
+      }
+    : {
+        validationGaps: VALIDATION_GAPS,
+        incompleteFeatures: INCOMPLETE_FEATURES,
+      };
+}
+
 /** Outcomes that fail a scenario whatever its figures. */
 const FAILED_OUTCOMES = Object.freeze({
   [OUTCOME.rejected]: "The service refused a scenario whose data is valid.",
