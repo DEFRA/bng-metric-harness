@@ -49,7 +49,8 @@ import {
   locateSource,
   walkSourceFiles,
   argValue,
-  runGit
+  runGit,
+  isMain
 } from './_lib.mjs'
 
 const EXAMPLE_FILES_DIR = path.join(HARNESS_ROOT, 'example-files')
@@ -82,7 +83,7 @@ const JSON_INDENT = 2
  * gate for the service-template corpus, the legacy gate for the rest — the
  * pair the service-template flag chooses between.
  */
-async function loadGate(backendDir) {
+export async function loadGate(backendDir) {
   try {
     const legacy = await import(`file://${path.join(backendDir, GATE_MODULE)}`)
     const serviceTemplate = await import(
@@ -181,88 +182,96 @@ function observe(gate, absolutePath, relative) {
   }
 }
 
-const outPath = argValue('--out')
-if (!outPath) {
-  console.error('Usage: observe-fixtures.mjs --out <fixture-map.json>')
-  process.exit(1)
-}
-if (!existsSync(EXAMPLE_FILES_DIR)) {
-  console.error(`No example-files directory at ${EXAMPLE_FILES_DIR}.`)
-  process.exit(1)
-}
+// ---------------------------------------------------------------------- main
 
-const backendDir = locateSource('backend')
-const gate = await loadGate(backendDir)
-const filenameRule = await loadFilenameRule(backendDir)
-const tracked = trackedFixtures()
-const onDisk = walkSourceFiles(EXAMPLE_FILES_DIR, ['.gpkg']).map(
-  (absolutePath) => ({
-    absolutePath,
-    relative: path.relative(EXAMPLE_FILES_DIR, absolutePath)
-  })
-)
-const isTracked = ({ relative }) => tracked === null || tracked.has(relative)
-const isUntracked = ({ relative }) =>
-  tracked !== null && tracked.has(relative) === false
-const fixtures = onDisk.filter(isTracked)
-const untracked = onDisk.filter(isUntracked).map(({ relative }) => relative)
-
-const byCode = {}
-const observed = {}
-const unreadable = []
-let rejected = 0
-
-for (const { absolutePath, relative } of fixtures) {
-  const { codes: gateCodes, failed } = observe(gate, absolutePath, relative)
-  if (failed) {
-    unreadable.push(`${relative} — ${failed}`)
-    continue
+async function main() {
+  const outPath = argValue('--out')
+  if (!outPath) {
+    console.error('Usage: observe-fixtures.mjs --out <fixture-map.json>')
+    process.exit(1)
   }
-  // A rejected filename stops the real route before the gate ever sees the
-  // file's content, so it takes priority over whatever the gate reports.
-  const codes = isInvalidFilename(relative, filenameRule)
-    ? [INVALID_FILENAME_CODE]
-    : gateCodes
-  observed[relative] = codes
-  if (codes.length > 0) {
-    rejected += 1
+  if (!existsSync(EXAMPLE_FILES_DIR)) {
+    console.error(`No example-files directory at ${EXAMPLE_FILES_DIR}.`)
+    process.exit(1)
   }
-  for (const code of codes) {
-    byCode[code] ??= []
-    byCode[code].push(relative)
-  }
-}
 
-for (const code of Object.keys(byCode)) {
-  byCode[code] = byCode[code].toSorted((left, right) =>
-    left.localeCompare(right)
+  const backendDir = locateSource('backend')
+  const gate = await loadGate(backendDir)
+  const filenameRule = await loadFilenameRule(backendDir)
+  const tracked = trackedFixtures()
+  const onDisk = walkSourceFiles(EXAMPLE_FILES_DIR, ['.gpkg']).map(
+    (absolutePath) => ({
+      absolutePath,
+      relative: path.relative(EXAMPLE_FILES_DIR, absolutePath)
+    })
   )
-}
+  const isTracked = ({ relative }) => tracked === null || tracked.has(relative)
+  const isUntracked = ({ relative }) =>
+    tracked !== null && tracked.has(relative) === false
+  const fixtures = onDisk.filter(isTracked)
+  const untracked = onDisk.filter(isUntracked).map(({ relative }) => relative)
 
-console.log(`Ran the validation gate over ${fixtures.length} example file(s)`)
-console.log(`  rejected (gate or filename): ${rejected}`)
-console.log(
-  `  passed both:                ${fixtures.length - rejected - unreadable.length}`
-)
-console.log(`  rules demonstrated:   ${Object.keys(byCode).length}`)
-if (untracked.length > 0) {
+  const byCode = {}
+  const observed = {}
+  const unreadable = []
+  let rejected = 0
+
+  for (const { absolutePath, relative } of fixtures) {
+    const { codes: gateCodes, failed } = observe(gate, absolutePath, relative)
+    if (failed) {
+      unreadable.push(`${relative} — ${failed}`)
+      continue
+    }
+    // A rejected filename stops the real route before the gate ever sees the
+    // file's content, so it takes priority over whatever the gate reports.
+    const codes = isInvalidFilename(relative, filenameRule)
+      ? [INVALID_FILENAME_CODE]
+      : gateCodes
+    observed[relative] = codes
+    if (codes.length > 0) {
+      rejected += 1
+    }
+    for (const code of codes) {
+      byCode[code] ??= []
+      byCode[code].push(relative)
+    }
+  }
+
+  for (const code of Object.keys(byCode)) {
+    byCode[code] = byCode[code].toSorted((left, right) =>
+      left.localeCompare(right)
+    )
+  }
+
+  console.log(`Ran the validation gate over ${fixtures.length} example file(s)`)
+  console.log(`  rejected (gate or filename): ${rejected}`)
   console.log(
-    `\nSkipped ${untracked.length} untracked file(s) — not in the repository, so the document cannot cite them:`
+    `  passed both:                ${fixtures.length - rejected - unreadable.length}`
   )
-  for (const relative of untracked) {
-    console.log(`  ${relative}`)
+  console.log(`  rules demonstrated:   ${Object.keys(byCode).length}`)
+  if (untracked.length > 0) {
+    console.log(
+      `\nSkipped ${untracked.length} untracked file(s) — not in the repository, so the document cannot cite them:`
+    )
+    for (const relative of untracked) {
+      console.log(`  ${relative}`)
+    }
   }
-}
-if (unreadable.length > 0) {
-  console.log(`\nCould not be read:`)
-  for (const entry of unreadable) {
-    console.log(`  ${entry}`)
+  if (unreadable.length > 0) {
+    console.log(`\nCould not be read:`)
+    for (const entry of unreadable) {
+      console.log(`  ${entry}`)
+    }
   }
+
+  mkdirSync(path.dirname(path.resolve(outPath)), { recursive: true })
+  writeFileSync(
+    outPath,
+    `${JSON.stringify({ byCode, observed }, null, JSON_INDENT)}\n`
+  )
+  console.log(`\nWrote ${outPath}`)
 }
 
-mkdirSync(path.dirname(path.resolve(outPath)), { recursive: true })
-writeFileSync(
-  outPath,
-  `${JSON.stringify({ byCode, observed }, null, JSON_INDENT)}\n`
-)
-console.log(`\nWrote ${outPath}`)
+if (isMain(import.meta.url)) {
+  await main()
+}

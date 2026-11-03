@@ -17,7 +17,7 @@
  */
 import { writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import path from 'node:path'
-import { readTextFile, argValue } from './_lib.mjs'
+import { readTextFile, argValue, isMain } from './_lib.mjs'
 
 const DESCRIPTIONS_FILE = path.join(
   import.meta.dirname,
@@ -40,8 +40,7 @@ const SEEN = {
  * left out of every upload count. The upload error page never shows them, so
  * their rows say nothing about what the user sees.
  */
-const EDIT_GROUP = 'Edits made on screen'
-
+export const EDIT_GROUP = 'Edits made on screen'
 
 /** Group order in the document. Any group not listed is appended alphabetically. */
 const GROUP_ORDER = [
@@ -61,7 +60,7 @@ const GROUP_ORDER = [
   'Service faults, not your file'
 ]
 
-function loadDescriptions() {
+export function loadDescriptions() {
   const raw = JSON.parse(readTextFile(DESCRIPTIONS_FILE))
   return Object.fromEntries(
     Object.entries(raw).filter(([key]) => !key.startsWith('_'))
@@ -169,7 +168,7 @@ function buildTable(codes, descriptions, tolerances) {
 }
 
 /** The section for rules raised by edits on screen, or '' when there are none. */
-function buildEditSection(codes, descriptions, tolerances) {
+export function buildEditSection(codes, descriptions, tolerances) {
   const rules = rulesByGroup(codes, descriptions).get(EDIT_GROUP)
   if (!rules) {
     return ''
@@ -189,7 +188,7 @@ function buildEditSection(codes, descriptions, tolerances) {
  * The counts the document gives, over the upload rules only: the facts
  * summary counts every code in the registry, edit rules included.
  */
-function uploadSummary(facts, descriptions) {
+export function uploadSummary(facts, descriptions) {
   const entries = Object.entries(facts.codes)
     .filter(([code]) => descriptions[code].group !== EDIT_GROUP)
     .map(([, entry]) => entry)
@@ -210,7 +209,7 @@ function uploadSummary(facts, descriptions) {
  * worked out on every run, as any claim about them goes stale as fixtures
  * are added.
  */
-function noExampleSentence(facts, descriptions, total) {
+export function noExampleSentence(facts, descriptions, total) {
   const counts = new Map()
   for (const [code, entry] of Object.entries(facts.codes)) {
     const { group } = descriptions[code]
@@ -266,7 +265,7 @@ function branchClause(provenance) {
 const SHORT_COMMIT_LENGTH = 7
 const ISO_DATE_LENGTH = 10
 
-function buildDocument(facts, descriptions) {
+export function buildDocument(facts, descriptions) {
   const s = uploadSummary(facts, descriptions)
   const p = facts.provenance
   const short = (commit) => commit?.slice(0, SHORT_COMMIT_LENGTH) ?? 'unknown'
@@ -332,70 +331,76 @@ Rule descriptions are held in \`references/rule-descriptions.json\` in the skill
 
 // ---------------------------------------------------------------------- main
 
-const factsPath = argValue('--facts')
-const outPath = argValue('--out')
+function main() {
+  const factsPath = argValue('--facts')
+  const outPath = argValue('--out')
 
-if (!factsPath || !outPath) {
-  console.error(
-    'Usage: build-document.mjs --facts <facts.json> --out <document.md>'
+  if (!factsPath || !outPath) {
+    console.error(
+      'Usage: build-document.mjs --facts <facts.json> --out <document.md>'
+    )
+    process.exit(1)
+  }
+  if (!existsSync(factsPath)) {
+    console.error(
+      `No facts file at ${factsPath}. Run validation-facts.mjs first.`
+    )
+    process.exit(1)
+  }
+
+  const facts = JSON.parse(readTextFile(factsPath))
+  const descriptions = loadDescriptions()
+
+  const undescribed = Object.keys(facts.codes).filter(
+    (code) => !descriptions[code]
   )
-  process.exit(1)
-}
-if (!existsSync(factsPath)) {
-  console.error(
-    `No facts file at ${factsPath}. Run validation-facts.mjs first.`
+  const orphaned = Object.keys(descriptions).filter((code) => !facts.codes[code])
+
+  if (undescribed.length > 0) {
+    console.error(
+      `\n${undescribed.length} rule(s) have no description at all:\n` +
+        undescribed.map((code) => `  - ${code}`).join('\n') +
+        `\n\nRun draft-descriptions.mjs first — it creates an entry for every rule.`
+    )
+    process.exit(1)
+  }
+  if (orphaned.length > 0) {
+    console.error(
+      `\n${orphaned.length} description(s) name a rule that no longer exists:\n` +
+        orphaned.map((code) => `  - ${code}`).join('\n') +
+        `\n\nRun draft-descriptions.mjs, which prunes them.`
+    )
+    process.exit(1)
+  }
+
+  // Drafts are machine-generated from developer-facing text. The document still
+  // builds — a run must be able to complete — but publishing one unrewritten
+  // defeats the point of the story, so say so loudly rather than in passing.
+  const stillDrafted = Object.keys(facts.codes).filter(
+    (code) => descriptions[code].drafted
   )
-  process.exit(1)
-}
 
-const facts = JSON.parse(readTextFile(factsPath))
-const descriptions = loadDescriptions()
+  mkdirSync(path.dirname(path.resolve(outPath)), { recursive: true })
+  writeFileSync(outPath, buildDocument(facts, descriptions))
 
-const undescribed = Object.keys(facts.codes).filter(
-  (code) => !descriptions[code]
-)
-const orphaned = Object.keys(descriptions).filter((code) => !facts.codes[code])
-
-if (undescribed.length > 0) {
-  console.error(
-    `\n${undescribed.length} rule(s) have no description at all:\n` +
-      undescribed.map((code) => `  - ${code}`).join('\n') +
-      `\n\nRun draft-descriptions.mjs first — it creates an entry for every rule.`
-  )
-  process.exit(1)
-}
-if (orphaned.length > 0) {
-  console.error(
-    `\n${orphaned.length} description(s) name a rule that no longer exists:\n` +
-      orphaned.map((code) => `  - ${code}`).join('\n') +
-      `\n\nRun draft-descriptions.mjs, which prunes them.`
-  )
-  process.exit(1)
-}
-
-// Drafts are machine-generated from developer-facing text. The document still
-// builds — a run must be able to complete — but publishing one unrewritten
-// defeats the point of the story, so say so loudly rather than in passing.
-const stillDrafted = Object.keys(facts.codes).filter(
-  (code) => descriptions[code].drafted
-)
-
-mkdirSync(path.dirname(path.resolve(outPath)), { recursive: true })
-writeFileSync(outPath, buildDocument(facts, descriptions))
-
-const upload = uploadSummary(facts, descriptions)
-const editRules = Object.keys(facts.codes).length - upload.total
-console.log(`Wrote ${outPath}`)
-console.log(
-  `  ${Object.keys(facts.codes).length} rules, all described: ${upload.total} upload rules, ${editRules} edit rules`
-)
-console.log(`  ${upload.withExampleFile} upload rules with an example .gpkg`)
-
-if (stillDrafted.length > 0) {
+  const upload = uploadSummary(facts, descriptions)
+  const editRules = Object.keys(facts.codes).length - upload.total
+  console.log(`Wrote ${outPath}`)
   console.log(
-    `\nNOT READY TO PUBLISH — ${stillDrafted.length} description(s) are still machine drafts:\n` +
-      stillDrafted.map((code) => `  ${code}`).join('\n') +
-      `\n\nRewrite each for a non-technical reader per references/output-spec.md, remove its\n` +
-      `"drafted" flag, and rebuild.`
+    `  ${Object.keys(facts.codes).length} rules, all described: ${upload.total} upload rules, ${editRules} edit rules`
   )
+  console.log(`  ${upload.withExampleFile} upload rules with an example .gpkg`)
+
+  if (stillDrafted.length > 0) {
+    console.log(
+      `\nNOT READY TO PUBLISH — ${stillDrafted.length} description(s) are still machine drafts:\n` +
+        stillDrafted.map((code) => `  ${code}`).join('\n') +
+        `\n\nRewrite each for a non-technical reader per references/output-spec.md, remove its\n` +
+        `"drafted" flag, and rebuild.`
+    )
+  }
+}
+
+if (isMain(import.meta.url)) {
+  main()
 }

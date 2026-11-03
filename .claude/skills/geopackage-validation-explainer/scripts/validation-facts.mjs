@@ -30,7 +30,8 @@ import {
   walkSourceFiles,
   balancedBraceBlock,
   lineOf,
-  argValue
+  argValue,
+  isMain
 } from './_lib.mjs'
 
 const ERRORS_FILE = path.join('src', 'validation', 'geopackage', 'errors.js')
@@ -188,7 +189,7 @@ function extractRaiseSites(backendDir, codes) {
 }
 
 /** What the user is actually shown for each code. */
-function extractCopyStatus(frontendDir) {
+export function extractCopyStatus(frontendDir) {
   const text = readTextFile(path.join(frontendDir, COPY_FILE))
 
   const entriesBlock = balancedBraceBlock(text, text.indexOf('CODE_ENTRIES'))
@@ -252,7 +253,7 @@ function extractShownAsList(frontendDir) {
  * a constant rather than a quoted code (an outcome such as "accepted") is not
  * a rule, and is skipped.
  */
-function extractFixtures(libraryDir) {
+export function extractFixtures(libraryDir) {
   const byCode = {}
   for (const { file, exportName } of FLAW_REGISTRIES) {
     addRegistryFixtures(byCode, libraryDir, file, exportName)
@@ -358,7 +359,7 @@ const EXAMPLE_FILES_DIR = path.join(HARNESS_ROOT, 'example-files')
  * does not. A cell that is not a bare code ("accepted", "refused: …") claims
  * nothing.
  */
-const EXAMPLE_READMES = [
+export const EXAMPLE_READMES = [
   { readme: path.join(EXAMPLE_FILES_DIR, 'README.md'), prefix: '', codeCell: -2 },
   {
     readme: path.join(EXAMPLE_FILES_DIR, 'service-template', 'README.md'),
@@ -367,9 +368,9 @@ const EXAMPLE_READMES = [
   }
 ]
 
-/** The error-code column of the tables in every README in EXAMPLE_READMES. */
-function readmeClaims() {
-  return Object.assign({}, ...EXAMPLE_READMES.map(oneReadmeClaims))
+/** The error-code column of the tables in every README in `readmes`. */
+export function readmeClaims(readmes = EXAMPLE_READMES) {
+  return Object.assign({}, ...readmes.map(oneReadmeClaims))
 }
 
 function oneReadmeClaims({ readme, prefix, codeCell }) {
@@ -416,7 +417,11 @@ function oneReadmeClaims({ readme, prefix, codeCell }) {
  * something else, the observation wins and the disagreement is reported: it means
  * the fixture no longer demonstrates what it was built for.
  */
-function extractExampleFixtures(observedByCode, observedByFile) {
+export function extractExampleFixtures(
+  observedByCode,
+  observedByFile,
+  { readmes = EXAMPLE_READMES, examplesDir = EXAMPLE_FILES_DIR } = {}
+) {
   const byCode = {}
   const add = (code, file) => {
     byCode[code] ??= []
@@ -432,7 +437,7 @@ function extractExampleFixtures(observedByCode, observedByFile) {
   }
 
   const contradicted = []
-  for (const [file, claimedCode] of Object.entries(readmeClaims())) {
+  for (const [file, claimedCode] of Object.entries(readmeClaims(readmes))) {
     const observed = observedByFile[file]
     if (observed === undefined) {
       add(claimedCode, file)
@@ -454,9 +459,9 @@ function extractExampleFixtures(observedByCode, observedByFile) {
   }
 
   const claimed = new Set(Object.values(byCode).flat())
-  const onDisk = existsSync(EXAMPLE_FILES_DIR)
-    ? walkSourceFiles(EXAMPLE_FILES_DIR, ['.gpkg']).map((file) =>
-        path.relative(EXAMPLE_FILES_DIR, file)
+  const onDisk = existsSync(examplesDir)
+    ? walkSourceFiles(examplesDir, ['.gpkg']).map((file) =>
+        path.relative(examplesDir, file)
       )
     : []
 
@@ -468,6 +473,21 @@ function extractExampleFixtures(observedByCode, observedByFile) {
 }
 
 // ------------------------------------------------------------------ assembly
+
+/** What the user is shown for `code`, from the sets extractCopyStatus gives. */
+export function copyStatus(code, { dedicated, placeholder, shownAsList }) {
+  // Never reaches single-error copy, so neither of the others applies.
+  if (shownAsList.has(code)) {
+    return COPY_STATUS.BACKEND_MESSAGE
+  }
+  if (dedicated.has(code)) {
+    return COPY_STATUS.DEDICATED
+  }
+  if (placeholder.has(code)) {
+    return COPY_STATUS.PLACEHOLDER
+  }
+  return COPY_STATUS.CATCH_ALL
+}
 
 function buildFacts() {
   const dirs = Object.fromEntries(
@@ -490,20 +510,9 @@ function buildFacts() {
 
   const codes = {}
   for (const [code, meta] of Object.entries(registry)) {
-    let copy = COPY_STATUS.CATCH_ALL
-    if (dedicated.has(code)) {
-      copy = COPY_STATUS.DEDICATED
-    }
-    if (placeholder.has(code) && !dedicated.has(code)) {
-      copy = COPY_STATUS.PLACEHOLDER
-    }
-    // Never reaches single-error copy, so neither of the above applies.
-    if (shownAsList.has(code)) {
-      copy = COPY_STATUS.BACKEND_MESSAGE
-    }
     codes[code] = {
       description: meta.description,
-      copy,
+      copy: copyStatus(code, { dedicated, placeholder, shownAsList }),
       raisedAt: raiseSites[code] ?? [],
       fixtures: fixtures[code] ?? [],
       exampleFiles: examples.byCode[code] ?? []
@@ -624,22 +633,28 @@ function reportSummary(facts) {
 
 // ---------------------------------------------------------------------- main
 
-const outPath = argValue('--out')
-if (!outPath) {
-  console.error('Usage: validation-facts.mjs --out <facts.json> [--compare <facts.json>]')
-  process.exit(1)
+function main() {
+  const outPath = argValue('--out')
+  if (!outPath) {
+    console.error('Usage: validation-facts.mjs --out <facts.json> [--compare <facts.json>]')
+    process.exit(1)
+  }
+
+  const facts = buildFacts()
+  reportSummary(facts)
+
+  const comparePath = argValue('--compare')
+  if (comparePath && existsSync(comparePath)) {
+    reportDiff(diffFacts(JSON.parse(readTextFile(comparePath)), facts))
+  } else if (comparePath) {
+    console.log('\nNo previous run to compare against — treating this as the baseline.')
+  }
+
+  mkdirSync(path.dirname(path.resolve(outPath)), { recursive: true })
+  writeFileSync(outPath, `${JSON.stringify(facts, null, 2)}\n`)
+  console.log(`\nWrote ${outPath}`)
 }
 
-const facts = buildFacts()
-reportSummary(facts)
-
-const comparePath = argValue('--compare')
-if (comparePath && existsSync(comparePath)) {
-  reportDiff(diffFacts(JSON.parse(readTextFile(comparePath)), facts))
-} else if (comparePath) {
-  console.log('\nNo previous run to compare against — treating this as the baseline.')
+if (isMain(import.meta.url)) {
+  main()
 }
-
-mkdirSync(path.dirname(path.resolve(outPath)), { recursive: true })
-writeFileSync(outPath, `${JSON.stringify(facts, null, 2)}\n`)
-console.log(`\nWrote ${outPath}`)

@@ -8,8 +8,15 @@
  * still resolves as long as the file is where we expect it.
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  statSync
+} from 'node:fs'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 export const HARNESS_ROOT = path.resolve(
   import.meta.dirname,
@@ -219,4 +226,18 @@ export function argValue(flag, fallback = null) {
 
 export function hasFlag(flag) {
   return process.argv.includes(flag)
+}
+
+/**
+ * Whether the module at `importMetaUrl` is the script node was asked to run,
+ * rather than one a test has imported for its functions. Node resolves the
+ * main module through symlinks, so argv[1] is too.
+ */
+export function isMain(importMetaUrl) {
+  const script = process.argv[1]
+  return (
+    Boolean(script) &&
+    existsSync(script) &&
+    pathToFileURL(realpathSync(script)).href === importMetaUrl
+  )
 }
