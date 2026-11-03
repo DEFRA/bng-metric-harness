@@ -43,6 +43,22 @@ import {
   run,
   warn,
 } from "./_lib.mjs";
+import {
+  PERF_TEMPLATE_SERVICE,
+  parsePerfTemplate,
+  uploadTemplateEnv,
+} from "./perf-template.mjs";
+
+// Rejected at load, before main() calls requireSibling or builds the image,
+// so a typo never reaches the banner or the container.
+function readPerfTemplate() {
+  try {
+    return parsePerfTemplate(process.env.PERF_TEMPLATE);
+  } catch (err) {
+    error(err.message);
+    process.exit(1);
+  }
+}
 
 const cfg = {
   host: process.env.PERF_HOST ?? process.env.PERF_BACKEND_HOST ?? "localhost",
@@ -56,10 +72,7 @@ const cfg = {
   // TEST_SCENARIO is the container's own escape hatch; an unknown name falls back
   // to bng-perf, so this can never fail the run.
   scenario: process.env.PERF_SCENARIO ?? "",
-  // Which upload template the run uploads: legacy (the default) or service, the
-  // BNG Service template. The container validates one upload before JMeter
-  // starts and stops on a mismatch, so a wrong value costs a minute, not a run.
-  template: (process.env.PERF_TEMPLATE ?? "").trim().toLowerCase(),
+  template: readPerfTemplate(),
   image: process.env.PERF_IMAGE ?? "bng-perf-tests:local",
   failOnAssert: Boolean(process.env.PERF_FAIL_ON_ASSERT),
   skipBuild: Boolean(process.env.PERF_SKIP_BUILD),
@@ -259,9 +272,7 @@ function containerEnv() {
     env.TEST_SCENARIO = cfg.scenario;
   }
 
-  if (cfg.template) {
-    env.UPLOAD_TEMPLATE = cfg.template;
-  }
+  Object.assign(env, uploadTemplateEnv(cfg.template));
 
   // The entrypoint resolves this to localhost:7337 for ENVIRONMENT=local, which is
   // right for a process on the host and wrong from inside a container.
@@ -383,7 +394,7 @@ async function main() {
   );
   // The flag lives in the running apps, which this cannot see, so say what the
   // template needs before the build rather than after a failed staging.
-  if (cfg.template === "service") {
+  if (cfg.template === PERF_TEMPLATE_SERVICE) {
     info(
       "▸ PERF_TEMPLATE=service — uploading the BNG Service template. The stack must " +
         "be running with SERVICE_TEMPLATE_ENABLED=true: start it with " +

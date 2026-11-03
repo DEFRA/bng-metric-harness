@@ -284,7 +284,7 @@ Assertion failures **do not** fail the run. The project-list group encodes unshi
 | `PERF_HOST`                                                                            | `localhost`                   | Where the stack is; `localhost` is translated to `host.docker.internal` for the container. |
 | `PERF_FRONTEND_PORT` / `PERF_BACKEND_PORT` / `PERF_STUB_PORT` / `PERF_UPLOADER_PORT`   | `3000` / `3001` / `3200` / `7337` | Ports on that host.                                                                    |
 | `PERF_SCENARIO`                                                                        | unset                         | Escape hatch for a different `scenarios/<name>.jmx`.                                       |
-| `PERF_TEMPLATE`                                                                        | unset (`legacy`)              | `service` runs the suite with the BNG Service template — see below.                        |
+| `PERF_TEMPLATE`                                                                        | unset (`legacy`)              | `legacy` or `service` only; any other value stops the run before the image build. `service` runs the suite with the BNG Service template — see below. |
 
 #### The BNG Service template — `PERF_TEMPLATE=service`
 

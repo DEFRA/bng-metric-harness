@@ -1,28 +1,47 @@
-import { spawnSync } from "node:child_process";
-import path from "node:path";
 import { describe, expect, it } from "vitest";
+import {
+  parsePerfTemplate,
+  uploadTemplateEnv,
+} from "../../scripts/perf-template.mjs";
 
-const SCRIPT = path.join(import.meta.dirname, "../../scripts/run-perf-tests.mjs");
-
-function runWithTemplate(template) {
-  return spawnSync(process.execPath, [SCRIPT], {
-    encoding: "utf8",
-    env: { ...process.env, PERF_TEMPLATE: template },
+describe("parsePerfTemplate", () => {
+  it.each([undefined, "", "   "])("treats %j as unset", (value) => {
+    expect(parsePerfTemplate(value)).toBe("");
   });
-}
 
-describe("PERF_TEMPLATE", () => {
-  it.each(["servce", "bng-service", "SERVCE"])(
-    "rejects %j before building the image",
-    (template) => {
-      const result = runWithTemplate(template);
-      const output = `${result.stdout}${result.stderr}`;
-      expect(result.status).toBe(1);
-      expect(output).toContain(
-        `PERF_TEMPLATE must be "legacy" or "service", not "${template.toLowerCase()}".`,
-      );
-      expect(output).not.toContain("Building the perf-tests image");
-      expect(output).not.toContain("uploading the legacy template");
+  it.each(["legacy", " Legacy ", "LEGACY"])(
+    "accepts %j as legacy",
+    (value) => {
+      expect(parsePerfTemplate(value)).toBe("legacy");
     },
   );
+
+  it.each(["service", " SERVICE "])("accepts %j as service", (value) => {
+    expect(parsePerfTemplate(value)).toBe("service");
+  });
+
+  it.each(["servce", "bng-service", "SERVCE"])("rejects %j", (value) => {
+    expect(() => parsePerfTemplate(value)).toThrow(
+      `PERF_TEMPLATE must be "legacy" or "service", not "${value.toLowerCase()}".`,
+    );
+  });
+});
+
+describe("uploadTemplateEnv", () => {
+  it("leaves UPLOAD_TEMPLATE unset for the legacy default", () => {
+    expect(uploadTemplateEnv(parsePerfTemplate(""))).toEqual({});
+  });
+
+  it.each(["legacy", "service"])(
+    "sets UPLOAD_TEMPLATE for an explicit %s",
+    (template) => {
+      expect(uploadTemplateEnv(parsePerfTemplate(template))).toEqual({
+        UPLOAD_TEMPLATE: template,
+      });
+    },
+  );
+
+  it("does not forward a value the parser rejects", () => {
+    expect(uploadTemplateEnv("servce")).toEqual({});
+  });
 });
