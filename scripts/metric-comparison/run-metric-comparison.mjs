@@ -5,7 +5,8 @@
  *
  * A scenario is a baseline and post-intervention GeoPackage beside the metric
  * workbook describing the same site; the metric's answers are read from the
- * workbook. The committed scenarios are this repo's example-files/permutations;
+ * workbook. The committed scenarios are this repo's example-files/permutations
+ * and, in the BNG Service template, example-files/service-template/permutations;
  * the comparison itself lives in bng-library (`bng-library/metric-compare`);
  * the import is the backend's (import-geopackage-pair.mjs). So a change to
  * either side — the engine in the library, or the backend's extraction and
@@ -20,6 +21,7 @@ import {
   figuresFromWorkbook,
   findScenarios,
   readWorkbookAnswers,
+  SCENARIO_FORMAT,
 } from "#metric-compare";
 import { HARNESS_ROOT, mapInSequence } from "../_lib.mjs";
 import { importGeoPackagePair } from "./import-geopackage-pair.mjs";
@@ -36,6 +38,34 @@ export const DEFAULT_CORPUS_DIR = path.join(
   "example-files",
   "permutations",
 );
+
+/**
+ * The committed scenarios in the BNG Service template, each one GeoPackage
+ * holding both stages and its baseline-stage file, beside its workbook. The
+ * service reads them only with the service-template flag on.
+ */
+export const SERVICE_TEMPLATE_CORPUS_DIR = path.join(
+  HARNESS_ROOT,
+  "example-files",
+  "service-template",
+  "permutations",
+);
+
+/**
+ * The scenarios the service would refuse at its format gate: with the
+ * service-template flag on it reads only the BNG Service template, and with
+ * it off only the legacy one. Comparing them would report the refusal, not
+ * the figures.
+ *
+ * @param {import('bng-library/metric-compare').CorpusScenario[]} scenarios
+ * @param {boolean} serviceTemplate whether the flag is on
+ */
+export function scenariosInOtherTemplate(scenarios, serviceTemplate) {
+  const format = serviceTemplate
+    ? SCENARIO_FORMAT.bngService
+    : SCENARIO_FORMAT.legacy;
+  return scenarios.filter((scenario) => scenario.format !== format);
+}
 
 /**
  * A scenario is selected by its id ("net-gain/met"), its name ("met") or its
@@ -119,6 +149,20 @@ export async function compareCorpusScenario(
   };
 }
 
+/** Every scenario must be in the template the service is reading. */
+function assertOneTemplate(scenarios, serviceTemplate) {
+  const others = scenariosInOtherTemplate(scenarios, serviceTemplate);
+  if (others.length === 0) {
+    return;
+  }
+  const flag = serviceTemplate
+    ? "with the service-template flag on, the service reads only the BNG Service template, so compare them without --service-template"
+    : "the service reads them only with the service-template flag on, so compare them with --service-template";
+  throw new Error(
+    `${others.length} scenario(s) are in the other template (${others.map((s) => s.id).join(", ")}): ${flag}`,
+  );
+}
+
 /** Full runs must not silently drop a manifest contract during discovery. */
 function assertAllExpectationsDiscovered(expectations, scenarios) {
   const discovered = new Set(
@@ -139,6 +183,9 @@ function assertAllExpectationsDiscovered(expectations, scenarios) {
  * @param {string} [options.corpusDir] a folder of scenarios; by default the
  *   committed ones
  * @param {string[]} [options.only] scenario ids, names or purposes to run
+ * @param {boolean} [options.serviceTemplate] whether the backend runs with the
+ *   service-template flag on; every scenario selected must be in the template
+ *   that flag reads
  * @param {(result: object) => void} [options.onResult]
  * @param {typeof importGeoPackagePair} [options.importPair] the service's
  *   import; the backend's upload pipeline unless a test stands in for it
@@ -149,11 +196,13 @@ export async function runMetricComparison(options = {}) {
   const {
     corpusDir = DEFAULT_CORPUS_DIR,
     only = [],
+    serviceTemplate = false,
     onResult,
     importPair = importGeoPackagePair,
   } = options;
   const { scenarios, unmatched } = findScenarios(corpusDir);
   const selected = scenarios.filter((s) => isSelected(s, only));
+  assertOneTemplate(selected, serviceTemplate);
   const expectations = readImportExpectations(corpusDir);
   if (only.length === 0) {
     assertAllExpectationsDiscovered(expectations, selected);

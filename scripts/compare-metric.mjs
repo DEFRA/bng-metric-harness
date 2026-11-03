@@ -7,14 +7,22 @@
  *   npm run compare:metric                         # every committed scenario
  *   npm run compare:metric -- --only trading-rules # a purpose, or scenario ids
  *   npm run compare:metric -- --corpus <dir>       # any folder of scenarios
+ *   npm run compare:metric -- --service-template   # the BNG Service template's
  *   npm run compare:metric -- --fail-on-unexplained
  *
  * The service is the backend checkout beside this repo (BNG_BACKEND_DIR names
  * another), run in process; see scripts/metric-comparison/backend.mjs.
  *
- * Writes, to metric-comparison/ in this repo, report.html (a short,
- * self-contained summary), report.xlsx (every difference at full precision,
- * one row each), report.md, summary.md (the report without each scenario's
+ * The backend reads one template or the other, as its service-template flag
+ * says, so a run compares one: the legacy scenarios by default, with the flag
+ * off whatever the shell says, or with --service-template the BNG Service
+ * template's (example-files/service-template/permutations by default), with
+ * the flag on. A scenario in the other template stops the run.
+ *
+ * Writes, to metric-comparison/ in this repo (metric-comparison/
+ * service-template/ with --service-template, so the two runs' reports sit
+ * side by side), report.html (a short, self-contained summary), report.xlsx
+ * (every difference at full precision, one row each), report.md, summary.md (the report without each scenario's
  * detail, for a CI job summary) and report.json. The console gets each
  * scenario's outcome as it runs, then every difference figure by figure, so
  * a CI log shows what differed without opening the report.
@@ -53,8 +61,10 @@ import {
 import { renderDifferences } from "./metric-comparison/differences.mjs";
 import {
   DEFAULT_CORPUS_DIR,
+  SERVICE_TEMPLATE_CORPUS_DIR,
   runMetricComparison,
 } from "./metric-comparison/run-metric-comparison.mjs";
+import { SERVICE_TEMPLATE_FLAG } from "./dev-env.mjs";
 import {
   comparisonVerdict,
   findUnexplained,
@@ -73,13 +83,21 @@ const { values } = parseArgs({
   options: {
     only: { type: "string", multiple: true, default: [] },
     corpus: { type: "string" },
+    "service-template": { type: "boolean", default: false },
     "fail-on-unexplained": { type: "boolean", default: false },
   },
 });
 const only = values.only.flatMap((v) => v.split(",")).filter(Boolean);
+const serviceTemplate = values["service-template"];
 const corpusDir = values.corpus
   ? path.resolve(values.corpus)
-  : DEFAULT_CORPUS_DIR;
+  : defaultCorpusDir(serviceTemplate);
+const outDir = serviceTemplate
+  ? path.join(OUT_DIR, "service-template")
+  : OUT_DIR;
+// Before the backend's config is first imported, which reads it once: the
+// flag decides which template the service's format gate lets through.
+process.env[SERVICE_TEMPLATE_FLAG] = String(serviceTemplate);
 
 const backend = backendDir();
 if (!isBackendInstalled(backend)) {
@@ -92,6 +110,10 @@ if (!isBackendInstalled(backend)) {
 if (!existsSync(corpusDir)) {
   error(`No scenarios at ${corpusDir}`);
   process.exit(1);
+}
+
+function defaultCorpusDir(serviceTemplateOn) {
+  return serviceTemplateOn ? SERVICE_TEMPLATE_CORPUS_DIR : DEFAULT_CORPUS_DIR;
 }
 
 /** The short commit checked out in `dir`, or "unknown" outside a checkout. */
@@ -111,28 +133,44 @@ async function commitOf(dir) {
  */
 function fullReportLocation() {
   const artifact = process.env.METRIC_COMPARISON_ARTIFACT;
+  const folder = serviceTemplate ? ", in its `service-template/` folder" : "";
   return artifact
-    ? `in this job's \`${artifact}\` artifact`
-    : `beside it in \`${OUT_DIR}\``;
+    ? `in this job's \`${artifact}\` artifact${folder}`
+    : `beside it in \`${outDir}\``;
 }
 
+const templateName = serviceTemplate
+  ? `the BNG Service template (${SERVICE_TEMPLATE_FLAG}=true)`
+  : `the legacy template (${SERVICE_TEMPLATE_FLAG}=false)`;
 const onlySuffix = only.length ? ` (${only.join(", ")})` : "";
 header(`Comparing the service with the metric${onlySuffix}`);
 info(`  service:   ${backend}`);
 info(`  scenarios: ${corpusDir}`);
+info(`  template:  ${templateName}`);
 
-const { unmatched, results } = await runMetricComparison({
-  corpusDir,
-  only,
-  onResult: (r) => {
-    const discrepancySuffix = r.discrepancies?.length
-      ? ` — ${r.discrepancies.length} discrepancies`
-      : "";
-    console.log(
-      `  ${r.outcome.padEnd(OUTCOME_COLUMN_WIDTH)}  ${r.id}${discrepancySuffix}`,
-    );
-  },
-});
+/** Every scenario compared, or the reason the run cannot start. */
+async function compareAll() {
+  try {
+    return await runMetricComparison({
+      corpusDir,
+      only,
+      serviceTemplate,
+      onResult: (r) => {
+        const discrepancySuffix = r.discrepancies?.length
+          ? ` — ${r.discrepancies.length} discrepancies`
+          : "";
+        console.log(
+          `  ${r.outcome.padEnd(OUTCOME_COLUMN_WIDTH)}  ${r.id}${discrepancySuffix}`,
+        );
+      },
+    });
+  } catch (cause) {
+    error(cause.message);
+    process.exit(1);
+  }
+}
+
+const { unmatched, results } = await compareAll();
 for (const workbook of unmatched) {
   warn(`skipped ${workbook}: no GeoPackage pair beside it`);
 }
@@ -140,16 +178,16 @@ for (const workbook of unmatched) {
 // Both commits from their checkouts. Not the run's sha: when the backend
 // calls the workflow, that is the backend's.
 const context = [
-  `Scenarios from ${corpusDir}.`,
+  `Scenarios from ${corpusDir}, in ${templateName}.`,
   `Generated ${new Date().toISOString()} for backend ${await commitOf(backend)}, harness ${await commitOf(HARNESS_ROOT)}.`,
 ];
 
 const unexplained = findUnexplained(results);
 const unexplainedReport = renderUnexplained(unexplained);
 
-mkdirSync(OUT_DIR, { recursive: true });
+mkdirSync(outDir, { recursive: true });
 const write = (name, content) =>
-  writeFileSync(path.join(OUT_DIR, name), content);
+  writeFileSync(path.join(outDir, name), content);
 
 // A bng-library that predates the verdict option ignores it.
 write(
@@ -198,7 +236,7 @@ if (differences) {
   console.log(`\n${differences}\n`);
 }
 console.log(
-  `${differing} of ${results.length} scenarios differ from the metric${unreadableSuffix}${failedSuffix}. Reports → ${path.join(OUT_DIR, "report.html")} and report.xlsx`,
+  `${differing} of ${results.length} scenarios differ from the metric${unreadableSuffix}${failedSuffix}. Reports → ${path.join(outDir, "report.html")} and report.xlsx`,
 );
 
 for (const id of unexplained.stale) {

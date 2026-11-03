@@ -1,7 +1,9 @@
 name: Metric comparison
 
 # Compares the service with the Statutory Biodiversity Metric, figure by
-# figure, for every committed scenario (npm run compare:metric, BMD-1036).
+# figure, for every committed scenario (npm run compare:metric, BMD-1036):
+# the legacy template's with the service-template flag off, then the BNG
+# Service template's vertical-area scenarios with it on (BMD-1084).
 #
 # The answer depends on three commits: the backend's (validation, sizing and
 # the enrichment that drives the engine and derives the trading-rule
@@ -267,15 +269,30 @@ jobs:
         id: compare-metric
         run: npm run compare:metric -- --fail-on-unexplained
 
+      # The BNG Service template's scenarios, with the service-template flag
+      # on, which is the only way the service reads them (BMD-1084). It runs
+      # whether or not the legacy comparison passed, so each reports. Only
+      # the vertical-area scenarios for now: the rest of that corpus had never
+      # been compared, and still has differences to explain (its trees are
+      # missing from the service's side, and the service accepts many of its
+      # invalid scenarios). Widen --only as they are explained. Its reports
+      # go to metric-comparison/service-template/, in the same artifact.
+      - name: Compare the service with the metric, BNG Service template
+        id: compare-metric-service-template
+        if: ${{ !cancelled() && steps.backend.outcome == 'success' }}
+        run: npm run compare:metric -- --service-template --only vertical-area --fail-on-unexplained
+
       - name: Publish the metric comparison summary
-        if: ${{ !cancelled() && steps.compare-metric.outcome != 'skipped' }}
+        if: ${{ !cancelled() && (steps.compare-metric.outcome != 'skipped' || steps.compare-metric-service-template.outcome != 'skipped') }}
         run: |
-          if [ -f metric-comparison/summary.md ]; then
-            cat metric-comparison/summary.md >> "$GITHUB_STEP_SUMMARY"
-          fi
+          for summary in metric-comparison/summary.md metric-comparison/service-template/summary.md; do
+            if [ -f "$summary" ]; then
+              cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
 
       - name: Upload the metric comparison report
-        if: ${{ !cancelled() && steps.compare-metric.outcome != 'skipped' }}
+        if: ${{ !cancelled() && (steps.compare-metric.outcome != 'skipped' || steps.compare-metric-service-template.outcome != 'skipped') }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ env.METRIC_COMPARISON_ARTIFACT }}

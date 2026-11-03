@@ -24,6 +24,9 @@ const BNG_SERVICE_LAYERS = {
   Hedgerows: "Hedgerows",
   Rivers: "Watercourses",
   "Urban Trees": "Individual Trees",
+  // The legacy template has no vertical area habitats, so a scenario about
+  // them names the BNG Service layer itself.
+  "Vertical Area Habitats": "Vertical Area Habitats",
 };
 
 /**

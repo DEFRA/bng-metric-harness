@@ -13836,6 +13836,179 @@
           }
         ]
       }
+    },
+    {
+      "id": "vertical-area-every-retention",
+      "purpose": "vertical-area",
+      "title": "Vertical area habitats — Retained, Enhanced, Created and Lost",
+      "description": "Four walls and structures on the Vertical Area Habitats layers, each sized by the Area the surveyor typed in square metres, which the metric prices in hectares. V001, a facade-bound green wall of 400 m² in Moderate condition, is Retained, priced at 0.04 ha. V002, a ground based green wall of 250 m², is Enhanced from Poor to Moderate. V003, an artificial hard structure of 150 m², is replaced by an IGGI (Medium distinctiveness, Medium difficulty) in Moderate condition. V004, an artificial feature of a hard structure of 60 m², is Lost. The two area parcels are retained, and the other layers are empty, so every difference from the metric is a vertical habitat's.",
+      "size": 2,
+      "subject": {
+        "layer": "Vertical Area Habitats",
+        "ref": "V001",
+        "note": "a retained 400 m² green wall, priced at 0.04 ha; V002 to V004 are enhanced, created and lost"
+      },
+      "files": {
+        "geoPackage": "vertical-area/every-retention.gpkg",
+        "baselineStage": "vertical-area/every-retention-baseline.gpkg",
+        "workbook": "vertical-area/every-retention.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "every value one the BNG Service template offers",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "every post-intervention feature names its parent",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookSource": "7b3f4bd9da5ae2c6b8ed5210ddffbd640c3fd1f0ff587f8cdcaa25d99eaeaca0",
+      "inputRows": {
+        "habitatBaseline": 6,
+        "habitatCreation": 1,
+        "habitatEnhancement": 1,
+        "hedgerowBaseline": 0,
+        "hedgerowCreation": 0,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 0,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 0
+      },
+      "rejectedInputs": [],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 224.337917322816,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "postInterventionUnits": {
+            "area": 224.373014037989,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netUnitChange": {
+            "area": 0.0350967151732391,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netPercentChange": {
+            "area": 0.000156445756437806,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netGainMessage": {
+            "area": "On-site net gain is less than target set ⚠",
+            "hedgerow": null,
+            "watercourse": null
+          },
+          "unitsRequired": {
+            "area": 246.771709055097,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "unitDeficit": {
+            "area": 22.3986950171083,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "Yes ✓",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": 0.03509671517324
+        },
+        "sheetWarnings": [
+          {
+            "sheet": "habitatBaseline",
+            "cell": "Q2",
+            "message": "A 'Fairly' Category has been used - check evidence to ensure this is appropriate ⚠"
+          }
+        ],
+        "rowWarnings": []
+      }
     }
   ]
 }
