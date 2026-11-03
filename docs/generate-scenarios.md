@@ -69,7 +69,9 @@ npm run generate:scenarios -- --format bng-service --outdir example-files/servic
 bng-library draws each scenario natively, from the same seed derivation as the
 legacy corpus: no legacy file is written. A scenario holds exactly what it
 pins: none of the vertical habitats, comments or habitats that get worse a
-default synthetic site adds. The engine's net-gain check, the workbook and the
+default synthetic site adds. A scenario can pin vertical area habitats itself
+(`verticalHabitats` in its overrides), and is then BNG Service only, as the
+legacy template has no layer for them: the `vertical-area` purpose. The engine's net-gain check, the workbook and the
 checks all read the combined file, so the workbook describes the file a user
 would upload. Each scenario is also checked for lineage (`checkLineage`: every
 post-intervention feature names its parent), and each valid one against the
@@ -78,14 +80,16 @@ breaks a rule on purpose, so it is not.
 
 The BNG Service corpus holds the library's catalogue, less any scenario that
 lists only other formats (`trees-count-above-one`, until tree counts are
-decided). The harness's three import-timing scenarios stay legacy only: they
+decided). The legacy corpus likewise leaves out the BNG Service only ones
+(`vertical-area`). The harness's three import-timing scenarios stay legacy only: they
 work by editing a legacy file after it is generated.
 
 `example-files/service-template/permutations/` holds a full run at seed 1,
 refreshed with the command above. `manifest.json` records the format, and a
 filtered run is refused in a folder holding the other format.
-`npm run compare:metric` still reads the legacy corpus in
-`example-files/permutations/`.
+`npm run compare:metric` reads the legacy corpus in
+`example-files/permutations/`, and `npm run compare:metric -- --service-template`
+this one, with the service-template flag on.
 
 ### GeoPackages only
 

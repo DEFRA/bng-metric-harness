@@ -31,7 +31,7 @@ import {
   catalogueFor,
 } from "./scenarios/catalogue.mjs";
 import { isLibreOfficeAvailable } from "#workbook-writer";
-import { FORMAT_LEGACY, VALID_FORMATS } from "#bng-lib";
+import { FORMAT_BNG_SERVICE, FORMAT_LEGACY, VALID_FORMATS } from "#bng-lib";
 import {
   HARNESS_ROOT,
   error,
@@ -53,6 +53,11 @@ import {
   resolveTemplate,
 } from "./scenarios/template.mjs";
 
+// Purposes only the BNG Service corpus has scenarios for.
+const BNG_SERVICE_ONLY_PURPOSES = catalogueFor(
+  FORMAT_BNG_SERVICE,
+).purposes.filter((purpose) => !PERMUTATION_PURPOSES.includes(purpose));
+
 // Seeds are 32-bit, as bng-library's generator takes them.
 const SEED_BITS = 31;
 const MAX_SEED = 2 ** SEED_BITS;
@@ -62,7 +67,8 @@ const CATALOGUE_ID_COLUMN_WIDTH = 46;
 const USAGE = `
 Usage: npm run generate:scenarios -- [options]
 
-  --only PURPOSE    Build one purpose only (${PERMUTATION_PURPOSES.join(", ")}).
+  --only PURPOSE    Build one purpose only (${PERMUTATION_PURPOSES.join(", ")};
+                    with --format bng-service, also ${BNG_SERVICE_ONLY_PURPOSES.join(", ")}).
   --scenario ID     Build one scenario only (repeatable).
                     A filtered run replaces only those scenarios' files and
                     merges them into the existing manifest, reusing its seed.

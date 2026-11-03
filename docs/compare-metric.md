@@ -10,7 +10,24 @@ the recalculated metric workbook computes for the same GeoPackage pair.
 npm run compare:metric                           # the whole corpus
 npm run compare:metric -- --only trading-rules   # a purpose, or scenario ids
 npm run compare:metric -- --corpus ~/my-test-spreadsheets   # any folder of scenarios
+npm run compare:metric -- --service-template     # the BNG Service template's corpus
 ```
+
+**One template per run.** The backend reads one template or the other, as its
+service-template flag (`SERVICE_TEMPLATE_ENABLED`) says, so a run compares
+one. By default it compares the legacy scenarios in
+`example-files/permutations/`, with the flag off whatever the shell says. With
+`--service-template` it compares the BNG Service template's, in
+`example-files/service-template/permutations/` (each scenario one GeoPackage
+holding both stages, with its baseline-stage file and its workbook), with the
+flag on, and writes its reports to `metric-comparison/service-template/`. A
+scenario in the other template stops the run before anything is imported,
+rather than being reported as refused.
+
+Vertical area habitats (green walls and intertidal hard structures, BMD-1084)
+exist only in the BNG Service template, so only that run compares them:
+`vertical-area/every-retention` has a wall Retained (400 m², which the metric
+prices at 0.04 ha), one Enhanced, one replaced by an IGGI and one Lost.
 
 It runs the backend checked out beside this repo, in process, so the backend
 needs `npm run install:be` first; `BNG_BACKEND_DIR` names another checkout (a
@@ -114,7 +131,8 @@ flowchart LR
     only where its rows' references match the GeoPackages' feature references.
     Totals, net gain and trading are compared regardless.
 - **Where the committed scenarios live.** They're only in this repo's
-  `example-files/permutations/`, each GeoPackage pair beside its workbook.
+  `example-files/permutations/`, each GeoPackage pair beside its workbook, and
+  `example-files/service-template/permutations/` for the BNG Service template.
   Neither the library nor the backend carries a copy, so no library consumer
   pulls in test data. `--corpus` names another folder.
 - **The comparison.** bng-library's `metric-compare` turns each side into
@@ -291,6 +309,16 @@ Any unexplained difference. CI runs
 then exits 1 if anything is unexplained. Locally, pass the same flag to see
 whether a run would pass.
 
+CI then runs
+`npm run compare:metric -- --service-template --only vertical-area --fail-on-unexplained`
+in the same job, whether or not the legacy run passed, and puts both summaries
+on the job summary and both reports in the artifact. It compares only the
+vertical-area scenarios for now. The rest of the BNG Service corpus was first
+compared with BMD-1084, and still has differences nothing explains: its trees
+are missing from the service's side of every scenario that has them, and the
+service accepts 20 of its invalid scenarios with no `VALIDATION_GAPS` entry.
+Widen `--only` as those are fixed or explained.
+
 `scripts/metric-comparison/unexplained.mjs` decides which differences have a
 known explanation. A difference is explained when:
 
@@ -315,6 +343,12 @@ Everything else is unexplained:
 When the service starts refusing an invalid scenario, its `VALIDATION_GAPS` or
 `INCOMPLETE_FEATURES` entry is reported as stale (a warning, not a failure), so
 it can be removed.
+
+Those two tables are for the legacy corpus. The BNG Service corpus reuses its
+scenario ids, but its files differ, so `--service-template` uses its own
+tables instead, `SERVICE_TEMPLATE_VALIDATION_GAPS` and
+`SERVICE_TEMPLATE_INCOMPLETE_FEATURES`. They start empty. An entry goes there
+only once it has been checked against the BNG Service file.
 Strategic significance should soon explain nothing. The corpus follows the
 LNRS guidance (Low baselines; Low or High proposed values), and once
 bng-metric-backend#439 (hedgerows read their proposed value) has merged, no
@@ -350,6 +384,10 @@ template, regenerate it and commit the result here:
 npm run lib:link                     # use the local bng-library
 npm run generate:scenarios -- --outdir example-files/permutations --seed 1
 npm run compare:metric               # compares the new corpus at once
+
+# The BNG Service template's corpus
+npm run generate:scenarios -- --format bng-service --outdir example-files/service-template/permutations --seed 1
+npm run compare:metric -- --service-template
 ```
 
 ### What the comparison finds

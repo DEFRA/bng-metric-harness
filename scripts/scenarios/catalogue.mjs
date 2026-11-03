@@ -190,7 +190,15 @@ export const HARNESS_SCENARIOS = [
   ...additions,
   lostReplacement,
 ];
-export const HARNESS_PURPOSES = [...PERMUTATION_PURPOSES, "import-timing"];
+// The purposes the legacy corpus has scenarios for, in the library's order:
+// vertical-area is BNG Service only, as the legacy template has no vertical
+// area habitats.
+export const HARNESS_PURPOSES = [
+  ...PERMUTATION_PURPOSES.filter((purpose) =>
+    HARNESS_SCENARIOS.some((scenario) => scenario.purpose === purpose),
+  ),
+  "import-timing",
+];
 
 /**
  * The scenarios and purposes a corpus in `format` holds. The legacy corpus
