@@ -56,7 +56,7 @@ function readPerfTemplate() {
     return parsePerfTemplate(process.env.PERF_TEMPLATE);
   } catch (err) {
     error(err.message);
-    process.exit(1);
+    return process.exit(1);
   }
 }
 
