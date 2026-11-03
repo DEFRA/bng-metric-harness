@@ -327,7 +327,7 @@ const TOLERANCE_FILES = [
  * Only plain numeric declarations are read, including simple products such as
  * `100 * 1000 * 1000`. Anything else is left out rather than guessed at.
  */
-function extractTolerances(backendDir) {
+export function extractTolerances(backendDir) {
   const file = TOLERANCE_FILES.map((name) => path.join(backendDir, name)).find(
     (candidate) => existsSync(candidate)
   )

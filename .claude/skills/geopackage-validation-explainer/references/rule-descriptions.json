@@ -270,7 +270,7 @@
   },
   "NO_DERIVED_BASELINE_HABITATS": {
     "group": "Habitat data",
-    "checks": "The file yields no baseline area habitats at all. Saving it would replace the site's stored baseline, including any edits made on screen, with an empty one. Typically a file whose baseline columns are blank or hold placeholders, or a BNG Service template file whose Area Habitats Baseline table is empty."
+    "checks": "The file yields no baseline area habitats at all. Saving it would replace the site's stored baseline, including any edits made on screen, with an empty one. Typically a legacy post-intervention file made only of Created habitats, so that no row describes a habitat at baseline. A BNG Service template file whose Area Habitats Baseline table is empty is refused before this, as a file with no area habitats."
   },
   "BASELINE_TYPE_MISSING": {
     "group": "Habitat data",

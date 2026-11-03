@@ -110,6 +110,21 @@ describe("buildDocument", () => {
     expect(document).toContain("| Falling back to a generic message | 1 |");
   });
 
+  it("renders an extracted threshold in the reader's units in the rule's row", () => {
+    const descriptions = {
+      ...WITH_EDITS,
+      UPLOAD_A: { ...WITH_EDITS.UPLOAD_A, tolerance: "MIN_PARCEL_AREA_SQ_M", toleranceIs: "Smallest area" },
+      UPLOAD_B: { ...WITH_EDITS.UPLOAD_B, tolerance: "REDLINE_MAX_AREA_SQ_M" },
+    };
+    const facts = {
+      ...factsFor(CODES),
+      tolerances: { MIN_PARCEL_AREA_SQ_M: 0.5, REDLINE_MAX_AREA_SQ_M: 100_000_000 },
+    };
+    const withThresholds = buildDocument(facts, descriptions);
+    expect(rowFor(withThresholds, "UPLOAD_A")).toContain("Checks layer A. Smallest area 0.5 m².");
+    expect(rowFor(withThresholds, "UPLOAD_B")).toContain("Checks column B. Tolerance 100 km².");
+  });
+
   it("leaves the edit section out when there are no edit rules", () => {
     const codes = {
       UPLOAD_A: CODES.UPLOAD_A,

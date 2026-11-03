@@ -5,6 +5,7 @@ import {
   extractCopyStatus,
   extractExampleFixtures,
   extractFixtures,
+  extractTolerances,
   readmeClaims,
 } from "../../../.claude/skills/geopackage-validation-explainer/scripts/validation-facts.mjs";
 import { scratchDir } from "./_fixtures.mjs";
@@ -180,6 +181,10 @@ const LEGACY_FLAWS = `export const FLAWS = {
   sliver: {
     description: "a sliver between parcels",
     errorCode: 'SLIVERS_OUTSIDE_REDLINE'
+  },
+  'missing-ref': {
+    description: 'a parcel with no habitat ref',
+    errorCode: 'HABITAT_REF_MISSING'
   }
 }
 `;
@@ -194,6 +199,18 @@ export const BNG_SERVICE_FLAWS = {
       'a Retained area habitat names no baseline habitat',
     errorCode: 'STAGED_PARENT_LINK_MISSING',
     category: CATEGORY_LINEAGE
+  },
+  'lineage-parent-geom-mismatch': {
+    description: 'a Retained parcel moved from its baseline shape',
+    errorCode: 'STAGED_BASELINE_DRIFTED'
+  },
+  'lineage-parent-geom-missing': {
+    description: 'a Retained parcel with no shape where its baseline had one',
+    errorCode: 'STAGED_BASELINE_DRIFTED'
+  },
+  'service-missing-ref': {
+    description: 'a BNG Service parcel with no habitat ref',
+    errorCode: 'HABITAT_REF_MISSING'
   },
   'fixed-in-service': {
     description: 'a flaw the service accepts',
@@ -229,7 +246,9 @@ describe("extractFixtures", () => {
   it("reads every registry, keyed by the code each flaw is refused with", () => {
     expect(Object.keys(fixtures).toSorted()).toEqual([
       "AREA_PARCELS_INVALID_GEOMETRY",
+      "HABITAT_REF_MISSING",
       "SLIVERS_OUTSIDE_REDLINE",
+      "STAGED_BASELINE_DRIFTED",
       "STAGED_PARENT_LINK_MISSING",
       "VERTICAL_HABITATS_OUTSIDE_REDLINE",
     ]);
@@ -244,6 +263,23 @@ describe("extractFixtures", () => {
     ]);
   });
 
+  it("keeps every flaw refused with the same code, within one registry and across two", () => {
+    expect(fixtures.STAGED_BASELINE_DRIFTED).toEqual([
+      {
+        name: "lineage-parent-geom-mismatch",
+        description: "a Retained parcel moved from its baseline shape",
+      },
+      {
+        name: "lineage-parent-geom-missing",
+        description: "a Retained parcel with no shape where its baseline had one",
+      },
+    ]);
+    expect(fixtures.HABITAT_REF_MISSING).toEqual([
+      { name: "missing-ref", description: "a parcel with no habitat ref" },
+      { name: "service-missing-ref", description: "a BNG Service parcel with no habitat ref" },
+    ]);
+  });
+
   it("reads a description on its own line, in an entry frozen or not", () => {
     expect(fixtures.STAGED_PARENT_LINK_MISSING).toEqual([
       {
@@ -254,6 +290,59 @@ describe("extractFixtures", () => {
     expect(fixtures.VERTICAL_HABITATS_OUTSIDE_REDLINE).toEqual([
       { name: "iggi-outside", description: "an IGGI is placed outside the redline" },
     ]);
+  });
+});
+
+const CURRENT_TOLERANCES = `export const MIN_PARCEL_AREA_SQ_M = 0.5
+export const REDLINE_MAX_AREA_SQ_M = 100 * 1000 * 1000
+const OVERLAP_TOLERANCE_M = 0.01
+export const SNAP_FACTOR = SOMETHING_ELSE * 2
+export const LABEL = 'not a number'
+`;
+
+const LEGACY_TOLERANCES = `const MIN_PARCEL_AREA_SQ_M = 1
+const LEGACY_ONLY_M = 3
+`;
+
+describe("extractTolerances", () => {
+  let dir;
+
+  const CURRENT = "src/validation/geopackage/geometry-constants.js";
+  const LEGACY = "src/validation/geopackage/postgis/index.js";
+
+  beforeAll(() => {
+    dir = scratchDir();
+    dir.write(`both/${CURRENT}`, CURRENT_TOLERANCES);
+    dir.write(`both/${LEGACY}`, LEGACY_TOLERANCES);
+    dir.write(`legacy/${LEGACY}`, LEGACY_TOLERANCES);
+    dir.write("neither/package.json", "{}");
+  });
+
+  afterAll(() => dir.remove());
+
+  it("reads exported and plain decimals and products, and skips anything else", () => {
+    expect(extractTolerances(path.join(dir.root, "both"))).toEqual({
+      MIN_PARCEL_AREA_SQ_M: 0.5,
+      REDLINE_MAX_AREA_SQ_M: 100_000_000,
+      OVERLAP_TOLERANCE_M: 0.01,
+    });
+  });
+
+  it("prefers the current constants file to the legacy one", () => {
+    expect(extractTolerances(path.join(dir.root, "both"))).not.toHaveProperty(
+      "LEGACY_ONLY_M",
+    );
+  });
+
+  it("falls back to the legacy file in a checkout from before the move", () => {
+    expect(extractTolerances(path.join(dir.root, "legacy"))).toEqual({
+      MIN_PARCEL_AREA_SQ_M: 1,
+      LEGACY_ONLY_M: 3,
+    });
+  });
+
+  it("finds none where neither file exists", () => {
+    expect(extractTolerances(path.join(dir.root, "neither"))).toEqual({});
   });
 });
 
