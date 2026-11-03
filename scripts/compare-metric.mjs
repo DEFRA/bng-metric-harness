@@ -149,29 +149,27 @@ info(`  service:   ${backend}`);
 info(`  scenarios: ${corpusDir}`);
 info(`  template:  ${templateName}`);
 
-/** Every scenario compared, or the reason the run cannot start. */
-async function compareAll() {
-  try {
-    return await runMetricComparison({
-      corpusDir,
-      only,
-      serviceTemplate,
-      onResult: (r) => {
-        const discrepancySuffix = r.discrepancies?.length
-          ? ` — ${r.discrepancies.length} discrepancies`
-          : "";
-        console.log(
-          `  ${r.outcome.padEnd(OUTCOME_COLUMN_WIDTH)}  ${r.id}${discrepancySuffix}`,
-        );
-      },
-    });
-  } catch (cause) {
-    error(cause.message);
-    process.exit(1);
-  }
+// Every scenario compared, or the reason the run cannot start.
+let comparison;
+try {
+  comparison = await runMetricComparison({
+    corpusDir,
+    only,
+    serviceTemplate,
+    onResult: (r) => {
+      const discrepancySuffix = r.discrepancies?.length
+        ? ` — ${r.discrepancies.length} discrepancies`
+        : "";
+      console.log(
+        `  ${r.outcome.padEnd(OUTCOME_COLUMN_WIDTH)}  ${r.id}${discrepancySuffix}`,
+      );
+    },
+  });
+} catch (cause) {
+  error(cause.message);
+  process.exit(1);
 }
-
-const { unmatched, results } = await compareAll();
+const { unmatched, results } = comparison;
 for (const workbook of unmatched) {
   warn(`skipped ${workbook}: no GeoPackage pair beside it`);
 }
