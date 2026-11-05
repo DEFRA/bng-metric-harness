@@ -26,8 +26,8 @@ import {
 process.env[SERVICE_TEMPLATE_FLAG] = "true";
 
 const VERTICAL_SCENARIO = "vertical-area/every-retention";
-// AC9: a vertical area habitat's Area is typed in square metres, and the
-// metric prices it in hectares.
+// AC9: a vertical area habitat's Area is typed in hectares, as the metric
+// prices it; the service stores it in square metres.
 const SQUARE_METRES_PER_HECTARE = 10_000;
 const V001_AREA_SQUARE_METRES = 400;
 // V001 is a Low distinctiveness wall in Moderate condition, of Low strategic
@@ -80,7 +80,7 @@ describe.skipIf(!isBackendInstalled())(
     });
 
     it(
-      "stores V001's Area as typed, in square metres, and prices it at 0.04 ha (AC9)",
+      "stores V001's 0.04 ha as 400 m², and prices it at 0.04 ha (AC9)",
       async () => {
         const result = await importGeoPackagePair(vertical.files);
 
