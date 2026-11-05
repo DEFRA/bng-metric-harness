@@ -1,6 +1,7 @@
 /**
- * The SQL edits that turn a valid BNG Service file into an invalid-schema
- * fixture. Each helper returns an edit, a function of an open better-sqlite3
+ * The SQL edits that turn a valid BNG Service file into a fixture no
+ * generator writes: an invalid-schema file, or one value changed or one row
+ * left out. Each helper returns an edit, a function of an open better-sqlite3
  * handle, so a recipe can list its edits as data. Every edit keeps the
  * GeoPackage's own registers (gpkg_contents, gpkg_geometry_columns) in step
  * with the table it changes, so a fixture breaks the template's schema and
@@ -126,4 +127,59 @@ export const addGeometryColumn = (table, column, type) => (db) => {
   db.prepare(
     "INSERT INTO gpkg_geometry_columns (table_name, column_name, geometry_type_name, srs_id, z, m) VALUES (?, ?, ?, ?, 0, 0)",
   ).run(table, column, type, srsId);
+};
+
+/** The WHERE clause and its values that match every column of `where`. */
+function matching(where) {
+  const columns = Object.keys(where);
+  if (columns.length === 0) {
+    throw new Error("an edit to rows must say which rows it edits");
+  }
+  return {
+    clause: columns.map((column) => `${quote(column)} = ?`).join(" AND "),
+    values: Object.values(where),
+  };
+}
+
+/** Run a row edit, failing where it matches no row, so a stale recipe shows. */
+function runOnRows(db, table, sql, values) {
+  const { changes } = db.prepare(sql).run(...values);
+  if (changes === 0) {
+    throw new Error(`no row of "${table}" matches the edit`);
+  }
+}
+
+/** Set columns of the rows whose columns hold the values `where` names. */
+export const setValues = (table, values, where) => (db) => {
+  const assignments = Object.keys(values)
+    .map((column) => `${quote(column)} = ?`)
+    .join(", ");
+  const match = matching(where);
+  runOnRows(
+    db,
+    table,
+    `UPDATE ${quote(table)} SET ${assignments} WHERE ${match.clause}`,
+    [...Object.values(values), ...match.values],
+  );
+};
+
+/** Delete the rows whose columns hold the values `where` names. */
+export const deleteRows = (table, where) => (db) => {
+  const match = matching(where);
+  runOnRows(
+    db,
+    table,
+    `DELETE FROM ${quote(table)} WHERE ${match.clause}`,
+    match.values,
+  );
+};
+
+/** Replace the text of the template version record. */
+export const setVersionRecord = (metadata) => (db) => {
+  runOnRows(
+    db,
+    "gpkg_metadata",
+    "UPDATE gpkg_metadata SET metadata = ? WHERE md_scope = 'dataset'",
+    [metadata],
+  );
 };

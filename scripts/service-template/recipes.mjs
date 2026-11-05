@@ -7,7 +7,8 @@
  * A recipe is one of:
  *   - generated: drawn by bng-library from a seed, with flaws and options;
  *   - derived:   another recipe's file, changed by the SQL edits listed
- *                (see derive.mjs), for schema faults no generator writes;
+ *                (see derive.mjs), for schema faults and values no
+ *                generator writes;
  *   - copied:    a file already in the harness, copied as it is;
  *   - converted: a legacy BNG500 pair, converted by the template's own
  *                converter (see convert.mjs).
@@ -19,6 +20,7 @@
 import { FORMAT_BNG_SERVICE, STAGE_BASELINE, listFlaws } from "#bng-lib";
 import {
   addGeometryColumn,
+  deleteRows,
   dropColumns,
   dropGeometryColumn,
   dropStage,
@@ -27,6 +29,8 @@ import {
   retypeColumns,
   setGeometryType,
   setSrs,
+  setValues,
+  setVersionRecord,
 } from "./derive.mjs";
 
 export const KIND_GENERATED = "generated";
@@ -86,7 +90,8 @@ export const FAMILIES = [
   },
   {
     dir: "version-problems",
-    covers: "The template version record is missing, doubled or unsupported",
+    covers:
+      "The template version record is missing, doubled, unreadable or unsupported",
   },
   {
     dir: "bng-500",
@@ -169,16 +174,33 @@ function flawFixture(dir, name, options = {}) {
   );
 }
 
-function derived(path, covers, edits) {
+/**
+ * A file derived from `valid/default-site.gpkg` by SQL edits, refused for its
+ * schema unless the recipe says otherwise.
+ */
+function derived(path, covers, edits, expected = SCHEMA_REFUSED) {
   return {
     path,
     kind: KIND_DERIVED,
     covers,
-    expected: SCHEMA_REFUSED,
+    expected,
     from: VALID_BASE,
     edits,
   };
 }
+
+const HABITAT_REF = "Habitat Ref";
+const RETENTION = "Retention Category";
+const ADVANCE_YEARS = "Habitat created in advance/years";
+const BASELINE_SIGNIFICANCE = "Baseline Strategic Significance";
+const HIGH = "High";
+// The default site's habitats these fixtures change: a Retained woodland, the
+// area and vertical area habitats that get worse, each Created again in its
+// own type 30+ years in advance, and a Retained culvert.
+const RETAINED_WOODLAND = "H002";
+const WORSE_AREA_HABITAT = "H043";
+const WORSE_VERTICAL_HABITAT = "V005";
+const RETAINED_CULVERT = "R001";
 
 const VALID = [
   generated(
@@ -359,6 +381,58 @@ const ATTRIBUTE = [
   "degrade-habitat-ref-blank",
 ].map((name) => flawFixture("attribute-problems", name));
 
+const BASELINE_SIGNIFICANCE_HIGH = derived(
+  "attribute-problems/baseline-significance-high.gpkg",
+  `\`valid/default-site.gpkg\` with the Retained woodland ${RETAINED_WOODLAND}'s Baseline Strategic Significance \`${HIGH}\` in both stages: a value the template's drop-down does not offer, as the Metric guide puts every baseline habitat at Low`,
+  [
+    setValues(
+      "Area Habitats Baseline",
+      { [BASELINE_SIGNIFICANCE]: HIGH },
+      { [HABITAT_REF]: RETAINED_WOODLAND },
+    ),
+    setValues(
+      "Area Habitats Post-Intervention",
+      { [BASELINE_SIGNIFICANCE]: HIGH },
+      { [HABITAT_REF]: RETAINED_WOODLAND, [RETENTION]: "Retained" },
+    ),
+  ],
+  `${ACCEPTED}, its baseline strategic significance stored and priced as Low`,
+);
+
+const DEGRADE_ADVANCE_MISSING = [
+  ["area", "Area Habitats", "an area habitat", WORSE_AREA_HABITAT],
+  [
+    "vertical-area",
+    "Vertical Area Habitats",
+    "a vertical area habitat",
+    WORSE_VERTICAL_HABITAT,
+  ],
+].map(([name, layer, habitat, ref]) =>
+  derived(
+    `attribute-problems/degrade-${name}-advance-missing.gpkg`,
+    `\`valid/default-site.gpkg\` with ${ref}, ${habitat} that gets worse (Created in its own type, linked to its parent, in a lower condition), given no years created in advance, where the Metric asks for 30 plus`,
+    [
+      setValues(
+        `${layer} Post-Intervention`,
+        { [ADVANCE_YEARS]: null },
+        { [HABITAT_REF]: ref, [RETENTION]: "Created" },
+      ),
+    ],
+    "STAGED_DEGRADE_ADVANCE_NOT_30_PLUS",
+  ),
+);
+
+const NATURAL_WATERCOURSE_LOST = derived(
+  "attribute-problems/watercourse-culvert-left-out.gpkg",
+  `\`valid/default-site.gpkg\` with the Retained culvert ${RETAINED_CULVERT}'s post-intervention row left out, so it is lost. Only a canal or a ditch may be lost; this stands in for a natural river left out (see the gaps below)`,
+  [
+    deleteRows("Watercourses Post-Intervention", {
+      [HABITAT_REF]: RETAINED_CULVERT,
+    }),
+  ],
+  "STAGED_NATURAL_WATERCOURSE_LOST",
+);
+
 const IRREPLACEABLE = [
   generated(
     "attribute-problems/irreplaceable-area-habitat.gpkg",
@@ -393,6 +467,13 @@ const VERSION = [
   "version-unsupported",
 ].map((name) => flawFixture("version-problems", name));
 
+const VERSION_INVALID = derived(
+  "version-problems/version-record-invalid.gpkg",
+  "`valid/default-site.gpkg` with a template version record that names the bng-service format but no version, so it cannot be read",
+  [setVersionRecord(JSON.stringify({ format: FORMAT_BNG_SERVICE }))],
+  "TEMPLATE_VERSION_INVALID",
+);
+
 /**
  * A legacy BNG500 pair, converted. `knownIssues` is what the lineage and
  * template-value checks report on the converted file: the converter leaves
@@ -420,7 +501,6 @@ const WATERCOURSES_POST = "Watercourses Post-Intervention";
 const RURAL_OR_URBAN = "Baseline Rural or Urban Tree";
 const TREE_TYPE = "Baseline Tree Type";
 const PROPOSED_SIGNIFICANCE = "Proposed Strategic Significance";
-const AREA_ADVANCE = "Habitat created in advance/years";
 // Values the BNG500 files' trees carry that the template's lists do not.
 const TREE_VALUES = [
   "Baseline Tree Size",
@@ -475,8 +555,8 @@ const BNG500 = [
   converted("Sunderland_24_00723_FU4", {
     templateValues: {
       [AREA_BASELINE]: ["Baseline Habitat Type"],
-      [AREA_POST]: [AREA_ADVANCE],
-      "Hedgerows Post-Intervention": [AREA_ADVANCE],
+      [AREA_POST]: [ADVANCE_YEARS],
+      "Hedgerows Post-Intervention": [ADVANCE_YEARS],
       [TREES_BASELINE]: TREE_BASELINE_VALUES,
       [TREES_POST]: [
         ...TREE_VALUES,
@@ -519,10 +599,14 @@ export const RECIPES = [
   ...INVALID_SCHEMA,
   ...EMPTY_LAYER,
   ...ATTRIBUTE,
+  BASELINE_SIGNIFICANCE_HIGH,
+  ...DEGRADE_ADVANCE_MISSING,
+  NATURAL_WATERCOURSE_LOST,
   ...IRREPLACEABLE,
   ...LINEAGE,
   ...INCOMPLETE,
   ...VERSION,
+  VERSION_INVALID,
   ...BNG500,
   ...MALFORMED,
   ...FILENAME,
@@ -533,7 +617,7 @@ export const RECIPES = [
  * visible rather than silent.
  */
 export const GAPS = [
-  "A natural river left out, and an irreplaceable tree that gets worse: the service refuses either file for another reason first, so a fixture could not show the rule. Natural rivers (Other rivers and streams, High; Priority habitat, V.High) are out of the service's scope, and only canals and ditches may be lost (a culvert left out is refused, STAGED_NATURAL_WATERCOURSE_LOST); an irreplaceable tree is refused whether or not it gets worse (`attribute-problems/irreplaceable-tree.gpkg`).",
+  "A natural river left out, and an irreplaceable tree that gets worse: the service refuses either file for another reason first, so a fixture could not show the rule. Natural rivers (Other rivers and streams, High; Priority habitat, V.High) are out of the service's scope, and only canals and ditches may be lost (a culvert left out is refused, STAGED_NATURAL_WATERCOURSE_LOST: `attribute-problems/watercourse-culvert-left-out.gpkg`); an irreplaceable tree is refused whether or not it gets worse (`attribute-problems/irreplaceable-tree.gpkg`).",
   "Individual trees with varied counts: the template has no Count column, and how several trees are recorded is undecided (BMD-1171, BMD-1172).",
   "The harness's import-timing scenarios: they edit legacy files, so `permutations/` builds them in the legacy format only.",
 ];
