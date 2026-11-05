@@ -176,7 +176,7 @@ function messageAfter(text, referenceIndex, referenceLength) {
 }
 
 /** Where each code is raised in the backend, and what it says when it is. */
-function extractRaiseSites(backendDir, codes) {
+export function extractRaiseSites(backendDir, codes) {
   const sites = Object.fromEntries(Object.keys(codes).map((code) => [code, []]))
   const files = walkSourceFiles(path.join(backendDir, BACKEND_SOURCE_DIR), [
     '.js',

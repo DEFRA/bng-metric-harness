@@ -180,7 +180,8 @@ The drift this catches is quiet: a rule added without documentation, a placehold
 - `scripts/_lib.mjs` — locates the three repositories by probing for the file each must supply, plus git provenance and shared parsing helpers.
 - `scripts/observe-fixtures.mjs` — runs the real validation gate over every `.gpkg` in `example-files/` and records which rule each one trips. Nothing about the fixture mapping is hand-authored.
 - `scripts/validation-facts.mjs` — extracts the rule list, reconciles it across the repositories and the example corpus, diffs runs.
-- `scripts/check-dropout-copy.mjs` — `npm run check:dropout-copy`: fails when a backend upload code has no entry in the frontend's `dropout-copy.yaml`, or the file has one for a code the backend no longer defines. Edit rules need no entry, as in `missingFromCopyFile`: the frontend words them itself. Needs only the backend and the frontend; `.github/workflows/dropout-copy-check.yml` runs it nightly.
+- `scripts/check-dropout-copy.mjs` — `npm run check:dropout-copy`: fails when a backend upload code has no entry in the frontend's `dropout-copy.yaml`, or the file has one for a code the backend no longer defines. Edit rules need no entry, as in `missingFromCopyFile`: the frontend words them itself. In GitHub Actions it also writes a job summary for a reader who isn't a developer: a verdict, each problem with what it checks and where the backend raises it, and what to do.
+- `scripts/dropout-copy-summary.mjs` — renders that job summary. Needs only the backend and the frontend; `.github/workflows/dropout-copy-check.yml` runs it nightly.
 - `scripts/draft-descriptions.mjs` — creates or tops up the descriptions file so no rule is ever undescribed, and prunes rules that have gone.
 - `scripts/build-document.mjs` — assembles the document; reports any description still an unrewritten draft.
 - `scripts/doc-coverage.mjs` — verifies the document on disk against the facts.
