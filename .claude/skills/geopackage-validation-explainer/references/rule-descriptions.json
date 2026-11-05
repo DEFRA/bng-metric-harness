@@ -343,5 +343,13 @@
   "STAGED_WATERCOURSE_NO_INTERVENTION": {
     "group": "Links to the baseline",
     "checks": "A watercourse is recorded as Created in the same river type as its baseline and linked to it, but with no lower condition, no more encroachment, no shorter length and no delay — so nothing was done to it."
+  },
+  "COMMENT_INVALID_CHARACTERS": {
+    "group": "Habitat data",
+    "checks": "A habitat's comment holds characters the service cannot read as text. This applies to the comment on any area habitat, tree, hedgerow or watercourse."
+  },
+  "COMMENT_TOO_LONG": {
+    "group": "Habitat data",
+    "checks": "A habitat's comment is longer than the template's comment column allows. Spaces at the start and end are not counted, and a comment exactly at the limit is accepted."
   }
 }

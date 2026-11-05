@@ -2,9 +2,11 @@
 
 Every rule the BNG Metric service applies to an uploaded GeoPackage: what each one checks, and which example file demonstrates it.
 
-**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `9a54913`, frontend `59a638b` and bng-library `c762526`, all on `main`, and was generated on 2026-11-03.
+**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `1f28394`, frontend `6c58138` and bng-library `c6bc39a`, all on `main`, and was generated on 2026-11-05.
 
 For how biodiversity units are calculated once a file is accepted, see [rules-engine-explained.md](rules-engine-explained.md).
+
+The wording the user is shown for each rule, on its own and in a list, is kept in one file in the frontend: [`src/server/error-file/dropout-copy.yaml`](https://github.com/DEFRA/bng-metric-frontend/blob/main/src/server/error-file/dropout-copy.yaml). Review or change the copy there.
 
 ## How to read this
 
@@ -13,7 +15,7 @@ Every rule under [The rules](#the-rules) **rejects the upload**: nothing is save
 Two things worth knowing before using the table:
 
 - **The structural rules run first and stop the upload.** Nothing in the geometry or habitat-data groups is reached until the file format, layer, column and coordinate-system rules all pass. Expect to fix a file in two rounds rather than one.
-- **What you see on screen often does not identify the rule.** Of 78 rules, 21 have a message of their own, 16 show the service's own message as a list of what it names, 5 show a placeholder, and 36 fall back to a generic message about layer and column names when they are the only fault. Each row records which applies.
+- **What you see on screen often does not identify the rule.** Of 80 rules, 26 have a message of their own, 11 show a message of their own as a list of what it names, 5 show the service's own message as a list of what it names, 5 show a placeholder, and 33 fall back to a generic message about layer and column names when they are the only fault. Each row records which applies.
 
 Example files are paths under `example-files/` in this repository, worked out by running the real validation gate over every fixture and recording which rule it reports. That directory is a reference corpus for people, not something the service reads, and `journey-tests` and `backend` keep their own separate copies — so a rule with an example file here is not necessarily covered by an automated test.
 
@@ -40,9 +42,9 @@ Example files are paths under `example-files/` in this repository, worked out by
 | --- | --- |
 | `TEMPLATE_VERSION_MISSING` — *service-template/version-problems/version-record-missing.gpkg* | The file carries no record of which BNG Service template version it was made from, and it is not a file from the older Natural England template either, so the service cannot tell what it is. The user sees the service's own message, listing what it names. |
 | `TEMPLATE_VERSION_DUPLICATED` — *service-template/version-problems/version-record-duplicated.gpkg* | The file carries more than one template version record, so which version it was made from is ambiguous. Usually the result of merging two template files. The user sees the service's own message, listing what it names. |
-| `TEMPLATE_VERSION_INVALID` — *no geopackage fixture* | The template version record is present but cannot be read, or does not say that the file is a BNG Service template and which version. The user sees the service's own message, listing what it names. |
+| `TEMPLATE_VERSION_INVALID` — *service-template/version-problems/version-record-invalid.gpkg* | The template version record is present but cannot be read, or does not say that the file is a BNG Service template and which version. The user sees the service's own message, listing what it names. |
 | `TEMPLATE_VERSION_UNSUPPORTED` — *service-template/version-problems/version-unsupported.gpkg* | The file names a BNG Service template version the service does not read, such as one newer than the service or one it no longer supports. The user sees the service's own message, listing what it names. |
-| `LEGACY_TEMPLATE_NOT_ACCEPTED` — *service-template/invalid-schema/legacy-template.gpkg* | The file was made from the older Natural England template while the service is taking BNG Service template files. The template's QGIS plugin converts one to the other. The user sees the service's own message, listing what it names. |
+| `LEGACY_TEMPLATE_NOT_ACCEPTED` — *service-template/invalid-schema/legacy-template.gpkg* | The file was made from the older Natural England template while the service is taking BNG Service template files. The template's QGIS plugin converts one to the other. The user sees its own message. |
 
 ### Layers
 
@@ -125,7 +127,7 @@ Example files are paths under `example-files/` in this repository, worked out by
 | `REDLINE_OUTSIDE_ENGLAND` — *service-template/spatial-problems/redline-not-in-england-baseline.gpkg; spatial-problems/Baseline - redline not in england.gpkg* | Part of the boundary falls outside a reference outline of England. That outline is heavily generalised, so genuinely English coastal and border sites can fail it. Tolerance 0.5 m². The user sees a placeholder. |
 | `REDLINE_AREA_TOO_LARGE` — *service-template/spatial-problems/redline-too-large-baseline.gpkg* | The boundary encloses more land than any real site plausibly would, so in practice this catches a coordinate system error or a stray vertex. The cap is 100 km². The user sees a placeholder. |
 | `AREA_PARCELS_TOO_SMALL` — *service-template/spatial-problems/parcel-too-small-baseline.gpkg; spatial-problems/Baseline - parcel too small.gpkg* | A single habitat parcel covers less ground than the smallest area a genuine parcel is expected to occupy, marking it as a stray digitising artefact rather than a real habitat. It is judged on area alone, so a long, thin parcel passes as long as its total footprint is large enough. The minimum parcel area is 1 m². The user sees its own message. |
-| `VERTICAL_HABITATS_OUTSIDE_REDLINE` — *service-template/spatial-problems/iggi-outside-baseline.gpkg* | Vertical area habitat length falling outside the boundary. A vertical habitat, such as a green wall, is drawn as a line along the face it covers, so it is judged on the same terms as hedgerows. Tolerance 0.1 m. The user sees a generic message. |
+| `VERTICAL_HABITATS_OUTSIDE_REDLINE` — *service-template/spatial-problems/iggi-outside-baseline.gpkg* | Vertical area habitat length falling outside the boundary. A vertical habitat, such as a green wall, is drawn as a line along the face it covers, so it is judged on the same terms as hedgerows. Tolerance 0.1 m. The user sees its own message. |
 
 ### Habitat data
 
@@ -136,26 +138,28 @@ Example files are paths under `example-files/` in this repository, worked out by
 | `HABITAT_REF_INVALID_CHARACTERS` — *attribute-problems/Baseline - habitat ref invalid UTF-8 bytes.gpkg; attribute-problems/Baseline - habitat ref invalid characters.gpkg; service-template/attribute-problems/habitat-ref-invalid-characters.gpkg* | A parcel reference on the area habitat, hedgerow or watercourse layer contains bytes that are not valid UTF-8 text, or is stored as raw bytes rather than text. It is detected after the text is decoded, so a reference that genuinely contains the Unicode replacement character is rejected too. Every such habitat is reported together as one error. The user sees its own message. |
 | `TREE_COUNT_NOT_WHOLE` — *no geopackage fixture* | An individual tree point's Count, the number of trees it stands for, is filled in with something other than a whole number of one or more. A blank Count passes, and is read as one tree. The user sees its own message. |
 | `BASELINE_NOT_ENHANCEABLE` — *no geopackage fixture* | A post-intervention habitat is recorded as Enhanced, but its baseline habitat is one the service cannot enhance at all — for example a medium distinctiveness habitat already in good condition. The whole file is refused rather than the enhancement being dropped, and every such habitat is named at once. The user sees its own message. |
-| `VERTICAL_HABITAT_AREA_NOT_POSITIVE` — *no geopackage fixture* | A vertical area habitat's Area is blank, zero, negative or not a number. The surveyor types this in, in hectares, as the area estimated on site; the line drawn on the map cannot supply it, so without it there is nothing to value the habitat on. Every such habitat is named at once. The user sees a generic message. |
+| `VERTICAL_HABITAT_AREA_NOT_POSITIVE` — *service-template/attribute-problems/vertical-area-missing.gpkg* | A vertical area habitat's Area is blank, zero, negative or not a number. The surveyor types this in, in hectares, as the area estimated on site; the line drawn on the map cannot supply it, so without it there is nothing to value the habitat on. Every such habitat is named at once. The user sees its own message. |
 | `NO_DERIVED_BASELINE_HABITATS` — *no geopackage fixture* | The file yields no baseline area habitats at all. Saving it would replace the site's stored baseline, including any edits made on screen, with an empty one. Typically a legacy post-intervention file made only of Created habitats, so that no row describes a habitat at baseline. A BNG Service template file whose Area Habitats Baseline table is empty is refused before this, as a file with no area habitats. The user sees its own message. |
 | `BASELINE_TYPE_MISSING` — *attribute-problems/Post-intervention - blank and placeholder baseline types on every layer.gpkg* | A post-intervention habitat recorded as Retained or Enhanced does not say what habitat it was at baseline. That habitat has to appear in the baseline, and leaving it out would understate the baseline and overstate the gain. The user sees its own message. |
 | `POST_INTERVENTION_TABLES_EMPTY` — *no geopackage fixture* | A BNG Service template file uploaded as a baseline and post-intervention file has nothing in any of its post-intervention tables, so there is no post-intervention stage to save. The user sees the service's own message, listing what it names. |
+| `COMMENT_INVALID_CHARACTERS` — *no geopackage fixture* | A habitat's comment holds characters the service cannot read as text. This applies to the comment on any area habitat, tree, hedgerow or watercourse. The user sees its own message. |
+| `COMMENT_TOO_LONG` — *no geopackage fixture* | A habitat's comment is longer than the template's comment column allows. Spaces at the start and end are not counted, and a comment exactly at the limit is accepted. The user sees its own message. |
 
 ### Links to the baseline
 
 | Rule and example file | What it checks |
 | --- | --- |
-| `STAGED_PARENT_LINK_MISSING` — *service-template/lineage-problems/lineage-parent-missing.gpkg* | A post-intervention habitat recorded as Retained or Enhanced is not linked to the baseline habitat it continues. The service does not guess the link; it has to be made in the template. The user sees the service's own message, listing what it names. |
-| `STAGED_UNKNOWN_PARENT_REF` — *service-template/lineage-problems/lineage-parent-unknown.gpkg* | A post-intervention habitat is linked to a baseline habitat that is not in the file, in the same layer. The user sees the service's own message, listing what it names. |
-| `STAGED_AMBIGUOUS_PARENT` — *no geopackage fixture* | A post-intervention habitat is linked to a baseline identity that more than one baseline habitat in its layer shares, so which one it continues cannot be told. Copying and pasting a baseline feature can cause this. The user sees the service's own message, listing what it names. |
-| `STAGED_BASELINE_DRIFTED` — *service-template/lineage-problems/lineage-parent-geom-mismatch.gpkg; service-template/lineage-problems/lineage-parent-geom-missing.gpkg* | A baseline habitat's shape no longer matches the shape its linked post-intervention habitats recorded when they were copied from it, allowing only for rounding — the baseline was redrawn after the copy. Also raised where that recorded shape is missing or unreadable, as the link then cannot be checked. The user sees the service's own message, listing what it names. |
-| `STAGED_HEDGEROW_CHILDREN_TOO_LONG` — *no geopackage fixture* | The post-intervention hedgerows linked to one baseline hedgerow, created ones included, are longer in total than the baseline hedgerow itself. The user sees the service's own message, listing what it names. |
-| `STAGED_VERTICAL_CHILDREN_TOO_LARGE` — *no geopackage fixture* | The post-intervention vertical area habitats linked to one baseline vertical area habitat, created ones included, have a larger total Area than the baseline habitat itself. The user sees a generic message. |
-| `STAGED_WATERCOURSE_RETAINED_AND_CREATED` — *service-template/attribute-problems/degrade-watercourse-retained-and-created.gpkg* | One baseline watercourse has both a Retained or Enhanced part and a Created part after intervention. The service cannot split one watercourse's length between what continues and what is lost, so the baseline watercourse has to be drawn as two. The user sees the service's own message, listing what it names. |
-| `STAGED_NATURAL_WATERCOURSE_LOST` — *no geopackage fixture* | A baseline watercourse that is neither a canal nor a ditch has no post-intervention habitat. The statutory metric allows only a canal or a ditch to be permanently lost. The user sees the service's own message, listing what it names. |
-| `STAGED_DEGRADE_NOT_WORSE` — *service-template/attribute-problems/degrade-not-worse.gpkg* | An area habitat or hedgerow is recorded as Created in the same habitat type as its baseline and linked to it, but is not in a lower condition and has no delay — so it was in fact kept. A habitat with a delay is one lost for a time and put back, which passes. The user sees the service's own message, listing what it names. |
-| `STAGED_DEGRADE_ADVANCE_NOT_30_PLUS` — *service-template/attribute-problems/degrade-advance-missing.gpkg* | An area habitat or hedgerow recorded as lost and created again in a lower condition, in the same habitat type and linked to its baseline, does not give its years created in advance as 30+, which the statutory metric asks for in that case. The user sees the service's own message, listing what it names. |
-| `STAGED_WATERCOURSE_NO_INTERVENTION` — *no geopackage fixture* | A watercourse is recorded as Created in the same river type as its baseline and linked to it, but with no lower condition, no more encroachment, no shorter length and no delay — so nothing was done to it. The user sees the service's own message, listing what it names. |
+| `STAGED_PARENT_LINK_MISSING` — *service-template/lineage-problems/lineage-parent-missing.gpkg* | A post-intervention habitat recorded as Retained or Enhanced is not linked to the baseline habitat it continues. The service does not guess the link; it has to be made in the template. The user sees its own message, listing what it names. |
+| `STAGED_UNKNOWN_PARENT_REF` — *service-template/lineage-problems/lineage-parent-unknown.gpkg* | A post-intervention habitat is linked to a baseline habitat that is not in the file, in the same layer. The user sees its own message, listing what it names. |
+| `STAGED_AMBIGUOUS_PARENT` — *no geopackage fixture* | A post-intervention habitat is linked to a baseline identity that more than one baseline habitat in its layer shares, so which one it continues cannot be told. Copying and pasting a baseline feature can cause this. The user sees its own message, listing what it names. |
+| `STAGED_BASELINE_DRIFTED` — *service-template/lineage-problems/lineage-parent-geom-mismatch.gpkg; service-template/lineage-problems/lineage-parent-geom-missing.gpkg* | A baseline habitat's shape no longer matches the shape its linked post-intervention habitats recorded when they were copied from it, allowing only for rounding — the baseline was redrawn after the copy. Also raised where that recorded shape is missing or unreadable, as the link then cannot be checked. The user sees its own message, listing what it names. |
+| `STAGED_HEDGEROW_CHILDREN_TOO_LONG` — *no geopackage fixture* | The post-intervention hedgerows linked to one baseline hedgerow, created ones included, are longer in total than the baseline hedgerow itself. The user sees its own message, listing what it names. |
+| `STAGED_VERTICAL_CHILDREN_TOO_LARGE` — *no geopackage fixture* | The post-intervention vertical area habitats linked to one baseline vertical area habitat, created ones included, have a larger total Area than the baseline habitat itself. The user sees its own message, listing what it names. |
+| `STAGED_WATERCOURSE_RETAINED_AND_CREATED` — *service-template/attribute-problems/degrade-watercourse-retained-and-created.gpkg* | One baseline watercourse has both a Retained or Enhanced part and a Created part after intervention. The service cannot split one watercourse's length between what continues and what is lost, so the baseline watercourse has to be drawn as two. The user sees its own message, listing what it names. |
+| `STAGED_NATURAL_WATERCOURSE_LOST` — *service-template/attribute-problems/watercourse-culvert-left-out.gpkg* | A baseline watercourse that is neither a canal nor a ditch has no post-intervention habitat. The statutory metric allows only a canal or a ditch to be permanently lost. The user sees its own message, listing what it names. |
+| `STAGED_DEGRADE_NOT_WORSE` — *service-template/attribute-problems/degrade-not-worse.gpkg* | An area habitat or hedgerow is recorded as Created in the same habitat type as its baseline and linked to it, but is not in a lower condition and has no delay — so it was in fact kept. A habitat with a delay is one lost for a time and put back, which passes. The user sees its own message, listing what it names. |
+| `STAGED_DEGRADE_ADVANCE_NOT_30_PLUS` — *service-template/attribute-problems/degrade-advance-missing.gpkg; service-template/attribute-problems/degrade-area-advance-missing.gpkg; service-template/attribute-problems/degrade-vertical-area-advance-missing.gpkg* | An area habitat or hedgerow recorded as lost and created again in a lower condition, in the same habitat type and linked to its baseline, does not give its years created in advance as 30+, which the statutory metric asks for in that case. The user sees its own message, listing what it names. |
+| `STAGED_WATERCOURSE_NO_INTERVENTION` — *no geopackage fixture* | A watercourse is recorded as Created in the same river type as its baseline and linked to it, but with no lower condition, no more encroachment, no shorter length and no delay — so nothing was done to it. The user sees its own message, listing what it names. |
 
 ### Service faults, not your file
 
@@ -179,17 +183,18 @@ These rules refuse a change made to a habitat on screen, after a file has been a
 
 | Measure | Count |
 | --- | --- |
-| Rules that can reject an upload | 78 |
-| With a message written for them | 21 |
-| Showing the service's own message, as a list | 16 |
+| Rules that can reject an upload | 80 |
+| With a message written for them | 26 |
+| With a message written for them, as a list | 11 |
+| Showing the service's own message, as a list | 5 |
 | Showing a placeholder message | 5 |
-| Falling back to a generic message | 36 |
-| With an example .gpkg in this repository | 40 |
+| Falling back to a generic message | 33 |
+| With an example .gpkg in this repository | 43 |
 | With a generator flaw that reproduces them | 27 |
 
-**38 of 78 upload rules have no example file.** By group: Shapes present and of the right kind 7; Habitat data 5; Links to the baseline 5; Service faults, not your file 5; Unreadable shape data 4; Geometry registration and declared type 3; Columns 2; File format 2; How the shapes fit together 2; Coordinate reference system 1; File name 1; Template version 1.
+**37 of 80 upload rules have no example file.** By group: Shapes present and of the right kind 7; Habitat data 6; Service faults, not your file 5; Links to the baseline 4; Unreadable shape data 4; Geometry registration and declared type 3; Columns 2; File format 2; How the shapes fit together 2; Coordinate reference system 1; File name 1.
 
-330 `.gpkg` files in `example-files/` are not mapped to any rule. Most are valid fixtures or real survey data rather than rule demonstrations, so that is expected rather than a gap.
+333 `.gpkg` files in `example-files/` are not mapped to any rule. Most are valid fixtures or real survey data rather than rule demonstrations, so that is expected rather than a gap.
 
 ## Known gaps recorded by this run
 
@@ -203,8 +208,8 @@ These rules refuse a change made to a habitat on screen, after a file has been a
 
 | Repository | Commit | Supplies |
 | --- | --- | --- |
-| bng-metric-backend | `9a54913` | The rules, and the message each one raises |
-| bng-metric-frontend | `59a638b` | What the user is shown for each rule |
-| bng-library | `c762526` | The generator flaws that reproduce fixtures |
+| bng-metric-backend | `1f28394` | The rules, and the message each one raises |
+| bng-metric-frontend | `6c58138` | What the user is shown for each rule |
+| bng-library | `c6bc39a` | The generator flaws that reproduce fixtures |
 
 Rule descriptions are held in `references/rule-descriptions.json` in the skill; the rule list, message status and fixture mapping are extracted from the three repositories on every run.
