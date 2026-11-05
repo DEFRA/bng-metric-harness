@@ -4,9 +4,11 @@
  * left out. Each helper returns an edit, a function of an open better-sqlite3
  * handle, so a recipe can list its edits as data. Every edit keeps the
  * GeoPackage's own registers (gpkg_contents, gpkg_geometry_columns) in step
- * with the table it changes, so a fixture breaks the template's schema and
- * nothing else.
+ * with the table it changes, so a fixture changes only what its recipe
+ * names.
  */
+
+import { TEMPLATE_SOURCE } from "#bng-lib";
 
 const GEOMETRY_COLUMN = "geom";
 
@@ -174,12 +176,16 @@ export const deleteRows = (table, where) => (db) => {
   );
 };
 
-/** Replace the text of the template version record. */
+/**
+ * Replace the text of the template version record, found as the service
+ * finds it: by the standard URI bng-library writes it under, not by its
+ * scope, which any other metadata row may share.
+ */
 export const setVersionRecord = (metadata) => (db) => {
   runOnRows(
     db,
     "gpkg_metadata",
-    "UPDATE gpkg_metadata SET metadata = ? WHERE md_scope = 'dataset'",
-    [metadata],
+    "UPDATE gpkg_metadata SET metadata = ? WHERE md_standard_uri = ?",
+    [metadata, TEMPLATE_SOURCE.metadataUri],
   );
 };

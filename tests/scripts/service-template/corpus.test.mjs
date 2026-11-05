@@ -19,6 +19,7 @@ import {
   it,
 } from "vitest";
 import {
+  CONDITIONS,
   FORMAT_BNG_SERVICE,
   checkLineage,
   checkTemplateValues,
@@ -435,6 +436,9 @@ describe("the built fixtures", () => {
     expect(records("version-record-missing")).toHaveLength(0);
     expect(records("version-record-duplicated")).toHaveLength(2);
     expect(records("version-unsupported")).toHaveLength(1);
+    expect(records("version-record-invalid")).toEqual([
+      { format: FORMAT_BNG_SERVICE },
+    ]);
     expect(
       versionRecords(built(recipeFor("valid/default-site.gpkg"))),
     ).toHaveLength(1);
@@ -487,6 +491,103 @@ describe("the built fixtures", () => {
         built(recipeFor("filename-problems/default site [invalid chars].gpkg")),
       ).equals(readFileSync(built(recipeFor("valid/default-site.gpkg")))),
     ).toBe(true);
+  });
+});
+
+/** The rows `sql` selects from `file`. */
+function query(file, sql, ...params) {
+  const db = new Database(file, { readonly: true });
+  try {
+    return db.prepare(sql).all(...params);
+  } finally {
+    db.close();
+  }
+}
+
+const DEFAULT_SITE = "valid/default-site.gpkg";
+const builtAt = (recipePath) => built(recipeFor(recipePath));
+
+/** A habitat's baseline row and its post-intervention rows, by Habitat Ref. */
+function habitat(file, layer, ref) {
+  const [baseline] = query(
+    file,
+    `SELECT * FROM "${layer} Baseline" WHERE "Habitat Ref" = ?`,
+    ref,
+  );
+  const post = query(
+    file,
+    `SELECT * FROM "${layer} Post-Intervention" WHERE "Habitat Ref" = ? OR parent_uuid = ?`,
+    ref,
+    baseline?.feature_uuid ?? null,
+  );
+  return { baseline, post };
+}
+
+// The SQL edits fail only where no row matches. A bng-library repin that
+// kept the rows but changed what they show (a habitat that no longer gets
+// worse, a culvert drawn as a ditch) would rebuild each fixture to match
+// itself, so these check the facts each recipe relies on, in the file built.
+describe("the fixtures derived for QA's BMD-1086 scenarios", () => {
+  it.each([
+    [
+      "attribute-problems/degrade-area-advance-missing.gpkg",
+      "Area Habitats",
+      "H043",
+    ],
+    [
+      "attribute-problems/degrade-vertical-area-advance-missing.gpkg",
+      "Vertical Area Habitats",
+      "V005",
+    ],
+  ])(
+    "%s holds a habitat that gets worse, with no years in advance",
+    (recipePath, layer, ref) => {
+      const { baseline, post } = habitat(builtAt(recipePath), layer, ref);
+      expect(post).toHaveLength(1);
+      const [row] = post;
+      expect(row["Retention Category"]).toBe("Created");
+      expect(row.parent_uuid).toBe(baseline.feature_uuid);
+      expect(row["Proposed Habitat Type"]).toBe(
+        baseline["Baseline Habitat Type"],
+      );
+      expect(CONDITIONS.indexOf(row["Proposed Condition"])).toBeGreaterThan(
+        CONDITIONS.indexOf(baseline["Baseline Condition"]),
+      );
+      expect(row["Habitat created in advance/years"]).toBeNull();
+      // The default site gives it 30+, so the edit is what breaks the rule.
+      const [base] = habitat(builtAt(DEFAULT_SITE), layer, ref).post;
+      expect(base["Habitat created in advance/years"]).toBe("30+");
+    },
+  );
+
+  it("watercourse-culvert-left-out.gpkg loses a culvert the default site retains", () => {
+    const fixture = habitat(
+      builtAt("attribute-problems/watercourse-culvert-left-out.gpkg"),
+      "Watercourses",
+      "R001",
+    );
+    expect(fixture.baseline["Baseline River Type"]).toBe("Culvert");
+    expect(fixture.post).toEqual([]);
+    const base = habitat(builtAt(DEFAULT_SITE), "Watercourses", "R001");
+    expect(base.post.map((r) => r["Retention Category"])).toEqual(["Retained"]);
+  });
+
+  it("baseline-significance-high.gpkg gives one Retained woodland High in both stages", () => {
+    const file = builtAt("attribute-problems/baseline-significance-high.gpkg");
+    const { baseline, post } = habitat(file, "Area Habitats", "H002");
+    expect(baseline["Baseline Broad Habitat Type"]).toBe("Woodland and forest");
+    expect(post).toHaveLength(1);
+    expect(post[0]["Retention Category"]).toBe("Retained");
+    expect(post[0].parent_uuid).toBe(baseline.feature_uuid);
+    for (const stage of STAGES) {
+      expect(
+        query(
+          file,
+          `SELECT "Habitat Ref" AS ref FROM "Area Habitats ${stage}" WHERE "Baseline Strategic Significance" = 'High'`,
+        ),
+        stage,
+      ).toEqual([{ ref: "H002" }]);
+    }
   });
 });
 

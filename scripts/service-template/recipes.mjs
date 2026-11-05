@@ -32,11 +32,12 @@ import {
   setValues,
   setVersionRecord,
 } from "./derive.mjs";
+import { KIND_CONVERTED, bng500Recipes } from "./bng-500-recipes.mjs";
 
 export const KIND_GENERATED = "generated";
 export const KIND_DERIVED = "derived";
 export const KIND_COPIED = "copied";
-export const KIND_CONVERTED = "converted";
+export { KIND_CONVERTED };
 
 export const ACCEPTED = "accepted";
 const SCHEMA_REFUSED =
@@ -474,102 +475,6 @@ const VERSION_INVALID = derived(
   "TEMPLATE_VERSION_INVALID",
 );
 
-/**
- * A legacy BNG500 pair, converted. `knownIssues` is what the lineage and
- * template-value checks report on the converted file: the converter leaves
- * an unprovable parent link for the service to infer, and copies values the
- * template does not offer for the user to fix.
- */
-function converted(site, knownIssues) {
-  return {
-    path: `bng-500/${site}.gpkg`,
-    kind: KIND_CONVERTED,
-    covers: `\`${site}\`, converted`,
-    expected:
-      "not ready to upload as it stands: the converter's manual steps (its warnings) are still to do",
-    baseline: `example-files/bng-500/${site}-baseline.gpkg`,
-    postIntervention: `example-files/bng-500/${site}-post-intervention.gpkg`,
-    seed: SEED,
-    knownIssues: { lineage: [], ...knownIssues },
-  };
-}
-
-const AREA_POST = "Area Habitats Post-Intervention";
-const TREES_BASELINE = "Individual Trees Baseline";
-const TREES_POST = "Individual Trees Post-Intervention";
-const WATERCOURSES_POST = "Watercourses Post-Intervention";
-const RURAL_OR_URBAN = "Baseline Rural or Urban Tree";
-const TREE_TYPE = "Baseline Tree Type";
-const PROPOSED_SIGNIFICANCE = "Proposed Strategic Significance";
-// Values the BNG500 files' trees carry that the template's lists do not.
-const TREE_VALUES = [
-  "Baseline Tree Size",
-  "Category",
-  "Proposed Rural or Urban Tree",
-  "Proposed Tree Size",
-  "Proposed Tree Type",
-  "Retention Category",
-];
-const TREE_BASELINE_VALUES = [RURAL_OR_URBAN, TREE_TYPE];
-const RIPARIAN_ENCROACHMENT = [
-  "Baseline Encroachment into riparian zone",
-  "Proposed Encroachment into riparian zone",
-];
-const WATERCOURSE_ENCROACHMENT = [
-  ...RIPARIAN_ENCROACHMENT,
-  "Baseline Encroachment into Watercourse",
-  "Proposed Encroachment into Watercourse",
-];
-
-const BNG500 = [
-  converted("BROADLAND_2024_3282", {
-    templateValues: {
-      [TREES_BASELINE]: TREE_BASELINE_VALUES,
-      [TREES_POST]: [
-        ...TREE_VALUES,
-        BASELINE_CONDITION,
-        RURAL_OR_URBAN,
-        TREE_TYPE,
-      ],
-    },
-  }),
-  converted("BarkingandDagenham2400625FULL", {
-    lineage: ["lineage-parent-missing"],
-    templateValues: {
-      [TREES_POST]: [...TREE_VALUES, PROPOSED_SIGNIFICANCE],
-      [WATERCOURSES_POST]: WATERCOURSE_ENCROACHMENT,
-    },
-  }),
-  converted("CAMBRIDGE_24_03964_FUL", {
-    templateValues: {
-      [AREA_POST]: [PROPOSED_SIGNIFICANCE],
-      [TREES_BASELINE]: TREE_BASELINE_VALUES,
-      [TREES_POST]: [
-        ...TREE_VALUES,
-        BASELINE_CONDITION,
-        RURAL_OR_URBAN,
-        TREE_TYPE,
-      ],
-    },
-  }),
-  converted("Sunderland_24_00723_FU4", {
-    templateValues: {
-      [AREA_BASELINE]: ["Baseline Habitat Type"],
-      [AREA_POST]: [ADVANCE_YEARS],
-      "Hedgerows Post-Intervention": [ADVANCE_YEARS],
-      [TREES_BASELINE]: TREE_BASELINE_VALUES,
-      [TREES_POST]: [
-        ...TREE_VALUES,
-        "Habitat Created/Enhanced in advance/years",
-      ],
-      [WATERCOURSES_POST]: RIPARIAN_ENCROACHMENT,
-    },
-  }),
-  converted("Wiltshire_PL_2024_08441", {
-    templateValues: { [WATERCOURSES_POST]: WATERCOURSE_ENCROACHMENT },
-  }),
-];
-
 const MALFORMED = [
   {
     path: "malformed/not-a-geopackage.gpkg",
@@ -607,7 +512,7 @@ export const RECIPES = [
   ...INCOMPLETE,
   ...VERSION,
   VERSION_INVALID,
-  ...BNG500,
+  ...bng500Recipes(SEED),
   ...MALFORMED,
   ...FILENAME,
 ];

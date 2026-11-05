@@ -1,4 +1,5 @@
 import Database from "better-sqlite3";
+import { TEMPLATE_SOURCE } from "#bng-lib";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   deleteRows,
@@ -14,9 +15,13 @@ beforeEach(() => {
   db.exec(`CREATE TABLE "${TABLE}" ("Habitat Ref" TEXT, "Condition" TEXT)`);
   db.exec(`INSERT INTO "${TABLE}" VALUES ('H001', 'Good'), ('H002', 'Poor')`);
   db.exec(
-    "CREATE TABLE gpkg_metadata (id INTEGER, md_scope TEXT, metadata TEXT)",
+    "CREATE TABLE gpkg_metadata (id INTEGER, md_scope TEXT, md_standard_uri TEXT, metadata TEXT)",
   );
-  db.exec("INSERT INTO gpkg_metadata VALUES (1, 'dataset', '{}')");
+  const insert = db.prepare(
+    "INSERT INTO gpkg_metadata VALUES (?, 'dataset', ?, '{}')",
+  );
+  insert.run(1, TEMPLATE_SOURCE.metadataUri);
+  insert.run(2, "tag:example.org,2026:provenance");
 });
 afterEach(() => db.close());
 
@@ -49,10 +54,20 @@ describe("the row edits", () => {
     expect(() => deleteRows(TABLE, {})(db)).toThrow(/which rows/);
   });
 
-  it("replace the version record's text", () => {
+  it("replace the version record's text, and no other metadata row's", () => {
     setVersionRecord('{"format":"bng-service"}')(db);
-    expect(db.prepare("SELECT metadata FROM gpkg_metadata").get()).toEqual({
-      metadata: '{"format":"bng-service"}',
-    });
+    expect(
+      db.prepare("SELECT id, metadata FROM gpkg_metadata ORDER BY id").all(),
+    ).toEqual([
+      { id: 1, metadata: '{"format":"bng-service"}' },
+      { id: 2, metadata: "{}" },
+    ]);
+  });
+
+  it("fail where the file has no version record to replace", () => {
+    db.prepare("DELETE FROM gpkg_metadata WHERE id = 1").run();
+    expect(() => setVersionRecord("{}")(db)).toThrow(
+      /no row of "gpkg_metadata"/,
+    );
   });
 });
