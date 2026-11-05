@@ -1,0 +1,52 @@
+name: Check drop-out page copy
+
+# Every error the backend can refuse an upload with needs an entry in the
+# frontend's drop-out page copy (src/server/error-file/dropout-copy.yaml), or
+# a user who meets it sees the catch-all. Neither repository's CI can see the
+# other, so the harness compares them nightly, against both main branches.
+# See npm run check:dropout-copy.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Nightly at 05:30 UTC, after the docs build.
+    - cron: '30 5 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout harness
+        uses: actions/checkout@v7
+        with:
+          path: bng-metric-harness
+
+      - name: Checkout frontend
+        uses: actions/checkout@v7
+        with:
+          repository: DEFRA/bng-metric-frontend
+          path: bng-metric-frontend
+
+      - name: Checkout backend
+        uses: actions/checkout@v7
+        with:
+          repository: DEFRA/bng-metric-backend
+          path: bng-metric-backend
+
+      - name: Setup Node
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: bng-metric-harness/.nvmrc
+          cache: npm
+          cache-dependency-path: bng-metric-harness/package-lock.json
+
+      - name: Install Node dependencies
+        run: npm ci
+        working-directory: bng-metric-harness
+
+      - name: Compare the backend's error codes with the frontend's copy
+        run: npm run check:dropout-copy
+        working-directory: bng-metric-harness

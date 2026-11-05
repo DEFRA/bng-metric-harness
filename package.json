@@ -40,6 +40,7 @@
     "generate:scenarios": "node scripts/gen-scenarios.mjs",
     "generate:scenarios:docker": "docker compose -f compose.gen-scenarios.yml run --rm --build gen-scenarios",
     "check:lineage": "node scripts/check-gpkg-lineage.mjs",
+    "check:dropout-copy": "node .claude/skills/geopackage-validation-explainer/scripts/check-dropout-copy.mjs",
     "compare:metric": "node scripts/compare-metric.mjs",
     "generate:gpkg:docker": "docker compose -f compose.gen-gpkg.yml run --rm --build gen-gpkg",
     "lib:link": "npm link ../bng-library",

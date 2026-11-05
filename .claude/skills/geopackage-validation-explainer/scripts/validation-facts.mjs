@@ -82,7 +82,7 @@ const COPY_STATUS = Object.freeze({
 // ---------------------------------------------------------------- extraction
 
 /** Every code in the backend's ERROR_CODES registry, with its doc comment. */
-function extractRegistry(backendDir) {
+export function extractRegistry(backendDir) {
   const text = readTextFile(path.join(backendDir, ERRORS_FILE))
   const block = balancedBraceBlock(text, text.indexOf('Object.freeze'))
   if (!block) {
