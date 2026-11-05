@@ -266,7 +266,7 @@
   },
   "VERTICAL_HABITAT_AREA_NOT_POSITIVE": {
     "group": "Habitat data",
-    "checks": "A vertical area habitat's Area is blank, zero, negative or not a number. The surveyor types this in, in square metres, as the face area estimated on site; the line drawn on the map cannot supply it, so without it there is nothing to value the habitat on. Every such habitat is named at once."
+    "checks": "A vertical area habitat's Area is blank, zero, negative or not a number. The surveyor types this in, in hectares, as the area estimated on site; the line drawn on the map cannot supply it, so without it there is nothing to value the habitat on. Every such habitat is named at once."
   },
   "NO_DERIVED_BASELINE_HABITATS": {
     "group": "Habitat data",

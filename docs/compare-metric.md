@@ -26,8 +26,8 @@ rather than being reported as refused.
 
 Vertical area habitats (green walls and intertidal hard structures, BMD-1084)
 exist only in the BNG Service template, so only that run compares them:
-`vertical-area/every-retention` has a wall Retained (400 m², which the metric
-prices at 0.04 ha), one Enhanced, one replaced by an IGGI and one Lost.
+`vertical-area/every-retention` has a wall Retained (0.04 ha, or 400 m², as
+the metric prices it), one Enhanced, one replaced by an IGGI and one Lost.
 
 It runs the backend checked out beside this repo, in process, so the backend
 needs `npm run install:be` first; `BNG_BACKEND_DIR` names another checkout (a

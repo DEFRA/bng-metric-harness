@@ -13,12 +13,11 @@
 import Database from "better-sqlite3";
 
 // Each layer's size column, its unit and the decimal places to print: an area
-// habitat's Area is measured in hectares, so it keeps four places (a square
-// metre) and a small parcel never prints as "0 ha"; a vertical one's is typed
-// in square metres.
+// habitat's Area is in hectares, measured or typed, so it keeps four places (a
+// square metre) and a small parcel or wall never prints as "0 ha".
 const LAYERS = [
   ["Area Habitats", "Habitat Type", "Area", "ha", 4],
-  ["Vertical Area Habitats", "Habitat Type", "Area", "m²", 1],
+  ["Vertical Area Habitats", "Habitat Type", "Area", "ha", 4],
   ["Hedgerows", "Hedge Type", "Length", "m", 1],
   ["Watercourses", "River Type", "Length", "m", 1],
   ["Individual Trees", null, null, null, null],

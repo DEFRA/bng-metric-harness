@@ -171,9 +171,10 @@ describe("the committed service-template corpus", () => {
 // The units of each layer's Area, checked against the geometry rather than
 // the generator, so a pin that wrote the wrong unit, and a corpus rebuilt
 // from it, would still fail (BMD-1084). An area habitat's Area is its
-// polygon's area in hectares. A vertical area habitat's is the face area the
-// surveyor typed in, in square metres, so it is its line's length times a
-// wall height: in hectares it would be thousands of times too small.
+// polygon's area in hectares. A vertical area habitat's is the area the
+// surveyor typed in, also in hectares, so in square metres it is its line's
+// length times a wall height: typed in square metres it would be ten
+// thousand times too large.
 const SQ_METRES_PER_HECTARE = 10_000;
 // bng-500/'s converter rounds Area to 4 decimal places of a hectare: a
 // square metre, so up to half of one either way. A wrong unit is out by a
@@ -250,7 +251,7 @@ describe("the committed service-template corpus's areas", () => {
     expect(wrong).toEqual([]);
   });
 
-  it("gives each vertical area habitat its face area in square metres", () => {
+  it("gives each vertical area habitat its typed area in hectares", () => {
     const rows = corpusRows("Vertical Area Habitats").filter(
       (r) => r.geom && typeof r.area === "number",
     );
@@ -262,7 +263,8 @@ describe("the committed service-template corpus's areas", () => {
         if (geometry.type !== "LineString") {
           return true;
         }
-        const height = r.area / lineLength(geometry.coordinates);
+        const height =
+          (r.area * SQ_METRES_PER_HECTARE) / lineLength(geometry.coordinates);
         return (
           !Number.isFinite(height) ||
           height < MIN_WALL_HEIGHT_M ||
@@ -274,9 +276,10 @@ describe("the committed service-template corpus's areas", () => {
     expect(wrong).toEqual([]);
   });
 
-  // DEFRA/bng-library#126 moved this from 0.009332 (hectares) to 93.
+  // DEFRA/bng-library#126 moved this from 0.009332 (hectares) to 93 (square
+  // metres); DEFRA/bng-library#132 back to hectares, at the same 93 m².
   it.each(STAGES)(
-    "holds V001 at 93 m² in valid/default-site.gpkg's %s table",
+    "holds V001 at 0.0093 ha (93 m²) in valid/default-site.gpkg's %s table",
     (stage) => {
       const db = new Database(path.join(CORPUS, "valid/default-site.gpkg"), {
         readonly: true,
@@ -288,7 +291,7 @@ describe("the committed service-template corpus's areas", () => {
               `SELECT Area AS area FROM "Vertical Area Habitats ${stage}" WHERE "Habitat Ref" = 'V001'`,
             )
             .get().area,
-        ).toBe(93);
+        ).toBe(0.0093);
       } finally {
         db.close();
       }
