@@ -1,10 +1,11 @@
 name: Check drop-out page copy
 
-# Every error the backend can refuse an upload with needs an entry in the
-# frontend's drop-out page copy (src/server/error-file/dropout-copy.yaml), or
-# a user who meets it sees the catch-all. Neither repository's CI can see the
-# other, so the harness compares them nightly, against both main branches.
-# See npm run check:dropout-copy.
+# Every error the backend can refuse an upload or an edit with needs an entry
+# in the frontend's error text (src/server/common/error-text/error-text.yaml),
+# in the section for where a customer meets it, or a user who meets it sees a
+# generic message. Neither repository's CI can see the other, so the harness
+# compares them nightly, against both main branches. See npm run
+# check:dropout-copy and docs/error-text.md.
 
 on:
   workflow_dispatch:

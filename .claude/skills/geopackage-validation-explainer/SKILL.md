@@ -25,7 +25,7 @@ The document is a table, assembled deterministically from three inputs:
 | Input | Supplies |
 | --- | --- |
 | `bng-metric-backend` | Which rules exist, where each is enforced, the message it raises |
-| `bng-metric-frontend` | Whether the user sees a bespoke message, its own message as a list, the service's own message as a list, a placeholder, or a generic catch-all — read from `src/server/error-file/dropout-copy.yaml`, the one file that holds the drop-out page's copy (or from its code, in a frontend that predates it). A backend code with no entry in that file is reported, as it reaches the user as the catch-all |
+| `bng-metric-frontend` | Whether the user sees a bespoke message, its own message as a list, the service's own message as a list, a placeholder, or a generic catch-all — read from the `upload` section of `src/server/common/error-text/error-text.yaml`, the one file that holds every customer-facing error message (or from `src/server/error-file/dropout-copy.yaml`, or the code, in a frontend that predates it). A backend code with no entry in that file is reported, as it reaches the user as the catch-all |
 | `bng-library` + `example-files/` | Which generator flaw exercises each rule, and — by running the real gate over every fixture — which `.gpkg` demonstrates it |
 | `references/rule-descriptions.json` | What each rule checks, in plain English. Created and topped up by the skill; names the constant for any threshold rather than stating the number |
 
@@ -180,7 +180,7 @@ The drift this catches is quiet: a rule added without documentation, a placehold
 - `scripts/_lib.mjs` — locates the three repositories by probing for the file each must supply, plus git provenance and shared parsing helpers.
 - `scripts/observe-fixtures.mjs` — runs the real validation gate over every `.gpkg` in `example-files/` and records which rule each one trips. Nothing about the fixture mapping is hand-authored.
 - `scripts/validation-facts.mjs` — extracts the rule list, reconciles it across the repositories and the example corpus, diffs runs.
-- `scripts/check-dropout-copy.mjs` — `npm run check:dropout-copy`: fails when a backend upload code has no entry in the frontend's `dropout-copy.yaml`, or the file has one for a code the backend no longer defines. Edit rules need no entry, as in `missingFromCopyFile`: the frontend words them itself. In GitHub Actions it also writes a job summary for a reader who isn't a developer: a verdict, each problem with what it checks and where the backend raises it, and what to do.
+- `scripts/check-dropout-copy.mjs` — `npm run check:dropout-copy`: fails when a backend upload code has no entry in the `upload` section of the frontend's `error-text.yaml`, or an edit code none in its `edit` section, or the file keeps one for a code the backend no longer defines. The backend's `ERROR_CODE_SURFACES` says which section a code belongs in; for an older backend, the descriptions' edit group does, as in `missingFromCopyFile`. In GitHub Actions it also writes a job summary for a reader who isn't a developer: a verdict, each problem with what it checks and where the backend raises it, and what to do.
 - `scripts/dropout-copy-summary.mjs` — renders that job summary. Needs only the backend and the frontend; `.github/workflows/dropout-copy-check.yml` runs it nightly.
 - `scripts/draft-descriptions.mjs` — creates or tops up the descriptions file so no rule is ever undescribed, and prunes rules that have gone.
 - `scripts/build-document.mjs` — assembles the document; reports any description still an unrewritten draft.
