@@ -32,12 +32,12 @@ import {
   setValues,
   setVersionRecord,
 } from "./derive.mjs";
-import { KIND_CONVERTED, bng500Recipes } from "./bng-500-recipes.mjs";
+import { bng500Recipes } from "./bng-500-recipes.mjs";
 
 export const KIND_GENERATED = "generated";
 export const KIND_DERIVED = "derived";
 export const KIND_COPIED = "copied";
-export { KIND_CONVERTED };
+export { KIND_CONVERTED } from "./bng-500-recipes.mjs";
 
 export const ACCEPTED = "accepted";
 const SCHEMA_REFUSED =

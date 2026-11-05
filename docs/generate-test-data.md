@@ -229,8 +229,7 @@ Post-Intervention table for each of Area Habitats, Vertical Area Habitats,
 Hedgerows, Watercourses and Individual Trees, plus the Red Line Boundary. Each
 post-intervention feature names its baseline parent (`Parent Ref`, and the
 hidden `parent_uuid` and `parent_geom`); a removed feature is simply absent;
-area habitats are in hectares, and a vertical area habitat's typed Area in
-square metres; labels have no list numbers; strategic significance is
+area habitats and a vertical area habitat's typed Area are in hectares; labels have no list numbers; strategic significance is
 Low or High; and one `gpkg_metadata` row records the template version.
 A synthetic site also holds what only the new template records: vertical area
 habitats, comments, an irreplaceable parcel and tree, Enhanced trees, and
