@@ -34,6 +34,11 @@ import {
   argValue,
   isMain
 } from './_lib.mjs'
+import {
+  DESCRIPTIONS_FILE,
+  EDIT_GROUP,
+  loadDescriptions
+} from './build-document.mjs'
 
 const ERRORS_FILE = path.join('src', 'validation', 'geopackage', 'errors.js')
 /** The frontend's drop-out page copy, one entry per code, in a frontend that has it. */
@@ -218,16 +223,22 @@ export function copyStatusFromCopyFile(source) {
   const placeholder = new Set()
   const shownAsList = new Set()
   const listCopy = new Set()
+  // A whenAlone that is none of these (blank, or a typo such as "lsit") falls
+  // to the catch-all on the page, so it is named rather than counted quietly.
+  const unrecognised = []
   for (const [code, entry] of Object.entries(errors)) {
-    if (typeof entry?.whenAlone === 'object') {
+    const whenAlone = entry?.whenAlone
+    if (whenAlone !== null && typeof whenAlone === 'object') {
       dedicated.add(code)
-    } else if (entry?.whenAlone === 'placeholder') {
+    } else if (whenAlone === 'placeholder') {
       placeholder.add(code)
-    } else if (entry?.whenAlone === 'list') {
+    } else if (whenAlone === 'list') {
       shownAsList.add(code)
       if (entry.inList?.heading) {
         listCopy.add(code)
       }
+    } else if (whenAlone !== 'catch-all') {
+      unrecognised.push(code)
     }
   }
   return {
@@ -235,6 +246,7 @@ export function copyStatusFromCopyFile(source) {
     placeholder,
     shownAsList,
     listCopy,
+    unrecognised,
     inCopyFile: new Set(Object.keys(errors))
   }
 }
@@ -563,6 +575,31 @@ export function copyStatus(
   return COPY_STATUS.CATCH_ALL
 }
 
+/**
+ * The upload codes the copy file has no entry for. An edit rule refuses a
+ * change made on screen, never an upload, so the drop-out page never shows
+ * it and the file owes it nothing.
+ *
+ * @param {string[]} codes
+ * @param {Set<string>} inCopyFile
+ * @param {Set<string>} edits
+ */
+export function missingFromCopyFile(codes, inCopyFile, edits = new Set()) {
+  return codes.filter((code) => !inCopyFile.has(code) && !edits.has(code))
+}
+
+/** The edit rules, by their group in the descriptions; none before it exists. */
+function editCodes() {
+  if (!existsSync(DESCRIPTIONS_FILE)) {
+    return new Set()
+  }
+  return new Set(
+    Object.entries(loadDescriptions())
+      .filter(([, entry]) => entry.group === EDIT_GROUP)
+      .map(([code]) => code)
+  )
+}
+
 function buildFacts() {
   const dirs = Object.fromEntries(
     Object.keys(SOURCES).map((key) => [key, locateSource(key)])
@@ -618,8 +655,13 @@ function buildFacts() {
     // no entry for; null for a frontend with no copy file.
     copyFile: copySets.inCopyFile ? DROPOUT_COPY_FILE : null,
     missingFromCopyFile: copySets.inCopyFile
-      ? Object.keys(codes).filter((code) => !copySets.inCopyFile.has(code))
+      ? missingFromCopyFile(
+          Object.keys(codes),
+          copySets.inCopyFile,
+          editCodes()
+        )
       : null,
+    unrecognisedWhenAlone: copySets.unrecognised ?? [],
     tolerances,
     fixturesWithoutCode: Object.keys(fixtures).filter((code) => !codes[code]),
     exampleFilesContradictingReadme: examples.contradicted,
@@ -649,7 +691,15 @@ function fingerprint(entry) {
   ])
 }
 
-function diffFacts(previous, next) {
+/**
+ * What the document renders once rather than per rule. A change to any of
+ * these is drift too, or check mode reports NO CHANGE over a document that
+ * would rebuild differently: the link to a copy file the frontend has just
+ * added, say.
+ */
+const DOCUMENT_FACTS = ['copyFile', 'missingFromCopyFile']
+
+export function diffFacts(previous, next) {
   const before = new Set(Object.keys(previous.codes ?? {}))
   const after = new Set(Object.keys(next.codes))
 
@@ -661,16 +711,27 @@ function diffFacts(previous, next) {
       (code) => fingerprint(previous.codes[code]) !== fingerprint(next.codes[code])
     )
 
-  return { added, removed, changed }
+  const documentChanged = DOCUMENT_FACTS.filter(
+    (key) =>
+      JSON.stringify(previous[key] ?? null) !==
+      JSON.stringify(next[key] ?? null)
+  )
+
+  return { added, removed, changed, documentChanged }
 }
 
 function reportDiff(diff) {
-  const total = diff.added.length + diff.removed.length + diff.changed.length
-  if (total === 0) {
+  const codeTotal =
+    diff.added.length + diff.removed.length + diff.changed.length
+  const documentChanged = diff.documentChanged ?? []
+  if (codeTotal === 0 && documentChanged.length === 0) {
     console.log('\nNO CHANGE — the validation rules match the previous run.')
     return
   }
-  console.log(`\nDRIFT — ${total} code(s) differ from the previous run:`)
+  console.log(`\nDRIFT — ${codeTotal} code(s) differ from the previous run:`)
+  if (documentChanged.length > 0) {
+    console.log(`  document: ${documentChanged.join(', ')}`)
+  }
   const lines = [
     ['added', diff.added],
     ['removed', diff.removed],
@@ -695,6 +756,11 @@ function reportSummary(facts) {
   console.log(`  generic catch-all:      ${s.catchAllCopy}`)
   console.log(`  exercised by a fixture: ${s.withFixture}`)
   console.log(`  has an example .gpkg:   ${s.withExampleFile}`)
+  if (facts.unrecognisedWhenAlone?.length > 0) {
+    console.log(
+      `\nEntries in the frontend's ${facts.copyFile} whose whenAlone is none of copy, list, placeholder or catch-all (shown as the catch-all): ${facts.unrecognisedWhenAlone.join(', ')}`
+    )
+  }
   if (facts.missingFromCopyFile?.length > 0) {
     console.log(
       `\nCodes with no entry in the frontend's ${facts.copyFile} (shown as the catch-all): ${facts.missingFromCopyFile.join(', ')}`

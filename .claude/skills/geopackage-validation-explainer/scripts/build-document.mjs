@@ -19,7 +19,7 @@ import { writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { readTextFile, argValue, isMain } from './_lib.mjs'
 
-const DESCRIPTIONS_FILE = path.join(
+export const DESCRIPTIONS_FILE = path.join(
   import.meta.dirname,
   '..',
   'references',
@@ -271,12 +271,20 @@ const FRONTEND_REPO_URL = 'https://github.com/DEFRA/bng-metric-frontend'
  * Where to read and review the wording the user sees, for a frontend that
  * keeps it in one copy file; nothing for one that predates it.
  */
+// The frontend branch the document was built from, so the link shows the copy
+// it describes, even before that branch merges; main for a detached checkout
+// or a run with no provenance.
+function copyFileBranch(facts) {
+  const branch = facts.provenance?.frontend?.branch
+  return branch && branch !== 'HEAD' ? encodeURI(branch) : 'main'
+}
+
 function copyFileSentence(facts) {
   if (!facts.copyFile) {
     return ''
   }
   const file = facts.copyFile.split(path.sep).join('/')
-  return `\n\nThe wording the user is shown for each rule, on its own and in a list, is kept in one file in the frontend: [\`${file}\`](${FRONTEND_REPO_URL}/blob/main/${file}). Review or change the copy there.`
+  return `\n\nThe wording the user is shown for each rule, on its own and in a list, is kept in one file in the frontend: [\`${file}\`](${FRONTEND_REPO_URL}/blob/${copyFileBranch(facts)}/${file}). Review or change the copy there.`
 }
 
 const SHORT_COMMIT_LENGTH = 7

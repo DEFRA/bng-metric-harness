@@ -2,10 +2,13 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   copyStatus,
+  copyStatusFromCopyFile,
+  diffFacts,
   extractCopyStatus,
   extractExampleFixtures,
   extractFixtures,
   extractTolerances,
+  missingFromCopyFile,
   readmeClaims,
 } from "../../../.claude/skills/geopackage-validation-explainer/scripts/validation-facts.mjs";
 import { scratchDir } from "./_fixtures.mjs";
@@ -484,4 +487,63 @@ describe("extractCopyStatus from the frontend's copy file", () => {
       "SEVERAL_PAGES",
     ]);
   });
+});
+
+describe("the copy file's document-level facts", () => {
+  const facts = (extra) => ({ codes: {}, ...extra });
+  const FILE = "src/server/error-file/dropout-copy.yaml";
+
+  it("reports a copy file appearing as drift, with no code changed", () => {
+    const diff = diffFacts(
+      facts({ copyFile: null, missingFromCopyFile: null }),
+      facts({ copyFile: FILE, missingFromCopyFile: [] }),
+    );
+    expect(diff.changed).toEqual([]);
+    expect(diff.documentChanged).toEqual(["copyFile", "missingFromCopyFile"]);
+  });
+
+  it("reports a change to the codes missing from the copy file as drift", () => {
+    const diff = diffFacts(
+      facts({ copyFile: FILE, missingFromCopyFile: [] }),
+      facts({ copyFile: FILE, missingFromCopyFile: ["NEW_CODE"] }),
+    );
+    expect(diff.documentChanged).toEqual(["missingFromCopyFile"]);
+  });
+
+  it("reports no drift when neither changes", () => {
+    const same = facts({ copyFile: FILE, missingFromCopyFile: [] });
+    expect(diffFacts(same, same).documentChanged).toEqual([]);
+  });
+
+  it("leaves edit rules out of the codes missing from the copy file", () => {
+    expect(
+      missingFromCopyFile(
+        ["UPLOAD_CODE", "EDIT_CODE", "COVERED"],
+        new Set(["COVERED"]),
+        new Set(["EDIT_CODE"]),
+      ),
+    ).toEqual(["UPLOAD_CODE"]);
+  });
+});
+
+describe("copyStatusFromCopyFile's whenAlone", () => {
+  const status = (whenAlone) =>
+    copyStatusFromCopyFile(`errors:\n  CODE:\n    whenAlone: ${whenAlone}\n`);
+
+  it("does not count a blank whenAlone as copy of its own", () => {
+    const sets = status("");
+    expect(sets.dedicated.has("CODE")).toBe(false);
+    expect(sets.unrecognised).toEqual(["CODE"]);
+  });
+
+  it("names a whenAlone it does not recognise", () => {
+    expect(status("lsit").unrecognised).toEqual(["CODE"]);
+  });
+
+  it.each(["list", "placeholder", "catch-all", "{ title: T, body: B }"])(
+    "recognises %s",
+    (whenAlone) => {
+      expect(status(whenAlone).unrecognised).toEqual([]);
+    },
+  );
 });

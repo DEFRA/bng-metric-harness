@@ -122,6 +122,27 @@ describe("buildDocument", () => {
     expect(document).not.toContain("dropout-copy.yaml");
   });
 
+  it("links to the copy file on the frontend branch the document was built from", () => {
+    const facts = {
+      ...factsFor(CODES),
+      copyFile: "src/server/error-file/dropout-copy.yaml",
+    };
+    const onBranch = buildDocument(
+      { ...facts, provenance: { frontend: { branch: "BMD-1/copy" } } },
+      WITH_EDITS,
+    );
+    expect(onBranch).toContain(
+      "(https://github.com/DEFRA/bng-metric-frontend/blob/BMD-1/copy/src/server/error-file/dropout-copy.yaml)",
+    );
+    const detached = buildDocument(
+      { ...facts, provenance: { frontend: { branch: "HEAD" } } },
+      WITH_EDITS,
+    );
+    expect(detached).toContain(
+      "/blob/main/src/server/error-file/dropout-copy.yaml)",
+    );
+  });
+
   it("renders an extracted threshold in the reader's units in the rule's row", () => {
     const descriptions = {
       ...WITH_EDITS,
