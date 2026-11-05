@@ -52,6 +52,7 @@ describe("uploadSummary", () => {
     expect(uploadSummary(factsFor(CODES), WITH_EDITS)).toEqual({
       total: 3,
       dedicatedCopy: 1,
+      listCopy: 0,
       backendMessageCopy: 1,
       placeholderCopy: 0,
       catchAllCopy: 1,
@@ -103,11 +104,22 @@ describe("buildDocument", () => {
 
   it("counts the upload rules only in the prose and the coverage table", () => {
     expect(document).toContain(
-      "Of 3 rules, 1 have a message of their own, 1 show the service's own message as a list",
+      "Of 3 rules, 1 have a message of their own, 0 show a message of their own as a list of what it names, 1 show the service's own message as a list",
     );
     expect(document).toContain("| Rules that can reject an upload | 3 |");
     expect(document).toContain("| Showing the service's own message, as a list | 1 |");
     expect(document).toContain("| Falling back to a generic message | 1 |");
+  });
+
+  it("links to the frontend's copy file when it has one, and says nothing of one it lacks", () => {
+    const withFile = buildDocument(
+      { ...factsFor(CODES), copyFile: "src/server/error-file/dropout-copy.yaml" },
+      WITH_EDITS,
+    );
+    expect(withFile).toContain(
+      "[`src/server/error-file/dropout-copy.yaml`](https://github.com/DEFRA/bng-metric-frontend/blob/main/src/server/error-file/dropout-copy.yaml)",
+    );
+    expect(document).not.toContain("dropout-copy.yaml");
   });
 
   it("renders an extracted threshold in the reader's units in the rule's row", () => {

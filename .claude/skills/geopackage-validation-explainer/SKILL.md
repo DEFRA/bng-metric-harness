@@ -25,7 +25,7 @@ The document is a table, assembled deterministically from three inputs:
 | Input | Supplies |
 | --- | --- |
 | `bng-metric-backend` | Which rules exist, where each is enforced, the message it raises |
-| `bng-metric-frontend` | Whether the user sees a bespoke message, the service's own message as a list, a placeholder, or a generic catch-all |
+| `bng-metric-frontend` | Whether the user sees a bespoke message, its own message as a list, the service's own message as a list, a placeholder, or a generic catch-all — read from `src/server/error-file/dropout-copy.yaml`, the one file that holds the drop-out page's copy (or from its code, in a frontend that predates it). A backend code with no entry in that file is reported, as it reaches the user as the catch-all |
 | `bng-library` + `example-files/` | Which generator flaw exercises each rule, and — by running the real gate over every fixture — which `.gpkg` demonstrates it |
 | `references/rule-descriptions.json` | What each rule checks, in plain English. Created and topped up by the skill; names the constant for any threshold rather than stating the number |
 

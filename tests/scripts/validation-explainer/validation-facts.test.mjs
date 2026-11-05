@@ -408,9 +408,86 @@ describe("extractCopyStatus and copyStatus", () => {
     expect(copyStatus(code, sets)).toBe(status);
   });
 
+  it("reads a frontend's copy from its code when it has no copy file", () => {
+    expect(sets.inCopyFile).toBeNull();
+    expect(sets.listCopy.size).toBe(0);
+  });
+
   it("shows nothing as a list for a frontend with no controller", () => {
     const old = extractCopyStatus(path.join(dir.root, "old-frontend"));
     expect(old.shownAsList.size).toBe(0);
     expect(copyStatus("STAGED_PARENT_LINK_MISSING", old)).toBe("catch-all");
+  });
+});
+
+const DROPOUT_COPY = `errors:
+  OWN_COPY:
+    copyFrom: acceptance criteria
+    whenAlone:
+      title: A title
+      body: A body.
+    inList: service-message
+  SEVERAL_PAGES:
+    copyFrom: acceptance criteria
+    whenAlone:
+      - title: One {ref}
+        body: A body.
+      - title: Other
+        body: A body.
+    inList: service-message
+  LISTED_WITH_HEADING:
+    copyFrom: developer wording
+    whenAlone: list
+    inList:
+      heading: Its own heading
+  LISTED_UNDER_MESSAGE:
+    copyFrom: none
+    whenAlone: list
+    inList: service-message
+  AWAITING_UCD:
+    copyFrom: placeholder
+    whenAlone: placeholder
+    inList: service-message
+  NO_COPY:
+    copyFrom: none
+    whenAlone: catch-all
+    inList: service-message
+`;
+
+describe("extractCopyStatus from the frontend's copy file", () => {
+  let dir;
+  let sets;
+
+  beforeAll(() => {
+    dir = scratchDir();
+    // The copy file wins over the code it replaced, were both present.
+    dir.write("frontend/src/server/error-file/single-error-copy.js", SINGLE_ERROR_COPY);
+    dir.write("frontend/src/server/error-file/dropout-copy.yaml", DROPOUT_COPY);
+    sets = extractCopyStatus(path.join(dir.root, "frontend"));
+  });
+
+  afterAll(() => dir.remove());
+
+  it.each([
+    ["OWN_COPY", "dedicated"],
+    ["SEVERAL_PAGES", "dedicated"],
+    ["LISTED_WITH_HEADING", "list-copy"],
+    ["LISTED_UNDER_MESSAGE", "backend-message"],
+    ["AWAITING_UCD", "placeholder"],
+    ["NO_COPY", "catch-all"],
+    ["NOT_IN_THE_FILE", "catch-all"],
+  ])("gives %s the status %s", (code, status) => {
+    expect(copyStatus(code, sets)).toBe(status);
+  });
+
+  it("names every code the file has an entry for", () => {
+    expect([...sets.inCopyFile].toSorted()).toEqual([
+      "AWAITING_UCD",
+      "LISTED_UNDER_MESSAGE",
+      "LISTED_WITH_HEADING",
+      "NO_COPY",
+      "OWN_COPY",
+      "SEVERAL_PAGES",
+    ]);
   });
 });
