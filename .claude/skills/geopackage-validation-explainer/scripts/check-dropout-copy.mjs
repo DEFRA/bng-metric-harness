@@ -22,20 +22,26 @@ import { isMain, locateSource, readTextFile } from './_lib.mjs'
 import {
   DROPOUT_COPY_FILE,
   copyStatusFromCopyFile,
-  extractRegistry
+  editCodes,
+  extractRegistry,
+  missingFromCopyFile
 } from './validation-facts.mjs'
 
 /**
  * The backend codes the copy file has no entry for, and the entries it has for
- * codes the backend does not define.
+ * codes the backend does not define. An edit rule refuses a change made on
+ * screen, which the frontend words itself, never an upload, so the file owes
+ * it no entry; the explainer's missingFromCopyFile leaves it out the same way.
+ * An entry the file has for one is not stale, as the backend defines it.
  *
  * @param {Iterable<string>} backendCodes
  * @param {Set<string>} copyCodes
+ * @param {Set<string>} [edits] the edit rules' codes
  */
-export function compareCodes(backendCodes, copyCodes) {
+export function compareCodes(backendCodes, copyCodes, edits = new Set()) {
   const backend = new Set(backendCodes)
   return {
-    missing: [...backend].filter((code) => !copyCodes.has(code)).sort(),
+    missing: missingFromCopyFile([...backend], copyCodes, edits).sort(),
     stale: [...copyCodes].filter((code) => !backend.has(code)).sort()
   }
 }
@@ -73,11 +79,13 @@ function main() {
 
   const backendCodes = Object.keys(extractRegistry(backendDir))
   const { inCopyFile } = copyStatusFromCopyFile(readTextFile(copyFile))
-  const result = compareCodes(backendCodes, inCopyFile)
+  const edits = editCodes()
+  const result = compareCodes(backendCodes, inCopyFile, edits)
 
   if (result.missing.length === 0 && result.stale.length === 0) {
+    const editCount = backendCodes.filter((code) => edits.has(code)).length
     console.log(
-      `All ${backendCodes.length} backend error codes have an entry in ${DROPOUT_COPY_FILE}, and it has none for any other code.`
+      `All ${backendCodes.length - editCount} backend upload error codes have an entry in ${DROPOUT_COPY_FILE}, and it has none for any code the backend does not define. The ${editCount} edit rule(s), which the frontend words itself, need none.`
     )
     return
   }

@@ -589,7 +589,7 @@ export function missingFromCopyFile(codes, inCopyFile, edits = new Set()) {
 }
 
 /** The edit rules, by their group in the descriptions; none before it exists. */
-function editCodes() {
+export function editCodes() {
   if (!existsSync(DESCRIPTIONS_FILE)) {
     return new Set()
   }

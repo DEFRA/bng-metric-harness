@@ -41,6 +41,16 @@ describe("compareCodes", () => {
       stale: [],
     });
   });
+
+  it("owes an edit rule no entry, and does not call one it has stale", () => {
+    expect(
+      compareCodes(
+        ["UPLOAD", "NEW_EDIT", "OLD_EDIT"],
+        new Set(["UPLOAD", "OLD_EDIT"]),
+        new Set(["NEW_EDIT", "OLD_EDIT"]),
+      ),
+    ).toEqual({ missing: [], stale: [] });
+  });
 });
 
 describe("check-dropout-copy.mjs", () => {
@@ -81,7 +91,9 @@ describe("check-dropout-copy.mjs", () => {
   it("passes when every backend code has an entry and no entry is left over", () => {
     const result = run("agrees");
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain("All 2 backend error codes have an entry");
+    expect(result.stdout).toContain(
+      "All 2 backend upload error codes have an entry",
+    );
   });
 
   it("fails, naming each code, when they differ", () => {
