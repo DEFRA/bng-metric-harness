@@ -618,15 +618,21 @@ export function missingFromCopyFile(codes, inCopyFile, edits = new Set()) {
 /**
  * Where a customer can meet each backend code ("upload", "edit"), as the
  * backend declares it in ERROR_CODE_SURFACES; null for a backend that
- * predates it. errors.js imports nothing, so it is loaded as it is.
+ * predates it. errors.js imports nothing today, so it is loaded as it is,
+ * with no install. A file that will not load is an error, not an older
+ * backend: falling back then would quietly drop the edit check.
  */
 export function backendSurfaces(backendDir) {
+  let errors
   try {
-    const require = createRequire(import.meta.url)
-    return require(path.join(backendDir, ERRORS_FILE)).ERROR_CODE_SURFACES ?? null
-  } catch {
-    return null
+    errors = createRequire(import.meta.url)(path.join(backendDir, ERRORS_FILE))
+  } catch (error) {
+    throw new Error(
+      `Could not load the backend's ${ERRORS_FILE}, which says where a customer meets each error code: ${error.message}`,
+      { cause: error }
+    )
   }
+  return errors.ERROR_CODE_SURFACES ?? null
 }
 
 /**

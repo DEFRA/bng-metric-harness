@@ -53,7 +53,7 @@ export function compareCodes(backendCodes, copyCodes, edits = new Set()) {
   }
 }
 
-function report({ missing, stale, edit }, copyFile, rules = {}) {
+function report({ missing, stale, misplaced, edit }, copyFile, rules = {}) {
   const unclassified = missing.filter((code) => rules[code]?.unclassified)
   if (missing.length > 0) {
     console.error(
@@ -62,6 +62,14 @@ function report({ missing, stale, edit }, copyFile, rules = {}) {
     for (const code of missing) {
       const isNew = unclassified.includes(code) ? ' (new to the explainer)' : ''
       console.error(`  - ${code}${isNew}`)
+    }
+  }
+  if (misplaced?.length > 0) {
+    console.error(
+      `\nThe upload section of ${copyFile} has entries for codes the backend says are met only on an edit, so the drop-out page never shows them. Move the wording under edit:`
+    )
+    for (const code of misplaced) {
+      console.error(`  - ${code}`)
     }
   }
   if (edit?.missing.length > 0) {
@@ -123,6 +131,25 @@ export function compareEditCodes(surfaces, inEditSection) {
 }
 
 /**
+ * Entries in error-text.yaml's upload section for codes the backend says are
+ * met only on an edit: wording the drop-out page never shows. Its mirror is
+ * compareEditCodes' stale list. Only for error-text.yaml, with the backend's
+ * surfaces: the older dropout-copy.yaml predates the split, and keeps an
+ * entry for every code.
+ *
+ * @param {Record<string, string[]> | null} surfaces
+ * @param {Set<string>} inUploadSection
+ */
+export function editOnlyUploadEntries(surfaces, inUploadSection) {
+  if (!surfaces) {
+    return []
+  }
+  return [...inUploadSection]
+    .filter((code) => surfaces[code] && !surfaces[code].includes('upload'))
+    .sort()
+}
+
+/**
  * For each code in `codes`: the explainer's plain-English description, unless
  * it is still an unrewritten draft, and the backend's description and raise
  * sites. A code new to the backend has only the backend's, and is
@@ -130,12 +157,12 @@ export function compareEditCodes(surfaces, inEditSection) {
  * so this check cannot tell whether a new one is an edit rule, which owes the
  * copy file nothing.
  */
-function rulesFor(codes, registry, backendDir) {
+function rulesFor(codes, registry, backendDir, surfaces) {
   if (codes.length === 0) {
     return {}
   }
   // A backend that declares its surfaces has classified every code.
-  const classified = backendSurfaces(backendDir) !== null
+  const classified = surfaces !== null
   const sites = extractRaiseSites(backendDir, registry)
   const plain = existsSync(DESCRIPTIONS_FILE) ? loadDescriptions() : {}
   return Object.fromEntries(
@@ -171,6 +198,15 @@ function main() {
     process.exit(1)
   }
 
+  let surfaces
+  try {
+    surfaces = backendSurfaces(backendDir)
+  } catch (error) {
+    console.error(error.message)
+    writeSummary({ backendUnreadable: error.message }, context)
+    process.exit(1)
+  }
+
   const registry = extractRegistry(backendDir)
   const backendCodes = Object.keys(registry)
   const { inCopyFile, inEditSection } = copyStatusFromCopyFile(
@@ -179,28 +215,31 @@ function main() {
   const edits = editCodes(backendDir)
   const result = {
     ...compareCodes(backendCodes, inCopyFile, edits),
-    edit: compareEditCodes(backendSurfaces(backendDir), inEditSection)
+    misplaced:
+      copyFile === ERROR_TEXT_FILE
+        ? editOnlyUploadEntries(surfaces, inCopyFile)
+        : [],
+    edit: compareEditCodes(surfaces, inEditSection)
   }
   const editCount = backendCodes.filter((code) => edits.has(code)).length
   const counts = {
     uploadCount: backendCodes.length - editCount,
     editCount,
     editChecked: result.edit
-      ? Object.values(backendSurfaces(backendDir)).filter((where) =>
-          where.includes('edit')
-        ).length
+      ? Object.values(surfaces).filter((where) => where.includes('edit'))
+          .length
       : 0
   }
-  const rules = rulesFor(result.missing, registry, backendDir)
+  const rules = rulesFor(result.missing, registry, backendDir, surfaces)
   writeSummary({ ...result, ...counts }, { ...context, rules })
 
-  const editProblems =
-    (result.edit?.missing.length ?? 0) + (result.edit?.stale.length ?? 0)
-  if (
-    result.missing.length === 0 &&
-    result.stale.length === 0 &&
-    editProblems === 0
-  ) {
+  const problems =
+    result.missing.length +
+    result.stale.length +
+    result.misplaced.length +
+    (result.edit?.missing.length ?? 0) +
+    (result.edit?.stale.length ?? 0)
+  if (problems === 0) {
     const editPart = result.edit
       ? ` Every one of the backend's edit codes has an entry in its edit section.`
       : ` The ${editCount} edit rule(s), which the frontend words itself, need none.`

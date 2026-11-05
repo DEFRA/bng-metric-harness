@@ -62,8 +62,12 @@ look wording up by section and code (`editErrorText(code)`,
 
 - every backend `upload` code has an entry under `upload.errors`, and every
   `edit` code one under `edit`;
-- neither section keeps an entry for a code the backend no longer has, or, in
-  `edit`, for one that refuses no edit.
+- neither section keeps an entry for a code the backend no longer has, or for
+  one that does not belong there: an `upload` entry for a code met only on an
+  edit, or an `edit` entry for one that refuses no edit.
+
+If the backend's `errors.js` will not load, the check fails and says so,
+rather than quietly checking less.
 
 In GitHub Actions it writes what it found, for a reader who is not a
 developer, to the run's job summary: a verdict, each problem, and what to do.

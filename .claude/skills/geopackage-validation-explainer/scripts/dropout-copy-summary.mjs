@@ -168,6 +168,23 @@ function staleSection(stale, context) {
   ]
 }
 
+function misplacedSection(misplaced, context) {
+  return [
+    `### ${misplaced.length} drop-out page entr${misplaced.length === 1 ? 'y' : 'ies'} for errors met only on screen`,
+    '',
+    'The backend says these errors refuse only a change made on screen, so the drop-out page never shows this wording.',
+    '',
+    '| Entry under `upload:` |',
+    '| --- |',
+    ...misplaced.map((code) => `| \`${code}\` |`),
+    '',
+    '**What to do**',
+    '',
+    `- Move any wording worth keeping to the entry under \`edit:\` in ${context.copyFileLink}, then delete the entry under \`upload:\`.`,
+    ''
+  ]
+}
+
 const EDIT_PLACEHOLDER_TEMPLATE = (code) => `  ${code}: placeholder`
 
 const EDIT_ENTRY_TEMPLATE = (code) => `  ${code}:
@@ -245,6 +262,9 @@ function footer(context) {
  * @param {string[]} [result.missing] upload codes with no entry
  * @param {string[]} [result.stale] entries for codes the backend lacks
  * @param {boolean} [result.noCopyFile] the frontend has no copy file at all
+ * @param {string} [result.backendUnreadable] why the backend's errors.js
+ *   would not load
+ * @param {string[]} [result.misplaced] upload entries for edit-only codes
  * @param {number} result.uploadCount upload codes checked
  * @param {{missing: string[], stale: string[]} | null} [result.edit] the
  *   edit section compared with the backend's edit codes; null when either
@@ -271,6 +291,22 @@ export function renderSummary(result, context) {
   const ctx = { ...context, copyFileLink }
   const rules = context.rules ?? {}
 
+  if (result.backendUnreadable) {
+    return [
+      "## ❌ Drop-out page wording: the backend's error codes could not be read",
+      '',
+      "This check reads the backend's list of error codes, and where a customer meets each one, from `src/validation/geopackage/errors.js`. That file would not load, so nothing was compared:",
+      '',
+      '```',
+      result.backendUnreadable,
+      '```',
+      '',
+      "**What to do:** a developer should look at what changed in that file in bng-metric-backend. The check loads it with no install, so it must not import other packages.",
+      '',
+      ...footer(ctx)
+    ].join('\n')
+  }
+
   if (result.noCopyFile) {
     return [
       '## ❌ Drop-out page wording: the wording file is missing',
@@ -285,9 +321,15 @@ export function renderSummary(result, context) {
 
   const missing = result.missing ?? []
   const stale = result.stale ?? []
+  const misplaced = result.misplaced ?? []
   const edit = result.edit ?? null
   const editProblems = (edit?.missing.length ?? 0) + (edit?.stale.length ?? 0)
-  if (missing.length === 0 && stale.length === 0 && editProblems === 0) {
+  if (
+    missing.length === 0 &&
+    stale.length === 0 &&
+    misplaced.length === 0 &&
+    editProblems === 0
+  ) {
     return [
       '## ✅ Drop-out page wording: nothing to fix',
       '',
@@ -311,6 +353,8 @@ export function renderSummary(result, context) {
       `- **${missing.length} upload error${missing.length === 1 ? '' : 's'} with no wording** — users who meet ${missing.length === 1 ? 'it' : 'one'} are not told what is wrong with their file.`,
     stale.length > 0 &&
       `- **${stale.length} entr${stale.length === 1 ? 'y' : 'ies'} for errors the service no longer has** — no user is affected; the wording is unused.`,
+    misplaced.length > 0 &&
+      `- **${misplaced.length} drop-out page entr${misplaced.length === 1 ? 'y' : 'ies'} for errors met only on screen** — the drop-out page never shows ${misplaced.length === 1 ? 'it' : 'them'}.`,
     edit?.missing.length > 0 &&
       `- **${edit.missing.length} on-screen error${edit.missing.length === 1 ? '' : 's'} with no entry in the edit section** — the page cannot show ${edit.missing.length === 1 ? 'its' : 'their'} own message.`,
     edit?.stale.length > 0 &&
@@ -326,6 +370,7 @@ export function renderSummary(result, context) {
     '',
     ...(missing.length > 0 ? missingSection(missing, rules, ctx) : []),
     ...(stale.length > 0 ? staleSection(stale, ctx) : []),
+    ...(misplaced.length > 0 ? misplacedSection(misplaced, ctx) : []),
     ...(editProblems > 0 ? editSection(edit, ctx) : []),
     ...footer(ctx)
   ].join('\n')

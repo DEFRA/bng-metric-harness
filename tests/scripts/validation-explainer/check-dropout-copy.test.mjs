@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   compareCodes,
   compareEditCodes,
+  editOnlyUploadEntries,
 } from "../../../.claude/skills/geopackage-validation-explainer/scripts/check-dropout-copy.mjs";
 import { renderSummary } from "../../../.claude/skills/geopackage-validation-explainer/scripts/dropout-copy-summary.mjs";
 import { scratchDir } from "./_fixtures.mjs";
@@ -95,6 +96,20 @@ describe("compareEditCodes", () => {
   });
 });
 
+describe("editOnlyUploadEntries", () => {
+  const surfaces = { UP: ["upload"], ED: ["edit"], BOTH: ["upload", "edit"] };
+
+  it("names upload entries for codes met only on an edit", () => {
+    expect(
+      editOnlyUploadEntries(surfaces, new Set(["UP", "ED", "BOTH"])),
+    ).toEqual(["ED"]);
+  });
+
+  it("names none without the backend's surfaces", () => {
+    expect(editOnlyUploadEntries(null, new Set(["ED"]))).toEqual([]);
+  });
+});
+
 describe("check-dropout-copy.mjs", () => {
   let dir;
 
@@ -108,16 +123,21 @@ describe("check-dropout-copy.mjs", () => {
     // An error text file: the upload codes under upload, the edit codes
     // under edit; and one missing an edit code and keeping an upload-only one.
     const ERROR_TEXT = "src/server/common/error-text/error-text.yaml";
+    // Found by error-text.yaml alone: no single-error-copy.js, as in a
+    // frontend that drops the copy's code once the copy is in YAML.
     for (const [name, upload, edit] of [
       ["error-text-agrees", ["FIRST", "BOTH"], ["EDITED", "BOTH"]],
       ["error-text-differs", ["FIRST", "BOTH"], ["EDITED", "FIRST"]],
+      ["error-text-misplaced", ["FIRST", "BOTH", "EDITED"], ["EDITED", "BOTH"]],
     ]) {
-      dir.write(
-        `${name}/src/server/error-file/single-error-copy.js`,
-        "export {}\n",
-      );
       dir.write(`${name}/${ERROR_TEXT}`, errorTextFile(upload, edit));
     }
+    // A backend whose errors.js will not load: it imports a package the
+    // check does not install.
+    dir.write(
+      "broken-backend/src/validation/geopackage/errors.js",
+      `import "a-package-not-installed";\n${ERRORS_WITH_SURFACES}`,
+    );
     // The frontend is found by the copy code the explainer has always read.
     for (const name of ["agrees", "differs", "no-copy-file"]) {
       dir.write(
@@ -192,6 +212,30 @@ describe("check-dropout-copy.mjs", () => {
     expect(text).toContain("  BOTH: placeholder");
     // The backend classifies every code, so nothing is new to the explainer.
     expect(text).not.toContain("🆕");
+  });
+
+  it("finds a frontend by its error-text.yaml alone", () => {
+    expect(run("error-text-agrees", "surfaces-backend").stdout).not.toContain(
+      "Could not find bng-metric-frontend",
+    );
+  });
+
+  it("fails on an upload entry for a code met only on an edit", () => {
+    const result = run("error-text-misplaced", "surfaces-backend");
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/met only on an edit[\s\S]*- EDITED/);
+    expect(summary()).toContain(
+      "drop-out page entry for errors met only on screen",
+    );
+  });
+
+  it("fails loudly, with a summary, when the backend's errors.js will not load", () => {
+    const result = run("error-text-agrees", "broken-backend");
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Could not load the backend's");
+    expect(summary()).toContain(
+      "## ❌ Drop-out page wording: the backend's error codes could not be read",
+    );
   });
 
   it("writes the job summary, with a verdict, each problem and what to do", () => {
