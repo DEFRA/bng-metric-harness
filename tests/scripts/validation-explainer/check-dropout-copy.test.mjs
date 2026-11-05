@@ -2,7 +2,10 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { compareCodes } from "../../../.claude/skills/geopackage-validation-explainer/scripts/check-dropout-copy.mjs";
+import {
+  compareCodes,
+  compareEditCodes,
+} from "../../../.claude/skills/geopackage-validation-explainer/scripts/check-dropout-copy.mjs";
 import { renderSummary } from "../../../.claude/skills/geopackage-validation-explainer/scripts/dropout-copy-summary.mjs";
 import { scratchDir } from "./_fixtures.mjs";
 
@@ -18,6 +21,26 @@ const ERRORS = `export const ERROR_CODES = Object.freeze({
 })
 `;
 
+// A backend that says where each code is met, as ERROR_CODE_SURFACES does.
+const ERRORS_WITH_SURFACES = `export const ERROR_CODES = Object.freeze({
+  FIRST: 'FIRST',
+  EDITED: 'EDITED',
+  BOTH: 'BOTH'
+})
+export const ERROR_CODE_SURFACES = Object.freeze({
+  FIRST: ['upload'],
+  EDITED: ['edit'],
+  BOTH: ['upload', 'edit']
+})
+`;
+
+/** error-text.yaml: the drop-out page's copy under upload, and an edit section. */
+function errorTextFile(uploadCodes, editCodes) {
+  const upload = copyFile(uploadCodes).replace(/^/gm, "  ").trimEnd();
+  const edit = editCodes.map((code) => `  ${code}: placeholder`).join("\n");
+  return `upload:\n${upload}\nedit:\n${edit}\nforms: {}\n`;
+}
+
 function copyFile(codes) {
   const entries = codes
     .map(
@@ -32,9 +55,10 @@ function copyFile(codes) {
 
 describe("compareCodes", () => {
   it("names backend codes the copy file lacks, and entries for codes the backend lacks", () => {
-    expect(
-      compareCodes(["B", "A", "C"], new Set(["C", "OLD", "A"])),
-    ).toEqual({ missing: ["B"], stale: ["OLD"] });
+    expect(compareCodes(["B", "A", "C"], new Set(["C", "OLD", "A"]))).toEqual({
+      missing: ["B"],
+      stale: ["OLD"],
+    });
   });
 
   it("finds nothing when the two agree", () => {
@@ -55,12 +79,45 @@ describe("compareCodes", () => {
   });
 });
 
+describe("compareEditCodes", () => {
+  const surfaces = { UP: ["upload"], ED: ["edit"], BOTH: ["upload", "edit"] };
+
+  it("names edit codes the edit section lacks, and its entries for codes that refuse no edit", () => {
+    expect(compareEditCodes(surfaces, new Set(["ED", "UP"]))).toEqual({
+      missing: ["BOTH"],
+      stale: ["UP"],
+    });
+  });
+
+  it("compares nothing when either side predates the split", () => {
+    expect(compareEditCodes(null, new Set(["ED"]))).toBeNull();
+    expect(compareEditCodes(surfaces, null)).toBeNull();
+  });
+});
+
 describe("check-dropout-copy.mjs", () => {
   let dir;
 
   beforeAll(() => {
     dir = scratchDir();
     dir.write("backend/src/validation/geopackage/errors.js", ERRORS);
+    dir.write(
+      "surfaces-backend/src/validation/geopackage/errors.js",
+      ERRORS_WITH_SURFACES,
+    );
+    // An error text file: the upload codes under upload, the edit codes
+    // under edit; and one missing an edit code and keeping an upload-only one.
+    const ERROR_TEXT = "src/server/common/error-text/error-text.yaml";
+    for (const [name, upload, edit] of [
+      ["error-text-agrees", ["FIRST", "BOTH"], ["EDITED", "BOTH"]],
+      ["error-text-differs", ["FIRST", "BOTH"], ["EDITED", "FIRST"]],
+    ]) {
+      dir.write(
+        `${name}/src/server/error-file/single-error-copy.js`,
+        "export {}\n",
+      );
+      dir.write(`${name}/${ERROR_TEXT}`, errorTextFile(upload, edit));
+    }
     // The frontend is found by the copy code the explainer has always read.
     for (const name of ["agrees", "differs", "no-copy-file"]) {
       dir.write(
@@ -83,13 +140,13 @@ describe("check-dropout-copy.mjs", () => {
   // Always a scratch file: in GitHub Actions the variable is set, and these
   // runs must not write their results into the real job summary.
   const summaryFile = () => path.join(dir.root, "summary.md");
-  const run = (frontend) => {
+  const run = (frontend, backend = "backend") => {
     rmSync(summaryFile(), { force: true });
     return spawnSync(process.execPath, [CHECK], {
       encoding: "utf8",
       env: {
         ...process.env,
-        BNG_BACKEND_DIR: path.join(dir.root, "backend"),
+        BNG_BACKEND_DIR: path.join(dir.root, backend),
         BNG_FRONTEND_DIR: path.join(dir.root, frontend),
         GITHUB_STEP_SUMMARY: summaryFile(),
       },
@@ -112,6 +169,31 @@ describe("check-dropout-copy.mjs", () => {
     expect(result.stderr).toMatch(/no longer defines[\s\S]*- GONE/);
   });
 
+  it("reads error-text.yaml, and checks its edit section against the backend's surfaces", () => {
+    const result = run("error-text-agrees", "surfaces-backend");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain(
+      "All 2 backend upload error codes have an entry in src/server/common/error-text/error-text.yaml",
+    );
+    expect(result.stdout).toContain("Every one of the backend's edit codes");
+    expect(summary()).toContain(
+      "| Errors for changes made on screen, checked against the edit section | 2 |",
+    );
+  });
+
+  it("fails, naming each code, when the edit section lacks an edit code or keeps an upload-only one", () => {
+    const result = run("error-text-differs", "surfaces-backend");
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/refuses an edit[\s\S]*- BOTH/);
+    expect(result.stderr).toMatch(/refuse no edit[\s\S]*- FIRST/);
+    const text = summary();
+    expect(text).toContain("on-screen error with no entry in the edit section");
+    expect(text).toContain("| `BOTH` |");
+    expect(text).toContain("  BOTH: placeholder");
+    // The backend classifies every code, so nothing is new to the explainer.
+    expect(text).not.toContain("🆕");
+  });
+
   it("writes the job summary, with a verdict, each problem and what to do", () => {
     run("agrees");
     expect(summary()).toContain("## ✅ Drop-out page wording: nothing to fix");
@@ -128,7 +210,9 @@ describe("check-dropout-copy.mjs", () => {
   it("fails when the frontend has no copy file", () => {
     const result = run("no-copy-file");
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain("has no src/server/error-file/dropout-copy.yaml");
+    expect(result.stderr).toContain(
+      "has no src/server/common/error-text/error-text.yaml",
+    );
   });
 });
 
@@ -229,7 +313,9 @@ describe("renderSummary", () => {
       { missing: [], stale: ["OLD", "OLDER"], ...counts },
       context,
     );
-    expect(text).toContain("- **2 entries for errors the service no longer has**");
+    expect(text).toContain(
+      "- **2 entries for errors the service no longer has**",
+    );
     expect(text).toContain("| `OLD` |");
     expect(text).toContain("delete the entry");
     expect(text).not.toContain("with no wording");

@@ -19,6 +19,7 @@
  *   node validation-facts.mjs --out facts.json [--compare facts.json]
  */
 import { writeFileSync, existsSync, mkdirSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { load as loadYaml } from 'js-yaml'
 import {
@@ -41,13 +42,33 @@ import {
 } from './build-document.mjs'
 
 const ERRORS_FILE = path.join('src', 'validation', 'geopackage', 'errors.js')
-/** The frontend's drop-out page copy, one entry per code, in a frontend that has it. */
+/**
+ * The frontend's error text: every customer-facing error message, the drop-out
+ * page's under `upload`, in a frontend that has it.
+ */
+export const ERROR_TEXT_FILE = path.join(
+  'src',
+  'server',
+  'common',
+  'error-text',
+  'error-text.yaml'
+)
+/** The drop-out page's copy alone, at the root, in a frontend before the error text. */
 export const DROPOUT_COPY_FILE = path.join(
   'src',
   'server',
   'error-file',
   'dropout-copy.yaml'
 )
+
+/** Where the frontend keeps the drop-out page's copy, or null for one that predates both files. */
+export function copyFileIn(frontendDir) {
+  return (
+    [ERROR_TEXT_FILE, DROPOUT_COPY_FILE].find((file) =>
+      existsSync(path.join(frontendDir, file))
+    ) ?? null
+  )
+}
 const COPY_FILE = path.join('src', 'server', 'error-file', 'single-error-copy.js')
 const CONTROLLER_FILE = path.join('src', 'server', 'error-file', 'controller.js')
 /**
@@ -204,9 +225,9 @@ export function extractRaiseSites(backendDir, codes) {
 
 /** What the user is actually shown for each code. */
 export function extractCopyStatus(frontendDir) {
-  const copyFile = path.join(frontendDir, DROPOUT_COPY_FILE)
-  return existsSync(copyFile)
-    ? copyStatusFromCopyFile(readTextFile(copyFile))
+  const copyFile = copyFileIn(frontendDir)
+  return copyFile
+    ? copyStatusFromCopyFile(readTextFile(path.join(frontendDir, copyFile)))
     : copyStatusFromCode(frontendDir)
 }
 
@@ -218,7 +239,10 @@ export function extractCopyStatus(frontendDir) {
  * it can be reported.
  */
 export function copyStatusFromCopyFile(source) {
-  const errors = loadYaml(source)?.errors ?? {}
+  const document = loadYaml(source) ?? {}
+  // error-text.yaml holds the drop-out page's copy under upload; the older
+  // dropout-copy.yaml at its root.
+  const errors = (document.upload ?? document).errors ?? {}
   const dedicated = new Set()
   const placeholder = new Set()
   const shownAsList = new Set()
@@ -247,7 +271,10 @@ export function copyStatusFromCopyFile(source) {
     shownAsList,
     listCopy,
     unrecognised,
-    inCopyFile: new Set(Object.keys(errors))
+    inCopyFile: new Set(Object.keys(errors)),
+    // The codes worded for an edit refused on screen; null in a file with no
+    // edit section, which predates it.
+    inEditSection: document.edit ? new Set(Object.keys(document.edit)) : null
   }
 }
 
@@ -588,8 +615,34 @@ export function missingFromCopyFile(codes, inCopyFile, edits = new Set()) {
   return codes.filter((code) => !inCopyFile.has(code) && !edits.has(code))
 }
 
-/** The edit rules, by their group in the descriptions; none before it exists. */
-export function editCodes() {
+/**
+ * Where a customer can meet each backend code ("upload", "edit"), as the
+ * backend declares it in ERROR_CODE_SURFACES; null for a backend that
+ * predates it. errors.js imports nothing, so it is loaded as it is.
+ */
+export function backendSurfaces(backendDir) {
+  try {
+    const require = createRequire(import.meta.url)
+    return require(path.join(backendDir, ERRORS_FILE)).ERROR_CODE_SURFACES ?? null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The codes that never reach the drop-out page: those the backend declares
+ * are met only on an edit, or, for a backend that predates that, the edit
+ * rules by their group in the descriptions (none before they exist).
+ */
+export function editCodes(backendDir) {
+  const surfaces = backendDir ? backendSurfaces(backendDir) : null
+  if (surfaces) {
+    return new Set(
+      Object.entries(surfaces)
+        .filter(([, where]) => !where.includes('upload'))
+        .map(([code]) => code)
+    )
+  }
   if (!existsSync(DESCRIPTIONS_FILE)) {
     return new Set()
   }
@@ -653,12 +706,12 @@ function buildFacts() {
     codes,
     // Where the frontend keeps the drop-out page's copy, and the codes it has
     // no entry for; null for a frontend with no copy file.
-    copyFile: copySets.inCopyFile ? DROPOUT_COPY_FILE : null,
+    copyFile: copySets.inCopyFile ? copyFileIn(dirs.frontend) : null,
     missingFromCopyFile: copySets.inCopyFile
       ? missingFromCopyFile(
           Object.keys(codes),
           copySets.inCopyFile,
-          editCodes()
+          editCodes(dirs.backend)
         )
       : null,
     unrecognisedWhenAlone: copySets.unrecognised ?? [],

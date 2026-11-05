@@ -168,6 +168,63 @@ function staleSection(stale, context) {
   ]
 }
 
+const EDIT_PLACEHOLDER_TEMPLATE = (code) => `  ${code}: placeholder`
+
+const EDIT_ENTRY_TEMPLATE = (code) => `  ${code}:
+    summary: Say what is wrong, for the error summary at the top of the page.
+    inline: Say how to put it right, by the field.`
+
+function editSection(edit, context) {
+  const lines = []
+  if (edit.missing.length > 0) {
+    const n = edit.missing.length
+    const [first] = edit.missing
+    lines.push(
+      `### ${n} on-screen error${n === 1 ? '' : 's'} with no entry in the edit section`,
+      '',
+      `${n === 1 ? 'This error refuses' : 'These errors refuse'} a change a user makes to a habitat on screen, after their file was accepted. Without an entry, the page cannot show its own message.`,
+      '',
+      '| Error |',
+      '| --- |',
+      ...edit.missing.map((code) => `| \`${code}\` |`),
+      '',
+      '**What to do**',
+      '',
+      `- Add an entry for each under \`edit:\` in ${context.copyFileLink}, by pull request to bng-metric-frontend: wording agreed with a content designer, or \`placeholder\` until it is.`,
+      '',
+      '<details><summary>An entry to start from</summary>',
+      '',
+      '```yaml',
+      EDIT_ENTRY_TEMPLATE(first),
+      '```',
+      '',
+      'Or, until the wording is agreed:',
+      '',
+      '```yaml',
+      EDIT_PLACEHOLDER_TEMPLATE(first),
+      '```',
+      '',
+      '</details>',
+      ''
+    )
+  }
+  if (edit.stale.length > 0) {
+    lines.push(
+      `### ${edit.stale.length} entr${edit.stale.length === 1 ? 'y' : 'ies'} in the edit section for errors that refuse no edit`,
+      '',
+      '| Entry |',
+      '| --- |',
+      ...edit.stale.map((code) => `| \`${code}\` |`),
+      '',
+      '**What to do**',
+      '',
+      `- If the error was renamed, move the entry to its new name. If it only refuses uploads, its wording belongs under \`upload:\`. Otherwise, delete it.`,
+      ''
+    )
+  }
+  return lines
+}
+
 function footer(context) {
   return [
     '---',
@@ -189,7 +246,12 @@ function footer(context) {
  * @param {string[]} [result.stale] entries for codes the backend lacks
  * @param {boolean} [result.noCopyFile] the frontend has no copy file at all
  * @param {number} result.uploadCount upload codes checked
+ * @param {{missing: string[], stale: string[]} | null} [result.edit] the
+ *   edit section compared with the backend's edit codes; null when either
+ *   predates the split
  * @param {number} result.editCount edit rules, which need no entry
+ * @param {number} [result.editChecked] edit codes checked against the edit
+ *   section
  * @param {object} context
  * @param {string} context.copyFile the copy file's path in the frontend
  * @param {Record<string, {plain?: string, unclassified?: boolean, description?: string, raisedAt?: object[]}>} [context.rules]
@@ -215,7 +277,7 @@ export function renderSummary(result, context) {
       '',
       `The frontend has no ${copyFileLink}, so this check cannot compare anything. Every refused upload would be explained with the generic message.`,
       '',
-      '**What to do:** check whether the file was moved or renamed in bng-metric-frontend. If it was, update `DROPOUT_COPY_FILE` in the harness\'s `validation-facts.mjs` to match.',
+      '**What to do:** check whether the file was moved or renamed in bng-metric-frontend. If it was, update `ERROR_TEXT_FILE` in the harness\'s `validation-facts.mjs` to match.',
       '',
       ...footer(ctx)
     ].join('\n')
@@ -223,16 +285,20 @@ export function renderSummary(result, context) {
 
   const missing = result.missing ?? []
   const stale = result.stale ?? []
-  if (missing.length === 0 && stale.length === 0) {
+  const edit = result.edit ?? null
+  const editProblems = (edit?.missing.length ?? 0) + (edit?.stale.length ?? 0)
+  if (missing.length === 0 && stale.length === 0 && editProblems === 0) {
     return [
       '## ✅ Drop-out page wording: nothing to fix',
       '',
-      'Every error that can refuse an upload has an entry in the drop-out page wording, and there are no entries for errors the service no longer has.',
+      `Every error that can refuse an upload has an entry in the drop-out page wording${edit ? ', every error that can refuse an edit has one in the edit section,' : ''} and there are no entries for errors the service no longer has.`,
       '',
       '| | |',
       '| --- | --- |',
       `| Upload errors checked | ${result.uploadCount} |`,
-      `| Errors for changes made on screen, which the frontend words itself and need no entry | ${result.editCount} |`,
+      edit
+        ? `| Errors for changes made on screen, checked against the edit section | ${result.editChecked} |`
+        : `| Errors for changes made on screen, which the frontend words itself and need no entry | ${result.editCount} |`,
       '',
       `The wording is in ${copyFileLink}. An entry can still be a stop-gap that shows the generic message; this check does not judge the wording itself.`,
       '',
@@ -244,18 +310,23 @@ export function renderSummary(result, context) {
     missing.length > 0 &&
       `- **${missing.length} upload error${missing.length === 1 ? '' : 's'} with no wording** — users who meet ${missing.length === 1 ? 'it' : 'one'} are not told what is wrong with their file.`,
     stale.length > 0 &&
-      `- **${stale.length} entr${stale.length === 1 ? 'y' : 'ies'} for errors the service no longer has** — no user is affected; the wording is unused.`
+      `- **${stale.length} entr${stale.length === 1 ? 'y' : 'ies'} for errors the service no longer has** — no user is affected; the wording is unused.`,
+    edit?.missing.length > 0 &&
+      `- **${edit.missing.length} on-screen error${edit.missing.length === 1 ? '' : 's'} with no entry in the edit section** — the page cannot show ${edit.missing.length === 1 ? 'its' : 'their'} own message.`,
+    edit?.stale.length > 0 &&
+      `- **${edit.stale.length} edit-section entr${edit.stale.length === 1 ? 'y' : 'ies'} for errors that refuse no edit** — no user is affected.`
   ].filter(Boolean)
 
   return [
     '## ⚠️ Drop-out page wording needs attention',
     '',
-    `This check compares the errors the service can refuse an upload with against the wording in ${copyFileLink}. It found:`,
+    `This check compares the errors the service can refuse an upload${edit ? ' or an edit' : ''} with against the wording in ${copyFileLink}. It found:`,
     '',
     ...found,
     '',
     ...(missing.length > 0 ? missingSection(missing, rules, ctx) : []),
     ...(stale.length > 0 ? staleSection(stale, ctx) : []),
+    ...(editProblems > 0 ? editSection(edit, ctx) : []),
     ...footer(ctx)
   ].join('\n')
 }
