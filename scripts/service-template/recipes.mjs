@@ -201,6 +201,9 @@ const HIGH = "High";
 const RETAINED_WOODLAND = "H002";
 const WORSE_AREA_HABITAT = "H043";
 const WORSE_VERTICAL_HABITAT = "V005";
+// The default site's demolished structure: a baseline row and no
+// post-intervention one, so a blank Area fails only the Area check.
+const DEMOLISHED_VERTICAL_HABITAT = "V004";
 const RETAINED_CULVERT = "R001";
 
 const VALID = [
@@ -423,6 +426,19 @@ const DEGRADE_ADVANCE_MISSING = [
   ),
 );
 
+const VERTICAL_AREA_MISSING = derived(
+  "attribute-problems/vertical-area-missing.gpkg",
+  `\`valid/default-site.gpkg\` with the Area left blank on ${DEMOLISHED_VERTICAL_HABITAT}, a vertical area habitat (the demolished structure, so it has no post-intervention row). The surveyor types this Area in hectares, as a line cannot give it`,
+  [
+    setValues(
+      "Vertical Area Habitats Baseline",
+      { Area: null },
+      { [HABITAT_REF]: DEMOLISHED_VERTICAL_HABITAT },
+    ),
+  ],
+  "VERTICAL_HABITAT_AREA_NOT_POSITIVE",
+);
+
 const NATURAL_WATERCOURSE_LOST = derived(
   "attribute-problems/watercourse-culvert-left-out.gpkg",
   `\`valid/default-site.gpkg\` with the Retained culvert ${RETAINED_CULVERT}'s post-intervention row left out, so it is lost. Only a canal or a ditch may be lost; this stands in for a natural river left out (see the gaps below)`,
@@ -506,6 +522,7 @@ export const RECIPES = [
   ...ATTRIBUTE,
   BASELINE_SIGNIFICANCE_HIGH,
   ...DEGRADE_ADVANCE_MISSING,
+  VERTICAL_AREA_MISSING,
   NATURAL_WATERCOURSE_LOST,
   ...IRREPLACEABLE,
   ...LINEAGE,
