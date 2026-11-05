@@ -51,14 +51,21 @@ export function compareCodes(backendCodes, copyCodes, edits = new Set()) {
   }
 }
 
-function report({ missing, stale }) {
+function report({ missing, stale }, rules = {}) {
+  const unclassified = missing.filter((code) => rules[code]?.unclassified)
   if (missing.length > 0) {
     console.error(
       `\n${missing.length} backend upload error code${missing.length === 1 ? ' has' : 's have'} no entry in the frontend's ${DROPOUT_COPY_FILE}, so a user who meets one sees the catch-all or the service's technical message. Add an entry for each to that file:`
     )
     for (const code of missing) {
-      console.error(`  - ${code}`)
+      const isNew = unclassified.includes(code) ? ' (new to the explainer)' : ''
+      console.error(`  - ${code}${isNew}`)
     }
+  }
+  if (unclassified.length > 0) {
+    console.error(
+      `\n${unclassified.length} of them ${unclassified.length === 1 ? 'is' : 'are'} new to the validation explainer, so this check cannot tell whether ${unclassified.length === 1 ? 'it refuses' : 'each refuses'} an upload or a change made on screen, which needs no entry. Run /geopackage-validation-explainer to classify ${unclassified.length === 1 ? 'it' : 'them'} before adding copy.`
+    )
   }
   if (stale.length > 0) {
     console.error(
@@ -81,7 +88,10 @@ function writeSummary(result, context) {
 /**
  * For each code in `codes`: the explainer's plain-English description, unless
  * it is still an unrewritten draft, and the backend's description and raise
- * sites. A code new to the backend has only the backend's.
+ * sites. A code new to the backend has only the backend's, and is
+ * `unclassified`: the explainer's descriptions say which codes are edit rules,
+ * so this check cannot tell whether a new one is an edit rule, which owes the
+ * copy file nothing.
  */
 function rulesFor(codes, registry, backendDir) {
   if (codes.length === 0) {
@@ -94,6 +104,7 @@ function rulesFor(codes, registry, backendDir) {
       code,
       {
         plain: plain[code]?.drafted ? undefined : plain[code]?.checks,
+        unclassified: !plain[code],
         description: registry[code]?.description,
         raisedAt: sites[code]
       }
@@ -128,10 +139,8 @@ function main() {
   const result = compareCodes(backendCodes, inCopyFile, edits)
   const editCount = backendCodes.filter((code) => edits.has(code)).length
   const counts = { uploadCount: backendCodes.length - editCount, editCount }
-  writeSummary(
-    { ...result, ...counts },
-    { ...context, rules: rulesFor(result.missing, registry, backendDir) }
-  )
+  const rules = rulesFor(result.missing, registry, backendDir)
+  writeSummary({ ...result, ...counts }, { ...context, rules })
 
   if (result.missing.length === 0 && result.stale.length === 0) {
     console.log(
@@ -139,7 +148,7 @@ function main() {
     )
     return
   }
-  report(result)
+  report(result, rules)
   process.exit(1)
 }
 

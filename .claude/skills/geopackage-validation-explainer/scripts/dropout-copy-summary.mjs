@@ -93,11 +93,29 @@ const STOPGAP_TEMPLATE = (code) => `  ${code}:
     whenAlone: catch-all
     inList: service-message`
 
+const NEW_MARK = '🆕'
+
+/**
+ * A note for errors the validation explainer has not classified: one may
+ * refuse a change made on screen rather than an upload, and need no wording.
+ */
+function unclassifiedNote(unclassified) {
+  if (unclassified.length === 0) {
+    return []
+  }
+  const one = unclassified.length === 1
+  return [
+    `> **Check first:** **${one ? 'One of these errors is' : `${unclassified.length} of these errors are`} new to the validation explainer** (marked ${NEW_MARK}), so this check cannot yet tell whether ${one ? 'it refuses' : 'each refuses'} an uploaded file or a change made on screen. An error for a change made on screen never reaches the drop-out page, and needs no wording. Before anyone writes wording for ${one ? 'it' : 'them'}, a developer should run \`/geopackage-validation-explainer\` in bng-metric-harness to classify ${one ? 'it' : 'them'}. If ${one ? 'it is' : 'one is'} an on-screen error, this check stops asking for ${one ? 'it' : 'that one'}.`,
+    ''
+  ]
+}
+
 function missingSection(missing, rules, context) {
-  const rows = missing.map(
-    (code) =>
-      `| \`${code}\` | ${describe(code, rules)} | ${raisedIn(code, rules, context.backend?.commit)} |`
-  )
+  const unclassified = missing.filter((code) => rules[code]?.unclassified)
+  const rows = missing.map((code) => {
+    const mark = unclassified.includes(code) ? ` ${NEW_MARK}` : ''
+    return `| \`${code}\`${mark} | ${describe(code, rules)} | ${raisedIn(code, rules, context.backend?.commit)} |`
+  })
   const [first] = missing
   return [
     `### ${missing.length} upload error${missing.length === 1 ? '' : 's'} with no wording on the drop-out page`,
@@ -108,9 +126,10 @@ function missingSection(missing, rules, context) {
     '| --- | --- | --- |',
     ...rows,
     '',
+    ...unclassifiedNote(unclassified),
     '**What to do**',
     '',
-    `1. Agree the wording for each error with a content designer or BA. The table says what each one checks.`,
+    `1. Agree the wording for each error with a content designer or BA. The table says what each one checks.${unclassified.length > 0 ? ` For an error marked ${NEW_MARK}, classify it first, as above.` : ''}`,
     `2. Add an entry for each to ${context.copyFileLink} in bng-metric-frontend, by pull request. The file's header explains each field.`,
     '3. The check passes again on its next run once that pull request is merged.',
     '',
@@ -173,9 +192,10 @@ function footer(context) {
  * @param {number} result.editCount edit rules, which need no entry
  * @param {object} context
  * @param {string} context.copyFile the copy file's path in the frontend
- * @param {Record<string, {plain?: string, description?: string, raisedAt?: object[]}>} [context.rules]
- *   for each missing code: the explainer's plain-English description, and the
- *   backend's description and raise sites
+ * @param {Record<string, {plain?: string, unclassified?: boolean, description?: string, raisedAt?: object[]}>} [context.rules]
+ *   for each missing code: the explainer's plain-English description, whether
+ *   the explainer has yet to classify it, and the backend's description and
+ *   raise sites
  * @param {{commit?: string, branch?: string}} [context.backend]
  * @param {{commit?: string, branch?: string}} [context.frontend]
  * @returns {string}

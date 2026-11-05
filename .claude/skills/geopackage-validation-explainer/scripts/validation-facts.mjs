@@ -692,10 +692,13 @@ function fingerprint(entry) {
 }
 
 /**
- * What the document renders once rather than per rule. A change to any of
- * these is drift too, or check mode reports NO CHANGE over a document that
- * would rebuild differently: the link to a copy file the frontend has just
- * added, say.
+ * Facts about the run as a whole rather than one rule. A change to any of
+ * these is drift too. The document renders copyFile, so without it check
+ * mode would report NO CHANGE over a document that would rebuild differently:
+ * the link to a copy file the frontend has just added, say. The document does
+ * not render missingFromCopyFile; the run's summary reports it, and a code
+ * gaining or losing its entry is drift worth seeing even when the rebuilt
+ * document would be the same.
  */
 const DOCUMENT_FACTS = ['copyFile', 'missingFromCopyFile']
 

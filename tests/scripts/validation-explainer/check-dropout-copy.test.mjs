@@ -118,7 +118,9 @@ describe("check-dropout-copy.mjs", () => {
     run("differs");
     const text = summary();
     expect(text).toContain("## ⚠️ Drop-out page wording needs attention");
-    expect(text).toContain("| `SECOND` |");
+    // SECOND is in no description, so the explainer has yet to classify it.
+    expect(text).toContain("| `SECOND` 🆕 |");
+    expect(text).toContain("new to the validation explainer");
     expect(text).toContain("| `GONE` |");
     expect(text).toContain("**What to do**");
   });
@@ -191,6 +193,35 @@ describe("renderSummary", () => {
     );
     expect(text).toContain("| First sentence. Second sentence. |");
     expect(text).toContain("Not raised anywhere yet");
+  });
+
+  it("marks a missing error the explainer has not classified, as it may be an edit rule", () => {
+    const text = renderSummary(
+      { missing: ["KNOWN", "BRAND_NEW"], stale: [], ...counts },
+      {
+        ...context,
+        rules: {
+          KNOWN: { plain: "Known." },
+          BRAND_NEW: { description: "New.", unclassified: true },
+        },
+      },
+    );
+    expect(text).toContain("| `BRAND_NEW` 🆕 |");
+    expect(text).toContain("| `KNOWN` |");
+    expect(text).toContain(
+      "> **Check first:** **One of these errors is new to the validation explainer**",
+    );
+    expect(text).toContain("/geopackage-validation-explainer");
+    expect(text).toContain("For an error marked 🆕, classify it first");
+  });
+
+  it("says nothing of classifying when every missing error is known to the explainer", () => {
+    const text = renderSummary(
+      { missing: ["KNOWN"], stale: [], ...counts },
+      { ...context, rules: { KNOWN: { plain: "Known." } } },
+    );
+    expect(text).not.toContain("new to the validation explainer");
+    expect(text).not.toContain("🆕");
   });
 
   it("lists each entry for an error the service no longer has, and what to do", () => {
