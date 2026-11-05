@@ -132,6 +132,10 @@ Valid schema and geometry: an attribute value trips a later validator, or a habi
 | `degrade-not-worse.gpkg` | a same-type creation that is not worse: a hedgerow Created in its own type, linked to its parent, with 30+ years in advance, in its baseline condition (a 30+ on a row that does not get worse overstates its units) | STAGED_DEGRADE_NOT_WORSE | seed 1, flaw `degrade-not-worse` |
 | `degrade-watercourse-retained-and-created.gpkg` | a baseline watercourse has both a Retained and a Created post-intervention part. The template records part of a stretch changing by splitting it at the baseline survey, as the service cannot measure part of a watercourse | STAGED_WATERCOURSE_RETAINED_AND_CREATED | seed 1, flaw `degrade-watercourse-retained-and-created` |
 | `degrade-habitat-ref-blank.gpkg` | an area habitat that gets worse has an empty Habitat Ref on its post-intervention row only; its baseline row keeps its ref, so only a check of the post-intervention tables finds it | HABITAT_REF_MISSING | seed 1, flaw `degrade-habitat-ref-blank` |
+| `baseline-significance-high.gpkg` | `valid/default-site.gpkg` with the Retained woodland H002's Baseline Strategic Significance `High` in both stages: a value the template's drop-down does not offer, as the Metric guide puts every baseline habitat at Low | accepted, its baseline strategic significance stored and priced as Low | `valid/default-site.gpkg`, edited by SQL |
+| `degrade-area-advance-missing.gpkg` | `valid/default-site.gpkg` with H043, an area habitat that gets worse (Created in its own type, linked to its parent, in a lower condition), given no years created in advance, where the Metric asks for 30 plus | STAGED_DEGRADE_ADVANCE_NOT_30_PLUS | `valid/default-site.gpkg`, edited by SQL |
+| `degrade-vertical-area-advance-missing.gpkg` | `valid/default-site.gpkg` with V005, a vertical area habitat that gets worse (Created in its own type, linked to its parent, in a lower condition), given no years created in advance, where the Metric asks for 30 plus | STAGED_DEGRADE_ADVANCE_NOT_30_PLUS | `valid/default-site.gpkg`, edited by SQL |
+| `watercourse-culvert-left-out.gpkg` | `valid/default-site.gpkg` with the Retained culvert R001's post-intervention row left out, so it is lost. Only a canal or a ditch may be lost; this stands in for a natural river left out (see the gaps below) | STAGED_NATURAL_WATERCOURSE_LOST | `valid/default-site.gpkg`, edited by SQL |
 | `irreplaceable-area-habitat.gpkg` | `valid/default-site.gpkg` with its woodland parcel marked irreplaceable (Irreplaceable Habitat `Yes`) in both stages | refused. Accepted today: the service does not check irreplaceable habitats yet | seed 1, irreplaceable `habitats` |
 | `irreplaceable-tree.gpkg` | `valid/default-site.gpkg` with one Retained tree marked irreplaceable (a veteran tree) in both stages | refused. Accepted today: the service does not check irreplaceable habitats yet | seed 1, irreplaceable `trees` |
 
@@ -158,13 +162,14 @@ A watercourse that gets worse is recorded in a way the service saves as Incomple
 
 ## version-problems/
 
-The template version record is missing, doubled or unsupported.
+The template version record is missing, doubled, unreadable or unsupported.
 
 | File | Covers | Expected | Built from |
 | ---- | ------ | -------- | ---------- |
 | `version-record-missing.gpkg` | the GeoPackage has no template version record | TEMPLATE_VERSION_MISSING | seed 1, flaw `version-record-missing` |
 | `version-record-duplicated.gpkg` | the GeoPackage has two template version records | TEMPLATE_VERSION_DUPLICATED | seed 1, flaw `version-record-duplicated` |
 | `version-unsupported.gpkg` | the template version record names a version the service does not support (the next major version after 1.0) | TEMPLATE_VERSION_UNSUPPORTED | seed 1, flaw `version-unsupported` |
+| `version-record-invalid.gpkg` | `valid/default-site.gpkg` with a template version record that names the bng-service format but no version, so it cannot be read | TEMPLATE_VERSION_INVALID | `valid/default-site.gpkg`, edited by SQL |
 
 ## bng-500/
 
@@ -196,6 +201,6 @@ A valid file; only the upload's own file name is invalid.
 
 ## Gaps
 
-- A natural river left out, and an irreplaceable tree that gets worse: the service refuses either file for another reason first, so a fixture could not show the rule. Natural rivers (Other rivers and streams, High; Priority habitat, V.High) are out of the service's scope, and only canals and ditches may be lost (a culvert left out is refused, STAGED_NATURAL_WATERCOURSE_LOST); an irreplaceable tree is refused whether or not it gets worse (`attribute-problems/irreplaceable-tree.gpkg`).
+- A natural river left out, and an irreplaceable tree that gets worse: the service refuses either file for another reason first, so a fixture could not show the rule. Natural rivers (Other rivers and streams, High; Priority habitat, V.High) are out of the service's scope, and only canals and ditches may be lost (a culvert left out is refused, STAGED_NATURAL_WATERCOURSE_LOST: `attribute-problems/watercourse-culvert-left-out.gpkg`); an irreplaceable tree is refused whether or not it gets worse (`attribute-problems/irreplaceable-tree.gpkg`).
 - Individual trees with varied counts: the template has no Count column, and how several trees are recorded is undecided (BMD-1171, BMD-1172).
 - The harness's import-timing scenarios: they edit legacy files, so `permutations/` builds them in the legacy format only.
