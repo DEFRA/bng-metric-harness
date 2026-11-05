@@ -592,6 +592,27 @@ describe("the fixtures derived for QA's BMD-1086 scenarios", () => {
       ).toEqual([{ ref: "H002" }]);
     }
   });
+
+  it("vertical-area-missing.gpkg blanks the Area of the vertical habitat the default site loses", () => {
+    const fixture = habitat(
+      builtAt("attribute-problems/vertical-area-missing.gpkg"),
+      "Vertical Area Habitats",
+      "V004",
+    );
+    // No post-intervention row, so the blank fails the Area check alone: a
+    // linked child would also outgrow a parent of 0.
+    expect(fixture.post).toEqual([]);
+    expect(fixture.baseline.Area).toBeNull();
+    // The default site types an Area above 0 and loses V004 too, so the
+    // edit is what breaks the rule.
+    const base = habitat(
+      builtAt(DEFAULT_SITE),
+      "Vertical Area Habitats",
+      "V004",
+    );
+    expect(base.post).toEqual([]);
+    expect(base.baseline.Area).toBeGreaterThan(0);
+  });
 });
 
 // Read from the committed files, so they need no converter and run
