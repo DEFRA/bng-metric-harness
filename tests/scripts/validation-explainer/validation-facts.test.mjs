@@ -422,13 +422,11 @@ describe("extractCopyStatus and copyStatus", () => {
 
 const DROPOUT_COPY = `errors:
   OWN_COPY:
-    copyFrom: acceptance criteria
     whenAlone:
       title: A title
       body: A body.
     inList: service-message
   SEVERAL_PAGES:
-    copyFrom: acceptance criteria
     whenAlone:
       - title: One {ref}
         body: A body.
@@ -436,20 +434,16 @@ const DROPOUT_COPY = `errors:
         body: A body.
     inList: service-message
   LISTED_WITH_HEADING:
-    copyFrom: developer wording
     whenAlone: list
     inList:
       heading: Its own heading
   LISTED_UNDER_MESSAGE:
-    copyFrom: none
     whenAlone: list
     inList: service-message
   AWAITING_UCD:
-    copyFrom: placeholder
     whenAlone: placeholder
     inList: service-message
   NO_COPY:
-    copyFrom: none
     whenAlone: catch-all
     inList: service-message
 `;

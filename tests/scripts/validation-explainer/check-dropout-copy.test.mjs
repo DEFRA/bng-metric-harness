@@ -20,7 +20,6 @@ function copyFile(codes) {
   const entries = codes
     .map(
       (code) => `  ${code}:
-    copyFrom: none
     whenAlone: catch-all
     inList: service-message
 `,
