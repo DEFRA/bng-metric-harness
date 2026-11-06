@@ -19,7 +19,7 @@ import { writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { readTextFile, argValue, isMain } from './_lib.mjs'
 
-const DESCRIPTIONS_FILE = path.join(
+export const DESCRIPTIONS_FILE = path.join(
   import.meta.dirname,
   '..',
   'references',
@@ -29,6 +29,7 @@ const DESCRIPTIONS_FILE = path.join(
 const NO_FIXTURE = 'no geopackage fixture'
 const SEEN = {
   dedicated: 'its own message',
+  'list-copy': 'its own message, listing what it names',
   'backend-message': "the service's own message, listing what it names",
   placeholder: 'a placeholder',
   'catch-all': 'a generic message'
@@ -196,6 +197,7 @@ export function uploadSummary(facts, descriptions) {
   return {
     total: entries.length,
     dedicatedCopy: withCopy('dedicated'),
+    listCopy: withCopy('list-copy'),
     backendMessageCopy: withCopy('backend-message'),
     placeholderCopy: withCopy('placeholder'),
     catchAllCopy: withCopy('catch-all'),
@@ -263,6 +265,28 @@ function branchClause(provenance) {
   }
 }
 
+const FRONTEND_REPO_URL = 'https://github.com/DEFRA/bng-metric-frontend'
+
+/**
+ * Where to read and review the wording the user sees, for a frontend that
+ * keeps it in one copy file; nothing for one that predates it.
+ */
+// The frontend branch the document was built from, so the link shows the copy
+// it describes, even before that branch merges; main for a detached checkout
+// or a run with no provenance.
+function copyFileBranch(facts) {
+  const branch = facts.provenance?.frontend?.branch
+  return branch && branch !== 'HEAD' ? encodeURI(branch) : 'main'
+}
+
+function copyFileSentence(facts) {
+  if (!facts.copyFile) {
+    return ''
+  }
+  const file = facts.copyFile.split(path.sep).join('/')
+  return `\n\nThe wording the user is shown for each rule, on its own and in a list, is kept in one file in the frontend: [\`${file}\`](${FRONTEND_REPO_URL}/blob/${copyFileBranch(facts)}/${file}). Review or change the copy there.`
+}
+
 const SHORT_COMMIT_LENGTH = 7
 const ISO_DATE_LENGTH = 10
 
@@ -279,7 +303,7 @@ Every rule the BNG Metric service applies to an uploaded GeoPackage: what each o
 
 **This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running \`/geopackage-validation-explainer\` in \`bng-metric-harness\`. It reflects backend \`${short(p.backend?.commit)}\`, frontend \`${short(p.frontend?.commit)}\` and bng-library \`${short(p.library?.commit)}\`${branchClause(p)}, and was generated on ${date}.
 
-For how biodiversity units are calculated once a file is accepted, see [rules-engine-explained.md](rules-engine-explained.md).
+For how biodiversity units are calculated once a file is accepted, see [rules-engine-explained.md](rules-engine-explained.md).${copyFileSentence(facts)}
 
 ## How to read this
 
@@ -288,7 +312,7 @@ Every rule under [The rules](#the-rules) **rejects the upload**: nothing is save
 Two things worth knowing before using the table:
 
 - **The structural rules run first and stop the upload.** Nothing in the geometry or habitat-data groups is reached until the file format, layer, column and coordinate-system rules all pass. Expect to fix a file in two rounds rather than one.
-- **What you see on screen often does not identify the rule.** Of ${s.total} rules, ${s.dedicatedCopy} have a message of their own, ${s.backendMessageCopy} show the service's own message as a list of what it names, ${s.placeholderCopy} show a placeholder, and ${s.catchAllCopy} fall back to a generic message about layer and column names when they are the only fault. Each row records which applies.
+- **What you see on screen often does not identify the rule.** Of ${s.total} rules, ${s.dedicatedCopy} have a message of their own, ${s.listCopy} show a message of their own as a list of what it names, ${s.backendMessageCopy} show the service's own message as a list of what it names, ${s.placeholderCopy} show a placeholder, and ${s.catchAllCopy} fall back to a generic message about layer and column names when they are the only fault. Each row records which applies.
 
 Example files are paths under \`example-files/\` in this repository, worked out by running the real validation gate over every fixture and recording which rule it reports. That directory is a reference corpus for people, not something the service reads, and \`journey-tests\` and \`backend\` keep their own separate copies — so a rule with an example file here is not necessarily covered by an automated test.
 
@@ -300,6 +324,7 @@ ${buildTable(facts.codes, descriptions, tolerances)}${buildEditSection(facts.cod
 | --- | --- |
 | Rules that can reject an upload | ${s.total} |
 | With a message written for them | ${s.dedicatedCopy} |
+| With a message written for them, as a list | ${s.listCopy} |
 | Showing the service's own message, as a list | ${s.backendMessageCopy} |
 | Showing a placeholder message | ${s.placeholderCopy} |
 | Falling back to a generic message | ${s.catchAllCopy} |

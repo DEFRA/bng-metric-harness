@@ -2,10 +2,13 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   copyStatus,
+  copyStatusFromCopyFile,
+  diffFacts,
   extractCopyStatus,
   extractExampleFixtures,
   extractFixtures,
   extractTolerances,
+  missingFromCopyFile,
   readmeClaims,
 } from "../../../.claude/skills/geopackage-validation-explainer/scripts/validation-facts.mjs";
 import { scratchDir } from "./_fixtures.mjs";
@@ -61,7 +64,10 @@ describe("readmeClaims", () => {
         codeCell: -2,
       },
       {
-        readme: dir.write("service-template/README.md", SERVICE_TEMPLATE_README),
+        readme: dir.write(
+          "service-template/README.md",
+          SERVICE_TEMPLATE_README,
+        ),
         prefix: "service-template/",
         codeCell: -3,
       },
@@ -77,12 +83,12 @@ describe("readmeClaims", () => {
   });
 
   it("reads the service-template README's Expected column, quoted or not, under its prefix", () => {
-    expect(claims["service-template/lineage-problems/lineage-parent-missing.gpkg"]).toBe(
-      "STAGED_PARENT_LINK_MISSING",
-    );
-    expect(claims["service-template/lineage-problems/lineage-parent-quoted.gpkg"]).toBe(
-      "STAGED_UNKNOWN_PARENT_REF",
-    );
+    expect(
+      claims["service-template/lineage-problems/lineage-parent-missing.gpkg"],
+    ).toBe("STAGED_PARENT_LINK_MISSING");
+    expect(
+      claims["service-template/lineage-problems/lineage-parent-quoted.gpkg"],
+    ).toBe("STAGED_UNKNOWN_PARENT_REF");
   });
 
   it("claims nothing for an outcome, an empty cell, a table without the column, or a row above every heading", () => {
@@ -95,7 +101,9 @@ describe("readmeClaims", () => {
 
   it("claims nothing for a README that is not there", () => {
     expect(
-      readmeClaims([{ readme: path.join(dir.root, "missing.md"), prefix: "", codeCell: -2 }]),
+      readmeClaims([
+        { readme: path.join(dir.root, "missing.md"), prefix: "", codeCell: -2 },
+      ]),
     ).toEqual({});
   });
 });
@@ -117,7 +125,13 @@ describe("extractExampleFixtures", () => {
 
   beforeAll(() => {
     dir = scratchDir();
-    for (const file of ["agrees", "passes-gate", "contradicted", "stale", "unclaimed"]) {
+    for (const file of [
+      "agrees",
+      "passes-gate",
+      "contradicted",
+      "stale",
+      "unclaimed",
+    ]) {
       dir.write(`examples/dir/${file}.gpkg`, "");
     }
     const observedByCode = {
@@ -131,9 +145,17 @@ describe("extractExampleFixtures", () => {
       "dir/stale.gpkg": [],
     };
     result = extractExampleFixtures(observedByCode, observedByFile, {
-      readmes: [{ readme: dir.write("README.md", README), prefix: "", codeCell: -2 }],
+      readmes: [
+        { readme: dir.write("README.md", README), prefix: "", codeCell: -2 },
+      ],
       examplesDir: path.join(dir.root, "examples"),
-      registryCodes: new Set(["CODE_A", "CODE_B", "CODE_C", "CODE_D", "CODE_Z"]),
+      registryCodes: new Set([
+        "CODE_A",
+        "CODE_B",
+        "CODE_C",
+        "CODE_D",
+        "CODE_Z",
+      ]),
     });
   });
 
@@ -158,7 +180,9 @@ describe("extractExampleFixtures", () => {
 
   it("reports a README claim for a code the registry no longer defines, and maps no file to it", () => {
     expect(result.byCode.CODE_GONE).toBeUndefined();
-    expect(result.withoutCode).toEqual(["dir/stale.gpkg — README says CODE_GONE"]);
+    expect(result.withoutCode).toEqual([
+      "dir/stale.gpkg — README says CODE_GONE",
+    ]);
   });
 
   it("lists the files on disk that no rule claims, a stale claim's included", () => {
@@ -256,7 +280,10 @@ describe("extractFixtures", () => {
 
   it("names a quoted key and a bare one, with a description before or after the code", () => {
     expect(fixtures.AREA_PARCELS_INVALID_GEOMETRY).toEqual([
-      { name: "bowtie-parcel", description: "one habitat parcel drawn as a bowtie" },
+      {
+        name: "bowtie-parcel",
+        description: "one habitat parcel drawn as a bowtie",
+      },
     ]);
     expect(fixtures.SLIVERS_OUTSIDE_REDLINE).toEqual([
       { name: "sliver", description: "a sliver between parcels" },
@@ -271,12 +298,16 @@ describe("extractFixtures", () => {
       },
       {
         name: "lineage-parent-geom-missing",
-        description: "a Retained parcel with no shape where its baseline had one",
+        description:
+          "a Retained parcel with no shape where its baseline had one",
       },
     ]);
     expect(fixtures.HABITAT_REF_MISSING).toEqual([
       { name: "missing-ref", description: "a parcel with no habitat ref" },
-      { name: "service-missing-ref", description: "a BNG Service parcel with no habitat ref" },
+      {
+        name: "service-missing-ref",
+        description: "a BNG Service parcel with no habitat ref",
+      },
     ]);
   });
 
@@ -288,7 +319,10 @@ describe("extractFixtures", () => {
       },
     ]);
     expect(fixtures.VERTICAL_HABITATS_OUTSIDE_REDLINE).toEqual([
-      { name: "iggi-outside", description: "an IGGI is placed outside the redline" },
+      {
+        name: "iggi-outside",
+        description: "an IGGI is placed outside the redline",
+      },
     ]);
   });
 });
@@ -378,9 +412,15 @@ describe("extractCopyStatus and copyStatus", () => {
 
   beforeAll(() => {
     dir = scratchDir();
-    dir.write("frontend/src/server/error-file/single-error-copy.js", SINGLE_ERROR_COPY);
+    dir.write(
+      "frontend/src/server/error-file/single-error-copy.js",
+      SINGLE_ERROR_COPY,
+    );
     dir.write("frontend/src/server/error-file/controller.js", CONTROLLER);
-    dir.write("old-frontend/src/server/error-file/single-error-copy.js", SINGLE_ERROR_COPY);
+    dir.write(
+      "old-frontend/src/server/error-file/single-error-copy.js",
+      SINGLE_ERROR_COPY,
+    );
     sets = extractCopyStatus(path.join(dir.root, "frontend"));
   });
 
@@ -408,9 +448,160 @@ describe("extractCopyStatus and copyStatus", () => {
     expect(copyStatus(code, sets)).toBe(status);
   });
 
+  it("reads a frontend's copy from its code when it has no copy file", () => {
+    expect(sets.inCopyFile).toBeNull();
+    expect(sets.listCopy.size).toBe(0);
+  });
+
   it("shows nothing as a list for a frontend with no controller", () => {
     const old = extractCopyStatus(path.join(dir.root, "old-frontend"));
     expect(old.shownAsList.size).toBe(0);
     expect(copyStatus("STAGED_PARENT_LINK_MISSING", old)).toBe("catch-all");
   });
+});
+
+const DROPOUT_COPY = `errors:
+  OWN_COPY:
+    whenAlone:
+      title: A title
+      body: A body.
+    inList: service-message
+  SEVERAL_PAGES:
+    whenAlone:
+      - title: One {ref}
+        body: A body.
+      - title: Other
+        body: A body.
+    inList: service-message
+  LISTED_WITH_HEADING:
+    whenAlone: list
+    inList:
+      heading: Its own heading
+  LISTED_UNDER_MESSAGE:
+    whenAlone: list
+    inList: service-message
+  AWAITING_UCD:
+    whenAlone: placeholder
+    inList: service-message
+  NO_COPY:
+    whenAlone: catch-all
+    inList: service-message
+`;
+
+describe("extractCopyStatus from the frontend's copy file", () => {
+  let dir;
+  let sets;
+
+  beforeAll(() => {
+    dir = scratchDir();
+    // The copy file wins over the code it replaced, were both present.
+    dir.write(
+      "frontend/src/server/error-file/single-error-copy.js",
+      SINGLE_ERROR_COPY,
+    );
+    dir.write("frontend/src/server/error-file/dropout-copy.yaml", DROPOUT_COPY);
+    sets = extractCopyStatus(path.join(dir.root, "frontend"));
+  });
+
+  afterAll(() => dir.remove());
+
+  it.each([
+    ["OWN_COPY", "dedicated"],
+    ["SEVERAL_PAGES", "dedicated"],
+    ["LISTED_WITH_HEADING", "list-copy"],
+    ["LISTED_UNDER_MESSAGE", "backend-message"],
+    ["AWAITING_UCD", "placeholder"],
+    ["NO_COPY", "catch-all"],
+    ["NOT_IN_THE_FILE", "catch-all"],
+  ])("gives %s the status %s", (code, status) => {
+    expect(copyStatus(code, sets)).toBe(status);
+  });
+
+  it("names every code the file has an entry for", () => {
+    expect([...sets.inCopyFile].toSorted()).toEqual([
+      "AWAITING_UCD",
+      "LISTED_UNDER_MESSAGE",
+      "LISTED_WITH_HEADING",
+      "NO_COPY",
+      "OWN_COPY",
+      "SEVERAL_PAGES",
+    ]);
+  });
+});
+
+describe("the copy file's document-level facts", () => {
+  const facts = (extra) => ({ codes: {}, ...extra });
+  const FILE = "src/server/error-file/dropout-copy.yaml";
+
+  it("reports a copy file appearing as drift, with no code changed", () => {
+    const diff = diffFacts(
+      facts({ copyFile: null, missingFromCopyFile: null }),
+      facts({ copyFile: FILE, missingFromCopyFile: [] }),
+    );
+    expect(diff.changed).toEqual([]);
+    expect(diff.documentChanged).toEqual(["copyFile", "missingFromCopyFile"]);
+  });
+
+  it("reports a change to the codes missing from the copy file as drift", () => {
+    const diff = diffFacts(
+      facts({ copyFile: FILE, missingFromCopyFile: [] }),
+      facts({ copyFile: FILE, missingFromCopyFile: ["NEW_CODE"] }),
+    );
+    expect(diff.documentChanged).toEqual(["missingFromCopyFile"]);
+  });
+
+  it("reports no drift when neither changes", () => {
+    const same = facts({ copyFile: FILE, missingFromCopyFile: [] });
+    expect(diffFacts(same, same).documentChanged).toEqual([]);
+  });
+
+  it("leaves edit rules out of the codes missing from the copy file", () => {
+    expect(
+      missingFromCopyFile(
+        ["UPLOAD_CODE", "EDIT_CODE", "COVERED"],
+        new Set(["COVERED"]),
+        new Set(["EDIT_CODE"]),
+      ),
+    ).toEqual(["UPLOAD_CODE"]);
+  });
+});
+
+describe("copyStatusFromCopyFile's layouts", () => {
+  it("reads error-text.yaml's upload section, and its edit section's codes", () => {
+    const sets = copyStatusFromCopyFile(
+      "upload:\n  errors:\n    UP:\n      whenAlone: catch-all\nedit:\n  ED: placeholder\n",
+    );
+    expect([...sets.inCopyFile]).toEqual(["UP"]);
+    expect([...sets.inEditSection]).toEqual(["ED"]);
+  });
+
+  it("reads the older dropout-copy.yaml, which has no edit section", () => {
+    const sets = copyStatusFromCopyFile(
+      "errors:\n  UP:\n    whenAlone: catch-all\n",
+    );
+    expect([...sets.inCopyFile]).toEqual(["UP"]);
+    expect(sets.inEditSection).toBeNull();
+  });
+});
+
+describe("copyStatusFromCopyFile's whenAlone", () => {
+  const status = (whenAlone) =>
+    copyStatusFromCopyFile(`errors:\n  CODE:\n    whenAlone: ${whenAlone}\n`);
+
+  it("does not count a blank whenAlone as copy of its own", () => {
+    const sets = status("");
+    expect(sets.dedicated.has("CODE")).toBe(false);
+    expect(sets.unrecognised).toEqual(["CODE"]);
+  });
+
+  it("names a whenAlone it does not recognise", () => {
+    expect(status("lsit").unrecognised).toEqual(["CODE"]);
+  });
+
+  it.each(["list", "placeholder", "catch-all", "{ title: T, body: B }"])(
+    "recognises %s",
+    (whenAlone) => {
+      expect(status(whenAlone).unrecognised).toEqual([]);
+    },
+  );
 });

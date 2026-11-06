@@ -19,7 +19,9 @@
  *   node validation-facts.mjs --out facts.json [--compare facts.json]
  */
 import { writeFileSync, existsSync, mkdirSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
+import { load as loadYaml } from 'js-yaml'
 import {
   HARNESS_ROOT,
   SOURCES,
@@ -33,8 +35,40 @@ import {
   argValue,
   isMain
 } from './_lib.mjs'
+import {
+  DESCRIPTIONS_FILE,
+  EDIT_GROUP,
+  loadDescriptions
+} from './build-document.mjs'
 
 const ERRORS_FILE = path.join('src', 'validation', 'geopackage', 'errors.js')
+/**
+ * The frontend's error text: every customer-facing error message, the drop-out
+ * page's under `upload`, in a frontend that has it.
+ */
+export const ERROR_TEXT_FILE = path.join(
+  'src',
+  'server',
+  'common',
+  'error-text',
+  'error-text.yaml'
+)
+/** The drop-out page's copy alone, at the root, in a frontend before the error text. */
+export const DROPOUT_COPY_FILE = path.join(
+  'src',
+  'server',
+  'error-file',
+  'dropout-copy.yaml'
+)
+
+/** Where the frontend keeps the drop-out page's copy, or null for one that predates both files. */
+export function copyFileIn(frontendDir) {
+  return (
+    [ERROR_TEXT_FILE, DROPOUT_COPY_FILE].find((file) =>
+      existsSync(path.join(frontendDir, file))
+    ) ?? null
+  )
+}
 const COPY_FILE = path.join('src', 'server', 'error-file', 'single-error-copy.js')
 const CONTROLLER_FILE = path.join('src', 'server', 'error-file', 'controller.js')
 /**
@@ -65,6 +99,7 @@ const MAX_MESSAGE_CHARS = 200
 const CODE_KEY_PATTERN = /^ {2}([A-Z][A-Z0-9_]*):/gm
 const COPY_STATUS = Object.freeze({
   DEDICATED: 'dedicated',
+  LIST_COPY: 'list-copy',
   BACKEND_MESSAGE: 'backend-message',
   PLACEHOLDER: 'placeholder',
   CATCH_ALL: 'catch-all'
@@ -73,7 +108,7 @@ const COPY_STATUS = Object.freeze({
 // ---------------------------------------------------------------- extraction
 
 /** Every code in the backend's ERROR_CODES registry, with its doc comment. */
-function extractRegistry(backendDir) {
+export function extractRegistry(backendDir) {
   const text = readTextFile(path.join(backendDir, ERRORS_FILE))
   const block = balancedBraceBlock(text, text.indexOf('Object.freeze'))
   if (!block) {
@@ -162,7 +197,7 @@ function messageAfter(text, referenceIndex, referenceLength) {
 }
 
 /** Where each code is raised in the backend, and what it says when it is. */
-function extractRaiseSites(backendDir, codes) {
+export function extractRaiseSites(backendDir, codes) {
   const sites = Object.fromEntries(Object.keys(codes).map((code) => [code, []]))
   const files = walkSourceFiles(path.join(backendDir, BACKEND_SOURCE_DIR), [
     '.js',
@@ -190,6 +225,61 @@ function extractRaiseSites(backendDir, codes) {
 
 /** What the user is actually shown for each code. */
 export function extractCopyStatus(frontendDir) {
+  const copyFile = copyFileIn(frontendDir)
+  return copyFile
+    ? copyStatusFromCopyFile(readTextFile(path.join(frontendDir, copyFile)))
+    : copyStatusFromCode(frontendDir)
+}
+
+/**
+ * From dropout-copy.yaml: a code whose whenAlone is copy has its own message,
+ * one whose whenAlone is "list" is shown as its list (under its own heading,
+ * or else the backend's message), and "placeholder" shows the placeholder.
+ * `inCopyFile` is every code the file names, so a backend code missing from
+ * it can be reported.
+ */
+export function copyStatusFromCopyFile(source) {
+  const document = loadYaml(source) ?? {}
+  // error-text.yaml holds the drop-out page's copy under upload; the older
+  // dropout-copy.yaml at its root.
+  const errors = (document.upload ?? document).errors ?? {}
+  const dedicated = new Set()
+  const placeholder = new Set()
+  const shownAsList = new Set()
+  const listCopy = new Set()
+  // A whenAlone that is none of these (blank, or a typo such as "lsit") falls
+  // to the catch-all on the page, so it is named rather than counted quietly.
+  const unrecognised = []
+  for (const [code, entry] of Object.entries(errors)) {
+    const whenAlone = entry?.whenAlone
+    if (whenAlone !== null && typeof whenAlone === 'object') {
+      dedicated.add(code)
+    } else if (whenAlone === 'placeholder') {
+      placeholder.add(code)
+    } else if (whenAlone === 'list') {
+      shownAsList.add(code)
+      if (entry.inList?.heading) {
+        listCopy.add(code)
+      }
+    } else if (whenAlone !== 'catch-all') {
+      unrecognised.push(code)
+    }
+  }
+  return {
+    dedicated,
+    placeholder,
+    shownAsList,
+    listCopy,
+    unrecognised,
+    inCopyFile: new Set(Object.keys(errors)),
+    // The codes worded for an edit refused on screen; null in a file with no
+    // edit section, which predates it.
+    inEditSection: document.edit ? new Set(Object.keys(document.edit)) : null
+  }
+}
+
+/** For a frontend that predates dropout-copy.yaml, from the copy's code. */
+function copyStatusFromCode(frontendDir) {
   const text = readTextFile(path.join(frontendDir, COPY_FILE))
 
   const entriesBlock = balancedBraceBlock(text, text.indexOf('CODE_ENTRIES'))
@@ -210,7 +300,13 @@ export function extractCopyStatus(frontendDir) {
       : []
   )
 
-  return { dedicated, placeholder, shownAsList: extractShownAsList(frontendDir) }
+  return {
+    dedicated,
+    placeholder,
+    shownAsList: extractShownAsList(frontendDir),
+    listCopy: new Set(),
+    inCopyFile: null
+  }
 }
 
 /**
@@ -487,10 +583,15 @@ export function extractExampleFixtures(
 // ------------------------------------------------------------------ assembly
 
 /** What the user is shown for `code`, from the sets extractCopyStatus gives. */
-export function copyStatus(code, { dedicated, placeholder, shownAsList }) {
+export function copyStatus(
+  code,
+  { dedicated, placeholder, shownAsList, listCopy = new Set() }
+) {
   // Never reaches single-error copy, so neither of the others applies.
   if (shownAsList.has(code)) {
-    return COPY_STATUS.BACKEND_MESSAGE
+    return listCopy.has(code)
+      ? COPY_STATUS.LIST_COPY
+      : COPY_STATUS.BACKEND_MESSAGE
   }
   if (dedicated.has(code)) {
     return COPY_STATUS.DEDICATED
@@ -501,6 +602,63 @@ export function copyStatus(code, { dedicated, placeholder, shownAsList }) {
   return COPY_STATUS.CATCH_ALL
 }
 
+/**
+ * The upload codes the copy file has no entry for. An edit rule refuses a
+ * change made on screen, never an upload, so the drop-out page never shows
+ * it and the file owes it nothing.
+ *
+ * @param {string[]} codes
+ * @param {Set<string>} inCopyFile
+ * @param {Set<string>} edits
+ */
+export function missingFromCopyFile(codes, inCopyFile, edits = new Set()) {
+  return codes.filter((code) => !inCopyFile.has(code) && !edits.has(code))
+}
+
+/**
+ * Where a customer can meet each backend code ("upload", "edit"), as the
+ * backend declares it in ERROR_CODE_SURFACES; null for a backend that
+ * predates it. errors.js imports nothing today, so it is loaded as it is,
+ * with no install. A file that will not load is an error, not an older
+ * backend: falling back then would quietly drop the edit check.
+ */
+export function backendSurfaces(backendDir) {
+  let errors
+  try {
+    errors = createRequire(import.meta.url)(path.join(backendDir, ERRORS_FILE))
+  } catch (error) {
+    throw new Error(
+      `Could not load the backend's ${ERRORS_FILE}, which says where a customer meets each error code: ${error.message}`,
+      { cause: error }
+    )
+  }
+  return errors.ERROR_CODE_SURFACES ?? null
+}
+
+/**
+ * The codes that never reach the drop-out page: those the backend declares
+ * are met only on an edit, or, for a backend that predates that, the edit
+ * rules by their group in the descriptions (none before they exist).
+ */
+export function editCodes(backendDir) {
+  const surfaces = backendDir ? backendSurfaces(backendDir) : null
+  if (surfaces) {
+    return new Set(
+      Object.entries(surfaces)
+        .filter(([, where]) => !where.includes('upload'))
+        .map(([code]) => code)
+    )
+  }
+  if (!existsSync(DESCRIPTIONS_FILE)) {
+    return new Set()
+  }
+  return new Set(
+    Object.entries(loadDescriptions())
+      .filter(([, entry]) => entry.group === EDIT_GROUP)
+      .map(([code]) => code)
+  )
+}
+
 function buildFacts() {
   const dirs = Object.fromEntries(
     Object.keys(SOURCES).map((key) => [key, locateSource(key)])
@@ -508,9 +666,7 @@ function buildFacts() {
 
   const registry = extractRegistry(dirs.backend)
   const raiseSites = extractRaiseSites(dirs.backend, registry)
-  const { dedicated, placeholder, shownAsList } = extractCopyStatus(
-    dirs.frontend
-  )
+  const copySets = extractCopyStatus(dirs.frontend)
   const fixtures = extractFixtures(dirs.library)
   const observedPath = argValue('--observed')
   const observed =
@@ -526,7 +682,7 @@ function buildFacts() {
   for (const [code, meta] of Object.entries(registry)) {
     codes[code] = {
       description: meta.description,
-      copy: copyStatus(code, { dedicated, placeholder, shownAsList }),
+      copy: copyStatus(code, copySets),
       raisedAt: raiseSites[code] ?? [],
       fixtures: fixtures[code] ?? [],
       exampleFiles: examples.byCode[code] ?? []
@@ -542,6 +698,7 @@ function buildFacts() {
     summary: {
       total: values.length,
       dedicatedCopy: values.filter((c) => c.copy === COPY_STATUS.DEDICATED).length,
+      listCopy: values.filter((c) => c.copy === COPY_STATUS.LIST_COPY).length,
       backendMessageCopy: values.filter(
         (c) => c.copy === COPY_STATUS.BACKEND_MESSAGE
       ).length,
@@ -553,6 +710,17 @@ function buildFacts() {
       neverRaised: values.filter((c) => c.raisedAt.length === 0).length
     },
     codes,
+    // Where the frontend keeps the drop-out page's copy, and the codes it has
+    // no entry for; null for a frontend with no copy file.
+    copyFile: copySets.inCopyFile ? copyFileIn(dirs.frontend) : null,
+    missingFromCopyFile: copySets.inCopyFile
+      ? missingFromCopyFile(
+          Object.keys(codes),
+          copySets.inCopyFile,
+          editCodes(dirs.backend)
+        )
+      : null,
+    unrecognisedWhenAlone: copySets.unrecognised ?? [],
     tolerances,
     fixturesWithoutCode: Object.keys(fixtures).filter((code) => !codes[code]),
     exampleFilesContradictingReadme: examples.contradicted,
@@ -582,7 +750,18 @@ function fingerprint(entry) {
   ])
 }
 
-function diffFacts(previous, next) {
+/**
+ * Facts about the run as a whole rather than one rule. A change to any of
+ * these is drift too. The document renders copyFile, so without it check
+ * mode would report NO CHANGE over a document that would rebuild differently:
+ * the link to a copy file the frontend has just added, say. The document does
+ * not render missingFromCopyFile; the run's summary reports it, and a code
+ * gaining or losing its entry is drift worth seeing even when the rebuilt
+ * document would be the same.
+ */
+const DOCUMENT_FACTS = ['copyFile', 'missingFromCopyFile']
+
+export function diffFacts(previous, next) {
   const before = new Set(Object.keys(previous.codes ?? {}))
   const after = new Set(Object.keys(next.codes))
 
@@ -594,16 +773,27 @@ function diffFacts(previous, next) {
       (code) => fingerprint(previous.codes[code]) !== fingerprint(next.codes[code])
     )
 
-  return { added, removed, changed }
+  const documentChanged = DOCUMENT_FACTS.filter(
+    (key) =>
+      JSON.stringify(previous[key] ?? null) !==
+      JSON.stringify(next[key] ?? null)
+  )
+
+  return { added, removed, changed, documentChanged }
 }
 
 function reportDiff(diff) {
-  const total = diff.added.length + diff.removed.length + diff.changed.length
-  if (total === 0) {
+  const codeTotal =
+    diff.added.length + diff.removed.length + diff.changed.length
+  const documentChanged = diff.documentChanged ?? []
+  if (codeTotal === 0 && documentChanged.length === 0) {
     console.log('\nNO CHANGE — the validation rules match the previous run.')
     return
   }
-  console.log(`\nDRIFT — ${total} code(s) differ from the previous run:`)
+  console.log(`\nDRIFT — ${codeTotal} code(s) differ from the previous run:`)
+  if (documentChanged.length > 0) {
+    console.log(`  document: ${documentChanged.join(', ')}`)
+  }
   const lines = [
     ['added', diff.added],
     ['removed', diff.removed],
@@ -622,11 +812,22 @@ function reportSummary(facts) {
     `Codes in registry:        ${s.total} (upload and edit rules alike; the document counts upload rules only)`
   )
   console.log(`  bespoke user copy:      ${s.dedicatedCopy}`)
+  console.log(`  own copy, as a list:    ${s.listCopy}`)
   console.log(`  the backend's message:  ${s.backendMessageCopy}`)
   console.log(`  placeholder copy:       ${s.placeholderCopy}`)
   console.log(`  generic catch-all:      ${s.catchAllCopy}`)
   console.log(`  exercised by a fixture: ${s.withFixture}`)
   console.log(`  has an example .gpkg:   ${s.withExampleFile}`)
+  if (facts.unrecognisedWhenAlone?.length > 0) {
+    console.log(
+      `\nEntries in the frontend's ${facts.copyFile} whose whenAlone is none of copy, list, placeholder or catch-all (shown as the catch-all): ${facts.unrecognisedWhenAlone.join(', ')}`
+    )
+  }
+  if (facts.missingFromCopyFile?.length > 0) {
+    console.log(
+      `\nCodes with no entry in the frontend's ${facts.copyFile} (shown as the catch-all): ${facts.missingFromCopyFile.join(', ')}`
+    )
+  }
   if (facts.exampleFilesContradictingReadme.length > 0) {
     console.log(`\nFixtures that no longer demonstrate what the README claims:`)
     for (const entry of facts.exampleFilesContradictingReadme) {

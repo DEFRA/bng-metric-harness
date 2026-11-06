@@ -48,7 +48,14 @@ export const SOURCES = Object.freeze({
     label: 'bng-metric-frontend',
     dirName: 'bng-metric-frontend',
     env: 'BNG_FRONTEND_DIR',
-    marker: path.join('src', 'server', 'error-file', 'single-error-copy.js')
+    // Any one: the error text, the drop-out copy it replaced, or, in a
+    // frontend before either, the copy's code. A frontend that drops the code
+    // once its copy is in YAML is still found.
+    markers: [
+      path.join('src', 'server', 'common', 'error-text', 'error-text.yaml'),
+      path.join('src', 'server', 'error-file', 'dropout-copy.yaml'),
+      path.join('src', 'server', 'error-file', 'single-error-copy.js')
+    ]
   },
   library: {
     label: 'bng-library',
@@ -72,12 +79,13 @@ function candidateDirs(source) {
  */
 export function locateSource(key) {
   const source = SOURCES[key]
+  const markers = source.markers ?? [source.marker]
   const found = candidateDirs(source).find((dir) =>
-    existsSync(path.join(dir, source.marker))
+    markers.some((marker) => existsSync(path.join(dir, marker)))
   )
   if (!found) {
     console.error(
-      `Could not find ${source.label} (looking for ${source.marker}). Looked in:\n` +
+      `Could not find ${source.label} (looking for ${markers.join(' or ')}). Looked in:\n` +
         candidateDirs(source)
           .map((dir) => `  - ${dir}`)
           .join('\n') +
