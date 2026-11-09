@@ -119,7 +119,7 @@ function flawInfo(name) {
 }
 
 const IRREPLACEABLE_NOT_CHECKED =
-  "Accepted today: the service does not check irreplaceable habitats yet";
+  "Accepted today: the service does not check irreplaceable area habitats yet";
 
 /**
  * What the README says for these flaws in place of bng-library's note: the
@@ -460,7 +460,7 @@ const IRREPLACEABLE = [
   generated(
     "attribute-problems/irreplaceable-tree.gpkg",
     "`valid/default-site.gpkg` with one Retained tree marked irreplaceable (a veteran tree) in both stages",
-    `refused. ${IRREPLACEABLE_NOT_CHECKED}`,
+    "IRREPLACEABLE_TREE",
     { seed: SEED, irreplaceableLayers: ["trees"] },
   ),
 ];
@@ -540,7 +540,7 @@ export const RECIPES = [
  */
 export const GAPS = [
   "A natural river left out, and an irreplaceable tree that gets worse: the service refuses either file for another reason first, so a fixture could not show the rule. Natural rivers (Other rivers and streams, High; Priority habitat, V.High) are out of the service's scope, and only canals and ditches may be lost (a culvert left out is refused, STAGED_NATURAL_WATERCOURSE_LOST: `attribute-problems/watercourse-culvert-left-out.gpkg`); an irreplaceable tree is refused whether or not it gets worse (`attribute-problems/irreplaceable-tree.gpkg`).",
-  "Individual trees with varied counts: the template has no Count column, and how several trees are recorded is undecided (BMD-1171, BMD-1172).",
+  "Individual trees with varied counts, and trees partly felled: the template has no Count column yet (BMD-1171), so each tree point is one tree. The service reads a Count when a file has one.",
   "The harness's import-timing scenarios: they edit legacy files, so `permutations/` builds them in the legacy format only.",
 ];
 

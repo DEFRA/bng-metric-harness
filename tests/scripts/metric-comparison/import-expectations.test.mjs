@@ -254,6 +254,12 @@ describe("manifest acceptance contracts", () => {
       ).rejects.toThrow("no matching scenario");
     },
   );
+  it("fails a run with --exclude alone on an undiscovered contract", async () => {
+    const directory = manifestDirectory(expected);
+    await expect(
+      runMetricComparison({ corpusDir: directory, exclude: ["nonesuch"] }),
+    ).rejects.toThrow("no matching scenario");
+  });
   it("allows a filtered run to leave unselected contracts unconsumed", async () => {
     const directory = manifestDirectory(expected);
     const result = await runMetricComparison({
