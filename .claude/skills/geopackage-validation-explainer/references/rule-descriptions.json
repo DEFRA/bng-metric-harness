@@ -371,5 +371,13 @@
   "STORED_VALUE_NOT_ALLOWED": {
     "group": "Edits made on screen",
     "checks": "An edit to a habitat saved before the service checked text lengths and lists is refused when the habitat still holds a value that is too long or that no list offers. The edit is not saved with the old value cut or cleared; uploading the file again, with the value corrected, updates the habitat."
+  },
+  "IRREPLACEABLE_TREE": {
+    "group": "Habitat data",
+    "checks": "An individual tree, at baseline or after intervention, is recorded as an irreplaceable habitat. The service does not take irreplaceable trees. A tree whose Irreplaceable Habitat is left blank counts as not irreplaceable."
+  },
+  "STAGED_TREE_CHILDREN_TOO_MANY": {
+    "group": "Links to the baseline",
+    "checks": "The post-intervention trees kept from one baseline tree, Retained or Enhanced, stand for more trees together than the baseline tree did: a tree that is kept cannot multiply. Newly planted trees are not counted, and a blank count is one tree."
   }
 }
