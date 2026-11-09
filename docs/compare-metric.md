@@ -9,6 +9,7 @@ the recalculated metric workbook computes for the same GeoPackage pair.
 ```sh
 npm run compare:metric                           # the whole corpus
 npm run compare:metric -- --only trading-rules   # a purpose, or scenario ids
+npm run compare:metric -- --exclude invalid-interventions   # all but these
 npm run compare:metric -- --corpus ~/my-test-spreadsheets   # any folder of scenarios
 npm run compare:metric -- --service-template     # the BNG Service template's corpus
 ```
@@ -191,7 +192,7 @@ missing/duplicate feature, an unexpected timing value, or zero instead of a
 required null fails the comparison before any numerical checks. Malformed contracts, missing PI
 files and directories used as files also fail. A full run additionally rejects
 contracts whose PI file does not belong to a discovered scenario (a complete
-GeoPackage pair and workbook). Filtered `--only` runs allow contracts for
+GeoPackage pair and workbook). Filtered `--only` and `--exclude` runs allow contracts for
 unselected scenarios; their referenced files must still exist.
 
 The corresponding workbook is recalculated from independently prepared expected
@@ -314,10 +315,12 @@ not the legacy run passed, and puts both summaries on the job summary and both
 reports in the artifact:
 
 ```sh
-npm run compare:metric -- --service-template --only advance-delay,conditions,data-completeness/data-complete,intervention,net-gain,strategic-significance,trading-rules,vertical-area --fail-on-unexplained
+npm run compare:metric -- --service-template --exclude invalid-interventions,data-completeness/invalid-data-incomplete --fail-on-unexplained
 ```
 
-It compares every valid scenario: 41 of them, which all match the metric. The
+It compares every scenario but the invalid ones, so a valid scenario added
+later is compared without anyone listing it: today 41, which all match the
+metric. The
 service reads individual trees from the template since BMD-1172, so the 21
 scenarios that have trees match too: Retained, Enhanced and newly planted
 trees, linked to a parent or not, and trees felled with nothing in their place
@@ -325,7 +328,7 @@ trees, linked to a parent or not, and trees felled with nothing in their place
 (BMD-1171), so no scenario has a point standing for several trees, or a tree
 partly felled; the backend's own tests cover both, on a file with a Count
 column added. The invalid scenarios are left out: the service accepts 20 of
-them with no `VALIDATION_GAPS` entry. Widen `--only` as those are fixed or
+them with no `VALIDATION_GAPS` entry. Narrow `--exclude` as those are fixed or
 explained.
 
 `scripts/metric-comparison/unexplained.mjs` decides which differences have a

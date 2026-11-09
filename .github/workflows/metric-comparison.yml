@@ -3,7 +3,7 @@ name: Metric comparison
 # Compares the service with the Statutory Biodiversity Metric, figure by
 # figure, for every committed scenario (npm run compare:metric, BMD-1036):
 # the legacy template's with the service-template flag off, then the BNG
-# Service template's vertical-area scenarios with it on (BMD-1084).
+# Service template's valid scenarios with it on (BMD-1084, BMD-1172).
 #
 # The answer depends on three commits: the backend's (validation, sizing and
 # the enrichment that drives the engine and derives the trading-rule
@@ -274,13 +274,14 @@ jobs:
       # whether or not the legacy comparison passed, so each reports. Every
       # valid scenario, individual trees included; not yet the invalid ones
       # (invalid-interventions, and data-completeness's invalid-data-incomplete),
-      # many of which the service accepts with nothing to explain why. Widen
-      # --only as they are explained. Its reports go to
+      # many of which the service accepts with nothing to explain why. A valid
+      # scenario added later is compared as it is. Narrow --exclude as they
+      # are explained. Its reports go to
       # metric-comparison/service-template/, in the same artifact.
       - name: Compare the service with the metric, BNG Service template
         id: compare-metric-service-template
         if: ${{ !cancelled() && steps.backend.outcome == 'success' }}
-        run: npm run compare:metric -- --service-template --only advance-delay,conditions,data-completeness/data-complete,intervention,net-gain,strategic-significance,trading-rules,vertical-area --fail-on-unexplained
+        run: npm run compare:metric -- --service-template --exclude invalid-interventions,data-completeness/invalid-data-incomplete --fail-on-unexplained
 
       - name: Publish the metric comparison summary
         if: ${{ !cancelled() && (steps.compare-metric.outcome != 'skipped' || steps.compare-metric-service-template.outcome != 'skipped') }}

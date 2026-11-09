@@ -68,18 +68,21 @@ export function scenariosInOtherTemplate(scenarios, serviceTemplate) {
 }
 
 /**
- * A scenario is selected by its id ("net-gain/met"), its name ("met") or its
- * purpose — the folder it is in ("net-gain"); no filter selects all.
+ * A scenario is named by its id ("net-gain/met"), its name ("met") or its
+ * purpose — the folder it is in ("net-gain"). It is selected when `only`
+ * names it, or `only` is empty, and `exclude` does not: so a run can take
+ * every scenario but a few, and a scenario added later is compared without
+ * anyone adding it to a list.
  *
  * @param {{ id: string, name: string, purpose: string }} scenario
  * @param {string[]} only
+ * @param {string[]} exclude
  */
-function isSelected(scenario, only) {
+function isSelected(scenario, only, exclude) {
+  const keys = [scenario.id, scenario.name, scenario.purpose];
   return (
-    only.length === 0 ||
-    [scenario.id, scenario.name, scenario.purpose].some((key) =>
-      only.includes(key),
-    )
+    (only.length === 0 || keys.some((key) => only.includes(key))) &&
+    !keys.some((key) => exclude.includes(key))
   );
 }
 
@@ -183,6 +186,8 @@ function assertAllExpectationsDiscovered(expectations, scenarios) {
  * @param {string} [options.corpusDir] a folder of scenarios; by default the
  *   committed ones
  * @param {string[]} [options.only] scenario ids, names or purposes to run
+ * @param {string[]} [options.exclude] scenario ids, names or purposes to
+ *   leave out, from those `only` selects
  * @param {boolean} [options.serviceTemplate] whether the backend runs with the
  *   service-template flag on; every scenario selected must be in the template
  *   that flag reads
@@ -196,15 +201,16 @@ export async function runMetricComparison(options = {}) {
   const {
     corpusDir = DEFAULT_CORPUS_DIR,
     only = [],
+    exclude = [],
     serviceTemplate = false,
     onResult,
     importPair = importGeoPackagePair,
   } = options;
   const { scenarios, unmatched } = findScenarios(corpusDir);
-  const selected = scenarios.filter((s) => isSelected(s, only));
+  const selected = scenarios.filter((s) => isSelected(s, only, exclude));
   assertOneTemplate(selected, serviceTemplate);
   const expectations = readImportExpectations(corpusDir);
-  if (only.length === 0) {
+  if (only.length === 0 && exclude.length === 0) {
     assertAllExpectationsDiscovered(expectations, selected);
   }
   const answers = await readWorkbookAnswers(
