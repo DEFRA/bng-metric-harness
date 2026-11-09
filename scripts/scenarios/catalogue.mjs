@@ -49,7 +49,7 @@ function overrides(retentions) {
     trees: retentions.map((retention) => ({
       ...identity(retention),
       treeSize: "Small",
-      treeType: "Park/garden tree",
+      treeType: "Native",
       ruralOrUrban: "Urban",
     })),
   };
