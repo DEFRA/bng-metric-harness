@@ -2,7 +2,7 @@
 
 Every rule the BNG Metric service applies to an uploaded GeoPackage: what each one checks, and which example file demonstrates it.
 
-**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `3d746a4`, frontend `7f8ea89` and bng-library `abd62e3`, all on `BMD-1175-text-length-limits`, and was generated on 2026-11-09.
+**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `7176a19`, frontend `7f8ea89` and bng-library `abd62e3`, all on `BMD-1175-text-length-limits`, and was generated on 2026-11-09.
 
 For how biodiversity units are calculated once a file is accepted, see [rules-engine-explained.md](rules-engine-explained.md).
 
@@ -213,7 +213,7 @@ These rules refuse a change made to a habitat on screen, after a file has been a
 
 | Repository | Commit | Supplies |
 | --- | --- | --- |
-| bng-metric-backend | `3d746a4` | The rules, and the message each one raises |
+| bng-metric-backend | `7176a19` | The rules, and the message each one raises |
 | bng-metric-frontend | `7f8ea89` | What the user is shown for each rule |
 | bng-library | `abd62e3` | The generator flaws that reproduce fixtures |
 
