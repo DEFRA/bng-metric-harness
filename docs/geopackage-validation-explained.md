@@ -2,7 +2,7 @@
 
 Every rule the BNG Metric service applies to an uploaded GeoPackage: what each one checks, and which example file demonstrates it.
 
-**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `f405be1`, frontend `2991d51` and bng-library `9e59bc4`, all on `BMD-1175-text-length-limits`, and was generated on 2026-11-09.
+**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `3d746a4`, frontend `7f8ea89` and bng-library `abd62e3`, all on `BMD-1175-text-length-limits`, and was generated on 2026-11-09.
 
 For how biodiversity units are calculated once a file is accepted, see [rules-engine-explained.md](rules-engine-explained.md).
 
@@ -182,6 +182,7 @@ These rules refuse a change made to a habitat on screen, after a file has been a
 | --- | --- |
 | `HABITAT_REF_IN_USE` — *no geopackage fixture* | The new reference is already used by another baseline habitat in the same layer, with hedgerows and watercourses counting as one layer. The reference is what ties each post-intervention habitat to its baseline habitat, so allowing it would merge two habitats' records. An uploaded file may still repeat a reference. |
 | `ENHANCEMENT_NOT_VALID` — *no geopackage fixture* | The change would leave an enhanced habitat that is not a permitted enhancement of the habitat it started as. |
+| `STORED_VALUE_NOT_ALLOWED` — *no geopackage fixture* | An edit to a habitat saved before the service checked text lengths and lists is refused when the habitat still holds a value that is too long or that no list offers. The edit is not saved with the old value cut or cleared; uploading the file again, with the value corrected, updates the habitat. |
 
 ## Coverage
 
@@ -212,8 +213,8 @@ These rules refuse a change made to a habitat on screen, after a file has been a
 
 | Repository | Commit | Supplies |
 | --- | --- | --- |
-| bng-metric-backend | `f405be1` | The rules, and the message each one raises |
-| bng-metric-frontend | `2991d51` | What the user is shown for each rule |
-| bng-library | `9e59bc4` | The generator flaws that reproduce fixtures |
+| bng-metric-backend | `3d746a4` | The rules, and the message each one raises |
+| bng-metric-frontend | `7f8ea89` | What the user is shown for each rule |
+| bng-library | `abd62e3` | The generator flaws that reproduce fixtures |
 
 Rule descriptions are held in `references/rule-descriptions.json` in the skill; the rule list, message status and fixture mapping are extracted from the three repositories on every run.
