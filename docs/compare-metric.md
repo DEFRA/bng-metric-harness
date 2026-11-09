@@ -309,15 +309,24 @@ Any unexplained difference. CI runs
 then exits 1 if anything is unexplained. Locally, pass the same flag to see
 whether a run would pass.
 
-CI then runs
-`npm run compare:metric -- --service-template --only vertical-area --fail-on-unexplained`
-in the same job, whether or not the legacy run passed, and puts both summaries
-on the job summary and both reports in the artifact. It compares only the
-vertical-area scenarios for now. The rest of the BNG Service corpus was first
-compared with BMD-1084, and still has differences nothing explains: its trees
-are missing from the service's side of every scenario that has them, and the
-service accepts 20 of its invalid scenarios with no `VALIDATION_GAPS` entry.
-Widen `--only` as those are fixed or explained.
+CI then runs the BNG Service template's comparison in the same job, whether or
+not the legacy run passed, and puts both summaries on the job summary and both
+reports in the artifact:
+
+```sh
+npm run compare:metric -- --service-template --only advance-delay,conditions,data-completeness/data-complete,intervention,net-gain,strategic-significance,trading-rules,vertical-area --fail-on-unexplained
+```
+
+It compares every valid scenario: 41 of them, which all match the metric. The
+service reads individual trees from the template since BMD-1172, so the 21
+scenarios that have trees match too: Retained, Enhanced and newly planted
+trees, linked to a parent or not, and trees felled with nothing in their place
+(`trading-rules/trading-lost-trees`). The template has no Count column yet
+(BMD-1171), so no scenario has a point standing for several trees, or a tree
+partly felled; the backend's own tests cover both, on a file with a Count
+column added. The invalid scenarios are left out: the service accepts 20 of
+them with no `VALIDATION_GAPS` entry. Widen `--only` as those are fixed or
+explained.
 
 `scripts/metric-comparison/unexplained.mjs` decides which differences have a
 known explanation. A difference is explained when:
