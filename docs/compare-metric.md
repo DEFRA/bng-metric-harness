@@ -192,8 +192,10 @@ missing/duplicate feature, an unexpected timing value, or zero instead of a
 required null fails the comparison before any numerical checks. Malformed contracts, missing PI
 files and directories used as files also fail. A full run additionally rejects
 contracts whose PI file does not belong to a discovered scenario (a complete
-GeoPackage pair and workbook). Filtered `--only` and `--exclude` runs allow contracts for
-unselected scenarios; their referenced files must still exist.
+GeoPackage pair and workbook). Runs filtered by `--only` allow contracts for unselected
+scenarios; their referenced files must still exist. A run with `--exclude`
+alone still checks every contract, since an excluded scenario is still
+discovered.
 
 The corresponding workbook is recalculated from independently prepared expected
 inputs. Valid Lost area timing is used for its Created replacement calculation;

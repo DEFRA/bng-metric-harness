@@ -210,8 +210,10 @@ export async function runMetricComparison(options = {}) {
   const selected = scenarios.filter((s) => isSelected(s, only, exclude));
   assertOneTemplate(selected, serviceTemplate);
   const expectations = readImportExpectations(corpusDir);
-  if (only.length === 0 && exclude.length === 0) {
-    assertAllExpectationsDiscovered(expectations, selected);
+  // An excluded scenario is still discovered, so a run with --exclude alone
+  // still checks every contract against what discovery found.
+  if (only.length === 0) {
+    assertAllExpectationsDiscovered(expectations, scenarios);
   }
   const answers = await readWorkbookAnswers(
     selected.map((s) => s.files.workbook),
