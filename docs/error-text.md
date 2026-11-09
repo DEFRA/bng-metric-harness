@@ -34,7 +34,13 @@ auth, reports) answered with an HTTP status and no code.
   drop-out page), `edit` (the page where a habitat is changed), or both. Every
   code is an upload code unless the backend lists it otherwise.
 - A code's `message` is developer text, for logs. It is never the wording a
-  customer should see.
+  customer should see, and the frontend never shows it.
+- `ERROR_CODE_DETAILS` says what else an error sends for the frontend to word
+  it. **Values**: anything the message names from the file, such as a layer
+  name or an area, sent raw in `details` (a number as a number). **Variants**:
+  when one code words a problem more than one way, `details.variants` names
+  the way, for example `bng-service` for the BNG Service template's wording
+  of a check the legacy template shares.
 
 ### 2. The frontend keeps all wording in one file
 
@@ -50,6 +56,13 @@ auth, reports) answered with an HTTP status and no code.
 `placeholder` anywhere means the wording is awaiting UCD. Product, BAs and UCD
 change the wording by pull request to this one file.
 
+An `upload` entry's heading and bullet can name `{values}` from the error's
+details, and give a `variants` entry for each way the backend words the
+problem. `inList: catch-all` heads the list with the catch-all title, for a
+code the page never lists. A code with no entry, or whose details lack a
+value its heading names, also shows the catch-all title: never the backend's
+message.
+
 `common/error-text/error-text.js` reads the file once and checks its shape, so
 a slip fails the tests and the server's start rather than a user's page. Pages
 look wording up by section and code (`editErrorText(code)`,
@@ -64,7 +77,11 @@ look wording up by section and code (`editErrorText(code)`,
   `edit` code one under `edit`;
 - neither section keeps an entry for a code the backend no longer has, or for
   one that does not belong there: an `upload` entry for a code met only on an
-  edit, or an `edit` entry for one that refuses no edit.
+  edit, or an `edit` entry for one that refuses no edit;
+- no `upload` entry shows the backend's message (`inList: service-message`),
+  names a `{value}` the backend does not list for the code in
+  `ERROR_CODE_DETAILS`, or has a variant the backend never names; and the
+  wording has a variant for every one the backend can name.
 
 If the backend's `errors.js` will not load, the check fails and says so,
 rather than quietly checking less.
@@ -79,10 +96,15 @@ developer, to the run's job summary: a verdict, each problem, and what to do.
 1. Add its code to `ERROR_CODES`, with a doc comment saying what it checks.
 2. If a customer meets it anywhere but the drop-out page, list it in
    `ERROR_CODE_SURFACES`'s edit-only or upload-and-edit set.
-3. In bng-metric-frontend, add an entry to `error-text.yaml` in each section
-   the code belongs in: wording agreed with UCD, or `placeholder`.
+3. If its message names a value from the file, send the value in `details`
+   too, and list it in `ERROR_CODE_DETAILS`; likewise each variant, if the
+   code words the problem more than one way.
+4. In bng-metric-frontend, add an entry to `error-text.yaml` in each section
+   the code belongs in: wording agreed with UCD, or `placeholder`. A value the
+   wording names needs its format in the drop-out page's `DETAIL_VALUES`
+   (`error-file/controller.js`).
 
-The check fails until step 3 is done.
+The check fails until step 4 is done.
 
 **UCD changing wording**: edit the entry in `error-text.yaml` by pull request.
 The file's header explains each field; the frontend's tests check its shape.
@@ -94,7 +116,19 @@ The file's header explains each field; the frontend's tests check its shape.
 | 1 | Backend `ERROR_CODE_SURFACES`; frontend `error-text.yaml` with `upload`, `edit` and a first `forms` entry; the check reads both and compares the edit section | Done: bng-metric-backend `BMD-1083-error-surfaces`, bng-metric-frontend `BMD-1083-error-text`, bng-metric-harness `BMD-1083-error-text-check` |
 | 2 | Codes for the remaining customer-facing refusals (not found, edit conflicts, the CDP uploader's rejections); a `request` section; a "service unavailable" page; show `ENHANCEMENT_NOT_VALID` and `HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE` on the edit pages | To do |
 | 3 | Field validation wording into `forms`, page by page as each is touched, with a shared GOV.UK error-summary helper | To do |
-| 4 | UCD words the backlog: the `upload` entries still `catch-all`, `service-message` or `placeholder`, and the `edit` placeholders | To do |
+| 4 | UCD words the backlog: the `upload` entries still `catch-all` or `placeholder`, and the `edit` placeholders | To do |
+| — | No backend message on the drop-out page: the backend sends the values and variants its messages name (`ERROR_CODE_DETAILS`), the frontend words every upload code from them, and the check compares the two | In review: bng-metric-backend `error-details-for-frontend-copy`, bng-metric-frontend `error-text-from-details`, bng-metric-harness `error-text-details-check` |
+
+### The details pull requests, and the order to merge them
+
+1. **bng-metric-backend** adds the values and variants to `details`, and
+   `ERROR_CODE_DETAILS`. It changes no message, so it is safe at any point.
+2. **bng-metric-frontend** words every upload code from them. Deploy it after
+   the backend: until then, a heading whose values have not arrived shows the
+   catch-all title.
+3. **bng-metric-harness** checks the wording against `ERROR_CODE_DETAILS`.
+   Merge it last: it fails on the frontend's `main` until the frontend change
+   is merged.
 
 ### Step 1's pull requests, and the order to merge them
 

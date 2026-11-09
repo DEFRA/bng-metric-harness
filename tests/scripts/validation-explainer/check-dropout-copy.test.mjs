@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   compareCodes,
+  compareDetails,
   compareEditCodes,
   editOnlyUploadEntries,
 } from "../../../.claude/skills/geopackage-validation-explainer/scripts/check-dropout-copy.mjs";
@@ -93,6 +94,66 @@ describe("compareEditCodes", () => {
   it("compares nothing when either side predates the split", () => {
     expect(compareEditCodes(null, new Set(["ED"]))).toBeNull();
     expect(compareEditCodes(surfaces, null)).toBeNull();
+  });
+});
+
+describe("compareDetails", () => {
+  const details = {
+    LAYER_MISSING: { values: ["layer"], variants: ["bng-service"] },
+    AREA_TOO_LARGE: { values: ["areaSqM"] },
+  };
+
+  it("finds nothing when the wording names only what the backend sends, and words each variant", () => {
+    const entries = {
+      LAYER_MISSING: {
+        inList: {
+          heading: "Missing layer",
+          item: "{layer}",
+          variants: { "bng-service": { heading: "Missing table" } },
+        },
+      },
+      AREA_TOO_LARGE: {
+        inList: { heading: "Area ({areaSqM} sq m) too large" },
+      },
+      LISTED: { inList: { heading: "Habitats", item: "{feature}" } },
+      NEVER_LISTED: { inList: "catch-all" },
+    };
+    expect(compareDetails(details, entries)).toEqual({
+      serviceMessage: [],
+      unknownValues: [],
+      unknownVariants: [],
+      unwordedVariants: [],
+    });
+  });
+
+  it("names entries that show the service's message, values it does not send, and variants only one side has", () => {
+    const entries = {
+      LAYER_MISSING: {
+        inList: {
+          heading: "Missing {table}",
+          item: "{layer}",
+          variants: { renamed: { heading: "Gone" } },
+        },
+      },
+      AREA_TOO_LARGE: "unused",
+      SHOWN_RAW: { inList: "service-message" },
+      LISTED: { inList: { heading: "{count} habitats", item: "{feature}" } },
+    };
+    expect(compareDetails(details, entries)).toEqual({
+      serviceMessage: ["SHOWN_RAW"],
+      unknownValues: [
+        { code: "LAYER_MISSING", name: "table" },
+        { code: "LISTED", name: "count" },
+      ],
+      unknownVariants: [{ code: "LAYER_MISSING", variant: "renamed" }],
+      unwordedVariants: [{ code: "LAYER_MISSING", variant: "bng-service" }],
+    });
+  });
+
+  it("compares nothing for a backend that predates ERROR_CODE_DETAILS", () => {
+    expect(compareDetails(null, { A: { inList: "service-message" } })).toBe(
+      null,
+    );
   });
 });
 
@@ -363,6 +424,31 @@ describe("renderSummary", () => {
     expect(text).toContain("| `OLD` |");
     expect(text).toContain("delete the entry");
     expect(text).not.toContain("with no wording");
+  });
+
+  it("lists wording that does not match what the service sends, and what to do", () => {
+    const summary = renderSummary(
+      {
+        missing: [],
+        stale: [],
+        misplaced: [],
+        edit: null,
+        details: {
+          serviceMessage: ["SHOWN_RAW"],
+          unknownValues: [{ code: "LAYER_MISSING", name: "table" }],
+          unknownVariants: [],
+          unwordedVariants: [{ code: "LAYER_MISSING", variant: "bng-service" }],
+        },
+        uploadCount: 2,
+        editCount: 0,
+      },
+      context,
+    );
+    expect(summary).toContain("## ⚠️ Drop-out page wording needs attention");
+    expect(summary).toContain("3 mismatches between the wording");
+    expect(summary).toContain("| `SHOWN_RAW` |");
+    expect(summary).toContain("Names `{table}`");
+    expect(summary).toContain("Add a `bng-service` variant");
   });
 
   it("says when the frontend has no copy file", () => {

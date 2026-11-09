@@ -272,6 +272,8 @@ export function copyStatusFromCopyFile(source) {
     listCopy,
     unrecognised,
     inCopyFile: new Set(Object.keys(errors)),
+    // Each upload code's entry, for the check of what its wording names.
+    uploadEntries: errors,
     // The codes worded for an edit refused on screen; null in a file with no
     // edit section, which predates it.
     inEditSection: document.edit ? new Set(Object.keys(document.edit)) : null
@@ -633,6 +635,18 @@ export function backendSurfaces(backendDir) {
     )
   }
   return errors.ERROR_CODE_SURFACES ?? null
+}
+
+/**
+ * The values and variants each code's details carry for the frontend to word
+ * it, as the backend declares them in ERROR_CODE_DETAILS; null for a backend
+ * that predates it. Loaded as backendSurfaces loads errors.js.
+ */
+export function backendDetails(backendDir) {
+  const errors = createRequire(import.meta.url)(
+    path.join(backendDir, ERRORS_FILE)
+  )
+  return errors.ERROR_CODE_DETAILS ?? null
 }
 
 /**

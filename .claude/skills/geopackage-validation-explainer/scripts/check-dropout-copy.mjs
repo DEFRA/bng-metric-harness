@@ -22,8 +22,9 @@ import path from 'node:path'
 
 import { gitProvenance, isMain, locateSource, readTextFile } from './_lib.mjs'
 import { DESCRIPTIONS_FILE, loadDescriptions } from './build-document.mjs'
-import { renderSummary } from './dropout-copy-summary.mjs'
+import { detailProblems, renderSummary } from './dropout-copy-summary.mjs'
 import {
+  backendDetails,
   backendSurfaces,
   ERROR_TEXT_FILE,
   copyFileIn,
@@ -53,7 +54,112 @@ export function compareCodes(backendCodes, copyCodes, edits = new Set()) {
   }
 }
 
-function report({ missing, stale, misplaced, edit }, copyFile, rules = {}) {
+const PLACEHOLDER = /\{(\w+)\}/g
+
+function placeholdersIn(...texts) {
+  return texts
+    .flat(Infinity)
+    .filter((text) => typeof text === 'string')
+    .flatMap((text) => [...text.matchAll(PLACEHOLDER)].map(([, name]) => name))
+}
+
+/** The {values} an entry's wording names: its bullets too, if `withItems`. */
+function namedValues(inList, withItems) {
+  const variants = Object.values(inList.variants ?? {})
+  const headings = [inList.heading, variants.map((v) => v.heading)]
+  const items = withItems ? [inList.item, variants.map((v) => v.item)] : []
+  return new Set(placeholdersIn(headings, items))
+}
+
+/**
+ * What the drop-out page wording names that the backend does not send, and
+ * the ways the backend words a problem that the wording does not: the
+ * frontend shows only its own wording, filled from each error's details.
+ *
+ * - serviceMessage: entries that show the service's own message
+ *   (inList: service-message), which an older frontend still has.
+ * - unknownValues: a {value} the wording names that the backend's
+ *   ERROR_CODE_DETAILS does not list for the code. A code the backend lists
+ *   no values for has only its heading checked: its bullets name habitats.
+ * - unknownVariants / unwordedVariants: a variant only the wording, or only
+ *   the backend, has.
+ *
+ * Null for a backend that predates ERROR_CODE_DETAILS.
+ *
+ * @param {Record<string, { values?: string[], variants?: string[] }> | null} details
+ * @param {Record<string, { inList?: unknown }>} entries the upload section's
+ */
+export function compareDetails(details, entries) {
+  if (!details) {
+    return null
+  }
+  const result = {
+    serviceMessage: [],
+    unknownValues: [],
+    unknownVariants: [],
+    unwordedVariants: []
+  }
+  for (const [code, entry] of Object.entries(entries)) {
+    const inList = entry?.inList
+    if (inList === 'service-message') {
+      result.serviceMessage.push(code)
+      continue
+    }
+    const copy = inList !== null && typeof inList === 'object' ? inList : {}
+    const { values, variants: sent = [] } = details[code] ?? {}
+    for (const name of namedValues(copy, Boolean(values))) {
+      if (!(values ?? []).includes(name)) {
+        result.unknownValues.push({ code, name })
+      }
+    }
+    const worded = Object.keys(copy.variants ?? {})
+    for (const variant of worded.filter((v) => !sent.includes(v))) {
+      result.unknownVariants.push({ code, variant })
+    }
+    for (const variant of sent.filter((v) => !worded.includes(v))) {
+      result.unwordedVariants.push({ code, variant })
+    }
+  }
+  result.serviceMessage.sort()
+  return result
+}
+
+function reportList(heading, lines) {
+  if (lines.length > 0) {
+    console.error(`\n${heading}`)
+    for (const line of lines) {
+      console.error(`  - ${line}`)
+    }
+  }
+}
+
+function reportDetails(details, copyFile) {
+  reportList(
+    `${copyFile} shows the service's own technical message for these codes (inList: service-message). Word each in the file, filling any value from the error's details:`,
+    details.serviceMessage
+  )
+  reportList(
+    `The wording in ${copyFile} names values the backend does not send with the error (ERROR_CODE_DETAILS in its errors.js), so the page cannot fill them in:`,
+    details.unknownValues.map(({ code, name }) => `${code}: {${name}}`)
+  )
+  reportList(
+    `The wording in ${copyFile} has variants the backend never names, so no user sees them:`,
+    details.unknownVariants.map(({ code, variant }) => `${code}: ${variant}`)
+  )
+  reportList(
+    `The backend words these errors another way that ${copyFile} has no variant for, so the page shows the error's usual wording instead:`,
+    details.unwordedVariants.map(({ code, variant }) => `${code}: ${variant}`)
+  )
+}
+
+function report(
+  { missing, stale, misplaced, edit, details },
+  copyFile,
+  rules = {}
+) {
+  if (details) {
+    reportDetails(details, copyFile)
+  }
   const unclassified = missing.filter((code) => rules[code]?.unclassified)
   if (missing.length > 0) {
     console.error(
@@ -209,7 +315,7 @@ function main() {
 
   const registry = extractRegistry(backendDir)
   const backendCodes = Object.keys(registry)
-  const { inCopyFile, inEditSection } = copyStatusFromCopyFile(
+  const { inCopyFile, inEditSection, uploadEntries } = copyStatusFromCopyFile(
     readTextFile(path.join(frontendDir, copyFile))
   )
   const edits = editCodes(backendDir)
@@ -219,7 +325,8 @@ function main() {
       copyFile === ERROR_TEXT_FILE
         ? editOnlyUploadEntries(surfaces, inCopyFile)
         : [],
-    edit: compareEditCodes(surfaces, inEditSection)
+    edit: compareEditCodes(surfaces, inEditSection),
+    details: compareDetails(backendDetails(backendDir), uploadEntries)
   }
   const editCount = backendCodes.filter((code) => edits.has(code)).length
   const counts = {
@@ -238,13 +345,17 @@ function main() {
     result.stale.length +
     result.misplaced.length +
     (result.edit?.missing.length ?? 0) +
-    (result.edit?.stale.length ?? 0)
+    (result.edit?.stale.length ?? 0) +
+    detailProblems(result.details)
   if (problems === 0) {
     const editPart = result.edit
       ? ` Every one of the backend's edit codes has an entry in its edit section.`
       : ` The ${editCount} edit rule(s), which the frontend words itself, need none.`
+    const detailsPart = result.details
+      ? ' The wording names only values the backend sends, words every variant it can name, and shows none of its messages.'
+      : ''
     console.log(
-      `All ${counts.uploadCount} backend upload error codes have an entry in ${copyFile}, and it has none for any code the backend does not define.${editPart}`
+      `All ${counts.uploadCount} backend upload error codes have an entry in ${copyFile}, and it has none for any code the backend does not define.${editPart}${detailsPart}`
     )
     return
   }
