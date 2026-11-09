@@ -63,12 +63,16 @@ function placeholdersIn(...texts) {
     .flatMap((text) => [...text.matchAll(PLACEHOLDER)].map(([, name]) => name))
 }
 
-/** The {values} an entry's wording names: its bullets too, if `withItems`. */
-function namedValues(inList, withItems) {
-  const variants = Object.values(inList.variants ?? {})
-  const headings = [inList.heading, variants.map((v) => v.heading)]
-  const items = withItems ? [inList.item, variants.map((v) => v.item)] : []
-  return new Set(placeholdersIn(headings, items))
+/**
+ * The {values} an entry's heading and detail name, in any of its variants.
+ * Its items are left out: an item is a bullet for each habitat the error
+ * lists, filled from that habitat, not from the values the backend lists.
+ */
+function namedValues(inList) {
+  const wording = [inList, ...Object.values(inList.variants ?? {})]
+  return new Set(
+    placeholdersIn(wording.map(({ heading, detail }) => [heading, detail]))
+  )
 }
 
 /**
@@ -78,9 +82,9 @@ function namedValues(inList, withItems) {
  *
  * - serviceMessage: entries that show the service's own message
  *   (inList: service-message), which an older frontend still has.
- * - unknownValues: a {value} the wording names that the backend's
- *   ERROR_CODE_DETAILS does not list for the code. A code the backend lists
- *   no values for has only its heading checked: its bullets name habitats.
+ * - unknownValues: a {value} a heading or detail names that the backend's
+ *   ERROR_CODE_DETAILS does not list for the code. An item names a habitat's
+ *   values, which the backend does not list, so it is not checked.
  * - unknownVariants / unwordedVariants: a variant only the wording, or only
  *   the backend, has.
  *
@@ -106,9 +110,9 @@ export function compareDetails(details, entries) {
       continue
     }
     const copy = inList !== null && typeof inList === 'object' ? inList : {}
-    const { values, variants: sent = [] } = details[code] ?? {}
-    for (const name of namedValues(copy, Boolean(values))) {
-      if (!(values ?? []).includes(name)) {
+    const { values = [], variants: sent = [] } = details[code] ?? {}
+    for (const name of namedValues(copy)) {
+      if (!values.includes(name)) {
         result.unknownValues.push({ code, name })
       }
     }

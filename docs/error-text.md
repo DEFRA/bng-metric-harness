@@ -56,9 +56,10 @@ auth, reports) answered with an HTTP status and no code.
 `placeholder` anywhere means the wording is awaiting UCD. Product, BAs and UCD
 change the wording by pull request to this one file.
 
-An `upload` entry's heading and bullet can name `{values}` from the error's
-details, and give a `variants` entry for each way the backend words the
-problem. `inList: catch-all` heads the list with the catch-all title, for a
+An `upload` entry's heading can name `{values}` from the error's details, and
+give a `variants` entry for each way the backend words the problem. Its bullets
+are an `item` for each habitat the error lists, filled from that habitat, or,
+for an error that lists none, one `detail`, filled from the error's details. `inList: catch-all` heads the list with the catch-all title, for a
 code the page never lists. A code with no entry, or whose details lack a
 value its heading names, also shows the catch-all title: never the backend's
 message.
@@ -79,9 +80,11 @@ look wording up by section and code (`editErrorText(code)`,
   one that does not belong there: an `upload` entry for a code met only on an
   edit, or an `edit` entry for one that refuses no edit;
 - no `upload` entry shows the backend's message (`inList: service-message`),
-  names a `{value}` the backend does not list for the code in
-  `ERROR_CODE_DETAILS`, or has a variant the backend never names; and the
-  wording has a variant for every one the backend can name.
+  has a heading or `detail` that names a `{value}` the backend does not list
+  for the code in `ERROR_CODE_DETAILS`, or has a variant the backend never
+  names; and the wording has a variant for every one the backend can name.
+  An `item` names a habitat's values, which the backend does not list, so it
+  is not checked.
 
 If the backend's `errors.js` will not load, the check fails and says so,
 rather than quietly checking less.
@@ -117,18 +120,20 @@ The file's header explains each field; the frontend's tests check its shape.
 | 2 | Codes for the remaining customer-facing refusals (not found, edit conflicts, the CDP uploader's rejections); a `request` section; a "service unavailable" page; show `ENHANCEMENT_NOT_VALID` and `HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE` on the edit pages | To do |
 | 3 | Field validation wording into `forms`, page by page as each is touched, with a shared GOV.UK error-summary helper | To do |
 | 4 | UCD words the backlog: the `upload` entries still `catch-all` or `placeholder`, and the `edit` placeholders | To do |
-| — | No backend message on the drop-out page: the backend sends the values and variants its messages name (`ERROR_CODE_DETAILS`), the frontend words every upload code from them, and the check compares the two | In review: bng-metric-backend `error-details-for-frontend-copy`, bng-metric-frontend `error-text-from-details`, bng-metric-harness `error-text-details-check` |
+| — | No backend message on the drop-out page: the backend sends the values and variants its messages name (`ERROR_CODE_DETAILS`), the frontend words every upload code from them, and the check compares the two | Done, but for the check: DEFRA/bng-metric-backend#619 and DEFRA/bng-metric-frontend#479 are merged; DEFRA/bng-metric-frontend#480 and DEFRA/bng-metric-harness#225 are in review |
 
 ### The details pull requests, and the order to merge them
 
-1. **bng-metric-backend** adds the values and variants to `details`, and
-   `ERROR_CODE_DETAILS`. It changes no message, so it is safe at any point.
-2. **bng-metric-frontend** words every upload code from them. Deploy it after
-   the backend: until then, a heading whose values have not arrived shows the
-   catch-all title.
-3. **bng-metric-harness** checks the wording against `ERROR_CODE_DETAILS`.
-   Merge it last: it fails on the frontend's `main` until the frontend change
-   is merged.
+1. **bng-metric-backend** (DEFRA/bng-metric-backend#619, merged) adds the
+   values and variants to `details`, and `ERROR_CODE_DETAILS`.
+2. **bng-metric-frontend** (DEFRA/bng-metric-frontend#479, merged) words every
+   upload code from them.
+3. **bng-metric-frontend** (DEFRA/bng-metric-frontend#480) names the one bullet
+   of an error that lists no habitats `detail`, apart from a habitat's `item`,
+   so the check can tell which bullets the backend's values fill.
+4. **bng-metric-harness** (DEFRA/bng-metric-harness#225) checks headings and
+   details against `ERROR_CODE_DETAILS`. It passes on the frontend's `main`
+   with or without step 3, but checks the bullets only once step 3 is merged.
 
 ### Step 1's pull requests, and the order to merge them
 

@@ -101,6 +101,7 @@ describe("compareDetails", () => {
   const details = {
     LAYER_MISSING: { values: ["layer"], variants: ["bng-service"] },
     AREA_TOO_LARGE: { values: ["areaSqM"] },
+    OUT_OF_SCOPE: { values: ["allowedBands"] },
   };
 
   it("finds nothing when the wording names only what the backend sends, and words each variant", () => {
@@ -108,7 +109,7 @@ describe("compareDetails", () => {
       LAYER_MISSING: {
         inList: {
           heading: "Missing layer",
-          item: "{layer}",
+          detail: "{layer}",
           variants: { "bng-service": { heading: "Missing table" } },
         },
       },
@@ -116,6 +117,15 @@ describe("compareDetails", () => {
         inList: { heading: "Area ({areaSqM} sq m) too large" },
       },
       LISTED: { inList: { heading: "Habitats", item: "{feature}" } },
+      // A code that sends a value of its own, for its note, as well as the
+      // habitats its items name.
+      OUT_OF_SCOPE: {
+        inList: {
+          heading: "Out of scope",
+          item: "{feature} ({distinctiveness})",
+          note: "Allowed: {bands}.",
+        },
+      },
       NEVER_LISTED: { inList: "catch-all" },
     };
     expect(compareDetails(details, entries)).toEqual({
@@ -131,21 +141,33 @@ describe("compareDetails", () => {
       LAYER_MISSING: {
         inList: {
           heading: "Missing {table}",
-          item: "{layer}",
+          detail: "{layer}",
           variants: { renamed: { heading: "Gone" } },
         },
       },
       AREA_TOO_LARGE: "unused",
       SHOWN_RAW: { inList: "service-message" },
       LISTED: { inList: { heading: "{count} habitats", item: "{feature}" } },
+      DETAILED: {
+        inList: {
+          heading: "Layer",
+          detail: "{layer}",
+          variants: { "bng-service": { detail: "{table}" } },
+        },
+      },
     };
     expect(compareDetails(details, entries)).toEqual({
       serviceMessage: ["SHOWN_RAW"],
       unknownValues: [
         { code: "LAYER_MISSING", name: "table" },
         { code: "LISTED", name: "count" },
+        { code: "DETAILED", name: "layer" },
+        { code: "DETAILED", name: "table" },
       ],
-      unknownVariants: [{ code: "LAYER_MISSING", variant: "renamed" }],
+      unknownVariants: [
+        { code: "LAYER_MISSING", variant: "renamed" },
+        { code: "DETAILED", variant: "bng-service" },
+      ],
       unwordedVariants: [{ code: "LAYER_MISSING", variant: "bng-service" }],
     });
   });
