@@ -256,33 +256,6 @@ function footer(context) {
   ]
 }
 
-/**
- * The job summary for one run.
- *
- * @param {object} result
- * @param {string[]} [result.missing] upload codes with no entry
- * @param {string[]} [result.stale] entries for codes the backend lacks
- * @param {boolean} [result.noCopyFile] the frontend has no copy file at all
- * @param {string} [result.backendUnreadable] why the backend's errors.js
- *   would not load
- * @param {string[]} [result.misplaced] upload entries for edit-only codes
- * @param {number} result.uploadCount upload codes checked
- * @param {{missing: string[], stale: string[]} | null} [result.edit] the
- *   edit section compared with the backend's edit codes; null when either
- *   predates the split
- * @param {number} result.editCount edit rules, which need no entry
- * @param {number} [result.editChecked] edit codes checked against the edit
- *   section
- * @param {object} context
- * @param {string} context.copyFile the copy file's path in the frontend
- * @param {Record<string, {plain?: string, unclassified?: boolean, description?: string, raisedAt?: object[]}>} [context.rules]
- *   for each missing code: the explainer's plain-English description, whether
- *   the explainer has yet to classify it, and the backend's description and
- *   raise sites
- * @param {{commit?: string, branch?: string}} [context.backend]
- * @param {{commit?: string, branch?: string}} [context.frontend]
- * @returns {string}
- */
 /** How many problems check-dropout-copy.mjs's compareDetails found. */
 export function detailProblems(details) {
   return details
@@ -332,6 +305,36 @@ function detailsSection(details, ctx) {
   ]
 }
 
+/**
+ * The job summary for one run.
+ *
+ * @param {object} result
+ * @param {string[]} [result.missing] upload codes with no entry
+ * @param {string[]} [result.stale] entries for codes the backend lacks
+ * @param {boolean} [result.noCopyFile] the frontend has no copy file at all
+ * @param {string} [result.backendUnreadable] why the backend's errors.js
+ *   would not load
+ * @param {string[]} [result.misplaced] upload entries for edit-only codes
+ * @param {number} result.uploadCount upload codes checked
+ * @param {{missing: string[], stale: string[]} | null} [result.edit] the
+ *   edit section compared with the backend's edit codes; null when either
+ *   predates the split
+ * @param {number} result.editCount edit rules, which need no entry
+ * @param {number} [result.editChecked] edit codes checked against the edit
+ *   section
+ * @param {object|null} [result.details] the wording compared with the
+ *   backend's ERROR_CODE_DETAILS (compareDetails); null for a backend that
+ *   predates it
+ * @param {object} context
+ * @param {string} context.copyFile the copy file's path in the frontend
+ * @param {Record<string, {plain?: string, unclassified?: boolean, description?: string, raisedAt?: object[]}>} [context.rules]
+ *   for each missing code: the explainer's plain-English description, whether
+ *   the explainer has yet to classify it, and the backend's description and
+ *   raise sites
+ * @param {{commit?: string, branch?: string}} [context.backend]
+ * @param {{commit?: string, branch?: string}} [context.frontend]
+ * @returns {string}
+ */
 export function renderSummary(result, context) {
   const copyFileLink = fileLink(
     FRONTEND_REPO_URL,

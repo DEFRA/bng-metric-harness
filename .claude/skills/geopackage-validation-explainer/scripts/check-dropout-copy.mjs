@@ -109,7 +109,12 @@ export function compareDetails(details, entries) {
       result.serviceMessage.push(code)
       continue
     }
-    const copy = inList !== null && typeof inList === 'object' ? inList : {}
+    // inList: catch-all shows the catch-all title however the service words
+    // the problem: it names no values, and needs no variants.
+    if (inList === null || typeof inList !== 'object') {
+      continue
+    }
+    const copy = inList
     const { values = [], variants: sent = [] } = details[code] ?? {}
     for (const name of namedValues(copy)) {
       if (!values.includes(name)) {

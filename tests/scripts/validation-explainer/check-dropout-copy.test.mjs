@@ -36,6 +36,37 @@ export const ERROR_CODE_SURFACES = Object.freeze({
 })
 `;
 
+// A backend that also says what each code's details carry, as
+// ERROR_CODE_DETAILS does.
+const ERRORS_WITH_DETAILS = `export const ERROR_CODES = Object.freeze({
+  FIRST: 'FIRST',
+  LAYER: 'LAYER'
+})
+export const ERROR_CODE_SURFACES = Object.freeze({
+  FIRST: ['upload'],
+  LAYER: ['upload']
+})
+export const ERROR_CODE_DETAILS = Object.freeze({
+  LAYER: { values: ['layer'], variants: ['bng-service'] }
+})
+`;
+
+/** error-text.yaml whose LAYER entry is worded as given. */
+function detailedErrorText(layerInList) {
+  return `upload:
+  errors:
+    FIRST:
+      whenAlone: catch-all
+      inList: catch-all
+    LAYER:
+      whenAlone: catch-all
+      inList:
+${layerInList}
+edit: {}
+forms: {}
+`;
+}
+
 /** error-text.yaml: the drop-out page's copy under upload, and an edit section. */
 function errorTextFile(uploadCodes, editCodes) {
   const upload = copyFile(uploadCodes).replace(/^/gm, "  ").trimEnd();
@@ -172,6 +203,19 @@ describe("compareDetails", () => {
     });
   });
 
+  it("asks no variants of an entry the list heads with the catch-all title", () => {
+    const entries = {
+      LAYER_MISSING: { inList: "catch-all" },
+      AREA_TOO_LARGE: { inList: "catch-all" },
+    };
+    expect(compareDetails(details, entries)).toEqual({
+      serviceMessage: [],
+      unknownValues: [],
+      unknownVariants: [],
+      unwordedVariants: [],
+    });
+  });
+
   it("compares nothing for a backend that predates ERROR_CODE_DETAILS", () => {
     expect(compareDetails(null, { A: { inList: "service-message" } })).toBe(
       null,
@@ -215,6 +259,25 @@ describe("check-dropout-copy.mjs", () => {
     ]) {
       dir.write(`${name}/${ERROR_TEXT}`, errorTextFile(upload, edit));
     }
+    dir.write(
+      "details-backend/src/validation/geopackage/errors.js",
+      ERRORS_WITH_DETAILS,
+    );
+    dir.write(
+      `details-agree/${ERROR_TEXT}`,
+      detailedErrorText(`        heading: 'Layer {layer} is missing'
+        detail: 'add the {layer} table'
+        variants:
+          bng-service:
+            heading: 'Table {layer} is missing'`),
+    );
+    // Only the details disagree: a value the service does not send, and no
+    // wording for a variant it does.
+    dir.write(
+      `details-differ/${ERROR_TEXT}`,
+      detailedErrorText(`        heading: 'Layer {layer} is missing'
+        detail: 'add the {table} table'`),
+    );
     // A backend whose errors.js will not load: it imports a package the
     // check does not install.
     dir.write(
@@ -309,6 +372,29 @@ describe("check-dropout-copy.mjs", () => {
     expect(result.stderr).toMatch(/met only on an edit[\s\S]*- EDITED/);
     expect(summary()).toContain(
       "drop-out page entry for errors met only on screen",
+    );
+  });
+
+  it("passes when the wording names only what the backend sends, and words each variant", () => {
+    const result = run("details-agree", "details-backend");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain(
+      "The wording names only values the backend sends, words every variant it can name, and shows none of its messages.",
+    );
+  });
+
+  it("fails, naming each problem, when only the details disagree", () => {
+    const result = run("details-differ", "details-backend");
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/does not send[\s\S]*- LAYER: \{table\}/);
+    expect(result.stderr).toMatch(/no variant for[\s\S]*- LAYER: bng-service/);
+    const text = summary();
+    expect(text).toContain("### Wording that does not match what the service sends");
+    expect(text).toContain(
+      "| `LAYER` | Names `{table}`, which the service does not send with this error. |",
+    );
+    expect(text).toContain(
+      "| `LAYER` | The service words it a `bng-service` way that the file has no wording for. |",
     );
   });
 
