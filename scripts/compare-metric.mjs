@@ -6,6 +6,7 @@
  *
  *   npm run compare:metric                         # every committed scenario
  *   npm run compare:metric -- --only trading-rules # a purpose, or scenario ids
+ *   npm run compare:metric -- --exclude invalid-interventions # all but these
  *   npm run compare:metric -- --corpus <dir>       # any folder of scenarios
  *   npm run compare:metric -- --service-template   # the BNG Service template's
  *   npm run compare:metric -- --fail-on-unexplained
@@ -83,12 +84,15 @@ const OUT_DIR = path.join(HARNESS_ROOT, "metric-comparison");
 const { values } = parseArgs({
   options: {
     only: { type: "string", multiple: true, default: [] },
+    exclude: { type: "string", multiple: true, default: [] },
     corpus: { type: "string" },
     "service-template": { type: "boolean", default: false },
     "fail-on-unexplained": { type: "boolean", default: false },
   },
 });
-const only = values.only.flatMap((v) => v.split(",")).filter(Boolean);
+const splitList = (list) => list.flatMap((v) => v.split(",")).filter(Boolean);
+const only = splitList(values.only);
+const exclude = splitList(values.exclude);
 const serviceTemplate = values["service-template"];
 const corpusDir = values.corpus
   ? path.resolve(values.corpus)
@@ -143,7 +147,8 @@ function fullReportLocation() {
 const templateName = serviceTemplate
   ? `the BNG Service template (${SERVICE_TEMPLATE_FLAG}=true)`
   : `the legacy template (${SERVICE_TEMPLATE_FLAG}=false)`;
-const onlySuffix = only.length ? ` (${only.join(", ")})` : "";
+const filters = [...only, ...exclude.map((name) => `not ${name}`)];
+const onlySuffix = filters.length ? ` (${filters.join(", ")})` : "";
 header(`Comparing the service with the metric${onlySuffix}`);
 info(`  service:   ${backend}`);
 info(`  scenarios: ${corpusDir}`);
@@ -155,6 +160,7 @@ try {
   comparison = await runMetricComparison({
     corpusDir,
     only,
+    exclude,
     serviceTemplate,
     onResult: (r) => {
       const discrepancySuffix = r.discrepancies?.length

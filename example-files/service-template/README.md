@@ -137,8 +137,8 @@ Valid schema and geometry: an attribute value trips a later validator, or a habi
 | `degrade-vertical-area-advance-missing.gpkg` | `valid/default-site.gpkg` with V005, a vertical area habitat that gets worse (Created in its own type, linked to its parent, in a lower condition), given no years created in advance, where the Metric asks for 30 plus | STAGED_DEGRADE_ADVANCE_NOT_30_PLUS | `valid/default-site.gpkg`, edited by SQL |
 | `vertical-area-missing.gpkg` | `valid/default-site.gpkg` with the Area left blank on V004, a vertical area habitat (the demolished structure, so it has no post-intervention row). The surveyor types this Area in hectares, as a line cannot give it | VERTICAL_HABITAT_AREA_NOT_POSITIVE | `valid/default-site.gpkg`, edited by SQL |
 | `watercourse-culvert-left-out.gpkg` | `valid/default-site.gpkg` with the Retained culvert R001's post-intervention row left out, so it is lost. Only a canal or a ditch may be lost; this stands in for a natural river left out (see the gaps below) | STAGED_NATURAL_WATERCOURSE_LOST | `valid/default-site.gpkg`, edited by SQL |
-| `irreplaceable-area-habitat.gpkg` | `valid/default-site.gpkg` with its woodland parcel marked irreplaceable (Irreplaceable Habitat `Yes`) in both stages | refused. Accepted today: the service does not check irreplaceable habitats yet | seed 1, irreplaceable `habitats` |
-| `irreplaceable-tree.gpkg` | `valid/default-site.gpkg` with one Retained tree marked irreplaceable (a veteran tree) in both stages | refused. Accepted today: the service does not check irreplaceable habitats yet | seed 1, irreplaceable `trees` |
+| `irreplaceable-area-habitat.gpkg` | `valid/default-site.gpkg` with its woodland parcel marked irreplaceable (Irreplaceable Habitat `Yes`) in both stages | refused. Accepted today: the service does not check irreplaceable area habitats yet | seed 1, irreplaceable `habitats` |
+| `irreplaceable-tree.gpkg` | `valid/default-site.gpkg` with one Retained tree marked irreplaceable (a veteran tree) in both stages | IRREPLACEABLE_TREE | seed 1, irreplaceable `trees` |
 
 ## lineage-problems/
 
@@ -203,5 +203,5 @@ A valid file; only the upload's own file name is invalid.
 ## Gaps
 
 - A natural river left out, and an irreplaceable tree that gets worse: the service refuses either file for another reason first, so a fixture could not show the rule. Natural rivers (Other rivers and streams, High; Priority habitat, V.High) are out of the service's scope, and only canals and ditches may be lost (a culvert left out is refused, STAGED_NATURAL_WATERCOURSE_LOST: `attribute-problems/watercourse-culvert-left-out.gpkg`); an irreplaceable tree is refused whether or not it gets worse (`attribute-problems/irreplaceable-tree.gpkg`).
-- Individual trees with varied counts: the template has no Count column, and how several trees are recorded is undecided (BMD-1171, BMD-1172).
+- Individual trees with varied counts, and trees partly felled: the template has no Count column yet (BMD-1171), so each tree point is one tree. The service reads a Count when a file has one.
 - The harness's import-timing scenarios: they edit legacy files, so `permutations/` builds them in the legacy format only.

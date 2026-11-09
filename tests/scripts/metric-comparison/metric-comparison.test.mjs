@@ -260,6 +260,15 @@ describe.skipIf(!isBackendInstalled())("runMetricComparison", () => {
     ]);
   });
 
+  it("leaves out the scenarios --exclude names, from those --only selects", async () => {
+    const { results } = await runMetricComparison({
+      only: ["net-gain", "intervention/area-created"],
+      exclude: ["unmet", "intervention"],
+    });
+
+    expect(results.map((r) => r.id)).toEqual(["net-gain/met"]);
+  });
+
   // The area cases among them record their created habitat as a Lost
   // replacement, so the baseline the service saves keeps the parcel's loss.
   it.each([
