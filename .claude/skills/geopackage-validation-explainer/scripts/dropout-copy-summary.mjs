@@ -87,11 +87,12 @@ const NEW_ENTRY_TEMPLATE = (code) => `  ${code}:
       body: >-
         Say what is wrong with the file, and how to put it right, then
         [upload a new file](upload).
-    inList: service-message`
+    inList:
+      heading: Say in a few words what is wrong with the file`
 
 const STOPGAP_TEMPLATE = (code) => `  ${code}:
     whenAlone: catch-all
-    inList: service-message`
+    inList: catch-all`
 
 const NEW_MARK = '🆕'
 
@@ -255,6 +256,55 @@ function footer(context) {
   ]
 }
 
+/** How many problems check-dropout-copy.mjs's compareDetails found. */
+export function detailProblems(details) {
+  return details
+    ? details.serviceMessage.length +
+        details.unknownValues.length +
+        details.unknownVariants.length +
+        details.unwordedVariants.length
+    : 0
+}
+
+/**
+ * Where the wording and the values or variants the service sends with an
+ * error disagree (check-dropout-copy.mjs compareDetails).
+ */
+function detailsSection(details, ctx) {
+  const rows = [
+    ...details.serviceMessage.map((code) => [
+      code,
+      "Shows the service's own technical message (`inList: service-message`).",
+      "Word it in the file. Fill any value it names from the error's details."
+    ]),
+    ...details.unknownValues.map(({ code, name }) => [
+      code,
+      `Names \`{${name}}\`, which the service does not send with this error.`,
+      "Remove it, or ask a developer to send it (`ERROR_CODE_DETAILS` in the backend's `errors.js`)."
+    ]),
+    ...details.unknownVariants.map(({ code, variant }) => [
+      code,
+      `Has wording for the \`${variant}\` variant, which the service never sends.`,
+      'Delete the variant, or check whether it was renamed.'
+    ]),
+    ...details.unwordedVariants.map(({ code, variant }) => [
+      code,
+      `The service words it a \`${variant}\` way that the file has no wording for.`,
+      `Add a \`${variant}\` variant under its \`inList\`.`
+    ])
+  ]
+  return [
+    '### Wording that does not match what the service sends',
+    '',
+    `The page shows only the wording in ${ctx.copyFileLink}, filling each \`{value}\` from what the service sends with the error.`,
+    '',
+    '| Error | What is wrong | What to do |',
+    '| --- | --- | --- |',
+    ...rows.map(([code, what, todo]) => `| \`${code}\` | ${what} | ${todo} |`),
+    ''
+  ]
+}
+
 /**
  * The job summary for one run.
  *
@@ -272,6 +322,9 @@ function footer(context) {
  * @param {number} result.editCount edit rules, which need no entry
  * @param {number} [result.editChecked] edit codes checked against the edit
  *   section
+ * @param {object|null} [result.details] the wording compared with the
+ *   backend's ERROR_CODE_DETAILS (compareDetails); null for a backend that
+ *   predates it
  * @param {object} context
  * @param {string} context.copyFile the copy file's path in the frontend
  * @param {Record<string, {plain?: string, unclassified?: boolean, description?: string, raisedAt?: object[]}>} [context.rules]
@@ -324,11 +377,14 @@ export function renderSummary(result, context) {
   const misplaced = result.misplaced ?? []
   const edit = result.edit ?? null
   const editProblems = (edit?.missing.length ?? 0) + (edit?.stale.length ?? 0)
+  const details = result.details ?? null
+  const wordingProblems = detailProblems(details)
   if (
     missing.length === 0 &&
     stale.length === 0 &&
     misplaced.length === 0 &&
-    editProblems === 0
+    editProblems === 0 &&
+    wordingProblems === 0
   ) {
     return [
       '## ✅ Drop-out page wording: nothing to fix',
@@ -358,7 +414,9 @@ export function renderSummary(result, context) {
     edit?.missing.length > 0 &&
       `- **${edit.missing.length} on-screen error${edit.missing.length === 1 ? '' : 's'} with no entry in the edit section** — the page cannot show ${edit.missing.length === 1 ? 'its' : 'their'} own message.`,
     edit?.stale.length > 0 &&
-      `- **${edit.stale.length} edit-section entr${edit.stale.length === 1 ? 'y' : 'ies'} for errors that refuse no edit** — no user is affected.`
+      `- **${edit.stale.length} edit-section entr${edit.stale.length === 1 ? 'y' : 'ies'} for errors that refuse no edit** — no user is affected.`,
+    wordingProblems > 0 &&
+      `- **${wordingProblems} mismatch${wordingProblems === 1 ? '' : 'es'} between the wording and what the service sends with an error** — a user may see the service's technical message, a gap, or the generic message.`
   ].filter(Boolean)
 
   return [
@@ -372,6 +430,7 @@ export function renderSummary(result, context) {
     ...(stale.length > 0 ? staleSection(stale, ctx) : []),
     ...(misplaced.length > 0 ? misplacedSection(misplaced, ctx) : []),
     ...(editProblems > 0 ? editSection(edit, ctx) : []),
+    ...(wordingProblems > 0 ? detailsSection(details, ctx) : []),
     ...footer(ctx)
   ].join('\n')
 }
