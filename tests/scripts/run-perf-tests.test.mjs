@@ -9,9 +9,12 @@ describe("parsePerfTemplate", () => {
     expect(parsePerfTemplate(value)).toBe("");
   });
 
-  it.each(["legacy", " Legacy ", "LEGACY"])("accepts %j as legacy", (value) => {
-    expect(parsePerfTemplate(value)).toBe("legacy");
-  });
+  it.each(["legacy", " Legacy ", "LEGACY"])(
+    "accepts %j as legacy",
+    (value) => {
+      expect(parsePerfTemplate(value)).toBe("legacy");
+    },
+  );
 
   it.each(["service", " SERVICE "])("accepts %j as service", (value) => {
     expect(parsePerfTemplate(value)).toBe("service");

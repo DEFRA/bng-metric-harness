@@ -10,13 +10,7 @@ import { generateOne } from "#bng-lib";
 const NUM_PARCELS = 5;
 const CENTRE = [530000, 180000];
 
-const EXPECTED_FEATURE_TABLES = [
-  "Red Line Boundary",
-  "Habitats",
-  "Hedgerows",
-  "Rivers",
-  "Urban Trees",
-];
+const EXPECTED_FEATURE_TABLES = ["Red Line Boundary", "Habitats", "Hedgerows", "Rivers", "Urban Trees"];
 
 describe("synthetic generateOne", () => {
   let outDir;
@@ -44,9 +38,7 @@ describe("synthetic generateOne", () => {
     const db = openGeoPackageReadonly(outPath);
     try {
       const rows = db
-        .prepare(
-          "SELECT table_name FROM gpkg_contents WHERE data_type = 'features' ORDER BY table_name",
-        )
+        .prepare("SELECT table_name FROM gpkg_contents WHERE data_type = 'features' ORDER BY table_name")
         .all()
         .map((r) => r.table_name);
       for (const table of EXPECTED_FEATURE_TABLES) {
@@ -60,9 +52,7 @@ describe("synthetic generateOne", () => {
   it("writes one Red Line Boundary row and one Habitats row per requested parcel", () => {
     const db = openGeoPackageReadonly(outPath);
     try {
-      const rlb = db
-        .prepare(`SELECT COUNT(*) AS n FROM "Red Line Boundary"`)
-        .get();
+      const rlb = db.prepare(`SELECT COUNT(*) AS n FROM "Red Line Boundary"`).get();
       const habitats = db.prepare(`SELECT COUNT(*) AS n FROM "Habitats"`).get();
       expect(rlb.n).toBe(1);
       expect(habitats.n).toBe(NUM_PARCELS);
@@ -79,9 +69,7 @@ describe("synthetic generateOne", () => {
     try {
       for (const table of ["Hedgerows", "Rivers", "Urban Trees"]) {
         const { n } = db.prepare(`SELECT COUNT(*) AS n FROM "${table}"`).get();
-        expect(n, `${table} should have at least one feature`).toBeGreaterThan(
-          0,
-        );
+        expect(n, `${table} should have at least one feature`).toBeGreaterThan(0);
       }
     } finally {
       db.close();
@@ -111,9 +99,7 @@ describe("synthetic generateOne — geometric flaws", () => {
     const db = openGeoPackageReadonly(outPath);
     try {
       const tables = db
-        .prepare(
-          "SELECT table_name FROM gpkg_contents WHERE data_type = 'features'",
-        )
+        .prepare("SELECT table_name FROM gpkg_contents WHERE data_type = 'features'")
         .all()
         .map((r) => r.table_name);
       expect(tables).toContain("Red Line Boundary");
@@ -145,9 +131,7 @@ describe("synthetic generateOne — empty-layer flaw", () => {
     const db = openGeoPackageReadonly(outPath);
     try {
       const tables = db
-        .prepare(
-          "SELECT table_name FROM gpkg_contents WHERE data_type = 'features'",
-        )
+        .prepare("SELECT table_name FROM gpkg_contents WHERE data_type = 'features'")
         .all()
         .map((r) => r.table_name);
       expect(tables).toContain("Habitats");
@@ -161,9 +145,7 @@ describe("synthetic generateOne — empty-layer flaw", () => {
   it("still populates the other feature layers", () => {
     const db = openGeoPackageReadonly(outPath);
     try {
-      const { n } = db
-        .prepare(`SELECT COUNT(*) AS n FROM "Red Line Boundary"`)
-        .get();
+      const { n } = db.prepare(`SELECT COUNT(*) AS n FROM "Red Line Boundary"`).get();
       expect(n).toBe(1);
     } finally {
       db.close();
@@ -182,10 +164,7 @@ describe("synthetic generateOne — attribute overrides", () => {
       numParcels: NUM_PARCELS,
       attributeOverrides: {
         habitats: [
-          {
-            habitatFullName: "Grassland - Lowland meadows",
-            retention: "Retained",
-          },
+          { habitatFullName: "Grassland - Lowland meadows", retention: "Retained" },
         ],
       },
     });

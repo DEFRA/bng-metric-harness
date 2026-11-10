@@ -389,9 +389,7 @@ describe("check-dropout-copy.mjs", () => {
     expect(result.stderr).toMatch(/does not send[\s\S]*- LAYER: \{table\}/);
     expect(result.stderr).toMatch(/no variant for[\s\S]*- LAYER: bng-service/);
     const text = summary();
-    expect(text).toContain(
-      "### Wording that does not match what the service sends",
-    );
+    expect(text).toContain("### Wording that does not match what the service sends");
     expect(text).toContain(
       "| `LAYER` | Names `{table}`, which the service does not send with this error. |",
     );

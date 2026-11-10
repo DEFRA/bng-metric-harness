@@ -120,9 +120,7 @@ describe("resolveFlawSelection — happy paths", () => {
     expect(sel.geometricFlawNames).not.toContain("redline-not-in-england");
     // Non-geometric flaws are excluded
     expect(sel.geometricFlawNames).not.toContain("no-habitats");
-    expect(sel.geometricFlawNames).not.toContain(
-      "distinctiveness-out-of-scope",
-    );
+    expect(sel.geometricFlawNames).not.toContain("distinctiveness-out-of-scope");
   });
 });
 
@@ -217,9 +215,7 @@ describe("resolveFlawSelection — conflicts", () => {
       category: CATEGORY_ATTRIBUTE,
       attributeOverride: {
         layer: "habitats",
-        perRow: [
-          { habitatFullName: "Nonsense - Not real", retention: "Retained" },
-        ],
+        perRow: [{ habitatFullName: "Nonsense - Not real", retention: "Retained" }],
       },
     };
     try {

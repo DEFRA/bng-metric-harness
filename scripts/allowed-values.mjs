@@ -5,10 +5,7 @@
 // the backend, so the check runs where no backend is checked out.
 
 import Database from "better-sqlite3";
-import {
-  RED_LINE_BOUNDARY,
-  TEMPLATE_ALLOWED_VALUES,
-} from "bng-library/bng-service";
+import { RED_LINE_BOUNDARY, TEMPLATE_ALLOWED_VALUES } from "bng-library/bng-service";
 
 // A legacy list number, as in "4. Fairly Poor", but not the whole part of a
 // decimal: "5.0" is five years, not list item 5 of "0".
@@ -136,9 +133,7 @@ export function disallowedValues(file) {
         .filter((column) => ALLOWED_VALUES.has(columnKey(column)))
         .flatMap((column) =>
           db
-            .prepare(
-              `SELECT DISTINCT ${quote(column)} AS value FROM ${quote(table)}`,
-            )
+            .prepare(`SELECT DISTINCT ${quote(column)} AS value FROM ${quote(table)}`)
             .all()
             .filter((row) => !isAllowedValue(column, row.value))
             .map((row) => ({ table, column, value: row.value })),

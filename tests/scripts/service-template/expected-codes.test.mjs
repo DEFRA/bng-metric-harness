@@ -29,10 +29,7 @@ import {
 
 // Reading every fixture takes a second or two; a slow runner may need more.
 const SLOW_TEST_TIMEOUT = 30_000;
-const EXAMPLE_FILES = path.resolve(
-  import.meta.dirname,
-  "../../../example-files",
-);
+const EXAMPLE_FILES = path.resolve(import.meta.dirname, "../../../example-files");
 const CORPUS_DIR = "service-template";
 const CORPUS = path.join(EXAMPLE_FILES, CORPUS_DIR);
 const README = path.join(CORPUS, "README.md");
@@ -112,30 +109,23 @@ describe("the service-template README's Expected column", () => {
 });
 
 describe("the schema-valid service-template fixtures' drop-down values", () => {
-  it(
-    "hold only values the template's lists offer, unless a fixture expects VALUE_NOT_ALLOWED",
-    () => {
-      const refused = SCHEMA_VALID.filter(
-        (file) => codeOf(file) !== "VALUE_NOT_ALLOWED",
-      ).flatMap((file) =>
-        disallowedValues(path.join(CORPUS, file)).map(
-          ({ table, column, value }) =>
-            `${file}: ${table}.${column} = ${JSON.stringify(value)}`,
-        ),
-      );
-      expect(refused).toEqual([]);
-    },
-    SLOW_TEST_TIMEOUT,
-  );
+  it("hold only values the template's lists offer, unless a fixture expects VALUE_NOT_ALLOWED", () => {
+    const refused = SCHEMA_VALID.filter(
+      (file) => codeOf(file) !== "VALUE_NOT_ALLOWED",
+    ).flatMap((file) =>
+      disallowedValues(path.join(CORPUS, file)).map(
+        ({ table, column, value }) =>
+          `${file}: ${table}.${column} = ${JSON.stringify(value)}`,
+      ),
+    );
+    expect(refused).toEqual([]);
+  }, SLOW_TEST_TIMEOUT);
 
   it("hold a refused value where a fixture expects VALUE_NOT_ALLOWED", () => {
     for (const file of SCHEMA_VALID.filter(
       (f) => codeOf(f) === "VALUE_NOT_ALLOWED",
     )) {
-      expect(
-        disallowedValues(path.join(CORPUS, file)).length,
-        file,
-      ).toBeGreaterThan(0);
+      expect(disallowedValues(path.join(CORPUS, file)).length, file).toBeGreaterThan(0);
     }
   });
 });
@@ -165,17 +155,13 @@ describe.skipIf(!isBackendInstalled())(
       }
     });
 
-    it(
-      "passes every other fixture with a README row, to fail, if at all, at the stage it was built for",
-      () => {
-        const refused = SCHEMA_VALID_ROWS.filter(
-          (file) => !GATE_CODE.test(codeOf(file) ?? ""),
-        )
-          .map((file) => ({ file, codes: gateCodes(file) }))
-          .filter(({ codes }) => codes.length > 0);
-        expect(refused).toEqual([]);
-      },
-      SLOW_TEST_TIMEOUT,
-    );
+    it("passes every other fixture with a README row, to fail, if at all, at the stage it was built for", () => {
+      const refused = SCHEMA_VALID_ROWS.filter(
+        (file) => !GATE_CODE.test(codeOf(file) ?? ""),
+      )
+        .map((file) => ({ file, codes: gateCodes(file) }))
+        .filter(({ codes }) => codes.length > 0);
+      expect(refused).toEqual([]);
+    }, SLOW_TEST_TIMEOUT);
   },
 );
