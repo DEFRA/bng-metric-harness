@@ -61,7 +61,7 @@
     "generate:service-template": "node scripts/gen-service-template.mjs"
   },
   "dependencies": {
-    "concurrently": "^10.0.6"
+    "concurrently": "^10.0.7"
   },
   "devDependencies": {
     "better-sqlite3": "^13.0.3",
