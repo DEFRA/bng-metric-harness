@@ -9,7 +9,8 @@
  *
  *   backend   which codes exist, where each is raised, the literal message
  *   frontend  whether the user sees bespoke copy, the backend's own message,
- *             a placeholder, or a catch-all
+ *             a placeholder (in a frontend older than the `wording` field),
+ *             or a catch-all
  *   library   whether a fixture exists that is meant to trigger the code
  *
  * A code that no fixture exercises, or that reaches the user as a generic
@@ -60,6 +61,24 @@ export const DROPOUT_COPY_FILE = path.join(
   'error-file',
   'dropout-copy.yaml'
 )
+
+/**
+ * The frontend module that reads error-text.yaml's `wording` field. A frontend
+ * that has it marks an entry with no words yet as `wording: none`; an older
+ * one wrote `placeholder` in the entry's place, which a newer one refuses.
+ */
+const WORDING_MODULE = path.join(
+  'src',
+  'server',
+  'common',
+  'error-text',
+  'wording.js'
+)
+
+/** Whether the frontend marks unfinished wording with a `wording` field. */
+export function hasWordingField(frontendDir) {
+  return existsSync(path.join(frontendDir, WORDING_MODULE))
+}
 
 /** Where the frontend keeps the drop-out page's copy, or null for one that predates both files. */
 export function copyFileIn(frontendDir) {
@@ -234,7 +253,10 @@ export function extractCopyStatus(frontendDir) {
 /**
  * From dropout-copy.yaml: a code whose whenAlone is copy has its own message,
  * one whose whenAlone is "list" is shown as its list (under its own heading,
- * or else the backend's message), and "placeholder" shows the placeholder.
+ * or else the backend's message), and "placeholder" shows the placeholder:
+ * a value only an older frontend's file has. A newer one marks an entry
+ * with no words of its own with a `wording` field instead, beside a
+ * whenAlone that names the shared fallback the page shows.
  * `inCopyFile` is every code the file names, so a backend code missing from
  * it can be reported.
  */

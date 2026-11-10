@@ -259,6 +259,16 @@ describe("check-dropout-copy.mjs", () => {
     ]) {
       dir.write(`${name}/${ERROR_TEXT}`, errorTextFile(upload, edit));
     }
+    // The same, in a frontend that marks unfinished wording with a wording
+    // field, which refuses the bare "placeholder" an older one took.
+    dir.write(
+      `wording-field-differs/${ERROR_TEXT}`,
+      errorTextFile(["FIRST", "BOTH"], ["EDITED", "FIRST"]),
+    );
+    dir.write(
+      "wording-field-differs/src/server/common/error-text/wording.js",
+      "export {}\n",
+    );
     dir.write(
       "details-backend/src/validation/geopackage/errors.js",
       ERRORS_WITH_DETAILS,
@@ -358,6 +368,26 @@ describe("check-dropout-copy.mjs", () => {
     expect(text).toContain("  BOTH: placeholder");
     // The backend classifies every code, so nothing is new to the explainer.
     expect(text).not.toContain("🆕");
+  });
+
+  it("tells a frontend with the wording field to write wording: none, not placeholder", () => {
+    const result = run("wording-field-differs", "surfaces-backend");
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      "Add an entry for each: its wording, or `wording: none` until it has some:",
+    );
+    const text = summary();
+    expect(text).toContain("  BOTH:\n    wording: none");
+    expect(text).toContain("or `wording: none` until it is.");
+    expect(text).not.toContain("placeholder");
+  });
+
+  it("still tells an older frontend to write placeholder", () => {
+    const result = run("error-text-differs", "surfaces-backend");
+    expect(result.stderr).toContain(
+      "Add an entry for each: its wording, or `placeholder` until it has some:",
+    );
+    expect(summary()).toContain("or `placeholder` until it is.");
   });
 
   it("finds a frontend by its error-text.yaml alone", () => {

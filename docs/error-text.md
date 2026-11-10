@@ -53,8 +53,13 @@ auth, reports) answered with an HTTP status and no code.
 | `forms` | A field's own validation, before anything reaches the backend | Field, then rule |
 | `request` *(step 2)* | Error pages: not found, conflict, service unavailable | Backend code, then HTTP status |
 
-`placeholder` anywhere means the wording is awaiting UCD. Product, BAs and UCD
-change the wording by pull request to this one file.
+Wording that is not final says so with a `wording` field on its entry, in any
+section: `wording: interim` is shown but UCD has not reviewed it, and
+`wording: none` has no words of its own yet, so the page shows a generic
+message. An entry with no `wording` field is final. An older frontend wrote
+`placeholder` in the entry's place instead, which the current one refuses, so
+the check below advises whichever the frontend it reads takes. Product, BAs and
+UCD change the wording by pull request to this one file.
 
 An `upload` entry's heading can name `{values}` from the error's details, and
 give a `variants` entry for each way the backend words the problem. Its bullets
@@ -103,7 +108,7 @@ developer, to the run's job summary: a verdict, each problem, and what to do.
    too, and list it in `ERROR_CODE_DETAILS`; likewise each variant, if the
    code words the problem more than one way.
 4. In bng-metric-frontend, add an entry to `error-text.yaml` in each section
-   the code belongs in: wording agreed with UCD, or `placeholder`. A value the
+   the code belongs in: wording agreed with UCD, or `wording: none`. A value the
    wording names needs its format in the drop-out page's `DETAIL_VALUES`
    (`error-file/controller.js`).
 
@@ -119,7 +124,7 @@ The file's header explains each field; the frontend's tests check its shape.
 | 1 | Backend `ERROR_CODE_SURFACES`; frontend `error-text.yaml` with `upload`, `edit` and a first `forms` entry; the check reads both and compares the edit section | Done: bng-metric-backend `BMD-1083-error-surfaces`, bng-metric-frontend `BMD-1083-error-text`, bng-metric-harness `BMD-1083-error-text-check` |
 | 2 | Codes for the remaining customer-facing refusals (not found, edit conflicts, the CDP uploader's rejections); a `request` section; a "service unavailable" page; show `ENHANCEMENT_NOT_VALID` and `HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE` on the edit pages | To do |
 | 3 | Field validation wording into `forms`, page by page as each is touched, with a shared GOV.UK error-summary helper | To do |
-| 4 | UCD words the backlog: the `upload` entries still `catch-all` or `placeholder`, and the `edit` placeholders | To do |
+| 4 | UCD words the backlog: the entries marked `wording: none` or `wording: interim`, and the `upload` entries on a shared fallback | To do |
 | — | No backend message on the drop-out page: the backend sends the values and variants its messages name (`ERROR_CODE_DETAILS`), the frontend words every upload code from them, and the check compares the two | Done, but for the check: DEFRA/bng-metric-backend#619 and DEFRA/bng-metric-frontend#479 are merged; DEFRA/bng-metric-frontend#480 and DEFRA/bng-metric-harness#225 are in review |
 
 ### The details pull requests, and the order to merge them

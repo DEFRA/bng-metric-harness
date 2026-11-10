@@ -186,7 +186,20 @@ function misplacedSection(misplaced, context) {
   ]
 }
 
-const EDIT_PLACEHOLDER_TEMPLATE = (code) => `  ${code}: placeholder`
+/**
+ * An edit entry with no wording yet: `wording: none` in a frontend with the
+ * `wording` field, which refuses the bare `placeholder` an older one took.
+ */
+const EDIT_PLACEHOLDER_TEMPLATE = (code, wordingField) =>
+  wordingField
+    ? `  ${code}:
+    wording: none`
+    : `  ${code}: placeholder`
+
+/** How the advice names an entry with no wording yet. */
+export function unwordedEntry(wordingField) {
+  return wordingField ? '`wording: none`' : '`placeholder`'
+}
 
 const EDIT_ENTRY_TEMPLATE = (code) => `  ${code}:
     summary: Say what is wrong, for the error summary at the top of the page.
@@ -208,7 +221,7 @@ function editSection(edit, context) {
       '',
       '**What to do**',
       '',
-      `- Add an entry for each under \`edit:\` in ${context.copyFileLink}, by pull request to bng-metric-frontend: wording agreed with a content designer, or \`placeholder\` until it is.`,
+      `- Add an entry for each under \`edit:\` in ${context.copyFileLink}, by pull request to bng-metric-frontend: wording agreed with a content designer, or ${unwordedEntry(context.wordingField)} until it is.`,
       '',
       '<details><summary>An entry to start from</summary>',
       '',
@@ -219,7 +232,7 @@ function editSection(edit, context) {
       'Or, until the wording is agreed:',
       '',
       '```yaml',
-      EDIT_PLACEHOLDER_TEMPLATE(first),
+      EDIT_PLACEHOLDER_TEMPLATE(first, context.wordingField),
       '```',
       '',
       '</details>',
@@ -327,6 +340,7 @@ function detailsSection(details, ctx) {
  *   predates it
  * @param {object} context
  * @param {string} context.copyFile the copy file's path in the frontend
+ * @param {boolean} [context.wordingField] whether the frontend marks unfinished wording with a `wording` field
  * @param {Record<string, {plain?: string, unclassified?: boolean, description?: string, raisedAt?: object[]}>} [context.rules]
  *   for each missing code: the explainer's plain-English description, whether
  *   the explainer has yet to classify it, and the backend's description and
