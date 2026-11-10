@@ -55,7 +55,15 @@ describe("normaliseListValue", () => {
 
 describe("isBlankValue", () => {
   it("counts null, whitespace and the word Null as blank", () => {
-    for (const value of [null, undefined, "", "   ", "\t\n", "Null", " NULL "]) {
+    for (const value of [
+      null,
+      undefined,
+      "",
+      "   ",
+      "\t\n",
+      "Null",
+      " NULL ",
+    ]) {
       expect(isBlankValue(value), JSON.stringify(value)).toBe(true);
     }
   });
@@ -89,17 +97,17 @@ describe("buildAllowedValues", () => {
 describe("isAllowedValue", () => {
   const allowed = buildAllowedValues({
     "Baseline Condition": ["4. Fairly Poor", "Good"],
-    "Encroachment": ["Minor/ Minor"],
-    "Advance": ["5"],
+    Encroachment: ["Minor/ Minor"],
+    Advance: ["5"],
   });
 
   it("allows a value its lists offer, spelt any way the check compares the same", () => {
     expect(isAllowedValue("baseline condition ", "fairly  poor", allowed)).toBe(
       true,
     );
-    expect(isAllowedValue("Baseline Condition", "4. Fairly Poor", allowed)).toBe(
-      true,
-    );
+    expect(
+      isAllowedValue("Baseline Condition", "4. Fairly Poor", allowed),
+    ).toBe(true);
     expect(isAllowedValue("Encroachment", "minor /minor", allowed)).toBe(true);
     expect(isAllowedValue("Advance", 5, allowed)).toBe(true);
     expect(isAllowedValue("Advance", "5.0", allowed)).toBe(true);

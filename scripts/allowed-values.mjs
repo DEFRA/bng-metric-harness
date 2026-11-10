@@ -5,7 +5,10 @@
 // the backend, so the check runs where no backend is checked out.
 
 import Database from "better-sqlite3";
-import { RED_LINE_BOUNDARY, TEMPLATE_ALLOWED_VALUES } from "bng-library/bng-service";
+import {
+  RED_LINE_BOUNDARY,
+  TEMPLATE_ALLOWED_VALUES,
+} from "bng-library/bng-service";
 
 // A legacy list number, as in "4. Fairly Poor", but not the whole part of a
 // decimal: "5.0" is five years, not list item 5 of "0".
@@ -34,7 +37,7 @@ export function columnKey(column) {
  * with each run of whitespace one space and none around a slash, a whole
  * number written as a decimal without its decimal places, in lower case.
  *
- * @param {unknown} value
+ * @param {string | number | null | undefined} value
  * @returns {string}
  */
 export function normaliseListValue(value) {
@@ -52,7 +55,7 @@ export function normaliseListValue(value) {
 /**
  * Whether a value is blank: null, only whitespace, or the word "Null".
  *
- * @param {unknown} value
+ * @param {string | number | null | undefined} value
  * @returns {boolean}
  */
 export function isBlankValue(value) {
@@ -90,7 +93,7 @@ const ALLOWED_VALUES = buildAllowedValues();
  * list allows anything; so does a value that is not text but reads as one.
  *
  * @param {string} column
- * @param {unknown} value
+ * @param {string | number | null | undefined} value
  * @param {Map<string, Set<string>>} [allowed]
  * @returns {boolean}
  */
@@ -133,7 +136,9 @@ export function disallowedValues(file) {
         .filter((column) => ALLOWED_VALUES.has(columnKey(column)))
         .flatMap((column) =>
           db
-            .prepare(`SELECT DISTINCT ${quote(column)} AS value FROM ${quote(table)}`)
+            .prepare(
+              `SELECT DISTINCT ${quote(column)} AS value FROM ${quote(table)}`,
+            )
             .all()
             .filter((row) => !isAllowedValue(column, row.value))
             .map((row) => ({ table, column, value: row.value })),

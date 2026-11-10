@@ -6,9 +6,24 @@ import { buildBaselineRows, buildPostInterventionRows } from "#bng-lib";
 // row builder never trips over an undefined `.baseline` / `.created` array.
 function wb(parts = {}) {
   return {
-    habitats: { baseline: [], created: [], enhancements: [], ...parts.habitats },
-    hedgerows: { baseline: [], created: [], enhancements: [], ...parts.hedgerows },
-    watercourses: { baseline: [], created: [], enhancements: [], ...parts.watercourses },
+    habitats: {
+      baseline: [],
+      created: [],
+      enhancements: [],
+      ...parts.habitats,
+    },
+    hedgerows: {
+      baseline: [],
+      created: [],
+      enhancements: [],
+      ...parts.hedgerows,
+    },
+    watercourses: {
+      baseline: [],
+      created: [],
+      enhancements: [],
+      ...parts.watercourses,
+    },
     trees: { baseline: [], created: [], ...parts.trees },
   };
 }
@@ -78,7 +93,12 @@ describe("buildPostInterventionRows — habitats", () => {
   });
 
   it("retained+enhanced split yields H001a (Retained) + H001b (Enhanced) pulling proposed from A-3", () => {
-    const baseline = habBaseline({ area: 1, areaRetained: 0.4, areaEnhanced: 0.6, areaLost: 0 });
+    const baseline = habBaseline({
+      area: 1,
+      areaRetained: 0.4,
+      areaEnhanced: 0.6,
+      areaLost: 0,
+    });
     const enhancement = {
       baselineRef: 1,
       proposedBroad: "Woodland and forest",
@@ -106,7 +126,12 @@ describe("buildPostInterventionRows — habitats", () => {
   });
 
   it("fully-lost baseline with matching created yields one Created row that inlines the lost parcel's baseline shape", () => {
-    const baseline = habBaseline({ area: 1, areaRetained: 0, areaEnhanced: 0, areaLost: 1 });
+    const baseline = habBaseline({
+      area: 1,
+      areaRetained: 0,
+      areaEnhanced: 0,
+      areaLost: 1,
+    });
     const created = habCreated({ area: 0.9 });
     const { habitats } = buildPostInterventionRows(
       wb({ habitats: { baseline: [baseline], created: [created] } }),
@@ -155,9 +180,19 @@ describe("buildPostInterventionRows — habitats", () => {
   });
 
   it("emits no retained slice when areaRetained is 0 (suffix scheme only applies when >1 slice survives)", () => {
-    const baseline = habBaseline({ area: 1, areaRetained: 0, areaEnhanced: 1, areaLost: 0 });
+    const baseline = habBaseline({
+      area: 1,
+      areaRetained: 0,
+      areaEnhanced: 1,
+      areaLost: 0,
+    });
     const { habitats } = buildPostInterventionRows(
-      wb({ habitats: { baseline: [baseline], enhancements: [{ baselineRef: 1, proposedCondition: "Good" }] } }),
+      wb({
+        habitats: {
+          baseline: [baseline],
+          enhancements: [{ baselineRef: 1, proposedCondition: "Good" }],
+        },
+      }),
     );
     expect(habitats).toHaveLength(1);
     expect(habitats[0]).toMatchObject({ ref: "H001", retention: "Enhanced" });
@@ -166,7 +201,11 @@ describe("buildPostInterventionRows — habitats", () => {
 
 describe("buildPostInterventionRows — hedgerows", () => {
   it("lengthRetained + lengthEnhanced split with B-3 enhancement yields HG001a/HG001b", () => {
-    const baseline = hedgeBaseline({ lengthM: 100, lengthRetainedM: 30, lengthEnhancedM: 70 });
+    const baseline = hedgeBaseline({
+      lengthM: 100,
+      lengthRetainedM: 30,
+      lengthEnhancedM: 70,
+    });
     const enhancement = {
       baselineRef: 1,
       proposedType: "Hedgerow with trees",
@@ -216,13 +255,32 @@ describe("buildPostInterventionRows — trees", () => {
       areaEnhanced: 0,
       areaLost: 1,
     };
-    const { trees } = buildPostInterventionRows(wb({ trees: { baseline: [lostTree] } }));
+    const { trees } = buildPostInterventionRows(
+      wb({ trees: { baseline: [lostTree] } }),
+    );
     expect(trees).toEqual([]);
   });
 
   it("created trees get fresh sequential refs after baseline.length", () => {
-    const baseline = { ref: 1, type: "Mature tree", distinctiveness: "Medium", condition: "Good", strategicSignificance: "Low", areaRetained: 1, areaEnhanced: 0, areaLost: 0 };
-    const created = { ref: 99, type: "Young tree", distinctiveness: "Low", condition: "Good", strategicSignificance: "Low", advanceYears: 0, delayYears: 0 };
+    const baseline = {
+      ref: 1,
+      type: "Mature tree",
+      distinctiveness: "Medium",
+      condition: "Good",
+      strategicSignificance: "Low",
+      areaRetained: 1,
+      areaEnhanced: 0,
+      areaLost: 0,
+    };
+    const created = {
+      ref: 99,
+      type: "Young tree",
+      distinctiveness: "Low",
+      condition: "Good",
+      strategicSignificance: "Low",
+      advanceYears: 0,
+      delayYears: 0,
+    };
     const { trees } = buildPostInterventionRows(
       wb({ trees: { baseline: [baseline], created: [created] } }),
     );
@@ -240,7 +298,17 @@ describe("buildBaselineRows", () => {
         habitats: { baseline: [habBaseline({ ref: 12 })] },
         hedgerows: { baseline: [hedgeBaseline({ ref: 3 })] },
         watercourses: { baseline: [hedgeBaseline({ ref: 4 })] },
-        trees: { baseline: [{ ref: 7, type: "Mature tree", distinctiveness: "Medium", condition: "Good", strategicSignificance: "Low" }] },
+        trees: {
+          baseline: [
+            {
+              ref: 7,
+              type: "Mature tree",
+              distinctiveness: "Medium",
+              condition: "Good",
+              strategicSignificance: "Low",
+            },
+          ],
+        },
       }),
     );
     expect(habitats[0]).toMatchObject({ ref: "H012", baselineRef: "12" });
@@ -263,8 +331,18 @@ describe("buildBaselineRows", () => {
   });
 
   it("under --strict-habitats drops habitats with invalid (broad, type, condition) and records a skip reason", () => {
-    const valid = habBaseline({ ref: 1, broad: "Grassland", type: "Modified grassland", condition: "Moderate" });
-    const invalid = habBaseline({ ref: 2, broad: "Bogus broad", type: "Nonexistent type", condition: "Moderate" });
+    const valid = habBaseline({
+      ref: 1,
+      broad: "Grassland",
+      type: "Modified grassland",
+      condition: "Moderate",
+    });
+    const invalid = habBaseline({
+      ref: 2,
+      broad: "Bogus broad",
+      type: "Nonexistent type",
+      condition: "Moderate",
+    });
     const { habitats, skipReasons } = buildBaselineRows(
       wb({ habitats: { baseline: [valid, invalid] } }),
       { strict: true },
@@ -276,7 +354,11 @@ describe("buildBaselineRows", () => {
   });
 
   it("non-strict keeps invalid habitats and records no skip reasons", () => {
-    const invalid = habBaseline({ ref: 1, broad: "Bogus broad", type: "Nonexistent type" });
+    const invalid = habBaseline({
+      ref: 1,
+      broad: "Bogus broad",
+      type: "Nonexistent type",
+    });
     const { habitats, skipReasons } = buildBaselineRows(
       wb({ habitats: { baseline: [invalid] } }),
     );
@@ -292,7 +374,17 @@ describe("buildBaselineRows", () => {
       wb({
         hedgerows: { baseline: [hedge] },
         watercourses: { baseline: [hedge] },
-        trees: { baseline: [{ ref: 1, type: "Anything", distinctiveness: "Low", condition: "Good", strategicSignificance: "Low" }] },
+        trees: {
+          baseline: [
+            {
+              ref: 1,
+              type: "Anything",
+              distinctiveness: "Low",
+              condition: "Good",
+              strategicSignificance: "Low",
+            },
+          ],
+        },
       }),
       { strict: true },
     );

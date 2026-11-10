@@ -39,11 +39,11 @@ const DELIBERATELY_INVALID = new Map([
     // Hand-built, so they keep the old generator tree words; the README says
     // they are refused with TEXT_TOO_LONG first, and would then be refused
     // with VALUE_NOT_ALLOWED.
-    "valid/Baseline - long and padded habitat refs.gpkg",
+    "attribute-problems/Baseline - habitat ref too long.gpkg",
     "refused with TEXT_TOO_LONG",
   ],
   [
-    "valid/Post-intervention - long and padded habitat refs.gpkg",
+    "attribute-problems/Post-intervention - habitat ref too long.gpkg",
     "refused with TEXT_TOO_LONG",
   ],
 ]);
@@ -70,17 +70,21 @@ describe("the legacy example files' drop-down values", () => {
     expect(LEGACY_FIXTURES.length).toBeGreaterThan(100);
   });
 
-  it("hold only values the template's lists offer, in every fixture not built to fail on one", () => {
-    const refused = LEGACY_FIXTURES.filter(
-      (file) => !DELIBERATELY_INVALID.has(file),
-    ).flatMap((file) =>
-      checked(file).map(
-        ({ table, column, value }) =>
-          `${file}: ${table}.${column} = ${JSON.stringify(value)}`,
-      ),
-    );
-    expect(refused).toEqual([]);
-  }, SLOW_TEST_TIMEOUT);
+  it(
+    "hold only values the template's lists offer, in every fixture not built to fail on one",
+    () => {
+      const refused = LEGACY_FIXTURES.filter(
+        (file) => !DELIBERATELY_INVALID.has(file),
+      ).flatMap((file) =>
+        checked(file).map(
+          ({ table, column, value }) =>
+            `${file}: ${table}.${column} = ${JSON.stringify(value)}`,
+        ),
+      );
+      expect(refused).toEqual([]);
+    },
+    SLOW_TEST_TIMEOUT,
+  );
 
   it("still hold a refused value in each fixture listed as built to fail on one", () => {
     for (const [file, outcome] of DELIBERATELY_INVALID) {

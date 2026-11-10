@@ -94,8 +94,12 @@ describe("buildDocument", () => {
   });
 
   it("says what the user sees for an upload rule, and nothing for an edit rule", () => {
-    expect(rowFor(document, "UPLOAD_A")).toContain("The user sees its own message.");
-    expect(rowFor(document, "UPLOAD_B")).toContain("The user sees a generic message.");
+    expect(rowFor(document, "UPLOAD_A")).toContain(
+      "The user sees its own message.",
+    );
+    expect(rowFor(document, "UPLOAD_B")).toContain(
+      "The user sees a generic message.",
+    );
     expect(rowFor(document, "UPLOAD_C")).toContain(
       "The user sees the service's own message, listing what it names.",
     );
@@ -107,13 +111,18 @@ describe("buildDocument", () => {
       "Of 3 rules, 1 have a message of their own, 0 show a message of their own as a list of what it names, 1 show the service's own message as a list",
     );
     expect(document).toContain("| Rules that can reject an upload | 3 |");
-    expect(document).toContain("| Showing the service's own message, as a list | 1 |");
+    expect(document).toContain(
+      "| Showing the service's own message, as a list | 1 |",
+    );
     expect(document).toContain("| Falling back to a generic message | 1 |");
   });
 
   it("links to the frontend's copy file when it has one, and says nothing of one it lacks", () => {
     const withFile = buildDocument(
-      { ...factsFor(CODES), copyFile: "src/server/error-file/dropout-copy.yaml" },
+      {
+        ...factsFor(CODES),
+        copyFile: "src/server/error-file/dropout-copy.yaml",
+      },
       WITH_EDITS,
     );
     expect(withFile).toContain(
@@ -146,16 +155,27 @@ describe("buildDocument", () => {
   it("renders an extracted threshold in the reader's units in the rule's row", () => {
     const descriptions = {
       ...WITH_EDITS,
-      UPLOAD_A: { ...WITH_EDITS.UPLOAD_A, tolerance: "MIN_PARCEL_AREA_SQ_M", toleranceIs: "Smallest area" },
+      UPLOAD_A: {
+        ...WITH_EDITS.UPLOAD_A,
+        tolerance: "MIN_PARCEL_AREA_SQ_M",
+        toleranceIs: "Smallest area",
+      },
       UPLOAD_B: { ...WITH_EDITS.UPLOAD_B, tolerance: "REDLINE_MAX_AREA_SQ_M" },
     };
     const facts = {
       ...factsFor(CODES),
-      tolerances: { MIN_PARCEL_AREA_SQ_M: 0.5, REDLINE_MAX_AREA_SQ_M: 100_000_000 },
+      tolerances: {
+        MIN_PARCEL_AREA_SQ_M: 0.5,
+        REDLINE_MAX_AREA_SQ_M: 100_000_000,
+      },
     };
     const withThresholds = buildDocument(facts, descriptions);
-    expect(rowFor(withThresholds, "UPLOAD_A")).toContain("Checks layer A. Smallest area 0.5 m².");
-    expect(rowFor(withThresholds, "UPLOAD_B")).toContain("Checks column B. Tolerance 100 km².");
+    expect(rowFor(withThresholds, "UPLOAD_A")).toContain(
+      "Checks layer A. Smallest area 0.5 m².",
+    );
+    expect(rowFor(withThresholds, "UPLOAD_B")).toContain(
+      "Checks column B. Tolerance 100 km².",
+    );
   });
 
   it("leaves the edit section out when there are no edit rules", () => {
