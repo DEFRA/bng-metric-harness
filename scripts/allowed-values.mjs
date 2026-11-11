@@ -87,7 +87,9 @@ const ALLOWED_VALUES = buildAllowedValues();
 
 /**
  * Whether a column's value is one its lists offer, or blank. A column with no
- * list allows anything; so does a value that is not text but reads as one.
+ * list allows anything. A value that is not text (a BLOB) is refused unless
+ * it holds only whitespace, as the backend's gate refuses it: even one whose
+ * bytes spell "Null", which counts as blank only as text.
  *
  * @param {string} column
  * @param {string | number | null | undefined} value
@@ -96,11 +98,14 @@ const ALLOWED_VALUES = buildAllowedValues();
  */
 export function isAllowedValue(column, value, allowed = ALLOWED_VALUES) {
   const values = allowed.get(columnKey(column));
-  if (!values || isBlankValue(value)) {
+  if (!values) {
     return true;
   }
   if (Buffer.isBuffer(value)) {
-    return false;
+    return value.toString("utf8").trim() === "";
+  }
+  if (isBlankValue(value)) {
+    return true;
   }
   return values.has(normaliseListValue(value));
 }

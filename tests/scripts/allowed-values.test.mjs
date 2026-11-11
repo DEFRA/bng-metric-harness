@@ -117,6 +117,29 @@ describe("isAllowedValue", () => {
     ).toBe(false);
   });
 
+  // As the backend's gate: a BLOB is blank only when its bytes are only
+  // whitespace. "Null" counts as blank only as text.
+  it("refuses a BLOB whose bytes spell Null, and allows one that is only whitespace", () => {
+    expect(
+      isAllowedValue("Baseline Condition", Buffer.from("null"), allowed),
+    ).toBe(false);
+    expect(
+      isAllowedValue("Baseline Condition", Buffer.from(" \t"), allowed),
+    ).toBe(true);
+    expect(isAllowedValue("Baseline Condition", Buffer.alloc(0), allowed)).toBe(
+      true,
+    );
+  });
+
+  // The backend trims what String.prototype.trim() trims (BMD-1175), so a
+  // value of only Unicode spaces is blank on both sides.
+  it("allows a value that is only a no-break or other Unicode space", () => {
+    expect(isAllowedValue("Baseline Condition", "\u00a0", allowed)).toBe(true);
+    expect(isAllowedValue("Baseline Condition", "\u2003 ", allowed)).toBe(
+      true,
+    );
+  });
+
   it("allows a blank, and anything in a column with no list", () => {
     expect(isAllowedValue("Baseline Condition", "Null", allowed)).toBe(true);
     expect(isAllowedValue("Baseline Condition", "  ", allowed)).toBe(true);
