@@ -90,13 +90,14 @@ export function buildAllowedValues(lists = TEMPLATE_ALLOWED_VALUES) {
     }
     allowed.set(key, set);
   }
-  for (const [key, set] of [...allowed]) {
+  const aliases = new Map();
+  for (const [key, set] of allowed) {
     const alias = key.replaceAll(SPACE, UNDERSCORE);
     if (!allowed.has(alias)) {
-      allowed.set(alias, set);
+      aliases.set(alias, set);
     }
   }
-  return allowed;
+  return new Map([...allowed, ...aliases]);
 }
 
 const ALLOWED_VALUES = buildAllowedValues();
