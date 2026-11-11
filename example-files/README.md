@@ -57,7 +57,6 @@ one.
 | `Baseline - created linear features.gpkg` / `Post-intervention - created linear features.gpkg` | Purpose-built for the created-linear-features fix (BMD-891), generated from the fixed `bng-library`. All five layers (55 habitats, 18 hedgerows, 3 rivers, 27 trees, 1 RLB). The post-intervention file carries a created **and** a lost feature in every linear class — hedgerows (Created 4, Enhanced 2, Lost 5, Retained 7), rivers (one each of Created / Enhanced / Lost) and Urban Trees (1 `Newly Planted` created tree alongside Enhanced / Lost / Retained). Every `Created` linear row uses the NE template's placeholder baseline (`To be created` / `Newly Planted` and `N/A` throughout) with real proposed values, so it survives upload and produces units, while the `Lost` rows are still dropped — demonstrating **AC1** (created hedgerow / watercourse / tree survives) and **AC2** (removed one still ignored, told apart) across all three classes in one upload. Distinctiveness is in scope; the pair shares one RLB and passes `scripts/check-gpkg-pair.mjs`. |
 | `Baseline - tiny gap between parcels.gpkg`    | Two parcels tile the RLB except a 0.32 m² unsnapped gap — below the 0.5 m² `AREA_SUM_MISMATCH` tolerance, so the file is **accepted**. Positive control proving hairline gaps between parcels do not fail validation. Flaw: `tiny-gap`. |
 | `Baseline - duplicate habitat ref.gpkg`       | Two habitat rows share the Parcel Ref `DUP-1`. **Accepted since BMD-1058**, which allows habitats to share a reference; both rows appear on the area baseline page. Was in `attribute-problems/` while the backend rejected it as `DUPLICATE_HABITAT_REF`. Flaw: `duplicate-habitat-ref` (`--size 5`). |
-| `Baseline - long and padded habitat refs.gpkg` / `Post-intervention - long and padded habitat refs.gpkg` | Positive control for the habitat reference rules that change a ref rather than reject it (BMD-1058). Parcel Refs on all three ref layers carry leading and trailing spaces (trimmed on save), a 115-character ref (saved cut to 100), valid non-ASCII text (`Café–Ω H003`, accepted), and refs of exactly 10 and of 16 characters (shown whole, and cut to 10, on the habitat grids). The post-intervention half spells each ref differently — other padding, and different characters past the 100th — so every one matches its baseline only once cleaned. The pair shares one RLB and passes `scripts/check-gpkg-pair.mjs`. |
 
 The IGGI pair is the one fixture here with an exact recipe. `--pair` derives the
 baseline half from the post-intervention half, so both stages share a redline;
@@ -147,7 +146,9 @@ Schema and geometry are both valid; attribute values trip a later validator.
 | `Baseline - habitat ref invalid UTF-8 bytes.gpkg`       | One habitat's Parcel Ref is the bytes `48 FF 30 31` stored as TEXT — genuinely invalid UTF-8, as a file from another tool might carry. | — | `HABITAT_REF_INVALID_CHARACTERS` |
 | `Post-intervention - missing proposed habitat data.gpkg` | 1 of 12 parcels has null Proposed Habitat Type / Condition / Distinctiveness; 2 of 12 have null creation-delay values. Was `Post-intervention (missing data) - fails validation.gpkg`, which named no validator. **Not minimal.** | — | — |
 | `Post-intervention - advance and delay both set.gpkg`    | One created habitat parcel (H001) carries both advance (2) and delayed (3) creation years — the statutory metric forbids the pair. Upload as the post-intervention half after any valid baseline; the check runs per file, so the baseline pairing doesn't matter. | `advance-delay-both-set` | `ADVANCE_AND_DELAY_BOTH_SET` |
-| `Post-intervention - blank and placeholder baseline types on every layer.gpkg`  | Retained or enhanced rows with no baseline habitat type on every feature layer. `BASELINE_TYPE_MISSING` catches a blank (SQL `NULL` or `''`) or a placeholder (`Null`, `N/A`, `(no selection)`, `To be created`). Hand-edited for BMD-1056: Habitats H002 `Baseline Habitat Type` = SQL `NULL`; H004 = `N/A`; Hedgerows HG011 `Baseline Hedge Type` = `(no selection)`; Rivers R003 `Baseline River Type` = `Null`; Urban Trees T002 `Baseline Tree Size` = `''`. Works with any baseline file. | — | `BASELINE_TYPE_MISSING` |
+| `Post-intervention - blank and placeholder baseline types on every layer.gpkg`  | Retained or enhanced rows with no baseline habitat type on every feature layer. `BASELINE_TYPE_MISSING` catches a blank (SQL `NULL` or `''`) or a placeholder (`Null`, `N/A`, `(no selection)`, `To be created`). Hand-edited for BMD-1056: Habitats H002 `Baseline Habitat Type` = SQL `NULL`; H004 = `N/A`; Hedgerows HG011 `Baseline Hedge Type` = `(no selection)`; Rivers R003 `Baseline River Type` = `Null`; Urban Trees T002 `Baseline Tree Size` = `''`. Works with any baseline file. **Since BMD-1175 it is refused first with `VALUE_NOT_ALLOWED`**: `N/A` is not in the Baseline Habitat Type list and `(no selection)` is not in the Baseline Hedge Type list, and its Urban Trees carry the old generator tree words (`Woodland tree`, `Hedgerow tree` …), so `BASELINE_TYPE_MISSING` is no longer reached. SQL `NULL`, `''` and `Null` still count as blank. | — | `VALUE_NOT_ALLOWED` (was `BASELINE_TYPE_MISSING`) |
+| `Post-intervention - blank baseline types on every layer.gpkg` | The same file with only blanks the rule treats as blank, so `BASELINE_TYPE_MISSING` is reached again (BMD-1175): Habitats H002 and H004 `Baseline Habitat Type` = SQL `NULL`; Hedgerows HG011 `Baseline Hedge Type` = `''`; Rivers R003 `Baseline River Type` = `Null`; Urban Trees T002 `Baseline Tree Size` = `''`. Its tree words were rewritten to the template's, as in "Template words (BMD-1175)". Works with any baseline file. | — | `BASELINE_TYPE_MISSING` |
+| `Baseline - habitat ref too long.gpkg` / `Post-intervention - habitat ref too long.gpkg` | The 115-character Parcel Ref (row 2 of Habitats) is over the 99-character limit, which is now enforced at upload rather than cut. Was the `valid/` pair `... - long and padded habitat refs.gpkg`, built as the positive control for the habitat reference rules that changed a ref rather than rejected it (BMD-1058). Parcel Refs on all three ref layers carry leading and trailing spaces (trimmed on save), a 115-character ref (was saved cut to 100), valid non-ASCII text (`Café–Ω H003`, accepted), and refs of exactly 10 and of 16 characters (shown whole, and cut to 10, on the habitat grids). The post-intervention half spells each ref differently — other padding, and different characters past the 100th — so every one matched its baseline only once cleaned. The pair shares one RLB and passes `scripts/check-gpkg-pair.mjs`. Its Urban Trees still carry the old generator tree words (`Woodland tree`, `Urban` …), which would be refused with `VALUE_NOT_ALLOWED` once the refs are fixed. Moved from `valid/` for BMD-1175, when refs over 99 characters became an upload refusal. | — | `TEXT_TOO_LONG` |
 
 ## bng-500/
 
@@ -209,6 +210,26 @@ built by copying a valid fixture and renaming it.
 | File                             | Covers                                                        | Flaw | Error code         |
 | --------------------------------- | -------------------------------------------------------------- | ---- | ------------------- |
 | `Baseline [invalid chars].gpkg`  | Filename contains characters outside the allowed set (`[` `]`) | —    | `INVALID_FILENAME`  |
+
+## Template words (BMD-1175)
+
+The service refuses a drop-down value that the template's lists do not offer
+(`VALUE_NOT_ALLOWED`), and this check runs before the geometry and attribute
+checks. The generators used to write individual trees with words the Natural
+England template does not offer: `Street tree`, `Park/garden tree`,
+`Woodland tree`, `Hedgerow tree` (or, from a workbook, `Urban tree`) in
+`Baseline/Proposed Tree Type`; `Urban` / `Rural` in `Baseline/Proposed Rural or
+Urban Tree`; and `Retained` / `Lost` in `Category`. Those words would mask the
+error each fixture was built for, so in every generated fixture here
+(`valid/`, `spatial-problems/`, `empty-layer/`, the generated
+`attribute-problems/` files and `bng-500/`) they were rewritten in place, to
+the words the generators now write: Tree Type `Native` (woodland, hedgerow and
+workbook trees) or `Non-native` (street and park/garden trees); Rural or Urban
+`Urban tree` / `Rural tree`; Category `Existing`, or `Newly Planted` for a
+`Created` tree. Nothing else changed, and none of these words enters the
+metric: the service takes a tree's habitat from `Rural or Urban Tree`, and
+`Urban tree` means the same as `Urban` there. The hand-built fixtures keep
+their words (see their rows).
 
 ## Fixtures that are not minimal
 

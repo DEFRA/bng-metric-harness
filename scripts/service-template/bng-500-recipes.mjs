@@ -7,7 +7,6 @@
 export const KIND_CONVERTED = "converted";
 
 const AREA_BASELINE = "Area Habitats Baseline";
-const BASELINE_CONDITION = "Baseline Condition";
 const ADVANCE_YEARS = "Habitat created in advance/years";
 
 /**
@@ -31,21 +30,14 @@ function converted(site, seed, knownIssues) {
 }
 
 const AREA_POST = "Area Habitats Post-Intervention";
-const TREES_BASELINE = "Individual Trees Baseline";
 const TREES_POST = "Individual Trees Post-Intervention";
 const WATERCOURSES_POST = "Watercourses Post-Intervention";
-const RURAL_OR_URBAN = "Baseline Rural or Urban Tree";
-const TREE_TYPE = "Baseline Tree Type";
 const PROPOSED_SIGNIFICANCE = "Proposed Strategic Significance";
-// Values the BNG500 files' trees carry that the template's lists do not.
-const TREE_VALUES = [
-  "Baseline Tree Size",
-  "Category",
-  "Proposed Rural or Urban Tree",
-  "Proposed Tree Type",
-  "Retention Category",
-];
-const TREE_BASELINE_VALUES = [RURAL_OR_URBAN, TREE_TYPE];
+// Values the BNG500 files' trees carry that the template's lists do not: a
+// tree's baseline size, on a row whose Category or retention the lists answer
+// "N/A". Its proposed size passes, as an existing tree recorded as Created
+// keeps its own.
+const TREE_VALUES = ["Baseline Tree Size"];
 const RIPARIAN_ENCROACHMENT = [
   "Baseline Encroachment into riparian zone",
   "Proposed Encroachment into riparian zone",
@@ -60,15 +52,7 @@ const WATERCOURSE_ENCROACHMENT = [
 export function bng500Recipes(seed) {
   return [
     converted("BROADLAND_2024_3282", seed, {
-      templateValues: {
-        [TREES_BASELINE]: TREE_BASELINE_VALUES,
-        [TREES_POST]: [
-          ...TREE_VALUES,
-          BASELINE_CONDITION,
-          RURAL_OR_URBAN,
-          TREE_TYPE,
-        ],
-      },
+      templateValues: { [TREES_POST]: TREE_VALUES },
     }),
     converted("BarkingandDagenham2400625FULL", seed, {
       lineage: ["lineage-parent-missing"],
@@ -80,13 +64,7 @@ export function bng500Recipes(seed) {
     converted("CAMBRIDGE_24_03964_FUL", seed, {
       templateValues: {
         [AREA_POST]: [PROPOSED_SIGNIFICANCE],
-        [TREES_BASELINE]: TREE_BASELINE_VALUES,
-        [TREES_POST]: [
-          ...TREE_VALUES,
-          BASELINE_CONDITION,
-          RURAL_OR_URBAN,
-          TREE_TYPE,
-        ],
+        [TREES_POST]: TREE_VALUES,
       },
     }),
     converted("Sunderland_24_00723_FU4", seed, {
@@ -94,7 +72,6 @@ export function bng500Recipes(seed) {
         [AREA_BASELINE]: ["Baseline Habitat Type"],
         [AREA_POST]: [ADVANCE_YEARS],
         "Hedgerows Post-Intervention": [ADVANCE_YEARS],
-        [TREES_BASELINE]: TREE_BASELINE_VALUES,
         [TREES_POST]: [
           ...TREE_VALUES,
           "Habitat Created/Enhanced in advance/years",

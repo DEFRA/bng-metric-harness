@@ -198,7 +198,7 @@
   },
   "HABITAT_REF_MISSING": {
     "group": "Habitat data",
-    "checks": "A habitat on the area habitat, hedgerow or watercourse layer has no parcel reference, or one made up only of spaces. Every such habitat is reported together as one error rather than one each. Urban trees are not checked, as they carry a tree reference instead. Habitats may share a reference, and a reference longer than the service keeps is shortened on save rather than rejected."
+    "checks": "A habitat on the area habitat, hedgerow or watercourse layer has no parcel reference, or one made up only of spaces. Every such habitat is reported together as one error rather than one each. Urban trees are not checked, as they carry a tree reference instead. Habitats may share a reference. A reference that is too long is refused by the length rule instead."
   },
   "HABITAT_REF_INVALID_CHARACTERS": {
     "group": "Habitat data",
@@ -348,8 +348,36 @@
     "group": "Habitat data",
     "checks": "A habitat's comment holds characters the service cannot read as text. This applies to the comment on any area habitat, tree, hedgerow or watercourse."
   },
-  "COMMENT_TOO_LONG": {
+  "TEXT_TOO_LONG": {
     "group": "Habitat data",
-    "checks": "A habitat's comment is longer than the template's comment column allows. Spaces at the start and end are not counted, and a comment exactly at the limit is accepted."
+    "checks": "A text value in the file is longer than its column allows, counted in characters (an accented letter or an emoji counts as one), with spaces at either end ignored. References, Location and every drop-down column have one limit, Spatial risk category a longer one, and comments and the site details on the red line boundary the longest; the template declares each as the column's width. This is checked before any other rule reads a value, on every table the upload reads, whatever tool wrote the file."
+  },
+  "VALUE_NOT_ALLOWED": {
+    "group": "Habitat data",
+    "checks": "A drop-down column, or a column the template fills in, holds a value that none of the template's lists offers for that column. A list number in front of the value, differences of capital letters and spaces, and a blank value are all accepted; whether the value suits the rest of its row is left to the later rules."
+  },
+  "FEATURE_UUID_INVALID": {
+    "group": "Links to the baseline",
+    "checks": "A baseline feature's hidden identity, which the template sets so that post-intervention features can name it as their parent, is filled in but is not in the form of an identity at all."
+  },
+  "PARENT_UUID_INVALID": {
+    "group": "Links to the baseline",
+    "checks": "A post-intervention feature's hidden link to its parent baseline feature is filled in but is not in the form of an identity at all."
+  },
+  "PARENT_GEOM_INVALID": {
+    "group": "Links to the baseline",
+    "checks": "A post-intervention feature's hidden copy of its parent's shape is filled in but cannot be read as a shape of the layer's kind, such as a line copied into an area habitat layer."
+  },
+  "STORED_VALUE_NOT_ALLOWED": {
+    "group": "Edits made on screen",
+    "checks": "An edit to a habitat saved before the service checked text lengths and lists is refused when the habitat still holds a value that is too long or that no list offers. The edit is not saved with the old value cut or cleared; uploading the file again, with the value corrected, updates the habitat."
+  },
+  "IRREPLACEABLE_TREE": {
+    "group": "Habitat data",
+    "checks": "An individual tree, at baseline or after intervention, is recorded as an irreplaceable habitat. The service does not take irreplaceable trees. A tree whose Irreplaceable Habitat is left blank counts as not irreplaceable."
+  },
+  "STAGED_TREE_CHILDREN_TOO_MANY": {
+    "group": "Links to the baseline",
+    "checks": "The post-intervention trees kept from one baseline tree, Retained or Enhanced, stand for more trees together than the baseline tree did: a tree that is kept cannot multiply. Newly planted trees are not counted, and a blank count is one tree."
   }
 }
