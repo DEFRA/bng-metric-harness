@@ -4,12 +4,12 @@
  * left out or one row added. Each helper returns an edit, a function of an open better-sqlite3
  * handle, so a recipe can list its edits as data. Every edit keeps the
  * GeoPackage's own registers (gpkg_contents, gpkg_geometry_columns) in step
- * with the table it changes, so a fixture changes only what its recipe
- * names.
+ * with the table it changes, a layer's extent included, so a fixture changes
+ * only what its recipe names.
  */
 
 import { TEMPLATE_SOURCE } from "#bng-lib";
-import { wkbToGeoJSON } from "#gpkg-io";
+import { envelopeFromCoords, expandEnvelope, wkbToGeoJSON } from "#gpkg-io";
 
 const GEOMETRY_COLUMN = "geom";
 
@@ -144,12 +144,53 @@ function matching(where) {
   };
 }
 
+/** Every [x, y] position in a GeoJSON geometry's coordinates. */
+const positions = (coordinates) =>
+  typeof coordinates[0] === "number"
+    ? [coordinates]
+    : coordinates.flatMap(positions);
+
+/**
+ * Set a layer's extent in gpkg_contents to the envelope of its rows, as
+ * bng-library writes it (null where no row has a geometry), after an edit
+ * adds, moves or removes a row. A layer whose geometry register an edit has
+ * dropped or doubled on purpose is left as it is; so is an extent already
+ * right, so an edit that changes none leaves the file's bytes alone.
+ */
+function refreshExtent(db, table) {
+  const registers = db
+    .prepare(
+      "SELECT column_name FROM gpkg_geometry_columns WHERE table_name = ?",
+    )
+    .all(table);
+  if (registers.length !== 1) {
+    return;
+  }
+  const envelope = [Infinity, -Infinity, Infinity, -Infinity];
+  const rows = db
+    .prepare(
+      `SELECT ${quote(registers[0].column_name)} AS geometry FROM ${quote(table)}`,
+    )
+    .all();
+  for (const { geometry } of rows.filter((row) => row.geometry)) {
+    const { coordinates } = wkbToGeoJSON(geometry);
+    expandEnvelope(envelope, envelopeFromCoords(positions(coordinates)));
+  }
+  const [minX, maxX, minY, maxY] = Number.isFinite(envelope[0])
+    ? envelope
+    : [null, null, null, null];
+  db.prepare(
+    "UPDATE gpkg_contents SET min_x = ?, min_y = ?, max_x = ?, max_y = ? WHERE table_name = ? AND NOT (min_x IS ? AND min_y IS ? AND max_x IS ? AND max_y IS ?)",
+  ).run(minX, minY, maxX, maxY, table, minX, minY, maxX, maxY);
+}
+
 /** Run a row edit, failing where it matches no row, so a stale recipe shows. */
 function runOnRows(db, table, sql, values) {
   const { changes } = db.prepare(sql).run(...values);
   if (changes === 0) {
     throw new Error(`no row of "${table}" matches the edit`);
   }
+  refreshExtent(db, table);
 }
 
 /** Set columns of the rows whose columns hold the values `where` names. */
@@ -202,6 +243,7 @@ export const copyRow = (table, where, values) => (db) => {
   db.prepare(
     `INSERT INTO ${quote(table)} (${columns.map(quote).join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`,
   ).run(...Object.values(copy));
+  refreshExtent(db, table);
 };
 
 // parent_geom is WKT to three decimal places, a millimetre, as the template

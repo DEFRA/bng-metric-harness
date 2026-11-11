@@ -15,6 +15,14 @@ const TABLE = "Area Habitats Baseline";
 let db;
 beforeEach(() => {
   db = new Database(":memory:");
+  // The two registers the edits keep in step, empty until a test registers
+  // a layer: an unregistered table has no extent to keep.
+  db.exec(
+    "CREATE TABLE gpkg_contents (table_name TEXT PRIMARY KEY, min_x DOUBLE, min_y DOUBLE, max_x DOUBLE, max_y DOUBLE)",
+  );
+  db.exec(
+    "CREATE TABLE gpkg_geometry_columns (table_name TEXT, column_name TEXT)",
+  );
   db.exec(`CREATE TABLE "${TABLE}" ("Habitat Ref" TEXT, "Condition" TEXT)`);
   db.exec(`INSERT INTO "${TABLE}" VALUES ('H001', 'Good'), ('H002', 'Poor')`);
   db.exec(
@@ -93,7 +101,23 @@ describe("the tree edits", () => {
     db.prepare(
       `INSERT INTO "${POST}" VALUES (1, ?, 'T009', NULL, 'N/A', NULL, NULL)`,
     ).run(gpkgPoint(SRS, 1, 2));
+    for (const table of [BASELINE, POST]) {
+      db.prepare("INSERT INTO gpkg_geometry_columns VALUES (?, 'geom')").run(
+        table,
+      );
+    }
+    db.prepare(
+      "INSERT INTO gpkg_contents VALUES (?, 530000.12345, 180000.5, 530000.12345, 180000.5)",
+    ).run(BASELINE);
+    db.prepare("INSERT INTO gpkg_contents VALUES (?, 1, 2, 1, 2)").run(POST);
   });
+
+  const extent = (table) =>
+    db
+      .prepare(
+        "SELECT min_x, min_y, max_x, max_y FROM gpkg_contents WHERE table_name = ?",
+      )
+      .get(table);
 
   const post = () =>
     db
@@ -143,5 +167,52 @@ describe("the tree edits", () => {
       .prepare(`SELECT geom FROM "${BASELINE}"`)
       .get();
     expect(geom.equals(parentGeom)).toBe(true);
+  });
+
+  // QGIS's Zoom to Layer reads the stored extent, not the rows.
+  it("keep the layer's extent the envelope of its rows as a point is added, moved and removed", () => {
+    copyRow(
+      POST,
+      { "Habitat Ref": "T009" },
+      { "Habitat Ref": "T010", geom: gpkgPoint(SRS, 5, 7) },
+    )(db);
+    expect(extent(POST)).toEqual({ min_x: 1, min_y: 2, max_x: 5, max_y: 7 });
+    linkToParent(
+      POST,
+      { "Habitat Ref": "T010" },
+      BASELINE,
+      { "Habitat Ref": "T001" },
+      { geom: "geom" },
+    )(db);
+    expect(extent(POST)).toEqual({
+      min_x: 1,
+      min_y: 2,
+      max_x: 530000.12345,
+      max_y: 180000.5,
+    });
+    deleteRows(POST, { "Habitat Ref": "T009" })(db);
+    expect(extent(POST)).toEqual({
+      min_x: 530000.12345,
+      min_y: 180000.5,
+      max_x: 530000.12345,
+      max_y: 180000.5,
+    });
+    deleteRows(POST, { "Habitat Ref": "T010" })(db);
+    expect(extent(POST)).toEqual({
+      min_x: null,
+      min_y: null,
+      max_x: null,
+      max_y: null,
+    });
+  });
+
+  it("leave the extent of a layer the edit does not change", () => {
+    copyRow(POST, { "Habitat Ref": "T009" }, { "Habitat Ref": "T010" })(db);
+    expect(extent(BASELINE)).toEqual({
+      min_x: 530000.12345,
+      min_y: 180000.5,
+      max_x: 530000.12345,
+      max_y: 180000.5,
+    });
   });
 });

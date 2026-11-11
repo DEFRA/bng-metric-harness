@@ -365,6 +365,57 @@ function thirtyPlusDelays(file) {
   }
 }
 
+/** Every [x, y] position in a GeoJSON geometry's coordinates. */
+const positionsOf = (coordinates) =>
+  typeof coordinates[0] === "number"
+    ? [coordinates]
+    : coordinates.flatMap(positionsOf);
+
+/**
+ * The layers whose extent in gpkg_contents is not the envelope of their
+ * rows, each with both. A layer with no geometry column, or two, is skipped:
+ * only an invalid-schema edit makes one.
+ */
+function staleExtents(file) {
+  const db = new Database(file, { readonly: true });
+  try {
+    const registers = db
+      .prepare(
+        "SELECT table_name, column_name FROM gpkg_geometry_columns WHERE table_name IN (SELECT table_name FROM gpkg_geometry_columns GROUP BY table_name HAVING COUNT(*) = 1)",
+      )
+      .all();
+    return registers.flatMap(({ table_name: table, column_name: column }) => {
+      const xs = [];
+      const ys = [];
+      for (const { geometry } of db
+        .prepare(`SELECT "${column}" AS geometry FROM "${table}"`)
+        .all()) {
+        for (const [x, y] of geometry
+          ? positionsOf(wkbToGeoJSON(geometry).coordinates)
+          : []) {
+          xs.push(x);
+          ys.push(y);
+        }
+      }
+      const rows = xs.length
+        ? [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
+        : [null, null, null, null];
+      const stored = Object.values(
+        db
+          .prepare(
+            "SELECT min_x, min_y, max_x, max_y FROM gpkg_contents WHERE table_name = ?",
+          )
+          .get(table),
+      );
+      return rows.every((bound, i) => bound === stored[i])
+        ? []
+        : [{ table, stored, rows }];
+    });
+  } finally {
+    db.close();
+  }
+}
+
 /** The irreplaceableLayers a generated or derived recipe's file is drawn with. */
 function irreplaceableLayersOf(recipe) {
   const source = recipe.kind === KIND_DERIVED ? recipeFor(recipe.from) : recipe;
@@ -414,6 +465,16 @@ describe("the built fixtures", () => {
         expect(["Created", "Enhanced"], table).toContain(row.retention);
         expect(row.advance, table).toBeNull();
       }
+    }
+  });
+
+  // QGIS's Zoom to Layer reads the stored extent, not the rows: a derive edit
+  // that adds, moves or removes a point and leaves it would hide the point.
+  it("store each layer's extent as the envelope of its rows, in every file drawn or derived", () => {
+    for (const recipe of BUILDABLE.filter(
+      (r) => r.kind === KIND_GENERATED || r.kind === KIND_DERIVED,
+    )) {
+      expect(staleExtents(built(recipe)), recipe.path).toEqual([]);
     }
   });
 
