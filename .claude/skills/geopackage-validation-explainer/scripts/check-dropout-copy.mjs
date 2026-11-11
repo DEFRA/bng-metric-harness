@@ -22,7 +22,11 @@ import path from 'node:path'
 
 import { gitProvenance, isMain, locateSource, readTextFile } from './_lib.mjs'
 import { DESCRIPTIONS_FILE, loadDescriptions } from './build-document.mjs'
-import { detailProblems, renderSummary } from './dropout-copy-summary.mjs'
+import {
+  detailProblems,
+  renderSummary,
+  unwordedEntry
+} from './dropout-copy-summary.mjs'
 import {
   backendDetails,
   backendSurfaces,
@@ -32,6 +36,7 @@ import {
   editCodes,
   extractRaiseSites,
   extractRegistry,
+  hasWordingField,
   missingFromCopyFile
 } from './validation-facts.mjs'
 
@@ -164,7 +169,8 @@ function reportDetails(details, copyFile) {
 function report(
   { missing, stale, misplaced, edit, details },
   copyFile,
-  rules = {}
+  rules = {},
+  wordingField = false
 ) {
   if (details) {
     reportDetails(details, copyFile)
@@ -189,7 +195,7 @@ function report(
   }
   if (edit?.missing.length > 0) {
     console.error(
-      `\n${edit.missing.length} backend code${edit.missing.length === 1 ? ' refuses' : 's refuse'} an edit made on screen but ${edit.missing.length === 1 ? 'has' : 'have'} no entry in the edit section of ${copyFile}. Add an entry for each, wording or placeholder:`
+      `\n${edit.missing.length} backend code${edit.missing.length === 1 ? ' refuses' : 's refuse'} an edit made on screen but ${edit.missing.length === 1 ? 'has' : 'have'} no entry in the edit section of ${copyFile}. Add an entry for each: its wording, or ${unwordedEntry(wordingField)} until it has some:`
     )
     for (const code of edit.missing) {
       console.error(`  - ${code}`)
@@ -299,8 +305,12 @@ function main() {
   console.log(`Backend:  ${backendDir}`)
   console.log(`Frontend: ${frontendDir}`)
   const copyFile = copyFileIn(frontendDir)
+  const copySource = copyFile
+    ? readTextFile(path.join(frontendDir, copyFile))
+    : null
   const context = {
     copyFile: copyFile ?? ERROR_TEXT_FILE,
+    wordingField: copySource !== null && hasWordingField(copySource),
     backend: gitProvenance(backendDir),
     frontend: gitProvenance(frontendDir)
   }
@@ -324,9 +334,8 @@ function main() {
 
   const registry = extractRegistry(backendDir)
   const backendCodes = Object.keys(registry)
-  const { inCopyFile, inEditSection, uploadEntries } = copyStatusFromCopyFile(
-    readTextFile(path.join(frontendDir, copyFile))
-  )
+  const { inCopyFile, inEditSection, uploadEntries } =
+    copyStatusFromCopyFile(copySource)
   const edits = editCodes(backendDir)
   const result = {
     ...compareCodes(backendCodes, inCopyFile, edits),
@@ -368,7 +377,7 @@ function main() {
     )
     return
   }
-  report(result, copyFile, rules)
+  report(result, copyFile, rules, context.wordingField)
   process.exit(1)
 }
 

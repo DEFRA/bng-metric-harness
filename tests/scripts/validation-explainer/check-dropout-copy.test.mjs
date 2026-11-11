@@ -67,10 +67,15 @@ forms: {}
 `;
 }
 
-/** error-text.yaml: the drop-out page's copy under upload, and an edit section. */
-function errorTextFile(uploadCodes, editCodes) {
+/**
+ * error-text.yaml: the drop-out page's copy under upload, and an edit section
+ * whose entries have no wording yet: "placeholder", as an older frontend took,
+ * or with the wording field a newer one takes instead.
+ */
+function errorTextFile(uploadCodes, editCodes, { wordingField = false } = {}) {
   const upload = copyFile(uploadCodes).replace(/^/gm, "  ").trimEnd();
-  const edit = editCodes.map((code) => `  ${code}: placeholder`).join("\n");
+  const unworded = wordingField ? "\n    wording: none" : " placeholder";
+  const edit = editCodes.map((code) => `  ${code}:${unworded}`).join("\n");
   return `upload:\n${upload}\nedit:\n${edit}\nforms: {}\n`;
 }
 
@@ -259,6 +264,14 @@ describe("check-dropout-copy.mjs", () => {
     ]) {
       dir.write(`${name}/${ERROR_TEXT}`, errorTextFile(upload, edit));
     }
+    // The same, in a frontend that marks unfinished wording with a wording
+    // field, which refuses the bare "placeholder" an older one took.
+    dir.write(
+      `wording-field-differs/${ERROR_TEXT}`,
+      errorTextFile(["FIRST", "BOTH"], ["EDITED", "FIRST"], {
+        wordingField: true,
+      }),
+    );
     dir.write(
       "details-backend/src/validation/geopackage/errors.js",
       ERRORS_WITH_DETAILS,
@@ -360,6 +373,26 @@ describe("check-dropout-copy.mjs", () => {
     expect(text).not.toContain("🆕");
   });
 
+  it("tells a frontend with the wording field to write wording: none, not placeholder", () => {
+    const result = run("wording-field-differs", "surfaces-backend");
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      "Add an entry for each: its wording, or `wording: none` until it has some:",
+    );
+    const text = summary();
+    expect(text).toContain("  BOTH:\n    wording: none");
+    expect(text).toContain("or `wording: none` until it is.");
+    expect(text).not.toContain("placeholder");
+  });
+
+  it("still tells an older frontend to write placeholder", () => {
+    const result = run("error-text-differs", "surfaces-backend");
+    expect(result.stderr).toContain(
+      "Add an entry for each: its wording, or `placeholder` until it has some:",
+    );
+    expect(summary()).toContain("or `placeholder` until it is.");
+  });
+
   it("finds a frontend by its error-text.yaml alone", () => {
     expect(run("error-text-agrees", "surfaces-backend").stdout).not.toContain(
       "Could not find bng-metric-frontend",
@@ -446,6 +479,27 @@ describe("renderSummary", () => {
         "a".repeat(40) +
         ")",
     );
+  });
+
+  it("marks the stop-gap upload entry wording: none for a frontend with the wording field", () => {
+    const text = renderSummary(
+      { missing: ["NEW_CODE"], stale: [], ...counts },
+      { ...context, wordingField: true },
+    );
+    expect(text).toContain(
+      "  NEW_CODE:\n    wording: none\n    whenAlone: catch-all\n    inList: catch-all",
+    );
+  });
+
+  it("gives an older frontend the stop-gap upload entry with no wording field", () => {
+    const text = renderSummary(
+      { missing: ["NEW_CODE"], stale: [], ...counts },
+      context,
+    );
+    expect(text).toContain(
+      "  NEW_CODE:\n    whenAlone: catch-all\n    inList: catch-all",
+    );
+    expect(text).not.toContain("wording: none");
   });
 
   it("lists each missing error with what it checks, where it is raised, and an entry to start from", () => {
