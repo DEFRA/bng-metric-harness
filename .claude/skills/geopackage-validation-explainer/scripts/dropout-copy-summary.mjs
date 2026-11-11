@@ -80,30 +80,44 @@ function raisedIn(code, rules, commit) {
     .join('<br>')
 }
 
-const NEW_ENTRY_TEMPLATE = (code) => `  ${code}:
-    whenAlone:
+/**
+ * The names an upload entry's two wordings have in the frontend read: the
+ * current singleProblemPage and problemsList, or an older one's whenAlone and
+ * inList.
+ *
+ * @param {boolean} [problemsListKeys]
+ */
+export function entryKeys(problemsListKeys) {
+  return problemsListKeys
+    ? { single: 'singleProblemPage', list: 'problemsList' }
+    : { single: 'whenAlone', list: 'inList' }
+}
+
+const NEW_ENTRY_TEMPLATE = (code, problemsListKeys) => {
+  const keys = entryKeys(problemsListKeys)
+  return `  ${code}:
+    ${keys.single}:
       title:
         - Your Geopackage (.gpkg) file contains an error
       body: >-
         Say what is wrong with the file, and how to put it right, then
         [upload a new file](upload).
-    inList:
+    ${keys.list}:
       heading: Say in a few words what is wrong with the file`
+}
 
 /**
  * An upload entry with no wording yet, which shows the generic message. A
  * frontend with the `wording` field marks it `wording: none`: without it, the
  * entry reads as final.
  */
-const STOPGAP_TEMPLATE = (code, wordingField) =>
-  wordingField
-    ? `  ${code}:
-    wording: none
-    whenAlone: catch-all
-    inList: catch-all`
-    : `  ${code}:
-    whenAlone: catch-all
-    inList: catch-all`
+const STOPGAP_TEMPLATE = (code, wordingField, problemsListKeys) => {
+  const keys = entryKeys(problemsListKeys)
+  const wording = wordingField ? '\n    wording: none' : ''
+  return `  ${code}:${wording}
+    ${keys.single}: catch-all
+    ${keys.list}: catch-all`
+}
 
 const NEW_MARK = '🆕'
 
@@ -148,13 +162,13 @@ function missingSection(missing, rules, context) {
     '<details><summary>An entry to start from</summary>',
     '',
     '```yaml',
-    NEW_ENTRY_TEMPLATE(first),
+    NEW_ENTRY_TEMPLATE(first, context.problemsListKeys),
     '```',
     '',
     'If the wording is not ready yet, a stop-gap entry makes the check pass, but users still see the generic message:',
     '',
     '```yaml',
-    STOPGAP_TEMPLATE(first, context.wordingField),
+    STOPGAP_TEMPLATE(first, context.wordingField, context.problemsListKeys),
     '```',
     '',
     '</details>',
@@ -295,6 +309,7 @@ export function detailProblems(details) {
  * error disagree (check-dropout-copy.mjs compareDetails).
  */
 function detailsSection(details, ctx) {
+  const { list } = entryKeys(ctx.problemsListKeys)
   const rows = [
     ...details.serviceMessage.map((code) => [
       code,
@@ -314,7 +329,7 @@ function detailsSection(details, ctx) {
     ...details.unwordedVariants.map(({ code, variant }) => [
       code,
       `The service words it a \`${variant}\` way that the file has no wording for.`,
-      `Add a \`${variant}\` variant under its \`inList\`.`
+      `Add a \`${variant}\` variant under its \`${list}\`.`
     ])
   ]
   return [
@@ -352,6 +367,8 @@ function detailsSection(details, ctx) {
  * @param {object} context
  * @param {string} context.copyFile the copy file's path in the frontend
  * @param {boolean} [context.wordingField] whether the frontend marks unfinished wording with a `wording` field
+ * @param {boolean} [context.problemsListKeys] whether the frontend's upload
+ *   entries use singleProblemPage and problemsList, not whenAlone and inList
  * @param {Record<string, {plain?: string, unclassified?: boolean, description?: string, raisedAt?: object[]}>} [context.rules]
  *   for each missing code: the explainer's plain-English description, whether
  *   the explainer has yet to classify it, and the backend's description and

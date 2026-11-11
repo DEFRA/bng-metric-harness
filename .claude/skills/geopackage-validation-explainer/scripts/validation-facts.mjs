@@ -130,11 +130,62 @@ const MAKE_ERROR_LOOKBEHIND_CHARS = 80
 const MAX_MESSAGE_CHARS = 200
 
 /**
- * The whenAlone values that show a generic message shared by several codes,
- * rather than copy of the code's own: about layer and column names, about the
- * file, or about the service.
+ * The singleProblemPage values (whenAlone in an older frontend) that show a
+ * generic message shared by several codes, rather than copy of the code's
+ * own: about layer and column names, about the file, or about the service.
  */
 const SHARED_FALLBACKS = new Set(['catch-all', 'file-problem', 'service-problem'])
+
+/** What an upload error shows when it is a file's only problem. */
+export const ALONE = Object.freeze({
+  /** A page of its own wording. */
+  OWN: 'own',
+  /** Its entry in the problems list, as when the file has other problems. */
+  LIST: 'list',
+  /** A shared fallback page: the catch-all, file-problem or service-problem. */
+  FALLBACK: 'fallback',
+  /** The placeholder, in an older frontend's file. */
+  PLACEHOLDER: 'placeholder',
+  /** None of these: a blank or a typo, which the page shows as the catch-all. */
+  UNRECOGNISED: 'unrecognised'
+})
+
+/**
+ * An upload entry's wording, however the frontend names it. The current
+ * frontend names the page an error shows alone `singleProblemPage`, and its
+ * entry in the problems list `problemsList`, and leaves `singleProblemPage`
+ * out for an error shown in the list even alone. An older one names them
+ * `whenAlone` and `inList`, and says `whenAlone: list` for the last.
+ *
+ * @param {Record<string, unknown> | null | undefined} entry
+ * @returns {{ alone: string, single: unknown, list: unknown }}
+ */
+export function uploadEntryCopy(entry) {
+  const current =
+    entry != null &&
+    (Object.hasOwn(entry, 'singleProblemPage') || Object.hasOwn(entry, 'problemsList'))
+  const single = current ? entry.singleProblemPage : entry?.whenAlone
+  const list = current ? entry.problemsList : entry?.inList
+  return { alone: aloneKind(single, current), single, list }
+}
+
+function aloneKind(single, current) {
+  if (single !== null && typeof single === 'object') {
+    return ALONE.OWN
+  }
+  if (current ? single === undefined : single === 'list') {
+    return ALONE.LIST
+  }
+  if (SHARED_FALLBACKS.has(single)) {
+    return ALONE.FALLBACK
+  }
+  return !current && single === 'placeholder' ? ALONE.PLACEHOLDER : ALONE.UNRECOGNISED
+}
+
+/** True for a frontend whose upload entries use singleProblemPage and problemsList. */
+export function hasProblemsListKeys(source) {
+  return /^\s+(?:problemsList|singleProblemPage):/m.test(source)
+}
 
 const CODE_KEY_PATTERN = /^ {2}([A-Z][A-Z0-9_]*):/gm
 const COPY_STATUS = Object.freeze({
@@ -272,12 +323,16 @@ export function extractCopyStatus(frontendDir) {
 }
 
 /**
- * From dropout-copy.yaml: a code whose whenAlone is copy has its own message,
- * one whose whenAlone is "list" is shown as its list (under its own heading,
- * or else the backend's message), and "placeholder" shows the placeholder:
- * a value only an older frontend's file has. One that names a shared
- * fallback (catch-all, file-problem or service-problem) shows that generic
- * message, and is counted as the catch-all.
+ * From the copy file (error-text.yaml, or an older frontend's
+ * dropout-copy.yaml), read through uploadEntryCopy: a code whose
+ * singleProblemPage (whenAlone) is copy has its own message; one with no
+ * singleProblemPage (whenAlone: "list") is shown as its list, under its own
+ * heading, under the catch-all title for problemsList (inList) "catch-all",
+ * which counts as the catch-all, or else, in an older frontend, the
+ * backend's message; and "placeholder" shows the
+ * placeholder, a value only an older frontend's file has. One that names a
+ * shared fallback (catch-all, file-problem or service-problem) shows that
+ * generic message, and is counted as the catch-all.
  * `inCopyFile` is every code the file names, so a backend code missing from
  * it can be reported.
  */
@@ -290,21 +345,22 @@ export function copyStatusFromCopyFile(source) {
   const placeholder = new Set()
   const shownAsList = new Set()
   const listCopy = new Set()
-  // A whenAlone that is none of these (blank, or a typo such as "lsit") falls
-  // to the catch-all on the page, so it is named rather than counted quietly.
+  // A singleProblemPage, or whenAlone, that is none of these (a typo such as
+  // "catchall") falls to the catch-all on the page, so it is named rather
+  // than counted quietly.
   const unrecognised = []
   for (const [code, entry] of Object.entries(errors)) {
-    const whenAlone = entry?.whenAlone
-    if (whenAlone !== null && typeof whenAlone === 'object') {
+    const { alone, list } = uploadEntryCopy(entry)
+    if (alone === ALONE.OWN) {
       dedicated.add(code)
-    } else if (whenAlone === 'placeholder') {
+    } else if (alone === ALONE.PLACEHOLDER) {
       placeholder.add(code)
-    } else if (whenAlone === 'list') {
+    } else if (alone === ALONE.LIST && list !== 'catch-all') {
       shownAsList.add(code)
-      if (entry.inList?.heading) {
+      if (list?.heading) {
         listCopy.add(code)
       }
-    } else if (!SHARED_FALLBACKS.has(whenAlone)) {
+    } else if (alone === ALONE.UNRECOGNISED) {
       unrecognised.push(code)
     }
   }
@@ -877,7 +933,7 @@ function reportSummary(facts) {
   console.log(`  has an example .gpkg:   ${s.withExampleFile}`)
   if (facts.unrecognisedWhenAlone?.length > 0) {
     console.log(
-      `\nEntries in the frontend's ${facts.copyFile} whose whenAlone is none of copy, list, placeholder or a shared fallback (shown as the catch-all): ${facts.unrecognisedWhenAlone.join(', ')}`
+      `\nEntries in the frontend's ${facts.copyFile} whose singleProblemPage (whenAlone in an older frontend) is none of its own page, the problems list, placeholder or a shared fallback (shown as the catch-all): ${facts.unrecognisedWhenAlone.join(', ')}`
     )
   }
   if (facts.missingFromCopyFile?.length > 0) {

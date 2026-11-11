@@ -8,6 +8,7 @@ import {
   extractExampleFixtures,
   extractFixtures,
   extractTolerances,
+  hasProblemsListKeys,
   hasWordingField,
   missingFromCopyFile,
   readmeClaims,
@@ -530,6 +531,63 @@ describe("extractCopyStatus from the frontend's copy file", () => {
   });
 });
 
+// A current frontend's error-text.yaml: singleProblemPage and problemsList,
+// and no singleProblemPage for an error shown in the list even alone.
+const ERROR_TEXT_CURRENT = `upload:
+  errors:
+    OWN_COPY:
+      singleProblemPage:
+        title: A title
+        body: A body.
+      problemsList:
+        heading: Its heading
+    ONE_AND_SEVERAL:
+      singleProblemPage:
+        one:
+          title: This parcel {ref} contains an error
+          body: A body.
+        several:
+          title: '{count} parcels contain an error'
+          body: A body.
+      problemsList:
+        heading: Its heading
+    LISTED:
+      problemsList:
+        heading: Its own heading
+    LISTED_UNDER_CATCH_ALL:
+      problemsList: catch-all
+    NO_COPY:
+      singleProblemPage: catch-all
+      problemsList: catch-all
+    MISSPELT:
+      singleProblemPage: catchall
+      problemsList: catch-all
+`;
+
+describe("extractCopyStatus from a frontend with singleProblemPage and problemsList", () => {
+  const sets = copyStatusFromCopyFile(ERROR_TEXT_CURRENT);
+
+  it.each([
+    ["OWN_COPY", "dedicated"],
+    ["ONE_AND_SEVERAL", "dedicated"],
+    ["LISTED", "list-copy"],
+    // The page heads it with the catch-all title, never the backend's message.
+    ["LISTED_UNDER_CATCH_ALL", "catch-all"],
+    ["NO_COPY", "catch-all"],
+  ])("gives %s the status %s", (code, status) => {
+    expect(copyStatus(code, sets)).toBe(status);
+  });
+
+  it("names an entry whose singleProblemPage it does not know", () => {
+    expect(sets.unrecognised).toEqual(["MISSPELT"]);
+  });
+
+  it("tells the current keys from an older frontend's", () => {
+    expect(hasProblemsListKeys(ERROR_TEXT_CURRENT)).toBe(true);
+    expect(hasProblemsListKeys(DROPOUT_COPY)).toBe(false);
+  });
+});
+
 describe("the copy file's document-level facts", () => {
   const facts = (extra) => ({ codes: {}, ...extra });
   const FILE = "src/server/error-file/dropout-copy.yaml";
@@ -634,10 +692,7 @@ describe("copyStatusFromCopyFile's whenAlone", () => {
     "file-problem",
     "service-problem",
     "{ title: T, body: B }",
-  ])(
-    "recognises %s",
-    (whenAlone) => {
-      expect(status(whenAlone).unrecognised).toEqual([]);
-    },
-  );
+  ])("recognises %s", (whenAlone) => {
+    expect(status(whenAlone).unrecognised).toEqual([]);
+  });
 });

@@ -61,13 +61,29 @@ message. An entry with no `wording` field is final. An older frontend wrote
 the check below advises whichever the frontend it reads takes. Product, BAs and
 UCD change the wording by pull request to this one file.
 
-An `upload` entry's heading can name `{values}` from the error's details, and
+The drop-out page has two designs, and an `upload` entry words its error for
+each:
+
+- `singleProblemPage`: the page shown when the error is the file's only
+  problem, a title and a sentence of its own, or the name of a shared page
+  (`catch-all`, `file-problem` or `service-problem`). It can give `one` and
+  `several` versions, for an error that names one habitat and for one that
+  names more. An entry with no `singleProblemPage` is shown in the problems
+  list even alone.
+- `problemsList`: the error's heading on the page that lists a file's
+  problems, and its bullets.
+
+An older frontend names them `whenAlone` and `inList`, and says
+`whenAlone: list` for an error shown in the list even alone. The checks below
+read either.
+
+A `problemsList` heading can name `{values}` from the error's details, and
 give a `variants` entry for each way the backend words the problem. Its bullets
 are an `item` for each habitat the error lists, filled from that habitat, or,
-for an error that lists none, one `detail`, filled from the error's details. `inList: catch-all` heads the list with the catch-all title, for a
-code the page never lists. A code with no entry, or whose details lack a
-value its heading names, also shows the catch-all title: never the backend's
-message.
+for an error that lists none, one `detail`, filled from the error's details.
+`problemsList: catch-all` heads the list with the catch-all title, for a code
+the page never lists. A code with no entry, or whose details lack a value its
+heading names, also shows the catch-all title: never the backend's message.
 
 `common/error-text/error-text.js` reads the file once and checks its shape, so
 a slip fails the tests and the server's start rather than a user's page. Pages
@@ -84,7 +100,7 @@ look wording up by section and code (`editErrorText(code)`,
 - neither section keeps an entry for a code the backend no longer has, or for
   one that does not belong there: an `upload` entry for a code met only on an
   edit, or an `edit` entry for one that refuses no edit;
-- no `upload` entry shows the backend's message (`inList: service-message`),
+- no `upload` entry shows the backend's message (`inList: service-message`, in an older frontend),
   has a heading or `detail` that names a `{value}` the backend does not list
   for the code in `ERROR_CODE_DETAILS`, or has a variant the backend never
   names; and the wording has a variant for every one the backend can name.
