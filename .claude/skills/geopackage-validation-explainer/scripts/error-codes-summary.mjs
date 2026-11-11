@@ -1,5 +1,5 @@
 /**
- * What check-dropout-copy.mjs found, written for whoever opens the run: a
+ * What check-error-codes.mjs found, written for whoever opens the run: a
  * product owner, a BA or a content designer as much as a developer. GitHub
  * shows it on the run's page (the job summary), so nobody has to read a log.
  *
@@ -289,12 +289,12 @@ function footer(context) {
     '',
     `Compared — ${versionLine('backend', BACKEND_REPO_URL, context.backend)} · ${versionLine('frontend', FRONTEND_REPO_URL, context.frontend)}`,
     '',
-    'Run it on your own machine with `npm run check:dropout-copy` in bng-metric-harness.',
+    'Run it on your own machine with `npm run check:error-codes` in bng-metric-harness.',
     ''
   ]
 }
 
-/** How many problems check-dropout-copy.mjs's compareDetails found. */
+/** How many problems check-error-codes.mjs's compareDetails found. */
 export function detailProblems(details) {
   return details
     ? details.serviceMessage.length +
@@ -306,7 +306,7 @@ export function detailProblems(details) {
 
 /**
  * Where the wording and the values or variants the service sends with an
- * error disagree (check-dropout-copy.mjs compareDetails).
+ * error disagree (check-error-codes.mjs compareDetails).
  */
 function detailsSection(details, ctx) {
   const { list } = entryKeys(ctx.problemsListKeys)
@@ -388,7 +388,7 @@ export function renderSummary(result, context) {
 
   if (result.backendUnreadable) {
     return [
-      "## ❌ Drop-out page wording: the backend's error codes could not be read",
+      "## ❌ Error code wording: the backend's error codes could not be read",
       '',
       "This check reads the backend's list of error codes, and where a customer meets each one, from `src/validation/geopackage/errors.js`. That file would not load, so nothing was compared:",
       '',
@@ -404,7 +404,7 @@ export function renderSummary(result, context) {
 
   if (result.noCopyFile) {
     return [
-      '## ❌ Drop-out page wording: the wording file is missing',
+      '## ❌ Error code wording: the wording file is missing',
       '',
       `The frontend has no ${copyFileLink}, so this check cannot compare anything. Every refused upload would be explained with the generic message.`,
       '',
@@ -429,7 +429,7 @@ export function renderSummary(result, context) {
     wordingProblems === 0
   ) {
     return [
-      '## ✅ Drop-out page wording: nothing to fix',
+      '## ✅ Error code wording: nothing to fix',
       '',
       `Every error that can refuse an upload has an entry in the drop-out page wording${edit ? ', every error that can refuse an edit has one in the edit section,' : ''} and there are no entries for errors the service no longer has.`,
       '',
@@ -462,7 +462,7 @@ export function renderSummary(result, context) {
   ].filter(Boolean)
 
   return [
-    '## ⚠️ Drop-out page wording needs attention',
+    '## ⚠️ Error code wording needs attention',
     '',
     `This check compares the errors the service can refuse an upload${edit ? ' or an edit' : ''} with against the wording in ${copyFileLink}. It found:`,
     '',
