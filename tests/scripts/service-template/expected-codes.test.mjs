@@ -12,11 +12,8 @@
 //   all, at a later stage. The scenario corpus has no rows, and is left out
 //   to keep the run short.
 //   This needs an installed backend beside the harness (or BNG_BACKEND_DIR),
-//   and skips without one. A fixture whose code is in PENDING_CODES, and that
-//   the installed backend does not define yet, is left out and named in a
-//   warning: the compare job of a merge queue runs the backend's main, which
-//   is behind the corpus until bng-metric-backend#615 merges. Any other code
-//   the backend does not define fails the test.
+//   and skips without one. A README code the backend does not define fails
+//   the test, so a typo cannot drop a fixture from it.
 //
 // The byte-for-byte rebuild (corpus.test.mjs) cannot catch a fixture whose
 // recipe changed with it; the lineage flaws are checked there too.
@@ -50,16 +47,6 @@ const BARE_CODE = /^`?([A-Z][A-Z0-9_]+)`?$/;
 const NOT_SCHEMA_VALID = new Set(["invalid-schema", "malformed"]);
 // The scenario corpus, described by its own index rather than README rows.
 const PERMUTATIONS = "permutations";
-
-// The text-value codes BMD-1175 adds to the backend (bng-metric-backend#615).
-// Remove this set, and its use below, once that PR is on the backend's main.
-const PENDING_CODES = new Set([
-  "TEXT_TOO_LONG",
-  "VALUE_NOT_ALLOWED",
-  "FEATURE_UUID_INVALID",
-  "PARENT_UUID_INVALID",
-  "PARENT_GEOM_INVALID",
-]);
 
 // The codes the BNG Service template gate itself raises for a file whose
 // schema is the template's: its version record, then its text values. Any
@@ -168,25 +155,13 @@ describe.skipIf(!isBackendInstalled())(
     };
 
     it("refuses each fixture whose README names a gate code with exactly that code", () => {
-      const named = SCHEMA_VALID_ROWS.filter((file) =>
+      const gateFixtures = SCHEMA_VALID_ROWS.filter((file) =>
         GATE_CODE.test(codeOf(file) ?? ""),
       );
-      const undefinedCodes = named.filter(
-        (file) => !definedCodes.has(codeOf(file)),
-      );
-      // A code the backend does not define is a typo, or a pending code.
+      // A code the backend does not define is a typo in the README.
       expect(
-        undefinedCodes.filter((file) => !PENDING_CODES.has(codeOf(file))),
+        gateFixtures.filter((file) => !definedCodes.has(codeOf(file))),
       ).toEqual([]);
-      if (undefinedCodes.length > 0) {
-        const skipped = undefinedCodes
-          .map((file) => `  ${file} (${codeOf(file)})`)
-          .join("\n");
-        console.warn(
-          `Not checked, as the backend under test does not define their codes yet:\n${skipped}`,
-        );
-      }
-      const gateFixtures = named.filter((file) => definedCodes.has(codeOf(file)));
       expect(gateFixtures.length).toBeGreaterThan(0);
       for (const file of gateFixtures) {
         expect(gateCodes(file), file).toEqual([codeOf(file)]);
