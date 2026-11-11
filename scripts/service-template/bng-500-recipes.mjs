@@ -42,7 +42,6 @@ const TREE_VALUES = [
   "Baseline Tree Size",
   "Category",
   "Proposed Rural or Urban Tree",
-  "Proposed Tree Size",
   "Proposed Tree Type",
   "Retention Category",
 ];

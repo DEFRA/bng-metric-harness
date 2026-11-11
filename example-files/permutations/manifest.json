@@ -2320,6 +2320,183 @@
       }
     },
     {
+      "id": "intervention-tree-replanted",
+      "purpose": "intervention",
+      "title": "Individual tree — felled and replanted in its place",
+      "description": "Area: one Low grassland retained. Trees: T001, a medium rural tree, is felled, and T002, a small rural tree, is newly planted on its spot; T003, the same small rural tree, is planted elsewhere. The metric records a lost tree and two created ones, whatever stands where: T001's units are lost in full and T002 and T003 have the same units. In the BNG Service file T002 is linked to T001 as its parent (Parent Ref, parent_uuid and parent_geom) and T003 has none, so this checks the service still prices a newly planted tree with a parent as a creation, and still loses the tree it replaces.",
+      "size": 1,
+      "subject": {
+        "layer": "Urban Trees",
+        "ref": "T002",
+        "note": "T001 felled, T002 planted in its place and linked to it, T003 the same tree planted with no parent"
+      },
+      "files": {
+        "baseline": "intervention/tree-replanted-baseline.gpkg",
+        "postIntervention": "intervention/tree-replanted-post-intervention.gpkg",
+        "workbook": "intervention/tree-replanted.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "created units equal",
+          "expected": "T002 = T003",
+          "actual": "T002 0.01253462379888, T003 0.01253462379888",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookSource": "49c041f2d8d494a9a0f44f2167a5d7dff181d95257fd311975a2eced250cb6b7",
+      "inputRows": {
+        "habitatBaseline": 2,
+        "habitatCreation": 2,
+        "habitatEnhancement": 0,
+        "hedgerowBaseline": 0,
+        "hedgerowCreation": 0,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 0,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 0
+      },
+      "rejectedInputs": [],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 194.237967686117,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "postInterventionUnits": {
+            "area": 194.197836933715,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netUnitChange": {
+            "area": -0.0401307524022343,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netPercentChange": {
+            "area": -0.000206606117641672,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netGainMessage": {
+            "area": "On-site net gain is less than target set ⚠",
+            "hedgerow": null,
+            "watercourse": null
+          },
+          "unitsRequired": {
+            "area": 213.661764454729,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "unitDeficit": {
+            "area": 19.463927521014,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "No - Check Trading Summaries ▲",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "No ▲"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": 0
+        },
+        "sheetWarnings": [
+          {
+            "sheet": "habitatBaseline",
+            "cell": "L5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "habitatCreation",
+            "cell": "K5",
+            "message": "No - check trading summaries ▲"
+          },
+          {
+            "sheet": "habitatEnhancement",
+            "cell": "T5",
+            "message": "No - check trading summaries ▲"
+          }
+        ],
+        "rowWarnings": []
+      }
+    },
+    {
       "id": "area-enhanced-medium-condition-na",
       "purpose": "intervention",
       "title": "Area habitat — enhancement of a Medium habitat in Condition Assessment N/A",
