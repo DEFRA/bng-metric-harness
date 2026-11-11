@@ -261,9 +261,10 @@ jobs:
       # job, after the reports are written. The log lists every difference;
       # a summary goes on the job summary, leading with any unexplained
       # differences; the full report (report.html and report.xlsx) is in the
-      # artifact.
+      # artifact. The BNG Service template corpus's expected codes are checked
+      # here too, as this is the one job with a backend installed.
       - name: Test comparison and import assertions
-        run: npx vitest run tests/scripts/metric-comparison tests/scripts/scenarios/import-timing.test.mjs
+        run: npx vitest run tests/scripts/metric-comparison tests/scripts/scenarios/import-timing.test.mjs tests/scripts/service-template/expected-codes.test.mjs
 
       - name: Compare the service with the metric
         id: compare-metric

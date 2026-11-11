@@ -162,21 +162,22 @@ describe("a file check:lineage cannot read", () => {
 
 describe("the legacy pair check still works on the legacy corpus", () => {
   it.each([
-    "retained watercourse",
-    "all unit and intervention types",
-    "created linear features",
-    "IGGI habitat",
-    "long and padded habitat refs",
-    "retained areas hedgerows and watercourses",
-  ])("passes the %s pair", (name) => {
+    ["valid", "retained watercourse"],
+    ["valid", "all unit and intervention types"],
+    ["valid", "created linear features"],
+    ["valid", "IGGI habitat"],
+    ["attribute-problems", "habitat ref too long"],
+    ["valid", "retained areas hedgerows and watercourses"],
+  ])("passes the %s/%s pair", (dir, name) => {
     const result = spawnSync(
       process.execPath,
       [
         CHECK_PAIR,
-        path.join(ROOT, "example-files/valid", `Baseline - ${name}.gpkg`),
+        path.join(ROOT, "example-files", dir, `Baseline - ${name}.gpkg`),
         path.join(
           ROOT,
-          "example-files/valid",
+          "example-files",
+          dir,
           `Post-intervention - ${name}.gpkg`,
         ),
       ],

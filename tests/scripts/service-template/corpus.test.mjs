@@ -80,6 +80,9 @@ const BUILDABLE = CHECK_CONVERTED
   : RECIPES.filter((r) => r.kind !== KIND_CONVERTED);
 
 let outDir;
+// Building every recipe takes a few seconds alone, and longer beside the rest
+// of the suite: more than the default hook timeout.
+const BUILD_TIMEOUT = 60_000;
 // Inside the harness, as --outdir must be; test-data/ is gitignored.
 beforeAll(() => {
   const testData = path.join(ROOT, "test-data");
@@ -88,7 +91,7 @@ beforeAll(() => {
   for (const recipe of BUILDABLE) {
     buildRecipe(recipe, outDir);
   }
-});
+}, BUILD_TIMEOUT);
 afterAll(() => {
   rmSync(outDir, { recursive: true, force: true });
 });
