@@ -1,8 +1,11 @@
 import Database from "better-sqlite3";
 import { TEMPLATE_SOURCE } from "#bng-lib";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { gpkgPoint } from "#gpkg-io";
 import {
+  copyRow,
   deleteRows,
+  linkToParent,
   setValues,
   setVersionRecord,
 } from "../../../scripts/service-template/derive.mjs";
@@ -12,6 +15,14 @@ const TABLE = "Area Habitats Baseline";
 let db;
 beforeEach(() => {
   db = new Database(":memory:");
+  // The two registers the edits keep in step, empty until a test registers
+  // a layer: an unregistered table has no extent to keep.
+  db.exec(
+    "CREATE TABLE gpkg_contents (table_name TEXT PRIMARY KEY, min_x DOUBLE, min_y DOUBLE, max_x DOUBLE, max_y DOUBLE)",
+  );
+  db.exec(
+    "CREATE TABLE gpkg_geometry_columns (table_name TEXT, column_name TEXT)",
+  );
   db.exec(`CREATE TABLE "${TABLE}" ("Habitat Ref" TEXT, "Condition" TEXT)`);
   db.exec(`INSERT INTO "${TABLE}" VALUES ('H001', 'Good'), ('H002', 'Poor')`);
   db.exec(
@@ -69,5 +80,139 @@ describe("the row edits", () => {
     expect(() => setVersionRecord("{}")(db)).toThrow(
       /no row of "gpkg_metadata"/,
     );
+  });
+});
+
+describe("the tree edits", () => {
+  const BASELINE = "Trees Baseline";
+  const POST = "Trees Post-Intervention";
+  const SRS = 27700;
+
+  beforeEach(() => {
+    db.exec(
+      `CREATE TABLE "${BASELINE}" (fid INTEGER PRIMARY KEY, geom BLOB, "Habitat Ref" TEXT, "Baseline Condition" TEXT, feature_uuid TEXT)`,
+    );
+    db.exec(
+      `CREATE TABLE "${POST}" (fid INTEGER PRIMARY KEY, geom BLOB, "Habitat Ref" TEXT, "Parent Ref" TEXT, "Baseline Condition" TEXT, parent_uuid TEXT, parent_geom TEXT)`,
+    );
+    db.prepare(
+      `INSERT INTO "${BASELINE}" VALUES (1, ?, 'T001', 'Poor', 'u1')`,
+    ).run(gpkgPoint(SRS, 530000.12345, 180000.5));
+    db.prepare(
+      `INSERT INTO "${POST}" VALUES (1, ?, 'T009', NULL, 'N/A', NULL, NULL)`,
+    ).run(gpkgPoint(SRS, 1, 2));
+    for (const table of [BASELINE, POST]) {
+      db.prepare("INSERT INTO gpkg_geometry_columns VALUES (?, 'geom')").run(
+        table,
+      );
+    }
+    db.prepare(
+      "INSERT INTO gpkg_contents VALUES (?, 530000.12345, 180000.5, 530000.12345, 180000.5)",
+    ).run(BASELINE);
+    db.prepare("INSERT INTO gpkg_contents VALUES (?, 1, 2, 1, 2)").run(POST);
+  });
+
+  const extent = (table) =>
+    db
+      .prepare(
+        "SELECT min_x, min_y, max_x, max_y FROM gpkg_contents WHERE table_name = ?",
+      )
+      .get(table);
+
+  const post = () =>
+    db
+      .prepare(
+        `SELECT fid, "Habitat Ref", "Parent Ref", "Baseline Condition", parent_uuid, parent_geom FROM "${POST}" ORDER BY fid`,
+      )
+      .all();
+
+  it("copy a row under a new fid, with the columns named set", () => {
+    copyRow(POST, { "Habitat Ref": "T009" }, { "Habitat Ref": "T010" })(db);
+    expect(post().map((r) => [r.fid, r["Habitat Ref"]])).toEqual([
+      [1, "T009"],
+      [2, "T010"],
+    ]);
+  });
+
+  it("copy only where one row matches", () => {
+    expect(() => copyRow(POST, { "Habitat Ref": "T999" }, {})(db)).toThrow(
+      /0 rows/,
+    );
+    copyRow(POST, { "Habitat Ref": "T009" }, {})(db);
+    expect(() => copyRow(POST, { "Habitat Ref": "T009" }, {})(db)).toThrow(
+      /2 rows/,
+    );
+  });
+
+  it("link a row to its parent by Parent Ref, parent_uuid and parent_geom, copying the columns named", () => {
+    linkToParent(
+      POST,
+      { "Habitat Ref": "T009" },
+      BASELINE,
+      { "Habitat Ref": "T001" },
+      { geom: "geom" },
+    )(db);
+    expect(post()).toEqual([
+      {
+        fid: 1,
+        "Habitat Ref": "T009",
+        "Parent Ref": "T001",
+        "Baseline Condition": "N/A",
+        parent_uuid: "u1",
+        parent_geom: "POINT (530000.123 180000.500)",
+      },
+    ]);
+    const { geom } = db.prepare(`SELECT geom FROM "${POST}"`).get();
+    const { geom: parentGeom } = db
+      .prepare(`SELECT geom FROM "${BASELINE}"`)
+      .get();
+    expect(geom.equals(parentGeom)).toBe(true);
+  });
+
+  // QGIS's Zoom to Layer reads the stored extent, not the rows.
+  it("keep the layer's extent the envelope of its rows as a point is added, moved and removed", () => {
+    copyRow(
+      POST,
+      { "Habitat Ref": "T009" },
+      { "Habitat Ref": "T010", geom: gpkgPoint(SRS, 5, 7) },
+    )(db);
+    expect(extent(POST)).toEqual({ min_x: 1, min_y: 2, max_x: 5, max_y: 7 });
+    linkToParent(
+      POST,
+      { "Habitat Ref": "T010" },
+      BASELINE,
+      { "Habitat Ref": "T001" },
+      { geom: "geom" },
+    )(db);
+    expect(extent(POST)).toEqual({
+      min_x: 1,
+      min_y: 2,
+      max_x: 530000.12345,
+      max_y: 180000.5,
+    });
+    deleteRows(POST, { "Habitat Ref": "T009" })(db);
+    expect(extent(POST)).toEqual({
+      min_x: 530000.12345,
+      min_y: 180000.5,
+      max_x: 530000.12345,
+      max_y: 180000.5,
+    });
+    deleteRows(POST, { "Habitat Ref": "T010" })(db);
+    expect(extent(POST)).toEqual({
+      min_x: null,
+      min_y: null,
+      max_x: null,
+      max_y: null,
+    });
+  });
+
+  it("leave the extent of a layer the edit does not change", () => {
+    copyRow(POST, { "Habitat Ref": "T009" }, { "Habitat Ref": "T010" })(db);
+    expect(extent(BASELINE)).toEqual({
+      min_x: 530000.12345,
+      min_y: 180000.5,
+      max_x: 530000.12345,
+      max_y: 180000.5,
+    });
   });
 });

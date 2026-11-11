@@ -33,6 +33,7 @@ import {
   setVersionRecord,
 } from "./derive.mjs";
 import { bng500Recipes } from "./bng-500-recipes.mjs";
+import { treeRecipes } from "./tree-recipes.mjs";
 
 export const KIND_GENERATED = "generated";
 export const KIND_DERIVED = "derived";
@@ -87,7 +88,7 @@ export const FAMILIES = [
   {
     dir: "incomplete",
     covers:
-      "A watercourse that gets worse is recorded in a way the service saves as Incomplete rather than refuses",
+      "A watercourse that gets worse, or a tree Enhanced to a condition no better than its baseline one, is recorded in a way the service saves as Incomplete rather than refuses",
   },
   {
     dir: "version-problems",
@@ -177,9 +178,16 @@ function flawFixture(dir, name, options = {}) {
 
 /**
  * A file derived from `valid/default-site.gpkg` by SQL edits, refused for its
- * schema unless the recipe says otherwise.
+ * schema unless the recipe says otherwise. `irreplaceableTables` names the
+ * tables its edits mark a feature irreplaceable in, where they mark one.
  */
-function derived(path, covers, edits, expected = SCHEMA_REFUSED) {
+function derived(
+  path,
+  covers,
+  edits,
+  expected = SCHEMA_REFUSED,
+  irreplaceableTables = [],
+) {
   return {
     path,
     kind: KIND_DERIVED,
@@ -187,6 +195,7 @@ function derived(path, covers, edits, expected = SCHEMA_REFUSED) {
     expected,
     from: VALID_BASE,
     edits,
+    irreplaceableTables,
   };
 }
 
@@ -525,6 +534,7 @@ export const RECIPES = [
   VERTICAL_AREA_MISSING,
   NATURAL_WATERCOURSE_LOST,
   ...IRREPLACEABLE,
+  ...treeRecipes({ derived, accepted: ACCEPTED }),
   ...LINEAGE,
   ...INCOMPLETE,
   ...VERSION,
@@ -540,7 +550,7 @@ export const RECIPES = [
  */
 export const GAPS = [
   "A natural river left out, and an irreplaceable tree that gets worse: the service refuses either file for another reason first, so a fixture could not show the rule. Natural rivers (Other rivers and streams, High; Priority habitat, V.High) are out of the service's scope, and only canals and ditches may be lost (a culvert left out is refused, STAGED_NATURAL_WATERCOURSE_LOST: `attribute-problems/watercourse-culvert-left-out.gpkg`); an irreplaceable tree is refused whether or not it gets worse (`attribute-problems/irreplaceable-tree.gpkg`).",
-  "Individual trees with varied counts, and trees partly felled: the template has no Count column yet (BMD-1171), so each tree point is one tree. The service reads a Count when a file has one.",
+  "Individual trees with varied counts, and trees partly felled: the template has no Count column, as the service does not support tree counts yet, so each tree point is one tree. The service reads a Count when a file has one.",
   "The harness's import-timing scenarios: they edit legacy files, so `permutations/` builds them in the legacy format only.",
 ];
 
