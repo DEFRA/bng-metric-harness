@@ -12,13 +12,16 @@
 //   all, at a later stage. The scenario corpus has no rows, and is left out
 //   to keep the run short.
 //   This needs an installed backend beside the harness (or BNG_BACKEND_DIR),
-//   and skips without one.
+//   and skips without one. A fixture whose code the installed backend does
+//   not define yet is left out: the compare job of a merge queue runs the
+//   backend's main, which can be behind the corpus while a change spans both.
 //
 // The byte-for-byte rebuild (corpus.test.mjs) cannot catch a fixture whose
 // recipe changed with it; the lineage flaws are checked there too.
 
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
 import { loadGate } from "../../../.claude/skills/geopackage-validation-explainer/scripts/observe-fixtures.mjs";
 import { disallowedValues } from "../../../scripts/allowed-values.mjs";
@@ -134,10 +137,17 @@ describe.skipIf(!isBackendInstalled())(
   "the BNG Service template gate over the schema-valid fixtures",
   () => {
     let gate;
+    let definedCodes;
 
     beforeAll(async () => {
       process.env.LOG_LEVEL = "silent";
       gate = await loadGate(backendDir());
+      const { ERROR_CODES } = await import(
+        pathToFileURL(
+          path.join(backendDir(), "src/validation/geopackage/errors.js"),
+        ).href
+      );
+      definedCodes = new Set(Object.values(ERROR_CODES));
     });
 
     const gateCodes = (file) => {
@@ -146,8 +156,9 @@ describe.skipIf(!isBackendInstalled())(
     };
 
     it("refuses each fixture whose README names a gate code with exactly that code", () => {
-      const gateFixtures = SCHEMA_VALID_ROWS.filter((file) =>
-        GATE_CODE.test(codeOf(file) ?? ""),
+      const gateFixtures = SCHEMA_VALID_ROWS.filter(
+        (file) =>
+          GATE_CODE.test(codeOf(file) ?? "") && definedCodes.has(codeOf(file)),
       );
       expect(gateFixtures.length).toBeGreaterThan(0);
       for (const file of gateFixtures) {

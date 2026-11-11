@@ -19,6 +19,8 @@ import { disallowedValues } from "../../scripts/allowed-values.mjs";
 const SLOW_TEST_TIMEOUT = 30_000;
 const EXAMPLE_FILES = path.resolve(import.meta.dirname, "../../example-files");
 const SERVICE_TEMPLATE = "service-template";
+// The backend's limit on a reference (BMD-1175).
+const REF_LIMIT = 99;
 
 // Fixtures that hold a value no list offers on purpose, each with why. Every
 // one is described in example-files/README.md.
@@ -108,6 +110,32 @@ describe("the legacy example files' drop-down values", () => {
         valueOf("Rivers", "Baseline River Type", "R003"),
         valueOf("Urban Trees", "Baseline Tree Size", "T002", "Tree Ref"),
       ]).toEqual([null, null, "", "Null", ""]);
+    } finally {
+      db.close();
+    }
+  });
+
+  // Built for TEXT_TOO_LONG: each half must keep a reference over 99
+  // characters once trimmed, counted as code points, as the backend counts it.
+  // Its old tree words alone would keep the check above passing.
+  it.each([
+    "attribute-problems/Baseline - habitat ref too long.gpkg",
+    "attribute-problems/Post-intervention - habitat ref too long.gpkg",
+  ])("keep a reference over 99 characters in %s", (file) => {
+    const db = new Database(path.join(EXAMPLE_FILES, file), {
+      readonly: true,
+      fileMustExist: true,
+    });
+    try {
+      const longest = Math.max(
+        ...db
+          .prepare(
+            "SELECT \"Parcel Ref\" AS ref FROM Habitats UNION ALL SELECT \"Parcel Ref\" FROM Hedgerows UNION ALL SELECT \"Parcel Ref\" FROM Rivers",
+          )
+          .all()
+          .map(({ ref }) => Array.from(String(ref ?? "").trim()).length),
+      );
+      expect(longest).toBeGreaterThan(REF_LIMIT);
     } finally {
       db.close();
     }
