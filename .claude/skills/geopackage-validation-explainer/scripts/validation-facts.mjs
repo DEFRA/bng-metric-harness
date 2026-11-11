@@ -62,22 +62,36 @@ export const DROPOUT_COPY_FILE = path.join(
   'dropout-copy.yaml'
 )
 
-/**
- * The frontend module that reads error-text.yaml's `wording` field. A frontend
- * that has it marks an entry with no words yet as `wording: none`; an older
- * one wrote `placeholder` in the entry's place, which a newer one refuses.
- */
-const WORDING_MODULE = path.join(
-  'src',
-  'server',
-  'common',
-  'error-text',
-  'wording.js'
-)
+// A header line documenting the `wording` field's "none", as error-text.yaml
+// keeps one while no entry needs it.
+const DOCUMENTED_WORDING_NONE = /^#.*\bwording: none\b/m
 
-/** Whether the frontend marks unfinished wording with a `wording` field. */
-export function hasWordingField(frontendDir) {
-  return existsSync(path.join(frontendDir, WORDING_MODULE))
+function hasWordingKey(node) {
+  if (Array.isArray(node)) {
+    return node.some(hasWordingKey)
+  }
+  if (node !== null && typeof node === 'object') {
+    return (
+      Object.hasOwn(node, 'wording') || Object.values(node).some(hasWordingKey)
+    )
+  }
+  return false
+}
+
+/**
+ * Whether the frontend's copy file marks unfinished wording with a `wording`
+ * field, as `wording: none` for an entry with no words yet; an older one
+ * wrote `placeholder` in the entry's place, which a newer one refuses. Read
+ * from the file itself, whose schema decides it: an entry with the field, or
+ * a header that documents it.
+ *
+ * @param {string} source - the copy file's YAML text
+ */
+export function hasWordingField(source) {
+  return (
+    DOCUMENTED_WORDING_NONE.test(source) ||
+    hasWordingKey(loadYaml(source) ?? {})
+  )
 }
 
 /** Where the frontend keeps the drop-out page's copy, or null for one that predates both files. */
@@ -114,6 +128,13 @@ const MESSAGE_LOOKAHEAD_CHARS = 400
 /** How far before it to look for the `makeError(` that owns it. */
 const MAKE_ERROR_LOOKBEHIND_CHARS = 80
 const MAX_MESSAGE_CHARS = 200
+
+/**
+ * The whenAlone values that show a generic message shared by several codes,
+ * rather than copy of the code's own: about layer and column names, about the
+ * file, or about the service.
+ */
+const SHARED_FALLBACKS = new Set(['catch-all', 'file-problem', 'service-problem'])
 
 const CODE_KEY_PATTERN = /^ {2}([A-Z][A-Z0-9_]*):/gm
 const COPY_STATUS = Object.freeze({
@@ -254,9 +275,9 @@ export function extractCopyStatus(frontendDir) {
  * From dropout-copy.yaml: a code whose whenAlone is copy has its own message,
  * one whose whenAlone is "list" is shown as its list (under its own heading,
  * or else the backend's message), and "placeholder" shows the placeholder:
- * a value only an older frontend's file has. A newer one marks an entry
- * with no words of its own with a `wording` field instead, beside a
- * whenAlone that names the shared fallback the page shows.
+ * a value only an older frontend's file has. One that names a shared
+ * fallback (catch-all, file-problem or service-problem) shows that generic
+ * message, and is counted as the catch-all.
  * `inCopyFile` is every code the file names, so a backend code missing from
  * it can be reported.
  */
@@ -283,7 +304,7 @@ export function copyStatusFromCopyFile(source) {
       if (entry.inList?.heading) {
         listCopy.add(code)
       }
-    } else if (whenAlone !== 'catch-all') {
+    } else if (!SHARED_FALLBACKS.has(whenAlone)) {
       unrecognised.push(code)
     }
   }
@@ -856,7 +877,7 @@ function reportSummary(facts) {
   console.log(`  has an example .gpkg:   ${s.withExampleFile}`)
   if (facts.unrecognisedWhenAlone?.length > 0) {
     console.log(
-      `\nEntries in the frontend's ${facts.copyFile} whose whenAlone is none of copy, list, placeholder or catch-all (shown as the catch-all): ${facts.unrecognisedWhenAlone.join(', ')}`
+      `\nEntries in the frontend's ${facts.copyFile} whose whenAlone is none of copy, list, placeholder or a shared fallback (shown as the catch-all): ${facts.unrecognisedWhenAlone.join(', ')}`
     )
   }
   if (facts.missingFromCopyFile?.length > 0) {

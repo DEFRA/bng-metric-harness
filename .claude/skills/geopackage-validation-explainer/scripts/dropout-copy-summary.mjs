@@ -90,7 +90,18 @@ const NEW_ENTRY_TEMPLATE = (code) => `  ${code}:
     inList:
       heading: Say in a few words what is wrong with the file`
 
-const STOPGAP_TEMPLATE = (code) => `  ${code}:
+/**
+ * An upload entry with no wording yet, which shows the generic message. A
+ * frontend with the `wording` field marks it `wording: none`: without it, the
+ * entry reads as final.
+ */
+const STOPGAP_TEMPLATE = (code, wordingField) =>
+  wordingField
+    ? `  ${code}:
+    wording: none
+    whenAlone: catch-all
+    inList: catch-all`
+    : `  ${code}:
     whenAlone: catch-all
     inList: catch-all`
 
@@ -143,7 +154,7 @@ function missingSection(missing, rules, context) {
     'If the wording is not ready yet, a stop-gap entry makes the check pass, but users still see the generic message:',
     '',
     '```yaml',
-    STOPGAP_TEMPLATE(first),
+    STOPGAP_TEMPLATE(first, context.wordingField),
     '```',
     '',
     '</details>',

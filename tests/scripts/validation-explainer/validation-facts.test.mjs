@@ -8,6 +8,7 @@ import {
   extractExampleFixtures,
   extractFixtures,
   extractTolerances,
+  hasWordingField,
   missingFromCopyFile,
   readmeClaims,
 } from "../../../.claude/skills/geopackage-validation-explainer/scripts/validation-facts.mjs";
@@ -584,6 +585,26 @@ describe("copyStatusFromCopyFile's layouts", () => {
   });
 });
 
+describe("hasWordingField", () => {
+  it("finds an entry with a wording field", () => {
+    expect(
+      hasWordingField("edit:\n  CODE:\n    wording: none\nforms: {}\n"),
+    ).toBe(true);
+  });
+
+  it("finds the field documented in the header, with no entry using it", () => {
+    expect(
+      hasWordingField(
+        "#   wording: none      it has no words of its own yet\nedit: {}\n",
+      ),
+    ).toBe(true);
+  });
+
+  it("finds neither in an older file, which wrote placeholder", () => {
+    expect(hasWordingField("edit:\n  CODE: placeholder\n")).toBe(false);
+  });
+});
+
 describe("copyStatusFromCopyFile's whenAlone", () => {
   const status = (whenAlone) =>
     copyStatusFromCopyFile(`errors:\n  CODE:\n    whenAlone: ${whenAlone}\n`);
@@ -598,7 +619,22 @@ describe("copyStatusFromCopyFile's whenAlone", () => {
     expect(status("lsit").unrecognised).toEqual(["CODE"]);
   });
 
-  it.each(["list", "placeholder", "catch-all", "{ title: T, body: B }"])(
+  it.each(["file-problem", "service-problem"])(
+    "counts %s, a shared fallback, as the catch-all",
+    (whenAlone) => {
+      const sets = status(whenAlone);
+      expect(copyStatus("CODE", sets)).toBe("catch-all");
+    },
+  );
+
+  it.each([
+    "list",
+    "placeholder",
+    "catch-all",
+    "file-problem",
+    "service-problem",
+    "{ title: T, body: B }",
+  ])(
     "recognises %s",
     (whenAlone) => {
       expect(status(whenAlone).unrecognised).toEqual([]);

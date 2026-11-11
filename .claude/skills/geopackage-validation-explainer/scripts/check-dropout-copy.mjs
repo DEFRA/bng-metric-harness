@@ -305,9 +305,12 @@ function main() {
   console.log(`Backend:  ${backendDir}`)
   console.log(`Frontend: ${frontendDir}`)
   const copyFile = copyFileIn(frontendDir)
+  const copySource = copyFile
+    ? readTextFile(path.join(frontendDir, copyFile))
+    : null
   const context = {
     copyFile: copyFile ?? ERROR_TEXT_FILE,
-    wordingField: hasWordingField(frontendDir),
+    wordingField: copySource !== null && hasWordingField(copySource),
     backend: gitProvenance(backendDir),
     frontend: gitProvenance(frontendDir)
   }
@@ -331,9 +334,8 @@ function main() {
 
   const registry = extractRegistry(backendDir)
   const backendCodes = Object.keys(registry)
-  const { inCopyFile, inEditSection, uploadEntries } = copyStatusFromCopyFile(
-    readTextFile(path.join(frontendDir, copyFile))
-  )
+  const { inCopyFile, inEditSection, uploadEntries } =
+    copyStatusFromCopyFile(copySource)
   const edits = editCodes(backendDir)
   const result = {
     ...compareCodes(backendCodes, inCopyFile, edits),
