@@ -34,8 +34,10 @@ const TREES_POST = "Individual Trees Post-Intervention";
 const WATERCOURSES_POST = "Watercourses Post-Intervention";
 const PROPOSED_SIGNIFICANCE = "Proposed Strategic Significance";
 // Values the BNG500 files' trees carry that the template's lists do not: a
-// tree's size, on a row whose Category or retention the lists answer "N/A".
-const TREE_VALUES = ["Baseline Tree Size", "Proposed Tree Size"];
+// tree's baseline size, on a row whose Category or retention the lists answer
+// "N/A". Its proposed size passes, as an existing tree recorded as Created
+// keeps its own.
+const TREE_VALUES = ["Baseline Tree Size"];
 const RIPARIAN_ENCROACHMENT = [
   "Baseline Encroachment into riparian zone",
   "Proposed Encroachment into riparian zone",
