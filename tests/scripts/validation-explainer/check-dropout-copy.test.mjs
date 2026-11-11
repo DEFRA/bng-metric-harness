@@ -140,6 +140,32 @@ describe("compareDetails", () => {
     OUT_OF_SCOPE: { values: ["allowedBands"] },
   };
 
+  it("reads a current frontend's problemsList as an older one's inList", () => {
+    const entries = {
+      LAYER_MISSING: {
+        singleProblemPage: "catch-all",
+        problemsList: {
+          heading: "Missing {table}",
+          variants: { "bng-service": { heading: "Missing table" } },
+        },
+      },
+      // Shown in the problems list even alone: no singleProblemPage.
+      AREA_TOO_LARGE: {
+        problemsList: { heading: "Area ({areaSqM}) too large" },
+      },
+      NEVER_LISTED: {
+        singleProblemPage: "catch-all",
+        problemsList: "catch-all",
+      },
+    };
+    expect(compareDetails(details, entries)).toEqual({
+      serviceMessage: [],
+      unknownValues: [{ code: "LAYER_MISSING", name: "table" }],
+      unknownVariants: [],
+      unwordedVariants: [],
+    });
+  });
+
   it("finds nothing when the wording names only what the backend sends, and words each variant", () => {
     const entries = {
       LAYER_MISSING: {
@@ -422,7 +448,9 @@ describe("check-dropout-copy.mjs", () => {
     expect(result.stderr).toMatch(/does not send[\s\S]*- LAYER: \{table\}/);
     expect(result.stderr).toMatch(/no variant for[\s\S]*- LAYER: bng-service/);
     const text = summary();
-    expect(text).toContain("### Wording that does not match what the service sends");
+    expect(text).toContain(
+      "### Wording that does not match what the service sends",
+    );
     expect(text).toContain(
       "| `LAYER` | Names `{table}`, which the service does not send with this error. |",
     );
@@ -489,6 +517,19 @@ describe("renderSummary", () => {
     expect(text).toContain(
       "  NEW_CODE:\n    wording: none\n    whenAlone: catch-all\n    inList: catch-all",
     );
+  });
+
+  it("names the entry's keys as a frontend with singleProblemPage and problemsList does", () => {
+    const text = renderSummary(
+      { missing: ["NEW_CODE"], stale: [], ...counts },
+      { ...context, wordingField: true, problemsListKeys: true },
+    );
+    expect(text).toContain("  NEW_CODE:\n    singleProblemPage:\n      title:");
+    expect(text).toContain("    problemsList:\n      heading:");
+    expect(text).toContain(
+      "  NEW_CODE:\n    wording: none\n    singleProblemPage: catch-all\n    problemsList: catch-all",
+    );
+    expect(text).not.toContain("whenAlone");
   });
 
   it("gives an older frontend the stop-gap upload entry with no wording field", () => {

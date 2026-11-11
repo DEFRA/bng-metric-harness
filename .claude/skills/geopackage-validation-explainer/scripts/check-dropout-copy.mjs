@@ -36,8 +36,10 @@ import {
   editCodes,
   extractRaiseSites,
   extractRegistry,
+  hasProblemsListKeys,
   hasWordingField,
-  missingFromCopyFile
+  missingFromCopyFile,
+  uploadEntryCopy
 } from './validation-facts.mjs'
 
 /**
@@ -109,7 +111,7 @@ export function compareDetails(details, entries) {
     unwordedVariants: []
   }
   for (const [code, entry] of Object.entries(entries)) {
-    const inList = entry?.inList
+    const inList = uploadEntryCopy(entry).list
     if (inList === 'service-message') {
       result.serviceMessage.push(code)
       continue
@@ -311,6 +313,7 @@ function main() {
   const context = {
     copyFile: copyFile ?? ERROR_TEXT_FILE,
     wordingField: copySource !== null && hasWordingField(copySource),
+    problemsListKeys: copySource !== null && hasProblemsListKeys(copySource),
     backend: gitProvenance(backendDir),
     frontend: gitProvenance(frontendDir)
   }
