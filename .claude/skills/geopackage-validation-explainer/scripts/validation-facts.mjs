@@ -130,9 +130,9 @@ const MAKE_ERROR_LOOKBEHIND_CHARS = 80
 const MAX_MESSAGE_CHARS = 200
 
 /**
- * The whenAlone values that show a generic message shared by several codes,
- * rather than copy of the code's own: about layer and column names, about the
- * file, or about the service.
+ * The singleProblemPage values (whenAlone in an older frontend) that show a
+ * generic message shared by several codes, rather than copy of the code's
+ * own: about layer and column names, about the file, or about the service.
  */
 const SHARED_FALLBACKS = new Set(['catch-all', 'file-problem', 'service-problem'])
 
@@ -323,12 +323,14 @@ export function extractCopyStatus(frontendDir) {
 }
 
 /**
- * From dropout-copy.yaml: a code whose whenAlone is copy has its own message,
- * one whose whenAlone is "list" is shown as its list (under its own heading,
- * or else the backend's message), and "placeholder" shows the placeholder:
- * a value only an older frontend's file has. One that names a shared
- * fallback (catch-all, file-problem or service-problem) shows that generic
- * message, and is counted as the catch-all.
+ * From the copy file (error-text.yaml, or an older frontend's
+ * dropout-copy.yaml), read through uploadEntryCopy: a code whose
+ * singleProblemPage (whenAlone) is copy has its own message; one with no
+ * singleProblemPage (whenAlone: "list") is shown as its list, under its own
+ * heading or else the backend's message; and "placeholder" shows the
+ * placeholder, a value only an older frontend's file has. One that names a
+ * shared fallback (catch-all, file-problem or service-problem) shows that
+ * generic message, and is counted as the catch-all.
  * `inCopyFile` is every code the file names, so a backend code missing from
  * it can be reported.
  */
@@ -341,8 +343,9 @@ export function copyStatusFromCopyFile(source) {
   const placeholder = new Set()
   const shownAsList = new Set()
   const listCopy = new Set()
-  // A whenAlone that is none of these (blank, or a typo such as "lsit") falls
-  // to the catch-all on the page, so it is named rather than counted quietly.
+  // A singleProblemPage, or whenAlone, that is none of these (a typo such as
+  // "catchall") falls to the catch-all on the page, so it is named rather
+  // than counted quietly.
   const unrecognised = []
   for (const [code, entry] of Object.entries(errors)) {
     const { alone, list } = uploadEntryCopy(entry)
