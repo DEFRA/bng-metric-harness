@@ -554,6 +554,8 @@ const ERROR_TEXT_CURRENT = `upload:
     LISTED:
       problemsList:
         heading: Its own heading
+    LISTED_UNDER_CATCH_ALL:
+      problemsList: catch-all
     NO_COPY:
       singleProblemPage: catch-all
       problemsList: catch-all
@@ -569,6 +571,8 @@ describe("extractCopyStatus from a frontend with singleProblemPage and problemsL
     ["OWN_COPY", "dedicated"],
     ["ONE_AND_SEVERAL", "dedicated"],
     ["LISTED", "list-copy"],
+    // The page heads it with the catch-all title, never the backend's message.
+    ["LISTED_UNDER_CATCH_ALL", "catch-all"],
     ["NO_COPY", "catch-all"],
   ])("gives %s the status %s", (code, status) => {
     expect(copyStatus(code, sets)).toBe(status);

@@ -98,7 +98,7 @@ function namedValues(inList) {
  * Null for a backend that predates ERROR_CODE_DETAILS.
  *
  * @param {Record<string, { values?: string[], variants?: string[] }> | null} details
- * @param {Record<string, { inList?: unknown }>} entries the upload section's
+ * @param {Record<string, { problemsList?: unknown, inList?: unknown }>} entries the upload section's
  */
 export function compareDetails(details, entries) {
   if (!details) {

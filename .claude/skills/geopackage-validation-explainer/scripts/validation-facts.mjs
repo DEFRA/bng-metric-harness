@@ -327,7 +327,9 @@ export function extractCopyStatus(frontendDir) {
  * dropout-copy.yaml), read through uploadEntryCopy: a code whose
  * singleProblemPage (whenAlone) is copy has its own message; one with no
  * singleProblemPage (whenAlone: "list") is shown as its list, under its own
- * heading or else the backend's message; and "placeholder" shows the
+ * heading, under the catch-all title for problemsList (inList) "catch-all",
+ * which counts as the catch-all, or else, in an older frontend, the
+ * backend's message; and "placeholder" shows the
  * placeholder, a value only an older frontend's file has. One that names a
  * shared fallback (catch-all, file-problem or service-problem) shows that
  * generic message, and is counted as the catch-all.
@@ -353,7 +355,7 @@ export function copyStatusFromCopyFile(source) {
       dedicated.add(code)
     } else if (alone === ALONE.PLACEHOLDER) {
       placeholder.add(code)
-    } else if (alone === ALONE.LIST) {
+    } else if (alone === ALONE.LIST && list !== 'catch-all') {
       shownAsList.add(code)
       if (list?.heading) {
         listCopy.add(code)
