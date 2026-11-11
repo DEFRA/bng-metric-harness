@@ -86,6 +86,23 @@ describe("buildAllowedValues", () => {
   });
 });
 
+describe("buildAllowedValues: underscore aliases", () => {
+  // The legacy import reads Baseline_Condition when Baseline Condition is
+  // blank, and the backend's gate checks it against the same list.
+  it("checks a column's underscore alias against the column's list", () => {
+    const allowed = buildAllowedValues({ "Baseline Condition": ["Good"] });
+    expect(isAllowedValue("Baseline_Condition", "Good", allowed)).toBe(true);
+    expect(isAllowedValue("Baseline_Condition", "Splendid", allowed)).toBe(
+      false,
+    );
+  });
+
+  it("keeps a list of its own under a name that is already an alias's", () => {
+    const allowed = buildAllowedValues({ "A B": ["one"], A_B: ["two"] });
+    expect([...allowed.get("a_b")]).toEqual(["two"]);
+  });
+});
+
 describe("isAllowedValue", () => {
   const allowed = buildAllowedValues({
     "Baseline Condition": ["4. Fairly Poor", "Good"],

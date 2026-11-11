@@ -1,6 +1,7 @@
 import { readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import Database from "better-sqlite3";
 import { disallowedValues } from "../../scripts/allowed-values.mjs";
 
 // Every value in the legacy example files' drop-down and filled-in columns
@@ -81,6 +82,36 @@ describe("the legacy example files' drop-down values", () => {
     );
     expect(refused).toEqual([]);
   }, SLOW_TEST_TIMEOUT);
+
+  // BASELINE_TYPE_MISSING's only fixture, which the backend refuses later,
+  // past what this file can check: it holds every blank the rule treats as
+  // blank, on every layer, as example-files/README.md describes it.
+  it("keep the blank baseline types the BASELINE_TYPE_MISSING fixture is built on", () => {
+    const db = new Database(
+      path.join(
+        EXAMPLE_FILES,
+        "attribute-problems/Post-intervention - blank baseline types on every layer.gpkg",
+      ),
+      { readonly: true, fileMustExist: true },
+    );
+    const valueOf = (table, column, ref, refColumn = "Parcel Ref") =>
+      db
+        .prepare(
+          `SELECT "${column}" AS value FROM "${table}" WHERE trim("${refColumn}") = ?`,
+        )
+        .get(ref)?.value;
+    try {
+      expect([
+        valueOf("Habitats", "Baseline Habitat Type", "H002"),
+        valueOf("Habitats", "Baseline Habitat Type", "H004"),
+        valueOf("Hedgerows", "Baseline Hedge Type", "HG011"),
+        valueOf("Rivers", "Baseline River Type", "R003"),
+        valueOf("Urban Trees", "Baseline Tree Size", "T002", "Tree Ref"),
+      ]).toEqual([null, null, "", "Null", ""]);
+    } finally {
+      db.close();
+    }
+  });
 
   it("still hold a refused value in each fixture listed as built to fail on one", () => {
     for (const [file, outcome] of DELIBERATELY_INVALID) {

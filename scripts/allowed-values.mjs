@@ -63,9 +63,19 @@ export function isBlankValue(value) {
   return text === "" || text.toLowerCase() === NULL_WORD;
 }
 
+// A legacy file can name a column with underscores for its spaces, as in
+// Baseline_Condition; the legacy import reads that alias when the template
+// column is blank (the backend's PROP_KEYS), and the backend's gate checks it
+// against its template column's list. Every list column's alias there is this
+// form of its name, so each list column is registered under it too: a
+// superset of the backend's aliases, so the check here is never laxer.
+const SPACE = " ";
+const UNDERSCORE = "_";
+
 /**
  * Column key → the normalised values its lists offer. Two names that are one
- * column once compared share one list, joined from both.
+ * column once compared share one list, joined from both. Each column is also
+ * registered under its underscore alias, unless a list already has that name.
  *
  * @param {Record<string, string[]>} lists
  * @returns {Map<string, Set<string>>}
@@ -79,6 +89,12 @@ export function buildAllowedValues(lists = TEMPLATE_ALLOWED_VALUES) {
       set.add(normaliseListValue(value));
     }
     allowed.set(key, set);
+  }
+  for (const [key, set] of [...allowed]) {
+    const alias = key.replaceAll(SPACE, UNDERSCORE);
+    if (!allowed.has(alias)) {
+      allowed.set(alias, set);
+    }
   }
   return allowed;
 }
