@@ -374,21 +374,30 @@ function irreplaceableLayersOf(recipe) {
 describe("the built fixtures", () => {
   // A repin that ignored or renamed irreplaceableLayers would rebuild the
   // corpus to match itself, so the byte-for-byte test alone would not see it.
-  it("mark a habitat irreplaceable only in the files whose recipe names its layer, in both stages", () => {
+  it("mark a habitat irreplaceable only in the files whose recipe names its layer, in both stages, or names the tables its edits mark", () => {
     const drawn = BUILDABLE.filter(
       (r) => r.kind === KIND_GENERATED || r.kind === KIND_DERIVED,
     );
     for (const recipe of drawn) {
-      const expected = irreplaceableLayersOf(recipe).flatMap(
-        (layer) => LAYER_TABLES[layer],
-      );
+      const expected = [
+        ...irreplaceableLayersOf(recipe).flatMap(
+          (layer) => LAYER_TABLES[layer],
+        ),
+        ...(recipe.irreplaceableTables ?? []),
+      ];
       expect(irreplaceableTables(built(recipe)).sort(), recipe.path).toEqual(
         expected.sort(),
       );
     }
-    const marked = drawn.filter((r) => irreplaceableLayersOf(r).length > 0);
+    const marked = drawn.filter(
+      (r) =>
+        irreplaceableLayersOf(r).length > 0 ||
+        r.irreplaceableTables?.length > 0,
+    );
     expect(marked.map((r) => r.path).sort()).toEqual([
       "attribute-problems/irreplaceable-area-habitat.gpkg",
+      "attribute-problems/irreplaceable-tree-baseline-only.gpkg",
+      "attribute-problems/irreplaceable-tree-post-intervention-only.gpkg",
       "attribute-problems/irreplaceable-tree.gpkg",
     ]);
   });
@@ -613,6 +622,92 @@ describe("the fixtures derived for QA's BMD-1086 scenarios", () => {
     expect(base.post).toEqual([]);
     expect(base.baseline.Area).toBeGreaterThan(0);
   });
+});
+
+// As for the BMD-1086 fixtures: each test checks the default site holds what
+// its edit starts from, so a repin that moved a tree shows here.
+describe("the fixtures derived for manual tests of individual trees", () => {
+  const TREES = "Individual Trees";
+  const tree = (recipePath, ref) => habitat(builtAt(recipePath), TREES, ref);
+  const retentions = (rows) => rows.map((r) => r["Retention Category"]);
+
+  it("tree-enhanced-not-better.gpkg enhances T006 to its baseline condition", () => {
+    const { baseline, post } = tree(
+      "incomplete/tree-enhanced-not-better.gpkg",
+      "T006",
+    );
+    expect(retentions(post)).toEqual(["Enhanced"]);
+    expect(post[0]["Proposed Condition"]).toBe(baseline["Baseline Condition"]);
+    const base = tree(DEFAULT_SITE, "T006");
+    expect(retentions(base.post)).toEqual(["Enhanced"]);
+    expect(base.post[0]["Proposed Condition"]).not.toBe(
+      base.baseline["Baseline Condition"],
+    );
+  });
+
+  it("tree-enhanced-from-good.gpkg enhances T008, a tree in Good condition, still Good", () => {
+    const { baseline, post } = tree(
+      "attribute-problems/tree-enhanced-from-good.gpkg",
+      "T008",
+    );
+    expect(baseline["Baseline Condition"]).toBe("Good");
+    expect(retentions(post)).toEqual(["Enhanced"]);
+    expect(post[0]["Proposed Condition"]).toBe("Good");
+    expect(retentions(tree(DEFAULT_SITE, "T008").post)).toEqual(["Retained"]);
+  });
+
+  it("tree-kept-twice.gpkg keeps T004 as two Retained points", () => {
+    const { post } = tree("attribute-problems/tree-kept-twice.gpkg", "T004");
+    expect(post.map((r) => r["Habitat Ref"]).sort()).toEqual(["T004", "T004A"]);
+    expect(retentions(post)).toEqual(["Retained", "Retained"]);
+    expect(retentions(tree(DEFAULT_SITE, "T004").post)).toEqual(["Retained"]);
+  });
+
+  it("tree-replanted.gpkg plants T026 on the felled tree T002's spot, linked to it", () => {
+    const file = builtAt("valid/tree-replanted.gpkg");
+    const { baseline, post } = habitat(file, TREES, "T002");
+    expect(post).toHaveLength(1);
+    const [planted] = post;
+    expect(planted["Habitat Ref"]).toBe("T026");
+    expect(planted["Retention Category"]).toBe("Created");
+    expect(planted.Category).toBe("Newly Planted");
+    expect(planted["Parent Ref"]).toBe("T002");
+    expect(planted.parent_uuid).toBe(baseline.feature_uuid);
+    expect(wkbToGeoJSON(planted.geom)).toEqual(wkbToGeoJSON(baseline.geom));
+    expect(tree(DEFAULT_SITE, "T002").post).toEqual([]);
+  });
+
+  it("tree-irreplaceable-blank.gpkg leaves Irreplaceable Habitat blank on every tree", () => {
+    const file = builtAt("valid/tree-irreplaceable-blank.gpkg");
+    for (const stage of STAGES) {
+      expect(
+        query(
+          file,
+          `SELECT COUNT(*) AS n FROM "${TREES} ${stage}" WHERE "${IRREPLACEABLE}" IS NOT NULL`,
+        ),
+        stage,
+      ).toEqual([{ n: 0 }]);
+    }
+  });
+
+  it.each([
+    ["baseline-only", "Baseline", "T002"],
+    ["post-intervention-only", "Post-Intervention", "T004"],
+  ])(
+    "irreplaceable-tree-%s.gpkg marks one tree irreplaceable, at %s only",
+    (name, stage, ref) => {
+      const file = builtAt(
+        `attribute-problems/irreplaceable-tree-${name}.gpkg`,
+      );
+      expect(
+        query(
+          file,
+          `SELECT "Habitat Ref" AS ref FROM "${TREES} ${stage}" WHERE "${IRREPLACEABLE}" = ?`,
+          YES,
+        ),
+      ).toEqual([{ ref }]);
+    },
+  );
 });
 
 // Read from the committed files, so they need no converter and run

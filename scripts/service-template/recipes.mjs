@@ -20,11 +20,13 @@
 import { FORMAT_BNG_SERVICE, STAGE_BASELINE, listFlaws } from "#bng-lib";
 import {
   addGeometryColumn,
+  copyRow,
   deleteRows,
   dropColumns,
   dropGeometryColumn,
   dropStage,
   dropTable,
+  linkToParent,
   renameColumns,
   retypeColumns,
   setGeometryType,
@@ -87,7 +89,7 @@ export const FAMILIES = [
   {
     dir: "incomplete",
     covers:
-      "A watercourse that gets worse is recorded in a way the service saves as Incomplete rather than refuses",
+      "A watercourse that gets worse, or a tree Enhanced to a condition no better than its baseline one, is recorded in a way the service saves as Incomplete rather than refuses",
   },
   {
     dir: "version-problems",
@@ -177,9 +179,16 @@ function flawFixture(dir, name, options = {}) {
 
 /**
  * A file derived from `valid/default-site.gpkg` by SQL edits, refused for its
- * schema unless the recipe says otherwise.
+ * schema unless the recipe says otherwise. `irreplaceableTables` names the
+ * tables its edits mark a feature irreplaceable in, where they mark one.
  */
-function derived(path, covers, edits, expected = SCHEMA_REFUSED) {
+function derived(
+  path,
+  covers,
+  edits,
+  expected = SCHEMA_REFUSED,
+  irreplaceableTables = [],
+) {
   return {
     path,
     kind: KIND_DERIVED,
@@ -187,6 +196,7 @@ function derived(path, covers, edits, expected = SCHEMA_REFUSED) {
     expected,
     from: VALID_BASE,
     edits,
+    irreplaceableTables,
   };
 }
 
@@ -465,6 +475,135 @@ const IRREPLACEABLE = [
   ),
 ];
 
+const TREES_BASELINE = "Individual Trees Baseline";
+const TREES_POST = "Individual Trees Post-Intervention";
+const IRREPLACEABLE_HABITAT = "Irreplaceable Habitat";
+const PROPOSED_CONDITION = "Proposed Condition";
+const COMMENT = "Comment";
+// The default site's trees these fixtures change: a Retained tree, a Retained
+// one in Good condition, one Enhanced from Moderate to Good, a felled one (a
+// baseline row and no post-intervention one) and a newly planted one with no
+// parent.
+const RETAINED_TREE = "T004";
+const RETAINED_GOOD_TREE = "T008";
+const ENHANCED_TREE = "T006";
+const FELLED_TREE = "T002";
+const PLANTED_TREE = "T005";
+// The second point of the tree kept twice, and the tree planted in the felled
+// one's place.
+const RETAINED_TREE_AGAIN = "T004A";
+const REPLANTED_TREE = "T026";
+
+const TREES = [
+  derived(
+    "incomplete/tree-enhanced-not-better.gpkg",
+    `\`valid/default-site.gpkg\` with ${ENHANCED_TREE}, a tree Enhanced from Moderate to Good, given a Proposed Condition of Moderate: an enhancement that does not improve its condition. The template's drop-down does not offer it, so it stands for a file edited outside QGIS`,
+    [
+      setValues(
+        TREES_POST,
+        { [PROPOSED_CONDITION]: "Moderate" },
+        { [HABITAT_REF]: ENHANCED_TREE, [RETENTION]: "Enhanced" },
+      ),
+    ],
+    "accepted, the tree saved as Incomplete with its Proposed Condition cleared, as the Metric does not score the enhancement",
+  ),
+  derived(
+    "attribute-problems/tree-enhanced-from-good.gpkg",
+    `\`valid/default-site.gpkg\` with ${RETAINED_GOOD_TREE}, a tree Retained in Good condition, Enhanced instead, still Good: a tree in Good condition cannot be enhanced. The template's drop-downs do not offer it, so it stands for a file edited outside QGIS`,
+    [
+      setValues(
+        TREES_POST,
+        { [RETENTION]: "Enhanced" },
+        { [HABITAT_REF]: RETAINED_GOOD_TREE, [RETENTION]: "Retained" },
+      ),
+    ],
+    // The whole file, as for any baseline the service cannot enhance at all
+    // (BMD-1182), though BMD-1172 AC6 has the tree saved as Incomplete.
+    "BASELINE_NOT_ENHANCEABLE",
+  ),
+  derived(
+    "valid/tree-replanted.gpkg",
+    `\`valid/default-site.gpkg\` with ${REPLANTED_TREE}, a small rural tree newly planted where the felled tree ${FELLED_TREE} stood, linked to it as its parent (${PLANTED_TREE} is planted with no parent)`,
+    [
+      copyRow(
+        TREES_POST,
+        { [HABITAT_REF]: PLANTED_TREE },
+        {
+          [HABITAT_REF]: REPLANTED_TREE,
+          "Proposed Tree Size": "Small",
+          "Proposed Tree Type": "Native",
+          "Proposed Rural or Urban Tree": "Rural tree",
+          [PROPOSED_CONDITION]: "Moderate",
+          "Proposed Strategic Significance": "Low",
+          "Habitat Created/Enhanced in advance/years": "0",
+          "Delay in starting habitat creation/enhancement in years": "0",
+          [COMMENT]: `Planted in place of ${FELLED_TREE}`,
+        },
+      ),
+      linkToParent(
+        TREES_POST,
+        { [HABITAT_REF]: REPLANTED_TREE },
+        TREES_BASELINE,
+        { [HABITAT_REF]: FELLED_TREE },
+        // On the felled tree's spot. Its Baseline columns stay N/A, the only
+        // value the template offers a Created tree.
+        { geom: "geom" },
+      ),
+    ],
+    `${ACCEPTED}: ${REPLANTED_TREE} is priced as a creation, and ${FELLED_TREE} is lost in full`,
+  ),
+  derived(
+    "valid/tree-irreplaceable-blank.gpkg",
+    "`valid/default-site.gpkg` with Irreplaceable Habitat left blank on every tree, in both stages",
+    [TREES_BASELINE, TREES_POST].map((table) =>
+      setValues(
+        table,
+        { [IRREPLACEABLE_HABITAT]: null },
+        { [IRREPLACEABLE_HABITAT]: "No" },
+      ),
+    ),
+    `${ACCEPTED}: a blank Irreplaceable Habitat is read as No`,
+  ),
+  derived(
+    "attribute-problems/tree-kept-twice.gpkg",
+    `\`valid/default-site.gpkg\` with a second Retained point, ${RETAINED_TREE_AGAIN}, linked to the Retained tree ${RETAINED_TREE}, on the same spot: two trees kept where the baseline has one`,
+    [
+      copyRow(
+        TREES_POST,
+        { [HABITAT_REF]: RETAINED_TREE },
+        { [HABITAT_REF]: RETAINED_TREE_AGAIN },
+      ),
+    ],
+    "STAGED_TREE_CHILDREN_TOO_MANY",
+  ),
+  derived(
+    "attribute-problems/irreplaceable-tree-baseline-only.gpkg",
+    `\`valid/default-site.gpkg\` with the felled tree ${FELLED_TREE} marked irreplaceable, so only the baseline holds an irreplaceable tree`,
+    [
+      setValues(
+        TREES_BASELINE,
+        { [IRREPLACEABLE_HABITAT]: "Yes" },
+        { [HABITAT_REF]: FELLED_TREE },
+      ),
+    ],
+    "IRREPLACEABLE_TREE",
+    [TREES_BASELINE],
+  ),
+  derived(
+    "attribute-problems/irreplaceable-tree-post-intervention-only.gpkg",
+    `\`valid/default-site.gpkg\` with the Retained tree ${RETAINED_TREE} marked irreplaceable at post-intervention only, its baseline row left No`,
+    [
+      setValues(
+        TREES_POST,
+        { [IRREPLACEABLE_HABITAT]: "Yes" },
+        { [HABITAT_REF]: RETAINED_TREE },
+      ),
+    ],
+    "IRREPLACEABLE_TREE",
+    [TREES_POST],
+  ),
+];
+
 const LINEAGE = [
   "lineage-parent-missing",
   "lineage-parent-unknown",
@@ -525,6 +664,7 @@ export const RECIPES = [
   VERTICAL_AREA_MISSING,
   NATURAL_WATERCOURSE_LOST,
   ...IRREPLACEABLE,
+  ...TREES,
   ...LINEAGE,
   ...INCOMPLETE,
   ...VERSION,
@@ -540,7 +680,7 @@ export const RECIPES = [
  */
 export const GAPS = [
   "A natural river left out, and an irreplaceable tree that gets worse: the service refuses either file for another reason first, so a fixture could not show the rule. Natural rivers (Other rivers and streams, High; Priority habitat, V.High) are out of the service's scope, and only canals and ditches may be lost (a culvert left out is refused, STAGED_NATURAL_WATERCOURSE_LOST: `attribute-problems/watercourse-culvert-left-out.gpkg`); an irreplaceable tree is refused whether or not it gets worse (`attribute-problems/irreplaceable-tree.gpkg`).",
-  "Individual trees with varied counts, and trees partly felled: the template has no Count column yet (BMD-1171), so each tree point is one tree. The service reads a Count when a file has one.",
+  "Individual trees with varied counts, and trees partly felled: the template has no Count column, as the service does not support tree counts yet, so each tree point is one tree. The service reads a Count when a file has one.",
   "The harness's import-timing scenarios: they edit legacy files, so `permutations/` builds them in the legacy format only.",
 ];
 

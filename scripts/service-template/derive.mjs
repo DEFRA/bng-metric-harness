@@ -1,7 +1,7 @@
 /**
  * The SQL edits that turn a valid BNG Service file into a fixture no
- * generator writes: an invalid-schema file, or one value changed or one row
- * left out. Each helper returns an edit, a function of an open better-sqlite3
+ * generator writes: an invalid-schema file, or one value changed, one row
+ * left out or one row added. Each helper returns an edit, a function of an open better-sqlite3
  * handle, so a recipe can list its edits as data. Every edit keeps the
  * GeoPackage's own registers (gpkg_contents, gpkg_geometry_columns) in step
  * with the table it changes, so a fixture changes only what its recipe
@@ -9,6 +9,7 @@
  */
 
 import { TEMPLATE_SOURCE } from "#bng-lib";
+import { wkbToGeoJSON } from "#gpkg-io";
 
 const GEOMETRY_COLUMN = "geom";
 
@@ -175,6 +176,69 @@ export const deleteRows = (table, where) => (db) => {
     match.values,
   );
 };
+
+/** The one row of `table` that `where` matches; fails on none or several. */
+function oneRow(db, table, where) {
+  const match = matching(where);
+  const rows = db
+    .prepare(`SELECT * FROM ${quote(table)} WHERE ${match.clause}`)
+    .all(...match.values);
+  if (rows.length !== 1) {
+    throw new Error(
+      `${rows.length} rows of "${table}" match the edit, where it needs one`,
+    );
+  }
+  return rows[0];
+}
+
+/**
+ * Add a copy of the one row `where` matches, with the columns `values` names
+ * set, under a new fid: a second point where the template has one.
+ */
+export const copyRow = (table, where, values) => (db) => {
+  const { fid, ...row } = oneRow(db, table, where);
+  const copy = { ...row, ...values };
+  const columns = Object.keys(copy);
+  db.prepare(
+    `INSERT INTO ${quote(table)} (${columns.map(quote).join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`,
+  ).run(...Object.values(copy));
+};
+
+// parent_geom is WKT to three decimal places, a millimetre, as the template
+// writes it.
+const WKT_DECIMALS = 3;
+
+/** A point's GeoPackage geometry as the template writes its parent_geom. */
+function pointWkt(blob) {
+  const geometry = wkbToGeoJSON(blob);
+  if (geometry.type !== "Point") {
+    throw new Error(`no parent_geom for a ${geometry.type}`);
+  }
+  const [x, y] = geometry.coordinates;
+  return `POINT (${x.toFixed(WKT_DECIMALS)} ${y.toFixed(WKT_DECIMALS)})`;
+}
+
+/**
+ * Link the rows `where` matches to the one point of `parentTable` that
+ * `parentWhere` matches, as the template links a post-intervention row: by
+ * Parent Ref, parent_uuid and parent_geom. `copied` maps a column of the
+ * parent to the row's column that takes its value (the Baseline columns, or
+ * `geom` to place the row on its parent).
+ */
+export const linkToParent =
+  (table, where, parentTable, parentWhere, copied = {}) =>
+  (db) => {
+    const parent = oneRow(db, parentTable, parentWhere);
+    const values = {
+      "Parent Ref": parent["Habitat Ref"],
+      parent_uuid: parent.feature_uuid,
+      parent_geom: pointWkt(parent[GEOMETRY_COLUMN]),
+    };
+    for (const [from, to] of Object.entries(copied)) {
+      values[to] = parent[from];
+    }
+    setValues(table, values, where)(db);
+  };
 
 /**
  * Replace the text of the template version record, found as the service
