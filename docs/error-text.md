@@ -93,7 +93,7 @@ look wording up by section and code (`editErrorText(code)`,
 
 ### 3. One check holds them together
 
-`npm run check:dropout-copy`, in this repository, compares the two:
+`npm run check:error-codes`, in this repository, compares the two:
 
 - every backend `upload` code has an entry under `upload.errors`, and every
   `edit` code one under `edit`;

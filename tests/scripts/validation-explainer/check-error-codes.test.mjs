@@ -7,13 +7,13 @@ import {
   compareDetails,
   compareEditCodes,
   editOnlyUploadEntries,
-} from "../../../.claude/skills/geopackage-validation-explainer/scripts/check-dropout-copy.mjs";
-import { renderSummary } from "../../../.claude/skills/geopackage-validation-explainer/scripts/dropout-copy-summary.mjs";
+} from "../../../.claude/skills/geopackage-validation-explainer/scripts/check-error-codes.mjs";
+import { renderSummary } from "../../../.claude/skills/geopackage-validation-explainer/scripts/error-codes-summary.mjs";
 import { scratchDir } from "./_fixtures.mjs";
 
 const CHECK = path.resolve(
   import.meta.dirname,
-  "../../../.claude/skills/geopackage-validation-explainer/scripts/check-dropout-copy.mjs",
+  "../../../.claude/skills/geopackage-validation-explainer/scripts/check-error-codes.mjs",
 );
 
 const ERRORS = `export const ERROR_CODES = Object.freeze({
@@ -268,7 +268,7 @@ describe("editOnlyUploadEntries", () => {
   });
 });
 
-describe("check-dropout-copy.mjs", () => {
+describe("check-error-codes.mjs", () => {
   let dir;
 
   beforeAll(() => {
@@ -464,16 +464,16 @@ describe("check-dropout-copy.mjs", () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("Could not load the backend's");
     expect(summary()).toContain(
-      "## ❌ Drop-out page wording: the backend's error codes could not be read",
+      "## ❌ Error code wording: the backend's error codes could not be read",
     );
   });
 
   it("writes the job summary, with a verdict, each problem and what to do", () => {
     run("agrees");
-    expect(summary()).toContain("## ✅ Drop-out page wording: nothing to fix");
+    expect(summary()).toContain("## ✅ Error code wording: nothing to fix");
     run("differs");
     const text = summary();
-    expect(text).toContain("## ⚠️ Drop-out page wording needs attention");
+    expect(text).toContain("## ⚠️ Error code wording needs attention");
     // SECOND is in no description, so the explainer has yet to classify it.
     expect(text).toContain("| `SECOND` 🆕 |");
     expect(text).toContain("new to the validation explainer");
@@ -500,7 +500,7 @@ describe("renderSummary", () => {
 
   it("says there is nothing to fix, and what was checked", () => {
     const text = renderSummary({ missing: [], stale: [], ...counts }, context);
-    expect(text).toContain("## ✅ Drop-out page wording: nothing to fix");
+    expect(text).toContain("## ✅ Error code wording: nothing to fix");
     expect(text).toContain("| Upload errors checked | 80 |");
     expect(text).toContain(
       "[`aaaaaaa`](https://github.com/DEFRA/bng-metric-backend/commit/" +
@@ -556,7 +556,7 @@ describe("renderSummary", () => {
         },
       },
     );
-    expect(text).toContain("## ⚠️ Drop-out page wording needs attention");
+    expect(text).toContain("## ⚠️ Error code wording needs attention");
     expect(text).toContain("- **1 upload error with no wording**");
     // A | in the text would break the table.
     expect(text).toContain("A habitat's comment is too long \\| really.");
@@ -647,7 +647,7 @@ describe("renderSummary", () => {
       },
       context,
     );
-    expect(summary).toContain("## ⚠️ Drop-out page wording needs attention");
+    expect(summary).toContain("## ⚠️ Error code wording needs attention");
     expect(summary).toContain("3 mismatches between the wording");
     expect(summary).toContain("| `SHOWN_RAW` |");
     expect(summary).toContain("Names `{table}`");
@@ -656,7 +656,7 @@ describe("renderSummary", () => {
 
   it("says when the frontend has no copy file", () => {
     expect(renderSummary({ noCopyFile: true }, context)).toContain(
-      "## ❌ Drop-out page wording: the wording file is missing",
+      "## ❌ Error code wording: the wording file is missing",
     );
   });
 

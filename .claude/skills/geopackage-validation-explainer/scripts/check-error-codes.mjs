@@ -1,21 +1,27 @@
 #!/usr/bin/env node
 /**
- * Check that the frontend's drop-out page copy (dropout-copy.yaml) and the
- * backend's error codes agree, and exit 1 when they do not.
+ * Check that every error code the backend can raise has wording in the
+ * frontend's error text (error-text.yaml, or an older frontend's
+ * dropout-copy.yaml), in the section for where a customer meets it, and
+ * exit 1 when it does not: an upload code under upload.errors, for the
+ * drop-out page, and an edit code under edit, for a change refused on screen.
+ * It also checks the wording names only the values, and words every variant,
+ * the backend sends with an upload error. npm run check:error-codes; it was
+ * check:dropout-copy, which still runs it.
  *
  * Neither repository's CI can see the other, so a refusal added to the
  * backend with no copy reaches users as the catch-all ("The layer names and
  * column names do not match…") or the backend's technical message, and an
  * entry left behind for a code the backend no longer raises is copy nobody
  * sees. This is the one place both are compared; the harness runs it nightly
- * (.github/workflows/dropout-copy-check.yml).
+ * (.github/workflows/error-codes-check.yml).
  *
  * Reads only the backend and the frontend, and needs no installs in either.
  * In GitHub Actions it also writes what it found, for someone who is not a
- * developer, to the job summary (dropout-copy-summary.mjs).
+ * developer, to the job summary (error-codes-summary.mjs).
  *
  * Usage:
- *   node check-dropout-copy.mjs
+ *   node check-error-codes.mjs
  */
 import { appendFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
@@ -26,7 +32,7 @@ import {
   detailProblems,
   renderSummary,
   unwordedEntry
-} from './dropout-copy-summary.mjs'
+} from './error-codes-summary.mjs'
 import {
   backendDetails,
   backendSurfaces,
