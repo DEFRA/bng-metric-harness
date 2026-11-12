@@ -2,7 +2,7 @@
 
 Every rule the BNG Metric service applies to an uploaded GeoPackage: what each one checks, and which example file demonstrates it.
 
-**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `4a7b30d`, frontend `18b2ffc` and bng-library `017ff91`, all on `main`, and was generated on 2026-11-11.
+**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `31ca90c`, frontend `60d5f96` and bng-library `017ff91`, all on `main`, and was generated on 2026-11-12.
 
 For how biodiversity units are calculated once a file is accepted, see [rules-engine-explained.md](rules-engine-explained.md).
 
@@ -15,7 +15,7 @@ Every rule under [The rules](#the-rules) **rejects the upload**: nothing is save
 Two things worth knowing before using the table:
 
 - **The structural rules run first and stop the upload.** Nothing in the geometry or habitat-data groups is reached until the file format, layer, column and coordinate-system rules all pass. Expect to fix a file in two rounds rather than one.
-- **What you see on screen often does not identify the rule.** Of 86 rules, 25 have a message of their own, 28 show a message of their own as a list of what it names, 0 show the service's own message as a list of what it names, 0 show a placeholder, and 33 fall back to a generic message shared with other rules when they are the only fault: about layer and column names, about the file, or about the service. Each row records which applies.
+- **What you see on screen often does not identify the rule.** Of 87 rules, 26 have a message of their own, 28 show a message of their own as a list of what it names, 0 show the service's own message as a list of what it names, 0 show a placeholder, and 33 fall back to a generic message shared with other rules when they are the only fault: about layer and column names, about the file, or about the service. Each row records which applies.
 
 Example files are paths under `example-files/` in this repository, worked out by running the real validation gate over every fixture and recording which rule it reports. That directory is a reference corpus for people, not something the service reads, and `journey-tests` and `backend` keep their own separate copies — so a rule with an example file here is not necessarily covered by an automated test.
 
@@ -145,7 +145,8 @@ Example files are paths under `example-files/` in this repository, worked out by
 | `COMMENT_INVALID_CHARACTERS` — *no geopackage fixture* | A habitat's comment holds characters the service cannot read as text. This applies to the comment on any area habitat, tree, hedgerow or watercourse. The user sees its own message. |
 | `TEXT_TOO_LONG` — *attribute-problems/Baseline - habitat ref too long.gpkg; attribute-problems/Post-intervention - comment too long.gpkg; attribute-problems/Post-intervention - habitat ref too long.gpkg* | A text value in the file is longer than its column allows, counted in characters (an accented letter or an emoji counts as one), with spaces at either end ignored. References, Location and every drop-down column have one limit, Spatial risk category a longer one, and comments and the site details on the red line boundary the longest; the template declares each as the column's width. This is checked before any other rule reads a value, on every table the upload reads, whatever tool wrote the file. The user sees its own message, listing what it names. |
 | `VALUE_NOT_ALLOWED` — *attribute-problems/Post-intervention - blank and placeholder baseline types on every layer.gpkg* | A drop-down column, or a column the template fills in, holds a value that none of the template's lists offers for that column. A list number in front of the value, differences of capital letters and spaces, and a blank value are all accepted; whether the value suits the rest of its row is left to the later rules. The user sees its own message, listing what it names. |
-| `IRREPLACEABLE_TREE` — *service-template/attribute-problems/irreplaceable-tree-baseline-only.gpkg; service-template/attribute-problems/irreplaceable-tree-post-intervention-only.gpkg; service-template/attribute-problems/irreplaceable-tree.gpkg* | An individual tree, at baseline or after intervention, is recorded as an irreplaceable habitat. The service does not take irreplaceable trees. A tree whose Irreplaceable Habitat is left blank counts as not irreplaceable. The user sees its own message, listing what it names. |
+| `IRREPLACEABLE_TREE` — *service-template/attribute-problems/irreplaceable-tree-baseline-only.gpkg; service-template/attribute-problems/irreplaceable-tree-post-intervention-only.gpkg; service-template/attribute-problems/irreplaceable-tree.gpkg; service-template/attribute-problems/tree-irreplaceable-blank.gpkg* | An individual tree, at baseline or after intervention, has an Irreplaceable Habitat other than No: Yes, a blank or any other value. The service does not take irreplaceable trees, so every tree's Irreplaceable Habitat must say No; until it does, the tree is treated as irreplaceable. The user sees its own message, listing what it names. |
+| `BASELINE_HABITATS_INCOMPLETE` — *no geopackage fixture* | A post-intervention file is uploaded while one or more area habitats, hedgerows or watercourses in its baseline are Incomplete, because something their units need is missing or their units cannot be worked out. The baseline cannot be changed once a post-intervention file is uploaded, so the file is refused; an upload of the baseline alone is not. The user sees its own message. |
 
 ### Links to the baseline
 
@@ -185,13 +186,14 @@ These rules refuse a change made to a habitat on screen, after a file has been a
 | `HABITAT_REF_IN_USE` — *no geopackage fixture* | The new reference is already used by another baseline habitat in the same layer, with hedgerows and watercourses counting as one layer. The reference is what ties each post-intervention habitat to its baseline habitat, so allowing it would merge two habitats' records. An uploaded file may still repeat a reference. |
 | `ENHANCEMENT_NOT_VALID` — *no geopackage fixture* | The change would leave an enhanced habitat that is not a permitted enhancement of the habitat it started as. |
 | `STORED_VALUE_NOT_ALLOWED` — *no geopackage fixture* | An edit to a habitat saved before the service checked text lengths and lists is refused when the habitat still holds a value that is too long or that no list offers. The edit is not saved with the old value cut or cleared; uploading the file again, with the value corrected, updates the habitat. |
+| `FEATURE_NOT_EDITABLE` — *no geopackage fixture* | The change would turn a habitat into something its kind cannot become: a tree into a habitat other than an Urban tree or a Rural tree, or a vertical area habitat into one that is not vertical. The same applies to a change to a habitat that cannot be edited on screen at all, such as an Enhanced tree after intervention. Nothing is saved. |
 
 ## Coverage
 
 | Measure | Count |
 | --- | --- |
-| Rules that can reject an upload | 86 |
-| With a message written for them | 25 |
+| Rules that can reject an upload | 87 |
+| With a message written for them | 26 |
 | With a message written for them, as a list | 28 |
 | Showing the service's own message, as a list | 0 |
 | Showing a placeholder message | 0 |
@@ -199,7 +201,7 @@ These rules refuse a change made to a habitat on screen, after a file has been a
 | With an example .gpkg in this repository | 48 |
 | With a generator flaw that reproduces them | 27 |
 
-**38 of 86 upload rules have no example file.** By group: Links to the baseline 7; Shapes present and of the right kind 7; Service faults, not your file 5; Habitat data 4; Unreadable shape data 4; Geometry registration and declared type 3; Columns 2; File format 2; How the shapes fit together 2; Coordinate reference system 1; File name 1.
+**39 of 87 upload rules have no example file.** By group: Links to the baseline 7; Shapes present and of the right kind 7; Habitat data 5; Service faults, not your file 5; Unreadable shape data 4; Geometry registration and declared type 3; Columns 2; File format 2; How the shapes fit together 2; Coordinate reference system 1; File name 1.
 
 339 `.gpkg` files in `example-files/` are not mapped to any rule. Most are valid fixtures or real survey data rather than rule demonstrations, so that is expected rather than a gap.
 
@@ -215,8 +217,8 @@ These rules refuse a change made to a habitat on screen, after a file has been a
 
 | Repository | Commit | Supplies |
 | --- | --- | --- |
-| bng-metric-backend | `4a7b30d` | The rules, and the message each one raises |
-| bng-metric-frontend | `18b2ffc` | What the user is shown for each rule |
+| bng-metric-backend | `31ca90c` | The rules, and the message each one raises |
+| bng-metric-frontend | `60d5f96` | What the user is shown for each rule |
 | bng-library | `017ff91` | The generator flaws that reproduce fixtures |
 
 Rule descriptions are held in `references/rule-descriptions.json` in the skill; the rule list, message status and fixture mapping are extracted from the three repositories on every run.
