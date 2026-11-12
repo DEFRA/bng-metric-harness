@@ -742,7 +742,7 @@ describe("the fixtures derived for manual tests of individual trees", () => {
   });
 
   it("tree-irreplaceable-blank.gpkg leaves Irreplaceable Habitat blank on every tree", () => {
-    const file = builtAt("valid/tree-irreplaceable-blank.gpkg");
+    const file = builtAt("attribute-problems/tree-irreplaceable-blank.gpkg");
     for (const stage of STAGES) {
       expect(
         query(
