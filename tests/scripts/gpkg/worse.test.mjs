@@ -196,7 +196,7 @@ describe("generate:gpkg --worse", () => {
     );
     expect(result.status).toBe(1);
     expect(result.stdout + result.stderr).toMatch(
-      /--pair, --habitat and --worse are synthetic-mode only/,
+      /--pair, --habitat, --worse and --irreplaceable are synthetic-mode only/,
     );
   });
 });

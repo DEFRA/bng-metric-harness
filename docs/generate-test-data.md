@@ -318,9 +318,23 @@ The corpus's `permutations/` folder is the scenario corpus,
 built by `generate:scenarios -- --format bng-service` (see
 [Scenario corpus](generate-scenarios.md)).
 
+### No irreplaceable habitats (`--irreplaceable`)
+
+A synthetic BNG Service site marks one area habitat and one tree
+irreplaceable. The service refuses an irreplaceable tree, so a file for an
+upload needs `--irreplaceable none`; `--irreplaceable trees` (or `habitats`)
+keeps only that layer's.
+
+```sh
+npm run generate:gpkg -- --format bng-service --size 15 --seed 1 \
+  --centre 460000,210000 --worse partly-worse-parcel=3 --irreplaceable none \
+  --package-template
+```
+
 ### More habitats that get worse (`--worse`)
 
-A synthetic BNG Service site draws one habitat that gets worse of each kind.
+A synthetic BNG Service site draws one habitat that gets worse of each kind,
+but no `partly-worse-parcel`, which it draws only when asked for.
 `--worse KIND=N` (repeatable, 0 to 50) draws N of a kind instead, each a
 feature of its own linked to its own baseline parent:
 
@@ -332,6 +346,7 @@ feature of its own linked to its own baseline parent:
 | `partly-worse-hedge`     | A hedgerow split into a Retained part `a` and a worse Created part `b`            |
 | `encroached-watercourse` | A watercourse whose encroachment gets worse, 10 years in advance                  |
 | `worse-watercourse`      | A watercourse whose condition gets worse, no years in advance                     |
+| `partly-worse-parcel`    | An area parcel split into a Retained part `a` and a worse Created part `b`        |
 
 ```sh
 npm run generate:gpkg -- --format bng-service --size 15 --seed 6 \
@@ -339,8 +354,8 @@ npm run generate:gpkg -- --format bng-service --size 15 --seed 6 \
   --package-template
 ```
 
-Parcels get worse only while another Retained parcel stays, so a site may
-give fewer than it asks for. `--worse` is refused with `--bad` or a
+Parcels get worse, in whole or in part, only while another Retained parcel
+stays, so a site may give fewer than it asks for. `--worse` is refused with `--bad` or a
 geometric flaw unless a degrade flaw is given too (the minimal site holds
 none until a degrade flaw adds them), with `--stage baseline` (whose file
 leaves the post-intervention tables empty), and in workbook mode.

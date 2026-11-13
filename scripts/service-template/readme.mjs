@@ -31,6 +31,9 @@ function generatedFrom({ options }) {
   for (const layer of options.irreplaceableLayers ?? []) {
     parts.push(`irreplaceable \`${layer}\``);
   }
+  for (const [kind, count] of Object.entries(options.worseHabitatCounts ?? {})) {
+    parts.push(`${count} \`${kind}\``);
+  }
   for (const flaw of options.flaws ?? []) {
     parts.push(`flaw \`${flaw}\``);
   }
