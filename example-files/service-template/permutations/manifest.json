@@ -13534,6 +13534,173 @@
       }
     },
     {
+      "id": "trees-size-and-setting",
+      "purpose": "trees",
+      "title": "Individual trees — every size class, urban and rural",
+      "description": "Each of the tree helper's four size classes (Small 0.0041 ha, Medium 0.0163 ha, Large 0.0366 ha, Very large 0.0765 ha), urban and rural, at baseline and newly planted. T001 to T008 are the baseline trees, one of each size in each setting, kept: Retained, or Enhanced to a better condition. T009 to T016 are newly planted, one of each size in each setting. A service that prices a size class at the wrong area, or a tree in the wrong setting, differs from the metric on that tree.",
+      "size": 1,
+      "subject": {
+        "layer": "Urban Trees",
+        "ref": "T001",
+        "note": "T001 to T008 kept, T009 to T016 planted: each size class, urban and rural"
+      },
+      "files": {
+        "geoPackage": "trees/size-and-setting.gpkg",
+        "baselineStage": "trees/size-and-setting-baseline.gpkg",
+        "workbook": "trees/size-and-setting.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "every value one the BNG Service template offers",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "every post-intervention feature names its parent",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookSource": "85e68d17150ba3cb1357ba9effacee87b0a70c43c1cec4b1a6a5d711fc6fe51f",
+      "inputRows": {
+        "habitatBaseline": 9,
+        "habitatCreation": 8,
+        "habitatEnhancement": 4,
+        "hedgerowBaseline": 0,
+        "hedgerowCreation": 0,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 0,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 0
+      },
+      "rejectedInputs": [],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 215.662216244712,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "postInterventionUnits": {
+            "area": 216.808072146539,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netUnitChange": {
+            "area": 1.14585590182705,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netPercentChange": {
+            "area": 0.00531319728499335,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "netGainMessage": {
+            "area": "On-site net gain is less than target set ⚠",
+            "hedgerow": null,
+            "watercourse": null
+          },
+          "unitsRequired": {
+            "area": 237.228437869183,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "unitDeficit": {
+            "area": 20.4203657226442,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "Yes ✓",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": 1.14585590182704
+        },
+        "sheetWarnings": [],
+        "rowWarnings": []
+      }
+    },
+    {
       "id": "data-complete",
       "purpose": "data-completeness",
       "title": "Complete post-intervention data",
