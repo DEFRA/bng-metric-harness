@@ -184,26 +184,28 @@ describe.skipIf(!isBackendInstalled())("importGeoPackagePair", () => {
   // BMD-1182: each enhances a baseline the service cannot enhance at all, so
   // the post-intervention file is refused once its document is built, and
   // for that reason, not at an earlier gate.
+  // A tree in Good condition is refused with the trees' own code (BMD-1172).
   it.each([
-    "invalid-area-medium-good-enhanced",
-    "invalid-tree-good-enhanced",
-    "invalid-hedgerow-medium-good-enhanced",
-    "invalid-watercourse-medium-good-enhanced",
-    "invalid-hedgerow-very-low-enhanced",
-    "invalid-hedgerow-low-good-no-medium-target",
-  ])("refuses %s as a baseline the service cannot enhance", async (id) => {
-    const result = await importGeoPackagePair(
-      scenario(`invalid-interventions/${id}`).files,
-    );
+    ["invalid-area-medium-good-enhanced", "BASELINE_NOT_ENHANCEABLE"],
+    ["invalid-tree-good-enhanced", "TREE_NOT_ENHANCEABLE"],
+    ["invalid-hedgerow-medium-good-enhanced", "BASELINE_NOT_ENHANCEABLE"],
+    ["invalid-watercourse-medium-good-enhanced", "BASELINE_NOT_ENHANCEABLE"],
+    ["invalid-hedgerow-very-low-enhanced", "BASELINE_NOT_ENHANCEABLE"],
+    ["invalid-hedgerow-low-good-no-medium-target", "BASELINE_NOT_ENHANCEABLE"],
+  ])(
+    "refuses %s as a baseline the service cannot enhance, as %s",
+    async (id, code) => {
+      const result = await importGeoPackagePair(
+        scenario(`invalid-interventions/${id}`).files,
+      );
 
-    expect(result).toMatchObject({
-      accepted: false,
-      rejectedFile: "postIntervention",
-    });
-    expect(result.errors.map((e) => e.code)).toEqual([
-      "BASELINE_NOT_ENHANCEABLE",
-    ]);
-  });
+      expect(result).toMatchObject({
+        accepted: false,
+        rejectedFile: "postIntervention",
+      });
+      expect(result.errors.map((e) => e.code)).toEqual([code]);
+    },
+  );
 
   // BMD-820: a hedgerow move the metric's G-6 allowed-moves table does not
   // allow, from a baseline that can still be enhanced, is nulled, not refused.
