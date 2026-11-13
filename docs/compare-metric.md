@@ -326,10 +326,10 @@ metric. The
 service reads individual trees from the template since BMD-1172, so the 21
 scenarios that have trees match too: Retained, Enhanced and newly planted
 trees, linked to a parent or not, and trees felled with nothing in their place
-(`trading-rules/trading-lost-trees`). The template has no Count column yet
-(BMD-1171), so no scenario has a point standing for several trees, or a tree
-partly felled; the backend's own tests cover both, on a file with a Count
-column added. The invalid scenarios are left out: the service accepts 20 of
+(`trading-rules/trading-lost-trees`). Each tree point is one tree: the
+template has no Count column, and the service reads none, so a tree is kept
+or felled whole and no scenario has a point standing for several trees (the
+legacy `trees-count-above-one` scenario does). The invalid scenarios are left out: the service accepts 20 of
 them with no `VALIDATION_GAPS` entry. Narrow `--exclude` as those are fixed or
 explained.
 
