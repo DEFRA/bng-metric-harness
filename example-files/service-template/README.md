@@ -67,7 +67,6 @@ Valid files, combined and baseline-stage: each should upload cleanly.
 | `duplicate-habitat-ref.gpkg` | Two habitat parcels share one Habitat Ref | accepted since BMD-1058, which lets habitats share a reference | seed 1, 5 parcels, flaw `duplicate-habitat-ref` |
 | `tiny-gap.gpkg` | parcels tile the redline except a sub-tolerance gap — file is accepted | accepted: the gap is below the AREA_SUM_MISMATCH tolerance | seed 1, flaw `tiny-gap` |
 | `tree-replanted.gpkg` | `valid/default-site.gpkg` with T026, a small rural tree newly planted where the felled tree T002 stood, linked to it as its parent (T005 is planted with no parent) | accepted: T026 is priced as a creation, and T002 is lost in full | `valid/default-site.gpkg`, edited by SQL |
-| `tree-irreplaceable-blank.gpkg` | `valid/default-site.gpkg` with Irreplaceable Habitat left blank on every tree, in both stages | accepted: a blank Irreplaceable Habitat is read as No | `valid/default-site.gpkg`, edited by SQL |
 
 ## spatial-problems/
 
@@ -142,6 +141,7 @@ Valid schema and geometry: an attribute value trips a later validator, or a habi
 | `irreplaceable-area-habitat.gpkg` | `valid/default-site.gpkg` with its woodland parcel marked irreplaceable (Irreplaceable Habitat `Yes`) in both stages | refused. Accepted today: the service does not check irreplaceable area habitats yet | seed 1, irreplaceable `habitats` |
 | `irreplaceable-tree.gpkg` | `valid/default-site.gpkg` with one Retained tree marked irreplaceable (a veteran tree) in both stages | IRREPLACEABLE_TREE | seed 1, irreplaceable `trees` |
 | `tree-enhanced-from-good.gpkg` | `valid/default-site.gpkg` with T008, a tree Retained in Good condition, Enhanced instead, still Good: a tree in Good condition cannot be enhanced. The template's drop-downs do not offer it, so it stands for a file edited outside QGIS | BASELINE_NOT_ENHANCEABLE | `valid/default-site.gpkg`, edited by SQL |
+| `tree-irreplaceable-blank.gpkg` | `valid/default-site.gpkg` with Irreplaceable Habitat left blank on every tree, in both stages: a tree's Irreplaceable Habitat must be No | IRREPLACEABLE_TREE | `valid/default-site.gpkg`, edited by SQL |
 | `tree-kept-twice.gpkg` | `valid/default-site.gpkg` with a second Retained point, T004A, linked to the Retained tree T004, on the same spot: two trees kept where the baseline has one | STAGED_TREE_CHILDREN_TOO_MANY | `valid/default-site.gpkg`, edited by SQL |
 | `irreplaceable-tree-baseline-only.gpkg` | `valid/default-site.gpkg` with the felled tree T002 marked irreplaceable, so only the baseline holds an irreplaceable tree | IRREPLACEABLE_TREE | `valid/default-site.gpkg`, edited by SQL |
 | `irreplaceable-tree-post-intervention-only.gpkg` | `valid/default-site.gpkg` with the Retained tree T004 marked irreplaceable at post-intervention only, its baseline row left No | IRREPLACEABLE_TREE | `valid/default-site.gpkg`, edited by SQL |

@@ -374,10 +374,18 @@
   },
   "IRREPLACEABLE_TREE": {
     "group": "Habitat data",
-    "checks": "An individual tree, at baseline or after intervention, is recorded as an irreplaceable habitat. The service does not take irreplaceable trees. A tree whose Irreplaceable Habitat is left blank counts as not irreplaceable."
+    "checks": "An individual tree, at baseline or after intervention, has an Irreplaceable Habitat other than No: Yes, a blank or any other value. The service does not take irreplaceable trees, so every tree's Irreplaceable Habitat must say No; until it does, the tree is treated as irreplaceable."
   },
   "STAGED_TREE_CHILDREN_TOO_MANY": {
     "group": "Links to the baseline",
     "checks": "The post-intervention trees kept from one baseline tree, Retained or Enhanced, stand for more trees together than the baseline tree did: a tree that is kept cannot multiply. Newly planted trees are not counted, and a blank count is one tree."
+  },
+  "FEATURE_NOT_EDITABLE": {
+    "group": "Edits made on screen",
+    "checks": "The change would turn a habitat into something its kind cannot become: a tree into a habitat other than an Urban tree or a Rural tree, or a vertical area habitat into one that is not vertical. The same applies to a change to a habitat that cannot be edited on screen at all, such as an Enhanced tree after intervention. Nothing is saved."
+  },
+  "BASELINE_HABITATS_INCOMPLETE": {
+    "group": "Habitat data",
+    "checks": "A post-intervention file is uploaded while one or more area habitats, hedgerows or watercourses in its baseline are Incomplete, because something their units need is missing or their units cannot be worked out. The baseline cannot be changed once a post-intervention file is uploaded, so the file is refused; an upload of the baseline alone is not."
   }
 }

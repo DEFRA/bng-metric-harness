@@ -122,11 +122,13 @@ export function treeRecipes({ derived, accepted }) {
       REPLANTED_EDITS,
       `${accepted}: ${REPLANTED_TREE} is priced as a creation, and ${FELLED_TREE} is lost in full`,
     ),
+    // For a tree the column is mandatory: anything but "No", a blank
+    // included, is treated as irreplaceable.
     derived(
-      "valid/tree-irreplaceable-blank.gpkg",
-      "`valid/default-site.gpkg` with Irreplaceable Habitat left blank on every tree, in both stages",
+      "attribute-problems/tree-irreplaceable-blank.gpkg",
+      "`valid/default-site.gpkg` with Irreplaceable Habitat left blank on every tree, in both stages: a tree's Irreplaceable Habitat must be No",
       IRREPLACEABLE_BLANK_EDITS,
-      `${accepted}: a blank Irreplaceable Habitat is read as No`,
+      "IRREPLACEABLE_TREE",
     ),
     derived(
       "attribute-problems/tree-kept-twice.gpkg",
