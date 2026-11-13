@@ -461,7 +461,8 @@ it enhances a Very Low hedgerow, a baseline the service cannot enhance at all,
 so the file is refused rather than the enhancement nulled, and it has no entry
 in `INCOMPLETE_FEATURES`. Five scenarios added since are refused the same way:
 `invalid-area-medium-good-enhanced` and `invalid-tree-good-enhanced` (a Medium
-area habitat or a tree in Good condition, AC1),
+area habitat or a tree in Good condition, AC1; the tree as
+`TREE_NOT_ENHANCEABLE`, its own code since BMD-1172),
 `invalid-hedgerow-medium-good-enhanced` (AC2),
 `invalid-watercourse-medium-good-enhanced` (AC3) and
 `invalid-hedgerow-low-good-no-medium-target` (AC5).

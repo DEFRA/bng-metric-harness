@@ -113,8 +113,8 @@ export function treeRecipes({ derived, accepted }) {
       `\`valid/default-site.gpkg\` with ${RETAINED_GOOD_TREE}, a tree Retained in Good condition, Enhanced instead, still Good: a tree in Good condition cannot be enhanced. The template's drop-downs do not offer it, so it stands for a file edited outside QGIS`,
       ENHANCED_FROM_GOOD_EDITS,
       // The whole file, as for any baseline the service cannot enhance at all
-      // (BMD-1182), though BMD-1172 AC6 has the tree saved as Incomplete.
-      "BASELINE_NOT_ENHANCEABLE",
+      // (BMD-1182, BMD-1172 AC6), with the trees' own code.
+      "TREE_NOT_ENHANCEABLE",
     ),
     derived(
       "valid/tree-replanted.gpkg",
