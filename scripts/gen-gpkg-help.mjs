@@ -81,16 +81,38 @@ function renderFlawCatalogue() {
 }
 
 /**
+ * The example command lines --help ends with. String.raw so each shell
+ * line-continuation stays a single backslash without escaping it.
+ */
+function renderExamples() {
+  return String.raw`  node scripts/gen-gpkg.mjs --size 30
+  node scripts/gen-gpkg.mjs --bad
+  node scripts/gen-gpkg.mjs --flaw parcel-too-small
+  node scripts/gen-gpkg.mjs --from ./metric.xlsm --mode baseline
+  node scripts/gen-gpkg.mjs --seed 7
+  node scripts/gen-gpkg.mjs --format ${FORMAT_BNG_SERVICE} --size 20
+  node scripts/gen-gpkg.mjs --format ${FORMAT_BNG_SERVICE} --stage ${STAGE_BASELINE}
+  node scripts/gen-gpkg.mjs --format ${FORMAT_BNG_SERVICE} --flaw lineage-parent-unknown
+  node scripts/gen-gpkg.mjs --format ${FORMAT_BNG_SERVICE} --size 15 --seed 6 \
+    --centre 460000,210000 --worse hedge=4 --worse partly-worse-hedge=4 \
+    --package-template
+  node scripts/gen-gpkg.mjs --format ${FORMAT_BNG_SERVICE} --size 15 --seed 1 \
+    --centre 460000,210000 --worse partly-worse-parcel=3 --irreplaceable none \
+    --package-template
+  node scripts/gen-gpkg.mjs --format ${FORMAT_BNG_SERVICE} --from ./metric.xlsm
+  node scripts/gen-gpkg.mjs --size 3 --pair \
+    --habitat "Intertidal hard structures - Artificial hard structures with integrated greening of grey infrastructure (IGGI)"`;
+}
+
+/**
  * Print --help.
  *
  * @param {{ defaultSize: number, defaultCount: number }} defaults  the CLI's
  *   own defaults for --size and --count
  */
 export function printHelp({ defaultSize, defaultCount }) {
-  // String.raw so the shell line-continuation in the examples below stays a
-  // single backslash without escaping it.
   console.log(
-    String.raw`Usage: node scripts/gen-gpkg.mjs [options]
+    `Usage: node scripts/gen-gpkg.mjs [options]
 
 Generates BNG GeoPackage fixtures matching the Natural England statutory
 biodiversity metric QGIS template schema (all 5 feature layers per file), or,
@@ -154,22 +176,6 @@ ${renderFlawCatalogue()}
 
 Geometric, empty-layer and attribute flaws cannot be mixed with each other;
 lineage, degraded-habitat and template-version flaws combine with any of them. Examples:
-  node scripts/gen-gpkg.mjs --size 30
-  node scripts/gen-gpkg.mjs --bad
-  node scripts/gen-gpkg.mjs --flaw parcel-too-small
-  node scripts/gen-gpkg.mjs --from ./metric.xlsm --mode baseline
-  node scripts/gen-gpkg.mjs --seed 7
-  node scripts/gen-gpkg.mjs --format ${FORMAT_BNG_SERVICE} --size 20
-  node scripts/gen-gpkg.mjs --format ${FORMAT_BNG_SERVICE} --stage ${STAGE_BASELINE}
-  node scripts/gen-gpkg.mjs --format ${FORMAT_BNG_SERVICE} --flaw lineage-parent-unknown
-  node scripts/gen-gpkg.mjs --format ${FORMAT_BNG_SERVICE} --size 15 --seed 6 \
-    --centre 460000,210000 --worse hedge=4 --worse partly-worse-hedge=4 \
-    --package-template
-  node scripts/gen-gpkg.mjs --format ${FORMAT_BNG_SERVICE} --size 15 --seed 1 \
-    --centre 460000,210000 --worse partly-worse-parcel=3 --irreplaceable none \
-    --package-template
-  node scripts/gen-gpkg.mjs --format ${FORMAT_BNG_SERVICE} --from ./metric.xlsm
-  node scripts/gen-gpkg.mjs --size 3 --pair \
-    --habitat "Intertidal hard structures - Artificial hard structures with integrated greening of grey infrastructure (IGGI)"`,
+${renderExamples()}`,
   );
 }
