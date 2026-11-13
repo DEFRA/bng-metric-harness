@@ -210,5 +210,4 @@ A valid file; only the upload's own file name is invalid.
 ## Gaps
 
 - A natural river left out, and an irreplaceable tree that gets worse: the service refuses either file for another reason first, so a fixture could not show the rule. Natural rivers (Other rivers and streams, High; Priority habitat, V.High) are out of the service's scope, and only canals and ditches may be lost (a culvert left out is refused, STAGED_NATURAL_WATERCOURSE_LOST: `attribute-problems/watercourse-culvert-left-out.gpkg`); an irreplaceable tree is refused whether or not it gets worse (`attribute-problems/irreplaceable-tree.gpkg`).
-- Individual trees with varied counts, and trees partly felled: the template has no Count column, as the service does not support tree counts yet, so each tree point is one tree. The service reads a Count when a file has one.
 - The harness's import-timing scenarios: they edit legacy files, so `permutations/` builds them in the legacy format only.
