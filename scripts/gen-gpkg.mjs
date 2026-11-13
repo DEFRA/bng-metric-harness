@@ -70,6 +70,7 @@ import { splitFlaws } from "./gen-gpkg-flaws.mjs";
 import { printHelp } from "./gen-gpkg-help.mjs";
 import { runFromList, runFromWorkbook } from "./gen-gpkg-workbook.mjs";
 import { assertWorseDrawn, parseWorseCounts } from "./gen-gpkg-worse.mjs";
+import { parseIrreplaceableLayers } from "./gen-gpkg-irreplaceable.mjs";
 import {
   afterBngServiceWrite,
   assertTemplateAvailable,
@@ -144,6 +145,9 @@ const { values: args } = parseArgs({
     // BNG Service format, synthetic only: how many habitats that get worse
     // of a kind to draw, as KIND=N, in place of one each.
     worse: { type: "string", multiple: true, default: [] },
+    // BNG Service format, synthetic only: the layers that keep the
+    // irreplaceable feature a default site marks, or "none".
+    irreplaceable: { type: "string" },
     help: { type: "boolean", short: "h", default: false },
   },
   allowPositionals: false,
@@ -338,6 +342,7 @@ async function runSynthetic(centre, seed) {
   });
   const habitatPins = resolveHabitatPins(args.habitat, numParcels, selection);
   const worseHabitatCounts = parseWorseCounts(args.worse, degradeFlawNames);
+  const irreplaceableLayers = parseIrreplaceableLayers(args.irreplaceable);
   assertWorseDrawn(worseHabitatCounts, {
     geometricFlawNames: selection.geometricFlawNames,
     degradeFlawNames,
@@ -370,6 +375,7 @@ async function runSynthetic(centre, seed) {
     // yet reproducible: same --seed always yields the same N files.
     runs.push({
       worseHabitatCounts,
+      irreplaceableLayers,
       plan: seed === null ? plan : { ...plan, seed: seed + (i - 1) },
       paths: syntheticOutPaths(plan, flawSuffix, suffix, timestampSuffix()),
       strictness: syntheticStrictness({
@@ -419,13 +425,14 @@ function syntheticOutPaths(plan, flawSuffix, suffix, stamp) {
 
 function writeSyntheticRun(
   centre,
-  { plan, paths, strictness, worseHabitatCounts },
+  { plan, paths, strictness, worseHabitatCounts, irreplaceableLayers },
 ) {
   if (paths.bngService) {
     generateBngServiceSynthetic(paths.bngService, centre, plan, {
       stage: selectedStage,
       templateVersion: selectedTemplateVersion,
       worseHabitatCounts,
+      ...(irreplaceableLayers && { irreplaceableLayers }),
     });
     afterBngServiceWrite(paths.bngService, {
       strictness,
@@ -452,9 +459,14 @@ function assertSyntheticFlagsOutsideWorkbookMode() {
   if (!workbookMode) {
     return;
   }
-  if (args.pair || args.habitat.length > 0 || args.worse.length > 0) {
+  if (
+    args.pair ||
+    args.habitat.length > 0 ||
+    args.worse.length > 0 ||
+    args.irreplaceable !== undefined
+  ) {
     error(
-      "--pair, --habitat and --worse are synthetic-mode only; workbook mode already emits a " +
+      "--pair, --habitat, --worse and --irreplaceable are synthetic-mode only; workbook mode already emits a " +
         "pair and takes its habitats from the workbook (see --mode)",
     );
     process.exit(1);
@@ -490,6 +502,10 @@ const BNG_SERVICE_ONLY_FLAGS = [
   {
     given: () => args.worse.length > 0,
     message: `--worse needs --format ${FORMAT_BNG_SERVICE}: it counts the BNG Service template's habitats that get worse`,
+  },
+  {
+    given: () => args.irreplaceable !== undefined,
+    message: `--irreplaceable needs --format ${FORMAT_BNG_SERVICE}: only the BNG Service template records irreplaceable habitats`,
   },
   {
     given: () => args["package-template"],

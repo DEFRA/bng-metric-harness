@@ -5,6 +5,7 @@ import Database from "better-sqlite3";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { FlawSelectionError, MAX_WORSE_COUNT, WORSE_KINDS } from "#bng-lib";
 import { parseWorseCounts } from "../../../scripts/gen-gpkg-worse.mjs";
+import { splitParcels } from "./_split-parcels.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
 const GEN_GPKG = path.join(ROOT, "scripts/gen-gpkg.mjs");
@@ -116,6 +117,23 @@ describe("generate:gpkg --worse", () => {
     });
   });
 
+  // A parcel is split only where the site has one to split, and the library
+  // skips it quietly otherwise (seed 6's site has none), so this draws the
+  // corpus fixture's site, seed 1, where all three are.
+  it("draws the area habitats that get worse in part it asks for", () => {
+    const result = generate(
+      "--format",
+      "bng-service",
+      "--seed",
+      "1",
+      "--worse",
+      "partly-worse-parcel=3",
+    );
+    expect(result.status, result.output).toBe(0);
+    const [file] = readdirSync(result.out);
+    expect(splitParcels(path.join(result.out, file))).toBe(3);
+  });
+
   it("draws them on a geometric flaw's minimal site when a degrade flaw adds them", () => {
     const result = generate(
       "--format",
@@ -140,6 +158,8 @@ describe("generate:gpkg --worse", () => {
       whole: 1,
       partly: 1,
     });
+    // An area habitat that gets worse in part is drawn only when asked for.
+    expect(splitParcels(path.join(result.out, file))).toBe(0);
   });
 
   it.each([
@@ -196,7 +216,7 @@ describe("generate:gpkg --worse", () => {
     );
     expect(result.status).toBe(1);
     expect(result.stdout + result.stderr).toMatch(
-      /--pair, --habitat and --worse are synthetic-mode only/,
+      /--pair, --habitat, --worse and --irreplaceable are synthetic-mode only/,
     );
   });
 });

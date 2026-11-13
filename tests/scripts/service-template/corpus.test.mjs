@@ -42,6 +42,7 @@ import {
   templateCommit,
 } from "../../../scripts/service-template/convert.mjs";
 import { renderReadme } from "../../../scripts/service-template/readme.mjs";
+import { splitParcels } from "../gpkg/_split-parcels.mjs";
 import {
   FAMILIES,
   KIND_CONVERTED,
@@ -454,6 +455,16 @@ describe("the built fixtures", () => {
       "attribute-problems/irreplaceable-tree-post-intervention-only.gpkg",
       "attribute-problems/irreplaceable-tree.gpkg",
     ]);
+  });
+
+  // As for irreplaceableLayers: a parcel is split only while another Retained
+  // parcel stays, so a repin could draw fewer splits, and the byte-for-byte
+  // test, rebuilding from it, would pass.
+  it("split as many area habitats into a Retained part and a worse Created part as the recipe asks for", () => {
+    const recipe = recipeFor("valid/partly-retained-parcels.gpkg");
+    const asked = recipe.options.worseHabitatCounts["partly-worse-parcel"];
+    expect(asked).toBeGreaterThan(0);
+    expect(splitParcels(built(recipe))).toBe(asked);
   });
 
   // As for irreplaceableLayers: a repin that dropped the 30+ delay would

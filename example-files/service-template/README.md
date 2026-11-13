@@ -64,6 +64,7 @@ Valid files, combined and baseline-stage: each should upload cleanly.
 | `small-site-baseline.gpkg` | The small site's baseline-stage file | accepted | seed 2, 3 parcels, baseline stage |
 | `large-site.gpkg` | A 150-parcel site, holding both stages | accepted | seed 3, 150 parcels |
 | `large-site-baseline.gpkg` | The large site's baseline-stage file | accepted | seed 3, 150 parcels, baseline stage |
+| `partly-retained-parcels.gpkg` | A 15-parcel site where 3 baseline area habitats are only partly retained: each is split into a Retained part a and a part b Created in a worse condition, both linked to the baseline habitat | accepted | seed 1, 15 parcels, 3 `partly-worse-parcel` |
 | `duplicate-habitat-ref.gpkg` | Two habitat parcels share one Habitat Ref | accepted since BMD-1058, which lets habitats share a reference | seed 1, 5 parcels, flaw `duplicate-habitat-ref` |
 | `tiny-gap.gpkg` | parcels tile the redline except a sub-tolerance gap — file is accepted | accepted: the gap is below the AREA_SUM_MISMATCH tolerance | seed 1, flaw `tiny-gap` |
 | `tree-replanted.gpkg` | `valid/default-site.gpkg` with T026, a small rural tree newly planted where the felled tree T002 stood, linked to it as its parent (T005 is planted with no parent) | accepted: T026 is priced as a creation, and T002 is lost in full | `valid/default-site.gpkg`, edited by SQL |

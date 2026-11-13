@@ -91,5 +91,7 @@ export function worseHelp() {
                       worse of a kind, in place of one (0 to ${MAX_WORSE_COUNT}).
                       Repeatable. Kinds: ${WORSE_KINDS.join(", ")}.
                       hedge gets worse as a whole; partly-worse-hedge is split
-                      into a Retained part a and a worse part b.`;
+                      into a Retained part a and a worse part b, as
+                      partly-worse-parcel splits an area parcel (none by
+                      default).`;
 }

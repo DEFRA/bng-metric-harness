@@ -49,8 +49,9 @@ asked for.** The default is still the legacy format.
    | The same file again                       | `--seed N`: the same seed and flags give the same bytes                                                                                     |
    | The file before post-intervention mapping | `--stage baseline`                                                                                                                          |
    | A validation fault                        | `--flaw NAME`, named in the file name; lineage, degrade and version flaws combine with the others                                           |
-   | More of one behaviour                     | `--worse KIND=N`, repeatable, 0 to 50: `hedge`, `partly-worse-hedge`, `parcel`, `vertical`, `encroached-watercourse`, `worse-watercourse`   |
+   | More of one behaviour                     | `--worse KIND=N`, repeatable, 0 to 50: `hedge`, `partly-worse-hedge`, `parcel`, `partly-worse-parcel`, `vertical`, `encroached-watercourse`, `worse-watercourse` |
    | A file to open in QGIS                    | `--package-template`                                                                                                                        |
+   | A file the service accepts on upload      | `--irreplaceable none`: a default site marks a tree irreplaceable, which the upload refuses                                                 |
 
    A default BNG Service site already holds what only the new template
    records: one parcel, vertical habitat and hedge that get worse, a hedge
@@ -60,7 +61,9 @@ asked for.** The default is still the legacy format.
    more of one, ask for it: `--worse hedge=4 --worse partly-worse-hedge=4`
    draws eight hedgerows that get worse, each with its own parent. Parcels
    get worse only while another Retained parcel stays, so `--worse parcel=N`
-   may give fewer than N.
+   may give fewer than N. `--worse partly-worse-parcel=N` splits N area
+   parcels into a Retained part **a** and a worse part **b**; a default site
+   draws none.
 
 3. **Choose a seed that shows what was asked.** `--worse` sets how many;
    the seed sets which conditions they move between (Good to Poor, Moderate
