@@ -2,7 +2,7 @@
 
 Every rule the BNG Metric service applies to an uploaded GeoPackage: what each one checks, and which example file demonstrates it.
 
-**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `31ca90c`, frontend `60d5f96` and bng-library `017ff91`, all on `main`, and was generated on 2026-11-12.
+**This document is generated.** Editing it directly will be undone by the next run — change the generator instead, by running `/geopackage-validation-explainer` in `bng-metric-harness`. It reflects backend `8b2d91e`, frontend `4e97db3` and bng-library `017ff91`, all on `main`, and was generated on 2026-11-13.
 
 For how biodiversity units are calculated once a file is accepted, see [rules-engine-explained.md](rules-engine-explained.md).
 
@@ -217,8 +217,8 @@ These rules refuse a change made to a habitat on screen, after a file has been a
 
 | Repository | Commit | Supplies |
 | --- | --- | --- |
-| bng-metric-backend | `31ca90c` | The rules, and the message each one raises |
-| bng-metric-frontend | `60d5f96` | What the user is shown for each rule |
+| bng-metric-backend | `8b2d91e` | The rules, and the message each one raises |
+| bng-metric-frontend | `4e97db3` | What the user is shown for each rule |
 | bng-library | `017ff91` | The generator flaws that reproduce fixtures |
 
 Rule descriptions are held in `references/rule-descriptions.json` in the skill; the rule list, message status and fixture mapping are extracted from the three repositories on every run.
