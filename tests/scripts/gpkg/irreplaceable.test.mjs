@@ -91,9 +91,8 @@ describe("gen-gpkg --irreplaceable", () => {
     const marked = generate("--format", "bng-service");
     expect(marked.status, marked.output).toBe(0);
     const counts = irreplaceableCounts(onlyFile(marked.out));
-    expect(
-      counts["Individual Trees Baseline"] + counts["Area Habitats Baseline"],
-    ).toBeGreaterThan(0);
+    expect(counts["Area Habitats Baseline"]).toBeGreaterThan(0);
+    expect(counts["Individual Trees Baseline"]).toBeGreaterThan(0);
 
     const none = generate("--format", "bng-service", "--irreplaceable", "none");
     expect(none.status, none.output).toBe(0);
@@ -102,6 +101,20 @@ describe("gen-gpkg --irreplaceable", () => {
         (n) => n === 0,
       ),
     ).toBe(true);
+  });
+
+  it("marks only the layers it names", () => {
+    const trees = generate(
+      "--format",
+      "bng-service",
+      "--irreplaceable",
+      "trees",
+    );
+    expect(trees.status, trees.output).toBe(0);
+    const counts = irreplaceableCounts(onlyFile(trees.out));
+    expect(counts["Individual Trees Baseline"]).toBeGreaterThan(0);
+    expect(counts["Area Habitats Baseline"]).toBe(0);
+    expect(counts["Area Habitats Post-Intervention"]).toBe(0);
   });
 
   it("is refused in the legacy format", () => {
