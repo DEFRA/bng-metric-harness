@@ -321,12 +321,14 @@ npm run compare:metric -- --service-template --exclude invalid-interventions,dat
 ```
 
 It compares every scenario but the invalid ones, so a valid scenario added
-later is compared without anyone listing it: today 43, which all match the
+later is compared without anyone listing it: today 44, which all match the
 metric. The
-service reads individual trees from the template since BMD-1172, so the 21
+service reads individual trees from the template since BMD-1172, so the 22
 scenarios that have trees match too: Retained, Enhanced and newly planted
 trees, linked to a parent or not, every size class in both settings
-(`trees/size-and-setting`), and trees felled with nothing in their place
+(`trees/size-and-setting`), a tree whose condition gets worse, recorded as
+lost and created again (`intervention/tree-condition-lowered`, BMD-1184), and
+trees felled with nothing in their place
 (`trading-rules/trading-lost-trees`). Each tree point is one tree: the
 template has no Count column, and the service reads none, so a tree is kept
 or felled whole and no scenario has a point standing for several trees (the
