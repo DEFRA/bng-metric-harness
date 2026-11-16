@@ -7895,7 +7895,7 @@
       "id": "invalid-tree-good-enhanced",
       "purpose": "invalid-interventions",
       "title": "Individual tree — an enhanced tree in Good condition",
-      "description": "T001, a Rural tree in Good condition, is \"enhanced\" in the same condition. An individual tree is a Medium area habitat, so in Good condition the service cannot enhance it at all and refuses the file (BMD-1182 AC1).",
+      "description": "T001, a Rural tree in Good condition, is \"enhanced\" in the same condition. A tree has no condition better than Good, and an urban and a rural tree are both Medium, so a tree in Good condition cannot be enhanced at all: the service refuses the file with the trees' own code, TREE_NOT_ENHANCEABLE (BMD-1182 AC1, BMD-1172 AC6).",
       "size": 1,
       "subject": {
         "layer": "Urban Trees",
