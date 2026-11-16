@@ -39,6 +39,7 @@ import {
   deriveBaselineFromSynthetic,
   derivePermutationSeed,
   generateOne,
+  permutationScenarioPlan,
   setMode,
 } from "#bng-lib";
 import {
@@ -211,12 +212,11 @@ function importContractFields(scenario) {
     ? { expectedImport: expectedImport(scenario.importCases) }
     : {};
 }
+// bng-library's own plan for the scenario, so a field it adds, such as a
+// BNG Service scenario's habitats that get worse, reaches the generator.
 function syntheticOptions(scenario, seed) {
   return {
-    numParcels: scenario.size ?? PERMUTATION_DEFAULT_SIZE,
-    numTrees: scenario.treeCount,
-    emptyLayers: new Set(scenario.emptyLayers ?? []),
-    attributeOverrides: scenario.overrides ?? {},
+    ...permutationScenarioPlan(scenario),
     seed: derivePermutationSeed(seed, scenario.id),
   };
 }

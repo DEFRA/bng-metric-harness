@@ -321,7 +321,7 @@ npm run compare:metric -- --service-template --fail-on-unexplained
 ```
 
 It compares every scenario, so one added later is compared without anyone
-listing it: today 69. The 44 valid ones all match the metric. The
+listing it: today 73. The 48 valid ones all match the metric. The
 service reads individual trees from the template since BMD-1172, so the 22
 scenarios that have trees match too: Retained, Enhanced and newly planted
 trees, linked to a parent or not, every size class in both settings
@@ -332,6 +332,27 @@ trees felled with nothing in their place
 template has no Count column, and the service reads none, so a tree is kept
 or felled whole and no scenario has a point standing for several trees (the
 legacy `trees-count-above-one` scenario does).
+
+Four scenarios hold habitats that get worse, as only the BNG Service
+template records them: the copied row kept, linked to its baseline feature,
+and set to Created in its own type. Each is drawn as `generate:gpkg --worse`
+draws it, by the scenario's `worseHabitats` and `siteChanges`
+(bng-library's catalogue), and they match the metric:
+
+- `intervention/area-degraded`: an area habitat and a vertical area habitat
+  in a lower condition, 30+ years in advance, and a parcel split into a
+  Retained part and a worse Created part;
+- `intervention/hedgerow-degraded`: a hedgerow in a lower condition, and
+  one that gets worse in part;
+- `intervention/watercourse-degraded`: a watercourse whose encroachment
+  alone gets worse, 10 years in advance, and one in a lower condition;
+- `intervention/watercourse-realigned-and-shorter`: a re-meandered
+  watercourse, Enhanced by Realignment onto a longer route, and one kept
+  Retained but shorter, which loses the rest of its length.
+
+The metric books the Retained part of a split feature on its baseline
+row, so the comparison counts the service's Retained parts of one baseline
+feature (H003a) under that feature's ref (H003), summed.
 
 Of the 25 invalid scenarios, the service refuses five (each enhances a
 baseline it cannot enhance at all) and accepts the other 20, each explained,
