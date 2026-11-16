@@ -184,26 +184,39 @@ describe.skipIf(!isBackendInstalled())("importGeoPackagePair", () => {
   // BMD-1182: each enhances a baseline the service cannot enhance at all, so
   // the post-intervention file is refused once its document is built, and
   // for that reason, not at an earlier gate.
+  // A tree in Good condition is refused with the trees' own code
+  // (BMD-1172, bng-metric-backend#651). Until that backend reaches main,
+  // whose comparison runs this test against main here, a backend without the
+  // code still refuses it as BASELINE_NOT_ENHANCEABLE; drop that once it has.
+  const TREE_NOT_ENHANCEABLE_CODES = [
+    "TREE_NOT_ENHANCEABLE",
+    "BASELINE_NOT_ENHANCEABLE",
+  ];
   it.each([
-    "invalid-area-medium-good-enhanced",
-    "invalid-tree-good-enhanced",
-    "invalid-hedgerow-medium-good-enhanced",
-    "invalid-watercourse-medium-good-enhanced",
-    "invalid-hedgerow-very-low-enhanced",
-    "invalid-hedgerow-low-good-no-medium-target",
-  ])("refuses %s as a baseline the service cannot enhance", async (id) => {
-    const result = await importGeoPackagePair(
-      scenario(`invalid-interventions/${id}`).files,
-    );
+    ["invalid-area-medium-good-enhanced", ["BASELINE_NOT_ENHANCEABLE"]],
+    ["invalid-tree-good-enhanced", TREE_NOT_ENHANCEABLE_CODES],
+    ["invalid-hedgerow-medium-good-enhanced", ["BASELINE_NOT_ENHANCEABLE"]],
+    ["invalid-watercourse-medium-good-enhanced", ["BASELINE_NOT_ENHANCEABLE"]],
+    ["invalid-hedgerow-very-low-enhanced", ["BASELINE_NOT_ENHANCEABLE"]],
+    [
+      "invalid-hedgerow-low-good-no-medium-target",
+      ["BASELINE_NOT_ENHANCEABLE"],
+    ],
+  ])(
+    "refuses %s as a baseline the service cannot enhance, as one of %j",
+    async (id, codes) => {
+      const result = await importGeoPackagePair(
+        scenario(`invalid-interventions/${id}`).files,
+      );
 
-    expect(result).toMatchObject({
-      accepted: false,
-      rejectedFile: "postIntervention",
-    });
-    expect(result.errors.map((e) => e.code)).toEqual([
-      "BASELINE_NOT_ENHANCEABLE",
-    ]);
-  });
+      expect(result).toMatchObject({
+        accepted: false,
+        rejectedFile: "postIntervention",
+      });
+      expect(result.errors).toHaveLength(1);
+      expect(codes).toContain(result.errors[0].code);
+    },
+  );
 
   // BMD-820: a hedgerow move the metric's G-6 allowed-moves table does not
   // allow, from a baseline that can still be enhanced, is nulled, not refused.
