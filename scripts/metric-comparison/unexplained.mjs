@@ -100,8 +100,50 @@ export const INCOMPLETE_FEATURES = Object.freeze({
  * has its own tables. An entry goes here only once someone has checked it
  * against the BNG Service file.
  */
-export const SERVICE_TEMPLATE_VALIDATION_GAPS = Object.freeze({});
-export const SERVICE_TEMPLATE_INCOMPLETE_FEATURES = Object.freeze({});
+export const SERVICE_TEMPLATE_VALIDATION_GAPS = Object.freeze({
+  "invalid-interventions/invalid-watercourse-encroachment-worsened":
+    "R001 and R002 are Enhanced Ditches, Moderate to Good, with encroachment going from none to Major on the channel and both banks. The service saves them Complete and prices them, though they deliver fewer units than the baseline and the metric shows Check Data; it checks worse encroachment only on a Created row (BMD-1073).",
+});
+export const SERVICE_TEMPLATE_INCOMPLETE_FEATURES = Object.freeze({
+  "data-completeness/invalid-data-incomplete":
+    "H004 to H006 are Enhanced with no Proposed Condition or Proposed Strategic Significance. The service saves each Incomplete, with its condition and strategic significance null and null units, where the metric prices nothing (BMD-1051).",
+  "invalid-interventions/invalid-area-advance-and-delay":
+    "H001 is Created with both 2 years in advance and a 3-year delay. The service clears both and saves it Incomplete, with null units, where the metric prices nothing.",
+  "invalid-interventions/invalid-tree-advance-and-delay":
+    "T001, a Newly Planted tree, is Created with both 2 years in advance and a 3-year delay. The service clears both and saves it Incomplete, with null units, where the metric prices nothing.",
+  "invalid-interventions/invalid-area-condition-reduced":
+    "H001 is an Enhanced Other neutral grassland, Moderate to Poor. The service saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-area-no-enhancement":
+    "H001 is an Enhanced Other neutral grassland with the same habitat and condition (Moderate) as its baseline. The service saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-area-intertidal-no-enhancement":
+    "H001 is an Enhanced Littoral sand with the same habitat and condition (Moderate) as its baseline. The service saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-area-low-no-enhancement":
+    "H001 is an Enhanced Modified grassland, a Low habitat, with the same habitat and condition (Moderate) as its baseline. The service saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-area-low-not-possible":
+    "H001 is an Artificial littoral sand, a Low habitat, Enhanced to a Good Littoral sand, which the metric gives as Not Possible. The service saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-area-very-low-not-possible":
+    "H001 is a Developed land; sealed surface, a Very Low habitat, Enhanced to a Good Ruderal/Ephemeral, which the metric gives as Not Possible. The service saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-area-trading-down":
+    "H001 is an Other neutral grassland, a Medium habitat, Enhanced to a Modified grassland, a Low one. The service saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-area-low-condition-na-not-possible":
+    "H001 is a Cereal crops Enhanced to a Moderate Bramble scrub, a condition the metric gives as Not Possible for Bramble scrub, which takes only Condition Assessment N/A. The service drops the proposed condition and saves it Incomplete, with null units, where the metric prices nothing.",
+  "invalid-interventions/invalid-area-medium-condition-na-not-possible":
+    "H001 is a Bramble scrub Enhanced in its own type to Moderate, a condition the metric gives as Not Possible for Bramble scrub, which takes only Condition Assessment N/A. The service drops the proposed condition and saves it Incomplete, with null units, where the metric prices nothing.",
+  "invalid-interventions/invalid-hedgerow-condition-reduced":
+    "HG001 to HG003 are Enhanced Native hedgerows, Good to Poor. The service saves each Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-hedgerow-bank-or-ditch-dropped":
+    "HG001 is a Line of trees - associated with bank or ditch Enhanced to a Native hedgerow with trees, a move the metric's G-6 allowed-moves table does not allow. The service saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-hedgerow-low-not-possible":
+    "HG001 is a Native hedgerow, a Low hedgerow, Enhanced to an Ecologically valuable line of trees, which the metric gives as Not Possible. The service saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-hedgerow-medium-trading-down":
+    "HG001 is a Native hedgerow with trees, a Medium hedgerow, Enhanced to a Native hedgerow, a Low one. The service saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-hedgerow-medium-type-change":
+    "HG001 is a Native hedgerow with trees Enhanced to a Species-rich native hedgerow, a move the metric's G-6 allowed-moves table does not allow. The service saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-watercourse-culvert-enhanced":
+    "R001 is a Culvert Enhanced in place, which the metric does not offer. The service saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
+  "invalid-interventions/invalid-watercourse-medium-condition-reduced":
+    "R001 is an Enhanced Ditches, Moderate to Poor. The service saves it Incomplete, with its proposed attributes nulled and null units, where the metric prices nothing (BMD-820).",
+});
 
 /**
  * The explanation tables for one template's corpus.
