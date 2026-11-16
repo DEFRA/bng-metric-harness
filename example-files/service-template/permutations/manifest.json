@@ -13537,7 +13537,7 @@
       "id": "trees-size-and-setting",
       "purpose": "trees",
       "title": "Individual trees — every size class, urban and rural",
-      "description": "Each of the tree helper's four size classes (Small 0.0041 ha, Medium 0.0163 ha, Large 0.0366 ha, Very large 0.0765 ha), urban and rural, at baseline and newly planted. T001 to T008 are the baseline trees, one of each size in each setting, kept: Retained, or Enhanced to a better condition. T009 to T016 are newly planted, one of each size in each setting. A service that prices a size class at the wrong area differs from the metric on that tree. An urban and a rural tree of one size and condition have the same units, so a service that puts an Enhanced or newly planted tree in the wrong setting differs instead on the trading summary, whose urban and rural tree lines it moves that tree's gain between; a Retained tree gains nothing, so its setting shows in neither.",
+      "description": "Each of the tree helper's four size classes (Small 0.0041 ha, Medium 0.0163 ha, Large 0.0366 ha, Very large 0.0765 ha), urban and rural, at baseline and newly planted. T001 to T008 are the baseline trees, one of each size in each setting, kept: Retained, or Enhanced to a better condition. T009 to T016 are newly planted, one of each size in each setting. A service that prices a size class at the wrong area differs from the metric on that tree. An urban and a rural tree of one size and condition have the same units, so a service that puts an Enhanced or newly planted tree in the wrong setting differs instead on the trading summary, whose urban and rural tree lines it moves that tree's gain between. No two Enhanced or newly planted trees of one size differ only in their setting (the rural ones are planted in Poor condition, and T004 is enhanced to Good), so even swapping a pair's settings moves units between the lines. A Retained tree gains nothing, so its setting shows in neither.",
       "size": 1,
       "subject": {
         "layer": "Urban Trees",
@@ -13576,7 +13576,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "85e68d17150ba3cb1357ba9effacee87b0a70c43c1cec4b1a6a5d711fc6fe51f",
+      "workbookSource": "06799b9df68efa21083f432dd01040553ef994764d39546e182acf621e26e852",
       "inputRows": {
         "habitatBaseline": 9,
         "habitatCreation": 8,
@@ -13598,17 +13598,17 @@
             "watercourse": 0
           },
           "postInterventionUnits": {
-            "area": 216.808072146539,
+            "area": 216.778713821648,
             "hedgerow": 0,
             "watercourse": 0
           },
           "netUnitChange": {
-            "area": 1.14585590182705,
+            "area": 1.11649757693553,
             "hedgerow": 0,
             "watercourse": 0
           },
           "netPercentChange": {
-            "area": 0.00531319728499335,
+            "area": 0.00517706623059389,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -13623,7 +13623,7 @@
             "watercourse": 0
           },
           "unitDeficit": {
-            "area": 20.4203657226442,
+            "area": 20.4497240475357,
             "hedgerow": 0,
             "watercourse": 0
           },
@@ -13694,9 +13694,15 @@
           ]
         },
         "corrected": {
-          "areaCumulativeSurplus": 1.14585590182704
+          "areaCumulativeSurplus": 1.11649757693552
         },
-        "sheetWarnings": [],
+        "sheetWarnings": [
+          {
+            "sheet": "habitatEnhancement",
+            "cell": "AD2",
+            "message": "Note; Habitat selected has a time to target condition greater than 30 years. Non standard agreement may be required ⚠"
+          }
+        ],
         "rowWarnings": []
       }
     },
