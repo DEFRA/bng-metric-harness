@@ -387,5 +387,9 @@
   "BASELINE_HABITATS_INCOMPLETE": {
     "group": "Habitat data",
     "checks": "A post-intervention file is uploaded while one or more area habitats, hedgerows or watercourses in its baseline are Incomplete, because something their units need is missing or their units cannot be worked out. The baseline cannot be changed once a post-intervention file is uploaded, so the file is refused; an upload of the baseline alone is not."
+  },
+  "TREE_NOT_ENHANCEABLE": {
+    "group": "Habitat data",
+    "checks": "An individual tree after intervention is recorded as Enhanced, but its baseline tree is already in good condition. A tree has no better condition than good, and urban and rural trees share one distinctiveness, so a tree in good condition cannot be enhanced at all. The whole file is refused, and every such tree is named at once."
   }
 }
