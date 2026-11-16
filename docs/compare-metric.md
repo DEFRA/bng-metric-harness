@@ -317,12 +317,11 @@ not the legacy run passed, and puts both summaries on the job summary and both
 reports in the artifact:
 
 ```sh
-npm run compare:metric -- --service-template --exclude invalid-interventions,data-completeness/invalid-data-incomplete --fail-on-unexplained
+npm run compare:metric -- --service-template --fail-on-unexplained
 ```
 
-It compares every scenario but the invalid ones, so a valid scenario added
-later is compared without anyone listing it: today 44, which all match the
-metric. The
+It compares every scenario, so one added later is compared without anyone
+listing it: today 69. The 44 valid ones all match the metric. The
 service reads individual trees from the template since BMD-1172, so the 22
 scenarios that have trees match too: Retained, Enhanced and newly planted
 trees, linked to a parent or not, every size class in both settings
@@ -332,9 +331,27 @@ trees felled with nothing in their place
 (`trading-rules/trading-lost-trees`). Each tree point is one tree: the
 template has no Count column, and the service reads none, so a tree is kept
 or felled whole and no scenario has a point standing for several trees (the
-legacy `trees-count-above-one` scenario does). The invalid scenarios are left out: the service accepts 20 of
-them with no `VALIDATION_GAPS` entry. Narrow `--exclude` as those are fixed or
-explained.
+legacy `trees-count-above-one` scenario does).
+
+Of the 25 invalid scenarios, the service refuses five (each enhances a
+baseline it cannot enhance at all) and accepts the other 20, each explained,
+against the BNG Service file, in `unexplained.mjs`:
+
+- 19 in `SERVICE_TEMPLATE_INCOMPLETE_FEATURES`. The service saves the invalid
+  feature Incomplete with null units, where the metric prices nothing, and
+  every other figure matches: the BMD-820 enhancements, the enhancement with
+  no proposed condition or strategic significance (`invalid-data-incomplete`),
+  a creation given both an advance and a delay (`invalid-area-advance-and-delay`,
+  `invalid-tree-advance-and-delay`; the legacy corpus asserts these through
+  its manifest's import contracts, which read the legacy layout only), and a
+  Bramble scrub given a condition other than Condition Assessment N/A (the
+  two `condition-na-not-possible` scenarios), whose condition the service
+  drops.
+- 1 in `SERVICE_TEMPLATE_VALIDATION_GAPS`:
+  `invalid-watercourse-encroachment-worsened`, an enhancement whose
+  encroachment gets worse. The service saves it Complete, where the metric
+  shows *Check Data*; it checks worse encroachment only on a Created row.
+  BMD-1073 is to refuse it.
 
 `scripts/metric-comparison/unexplained.mjs` decides which differences have a
 known explanation. A difference is explained when:
@@ -364,8 +381,8 @@ it can be removed.
 Those two tables are for the legacy corpus. The BNG Service corpus reuses its
 scenario ids, but its files differ, so `--service-template` uses its own
 tables instead, `SERVICE_TEMPLATE_VALIDATION_GAPS` and
-`SERVICE_TEMPLATE_INCOMPLETE_FEATURES`. They start empty. An entry goes there
-only once it has been checked against the BNG Service file.
+`SERVICE_TEMPLATE_INCOMPLETE_FEATURES`. An entry goes there only once it has
+been checked against the BNG Service file, and says what that file holds.
 Strategic significance should soon explain nothing. The corpus follows the
 LNRS guidance (Low baselines; Low or High proposed values), and once
 bng-metric-backend#439 (hedgerows read their proposed value) has merged, no

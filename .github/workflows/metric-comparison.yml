@@ -273,16 +273,15 @@ jobs:
       # The BNG Service template's scenarios, with the service-template flag
       # on, which is the only way the service reads them (BMD-1084). It runs
       # whether or not the legacy comparison passed, so each reports. Every
-      # valid scenario, individual trees included; not yet the invalid ones
-      # (invalid-interventions, and data-completeness's invalid-data-incomplete),
-      # many of which the service accepts with nothing to explain why. A valid
-      # scenario added later is compared as it is. Narrow --exclude as they
-      # are explained. Its reports go to
+      # scenario, the invalid ones included: each invalid one the service
+      # accepts is explained, against the BNG Service file, in
+      # unexplained.mjs's SERVICE_TEMPLATE_ tables. A scenario added later is
+      # compared as it is. Its reports go to
       # metric-comparison/service-template/, in the same artifact.
       - name: Compare the service with the metric, BNG Service template
         id: compare-metric-service-template
         if: ${{ !cancelled() && steps.backend.outcome == 'success' }}
-        run: npm run compare:metric -- --service-template --exclude invalid-interventions,data-completeness/invalid-data-incomplete --fail-on-unexplained
+        run: npm run compare:metric -- --service-template --fail-on-unexplained
 
       - name: Publish the metric comparison summary
         if: ${{ !cancelled() && (steps.compare-metric.outcome != 'skipped' || steps.compare-metric-service-template.outcome != 'skipped') }}

@@ -6,6 +6,8 @@ import { describe, expect, it } from "vitest";
 import { CAUSES, OUTCOME } from "#metric-compare";
 import {
   INCOMPLETE_FEATURES,
+  SERVICE_TEMPLATE_INCOMPLETE_FEATURES,
+  SERVICE_TEMPLATE_VALIDATION_GAPS,
   VALIDATION_GAPS,
   comparisonVerdict,
   explanationsFor,
@@ -476,7 +478,7 @@ describe("comparisonVerdict", () => {
   });
 
   describe("explanationsFor", () => {
-    const LEGACY_GAP =
+    const SHARED_GAP =
       "invalid-interventions/invalid-watercourse-encroachment-worsened";
 
     it("gives the legacy corpus the legacy tables", () => {
@@ -486,11 +488,31 @@ describe("comparisonVerdict", () => {
       });
     });
 
-    it("does not let a legacy entry excuse the BNG Service scenario of the same id", () => {
+    it("gives the BNG Service corpus its own tables", () => {
+      expect(explanationsFor(true)).toEqual({
+        validationGaps: SERVICE_TEMPLATE_VALIDATION_GAPS,
+        incompleteFeatures: SERVICE_TEMPLATE_INCOMPLETE_FEATURES,
+      });
+    });
+
+    it("explains a BNG Service scenario in its own words, not the legacy entry's", () => {
+      const pairs = [
+        [VALIDATION_GAPS, SERVICE_TEMPLATE_VALIDATION_GAPS],
+        [INCOMPLETE_FEATURES, SERVICE_TEMPLATE_INCOMPLETE_FEATURES],
+      ];
+      const copied = pairs.flatMap(([legacy, serviceTemplate]) =>
+        Object.keys(serviceTemplate).filter(
+          (id) => legacy[id] === serviceTemplate[id],
+        ),
+      );
+      expect(copied).toEqual([]);
+    });
+
+    it("excuses the BNG Service scenario by its own entry", () => {
       const { validationGaps, incompleteFeatures } = explanationsFor(true);
       const results = [
-        result([featureUnits("area", "H1")], {
-          id: LEGACY_GAP,
+        result([featureUnits("watercourse", "R001")], {
+          id: SHARED_GAP,
           outcome: OUTCOME.acceptedInvalid,
         }),
       ];
@@ -499,15 +521,15 @@ describe("comparisonVerdict", () => {
         validationGaps,
         incompleteFeatures,
       );
-      expect(found.scenarios.map((s) => s.id)).toEqual([LEGACY_GAP]);
+      expect(found.scenarios).toEqual([]);
     });
 
-    it("does not report a legacy entry stale when the service refuses the BNG Service scenario", () => {
+    it("reports a BNG Service entry stale when the service refuses its scenario", () => {
       const { validationGaps, incompleteFeatures } = explanationsFor(true);
-      const results = [{ id: LEGACY_GAP, outcome: OUTCOME.rejectedAsExpected }];
+      const results = [{ id: SHARED_GAP, outcome: OUTCOME.rejectedAsExpected }];
       expect(
         findUnexplained(results, validationGaps, incompleteFeatures).stale,
-      ).toEqual([]);
+      ).toEqual([SHARED_GAP]);
     });
   });
 });
