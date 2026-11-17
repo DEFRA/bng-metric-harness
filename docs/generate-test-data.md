@@ -259,7 +259,10 @@ and converted along the way.
   flaws (`version-record-missing`, `-duplicated`, `version-unsupported`),
   which combine with any other flaw, one of each kind at a time. Lineage and
   degraded-habitat flaws need the post-intervention tables, so not
-  `--stage baseline`. `--help` lists them all.
+  `--stage baseline`. A site-change flaw (`remeandered-watercourse-outside`)
+  breaks a change the default site makes, so it needs that change drawn: not
+  `--stage baseline`, not with a geometric flaw or `--bad`, and not with the
+  rivers layer empty. `--help` lists them all.
 
 **Checking lineage.** A BNG Service file holds both stages, so it has no pair
 to check. `npm run check:lineage -- <file.gpkg>` (or `-- --dir DIR`) checks the

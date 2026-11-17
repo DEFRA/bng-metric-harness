@@ -40,7 +40,7 @@ in the service from a failure.
 The `bng-500/` files need the template's converter: the bng-metric-template
 sibling (or the checkout `BNG_TEMPLATE_DIR` names) and python3; without them
 the generator skips those files and says why. They come from the converter
-at commit `073550c`. CI rebuilds them there and requires them to match
+at commit `3c59490`. CI rebuilds them there and requires them to match
 byte for byte; the test skips them elsewhere, as a local checkout may be at
 another commit.
 
@@ -71,7 +71,7 @@ Valid files, combined and baseline-stage: each should upload cleanly.
 
 ## spatial-problems/
 
-Valid schema, invalid geometry: each trips one geometry validator. Baseline-stage files, as the legacy family's are, so a broken parcel does not also break its post-intervention lineage.
+Valid schema, invalid geometry: each trips one geometry validator. Baseline-stage files, as the legacy family's are, so a broken parcel does not also break its post-intervention lineage. `remeandered-watercourse-outside.gpkg` holds both stages, as its flaw is in the re-meandered channel.
 
 | File | Covers | Expected | Built from |
 | ---- | ------ | -------- | ---------- |
@@ -87,6 +87,7 @@ Valid schema, invalid geometry: each trips one geometry validator. Baseline-stag
 | `area-sum-mismatch-baseline.gpkg` | habitat parcels do not tile the redline | AREA_SUM_MISMATCH | seed 1, baseline stage, flaw `area-sum-mismatch` |
 | `redline-not-in-england-baseline.gpkg` | redline placed outside England (Snowdonia, Wales) | REDLINE_OUTSIDE_ENGLAND | seed 1, baseline stage, flaw `redline-not-in-england` |
 | `redline-too-large-baseline.gpkg` | redline area exceeds the 100 sq km limit | REDLINE_AREA_TOO_LARGE | seed 1, baseline stage, flaw `redline-too-large` |
+| `remeandered-watercourse-outside.gpkg` | the re-meandered watercourse's new route goes 5 m outside the red line: its bend is moved out across the boundary, while its baseline line stays inside | WATERCOURSES_OUTSIDE_REDLINE | seed 1, flaw `remeandered-watercourse-outside` |
 
 ## invalid-schema/
 
@@ -186,11 +187,11 @@ The legacy `bng-500/` pairs, built from real Defra metric workbooks, converted b
 
 | File | Covers | Expected | Built from |
 | ---- | ------ | -------- | ---------- |
-| `BROADLAND_2024_3282.gpkg` | `BROADLAND_2024_3282`, converted. Values the template does not offer in Individual Trees Post-Intervention (Baseline Tree Size) | not ready to upload as it stands: the converter's manual steps (its warnings) are still to do | `example-files/bng-500/BROADLAND_2024_3282-baseline.gpkg` and its post-intervention file, converted at bng-metric-template 073550c, seed 1 |
-| `BarkingandDagenham2400625FULL.gpkg` | `BarkingandDagenham2400625FULL`, converted. Lineage: `lineage-parent-missing`. Values the template does not offer in Individual Trees Post-Intervention (Baseline Tree Size, Proposed Strategic Significance); Watercourses Post-Intervention (Baseline Encroachment into riparian zone, Proposed Encroachment into riparian zone, Baseline Encroachment into Watercourse, Proposed Encroachment into Watercourse) | not ready to upload as it stands: the converter's manual steps (its warnings) are still to do | `example-files/bng-500/BarkingandDagenham2400625FULL-baseline.gpkg` and its post-intervention file, converted at bng-metric-template 073550c, seed 1 |
-| `CAMBRIDGE_24_03964_FUL.gpkg` | `CAMBRIDGE_24_03964_FUL`, converted. Values the template does not offer in Area Habitats Post-Intervention (Proposed Strategic Significance); Individual Trees Post-Intervention (Baseline Tree Size) | not ready to upload as it stands: the converter's manual steps (its warnings) are still to do | `example-files/bng-500/CAMBRIDGE_24_03964_FUL-baseline.gpkg` and its post-intervention file, converted at bng-metric-template 073550c, seed 1 |
-| `Sunderland_24_00723_FU4.gpkg` | `Sunderland_24_00723_FU4`, converted. Values the template does not offer in Area Habitats Baseline (Baseline Habitat Type); Area Habitats Post-Intervention (Habitat created in advance/years); Hedgerows Post-Intervention (Habitat created in advance/years); Individual Trees Post-Intervention (Baseline Tree Size, Habitat Created/Enhanced in advance/years); Watercourses Post-Intervention (Baseline Encroachment into riparian zone, Proposed Encroachment into riparian zone) | not ready to upload as it stands: the converter's manual steps (its warnings) are still to do | `example-files/bng-500/Sunderland_24_00723_FU4-baseline.gpkg` and its post-intervention file, converted at bng-metric-template 073550c, seed 1 |
-| `Wiltshire_PL_2024_08441.gpkg` | `Wiltshire_PL_2024_08441`, converted. Values the template does not offer in Watercourses Post-Intervention (Baseline Encroachment into riparian zone, Proposed Encroachment into riparian zone, Baseline Encroachment into Watercourse, Proposed Encroachment into Watercourse) | not ready to upload as it stands: the converter's manual steps (its warnings) are still to do | `example-files/bng-500/Wiltshire_PL_2024_08441-baseline.gpkg` and its post-intervention file, converted at bng-metric-template 073550c, seed 1 |
+| `BROADLAND_2024_3282.gpkg` | `BROADLAND_2024_3282`, converted. Values the template does not offer in Individual Trees Post-Intervention (Baseline Tree Size) | not ready to upload as it stands: the converter's manual steps (its warnings) are still to do | `example-files/bng-500/BROADLAND_2024_3282-baseline.gpkg` and its post-intervention file, converted at bng-metric-template 3c59490, seed 1 |
+| `BarkingandDagenham2400625FULL.gpkg` | `BarkingandDagenham2400625FULL`, converted. Lineage: `lineage-parent-missing`. Values the template does not offer in Individual Trees Post-Intervention (Baseline Tree Size, Proposed Strategic Significance); Watercourses Post-Intervention (Baseline Encroachment into riparian zone, Proposed Encroachment into riparian zone, Baseline Encroachment into Watercourse, Proposed Encroachment into Watercourse) | not ready to upload as it stands: the converter's manual steps (its warnings) are still to do | `example-files/bng-500/BarkingandDagenham2400625FULL-baseline.gpkg` and its post-intervention file, converted at bng-metric-template 3c59490, seed 1 |
+| `CAMBRIDGE_24_03964_FUL.gpkg` | `CAMBRIDGE_24_03964_FUL`, converted. Values the template does not offer in Area Habitats Post-Intervention (Proposed Strategic Significance); Individual Trees Post-Intervention (Baseline Tree Size) | not ready to upload as it stands: the converter's manual steps (its warnings) are still to do | `example-files/bng-500/CAMBRIDGE_24_03964_FUL-baseline.gpkg` and its post-intervention file, converted at bng-metric-template 3c59490, seed 1 |
+| `Sunderland_24_00723_FU4.gpkg` | `Sunderland_24_00723_FU4`, converted. Values the template does not offer in Area Habitats Baseline (Baseline Habitat Type); Area Habitats Post-Intervention (Habitat created in advance/years); Hedgerows Post-Intervention (Habitat created in advance/years); Individual Trees Post-Intervention (Baseline Tree Size, Habitat Created/Enhanced in advance/years); Watercourses Post-Intervention (Baseline Encroachment into riparian zone, Proposed Encroachment into riparian zone) | not ready to upload as it stands: the converter's manual steps (its warnings) are still to do | `example-files/bng-500/Sunderland_24_00723_FU4-baseline.gpkg` and its post-intervention file, converted at bng-metric-template 3c59490, seed 1 |
+| `Wiltshire_PL_2024_08441.gpkg` | `Wiltshire_PL_2024_08441`, converted. Values the template does not offer in Watercourses Post-Intervention (Baseline Encroachment into riparian zone, Proposed Encroachment into riparian zone, Baseline Encroachment into Watercourse, Proposed Encroachment into Watercourse) | not ready to upload as it stands: the converter's manual steps (its warnings) are still to do | `example-files/bng-500/Wiltshire_PL_2024_08441-baseline.gpkg` and its post-intervention file, converted at bng-metric-template 3c59490, seed 1 |
 
 ## malformed/
 

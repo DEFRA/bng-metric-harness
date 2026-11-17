@@ -44,6 +44,9 @@ export const ACCEPTED = "accepted";
 const SCHEMA_REFUSED =
   "refused: the file does not match the BNG Service template's schema";
 
+// The family of files that each trip one geometry validator.
+const SPATIAL_PROBLEMS = "spatial-problems";
+
 // The seed every fixture uses unless it needs another site.
 const SEED = 1;
 const SMALL_SITE = 3;
@@ -65,9 +68,9 @@ export const FAMILIES = [
       "Valid files, combined and baseline-stage: each should upload cleanly",
   },
   {
-    dir: "spatial-problems",
+    dir: SPATIAL_PROBLEMS,
     covers:
-      "Valid schema, invalid geometry: each trips one geometry validator. Baseline-stage files, as the legacy family's are, so a broken parcel does not also break its post-intervention lineage",
+      "Valid schema, invalid geometry: each trips one geometry validator. Baseline-stage files, as the legacy family's are, so a broken parcel does not also break its post-intervention lineage. `remeandered-watercourse-outside.gpkg` holds both stages, as its flaw is in the re-meandered channel",
   },
   {
     dir: "invalid-schema",
@@ -297,9 +300,14 @@ const SPATIAL = [
   "area-sum-mismatch",
   "redline-not-in-england",
   "redline-too-large",
-].map((name) =>
-  flawFixture("spatial-problems", name, { stage: STAGE_BASELINE }),
-);
+].map((name) => flawFixture(SPATIAL_PROBLEMS, name, { stage: STAGE_BASELINE }));
+
+// A re-meandered watercourse whose new channel bends outside the red line,
+// while its baseline line stays inside: it needs the post-intervention
+// tables, so it is the one spatial file that is not baseline-stage.
+const SPATIAL_POST_INTERVENTION = [
+  flawFixture(SPATIAL_PROBLEMS, "remeandered-watercourse-outside"),
+];
 
 const AREA_BASELINE = "Area Habitats Baseline";
 const HEDGEROWS_BASELINE = "Hedgerows Baseline";
@@ -539,6 +547,7 @@ const FILENAME = [
 export const RECIPES = [
   ...VALID,
   ...SPATIAL,
+  ...SPATIAL_POST_INTERVENTION,
   ...INVALID_SCHEMA,
   ...EMPTY_LAYER,
   ...ATTRIBUTE,

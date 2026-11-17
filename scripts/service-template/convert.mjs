@@ -23,7 +23,7 @@ import { HARNESS_ROOT, repoPath } from "../_lib.mjs";
 export const TEMPLATE_REPO = "bng-metric-template";
 export const TEMPLATE_DIR_ENV = "BNG_TEMPLATE_DIR";
 /** The bng-metric-template commit the committed bng-500/ files come from. */
-export const CONVERTER_COMMIT = "073550c7833d836937939a9d70980f0598201300";
+export const CONVERTER_COMMIT = "3c59490ab15a2660fbed7cd7832b801bd1324de7";
 
 const CONVERTER_PATH = path.join("plugin", "bng_template_convert");
 const WRAPPER = path.join(HARNESS_ROOT, "scripts", "bng500", "convert.py");

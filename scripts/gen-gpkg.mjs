@@ -66,7 +66,7 @@ import {
   HABITATS_LAYER,
   resolveHabitatPins,
 } from "./gen-gpkg-habitat-pins.mjs";
-import { splitFlaws } from "./gen-gpkg-flaws.mjs";
+import { assertChangeFlawsDrawable, splitFlaws } from "./gen-gpkg-flaws.mjs";
 import { printHelp } from "./gen-gpkg-help.mjs";
 import { runFromList, runFromWorkbook } from "./gen-gpkg-workbook.mjs";
 import { assertWorseDrawn, parseWorseCounts } from "./gen-gpkg-worse.mjs";
@@ -333,13 +333,19 @@ async function runSynthetic(centre, seed) {
     1,
     Number.parseInt(args.count, PARSE_INT_BASE_10) || DEFAULT_RUN_COUNT,
   );
-  const { legacy, lineageFlawNames, degradeFlawNames, versionFlawNames } =
-    splitFlaws(args.flaw, { bngService, stage: selectedStage });
+  const {
+    legacy,
+    lineageFlawNames,
+    degradeFlawNames,
+    changeFlawNames,
+    versionFlawNames,
+  } = splitFlaws(args.flaw, { bngService, stage: selectedStage });
   const selection = resolveFlawSelection({
     bad: args.bad,
     flaws: legacy,
     numParcels,
   });
+  assertChangeFlawsDrawable(changeFlawNames, selection);
   const habitatPins = resolveHabitatPins(args.habitat, numParcels, selection);
   const worseHabitatCounts = parseWorseCounts(args.worse, degradeFlawNames);
   const irreplaceableLayers = parseIrreplaceableLayers(args.irreplaceable);
@@ -353,6 +359,7 @@ async function runSynthetic(centre, seed) {
     ...selection,
     lineageFlawNames,
     degradeFlawNames,
+    changeFlawNames,
     versionFlawNames,
   };
   if (habitatPins) {
@@ -402,6 +409,7 @@ function syntheticOutPaths(plan, flawSuffix, suffix, stamp) {
     const extraFlaws = [
       ...plan.lineageFlawNames,
       ...plan.degradeFlawNames,
+      ...plan.changeFlawNames,
       ...plan.versionFlawNames,
     ];
     return {

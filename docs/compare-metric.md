@@ -335,7 +335,7 @@ npm run compare:metric -- --service-template --fail-on-unexplained
 ```
 
 It compares every scenario, so one added later is compared without anyone
-listing it: today 73. The 48 valid ones all match the metric. The
+listing it: today 77. The 52 valid ones all match the metric. The
 service reads individual trees from the template since BMD-1172, so the 22
 scenarios that have trees match too: Retained, Enhanced and newly planted
 trees, linked to a parent or not, every size class in both settings
@@ -364,9 +364,33 @@ draws it, by the scenario's `worseHabitats` and `siteChanges`
   watercourse, Enhanced by Realignment onto a longer route, and one kept
   Retained but shorter, which loses the rest of its length.
 
+Four more show how a re-meandered watercourse is counted (BMD-1212). The
+metric records the total enhanced length of a re-meandered channel and no
+loss of length (user guide, section 7, Watercourse enhancement). Each is a
+100 m Moderate ditch, R003, enhanced to Good, and each matches the metric:
+
+- `intervention/watercourse-remeandered`: re-meandered onto a 130 m route,
+  Enhanced by Realignment: priced on 130 m against the parent's 100 m, with
+  nothing lost;
+- `intervention/watercourse-remeandered-standard`: the same, recorded as a
+  Standard Enhancement, with the same units, as the Enhancement Type plays
+  no part in them;
+- `intervention/watercourse-remeandered-split`: 40 m kept Retained and the
+  rest re-meandered into 90 m. The metric refuses one baseline row both
+  retained and enhanced ("Split retained and enhanced into separate entries
+  ▲"), so the workbook splits it into a 40 m retained section and a 60 m
+  section enhanced to 90 m, and the service prices the Enhanced part
+  against the 60 m its Retained part leaves. A backend from before that
+  (bng-metric-backend#666), which priced it against the whole 100 m, differs
+  from the metric here by +0.0319 units;
+- `intervention/watercourse-enhanced-shorter`: Enhanced onto an 80 m line,
+  which loses the other 20 m.
+
 The metric books the Retained part of a split feature on its baseline
 row, so the comparison counts the service's Retained parts of one baseline
-feature (H003a) under that feature's ref (H003), summed.
+feature (H003a) under that feature's ref (H003), summed. A watercourse the
+workbook splits into sections (`R003 (section 1)`, `R003 (section 2)`) is
+read back as one feature under its parent's ref, its units and sizes summed.
 
 Of the 25 invalid scenarios, the service refuses five (each enhances a
 baseline it cannot enhance at all) and accepts the other 20, each explained,

@@ -3600,6 +3600,692 @@
       }
     },
     {
+      "id": "intervention-watercourse-remeandered",
+      "purpose": "intervention",
+      "title": "Watercourse — re-meandered onto a longer route",
+      "description": "R001 and R002, ditches in Moderate condition with no encroachment, are retained as they are. R003, a 100 m ditch in Moderate condition with no encroachment, is re-meandered: its channel moves onto a 130 m route, Enhanced by Realignment to Good. As the metric user guide says, no length is lost and the whole 130 m is enhanced: the post-intervention value is priced on 130 m and the baseline value on 100 m. This checks the service counts a re-meandered watercourse as the metric does.",
+      "size": 1,
+      "subject": {
+        "layer": "Rivers",
+        "ref": "R003",
+        "note": "the 100 m ditch re-meandered onto a 130 m route, Enhanced by Realignment"
+      },
+      "files": {
+        "geoPackage": "intervention/watercourse-remeandered.gpkg",
+        "baselineStage": "intervention/watercourse-remeandered-baseline.gpkg",
+        "workbook": "intervention/watercourse-remeandered.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "every value one the BNG Service template offers",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "every post-intervention feature names its parent",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookSource": "95a8458a74a9617bd424d93f3af44698957c4cf85e706bf653f12c6e4499c63d",
+      "inputRows": {
+        "habitatBaseline": 1,
+        "habitatCreation": 0,
+        "habitatEnhancement": 0,
+        "hedgerowBaseline": 0,
+        "hedgerowCreation": 0,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 3,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 1
+      },
+      "rejectedInputs": [],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 460.491781590139,
+            "hedgerow": 0,
+            "watercourse": 6.50888294945221
+          },
+          "postInterventionUnits": {
+            "area": 460.491781590139,
+            "hedgerow": 0,
+            "watercourse": 7.16793974990794
+          },
+          "netUnitChange": {
+            "area": 0,
+            "hedgerow": 0,
+            "watercourse": 0.659056800455729
+          },
+          "netPercentChange": {
+            "area": 0,
+            "hedgerow": 0,
+            "watercourse": 0.101254978092853
+          },
+          "netGainMessage": {
+            "area": "On-site net gain is less than target set ⚠",
+            "hedgerow": null,
+            "watercourse": null
+          },
+          "unitsRequired": {
+            "area": 506.540959749152,
+            "hedgerow": 0,
+            "watercourse": 7.15977124439743
+          },
+          "unitDeficit": {
+            "area": 46.0491781590139,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "Yes ✓",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": 0
+        },
+        "sheetWarnings": [
+          {
+            "sheet": "watercourseBaseline",
+            "cell": "U5",
+            "message": "Check Lengths ⚠"
+          }
+        ],
+        "rowWarnings": []
+      }
+    },
+    {
+      "id": "intervention-watercourse-remeandered-standard",
+      "purpose": "intervention",
+      "title": "Watercourse — re-meandered, recorded as a Standard Enhancement",
+      "description": "R001 and R002, ditches in Moderate condition with no encroachment, are retained as they are. R003 is the re-meandered ditch of watercourse-remeandered, 100 m re-meandered onto 130 m, Moderate to Good, with Enhancement Type Standard Enhancement in place of Enhanced by Realignment. The Enhancement Type plays no part in the units, so its figures are the same.",
+      "size": 1,
+      "subject": {
+        "layer": "Rivers",
+        "ref": "R003",
+        "note": "the 100 m ditch re-meandered onto 130 m, recorded as a Standard Enhancement"
+      },
+      "files": {
+        "geoPackage": "intervention/watercourse-remeandered-standard.gpkg",
+        "baselineStage": "intervention/watercourse-remeandered-standard-baseline.gpkg",
+        "workbook": "intervention/watercourse-remeandered-standard.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "every value one the BNG Service template offers",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "every post-intervention feature names its parent",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookSource": "95572cbc18cc8308cb5a3c1440a748b66507b7511b1b08b5285fca4841f2001e",
+      "inputRows": {
+        "habitatBaseline": 1,
+        "habitatCreation": 0,
+        "habitatEnhancement": 0,
+        "hedgerowBaseline": 0,
+        "hedgerowCreation": 0,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 3,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 1
+      },
+      "rejectedInputs": [],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 453.934693761687,
+            "hedgerow": 0,
+            "watercourse": 9.49242813194434
+          },
+          "postInterventionUnits": {
+            "area": 453.934693761687,
+            "hedgerow": 0,
+            "watercourse": 10.1514849324017
+          },
+          "netUnitChange": {
+            "area": 0,
+            "hedgerow": 0,
+            "watercourse": 0.659056800457318
+          },
+          "netPercentChange": {
+            "area": 0,
+            "hedgerow": 0,
+            "watercourse": 0.0694297382394111
+          },
+          "netGainMessage": {
+            "area": "On-site net gain is less than target set ⚠",
+            "hedgerow": null,
+            "watercourse": "On-site net gain is less than target set ⚠"
+          },
+          "unitsRequired": {
+            "area": 499.328163137856,
+            "hedgerow": 0,
+            "watercourse": 10.4416709451388
+          },
+          "unitDeficit": {
+            "area": 45.3934693761688,
+            "hedgerow": 0,
+            "watercourse": 0.290186012737117
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "Yes ✓",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": 0
+        },
+        "sheetWarnings": [
+          {
+            "sheet": "watercourseBaseline",
+            "cell": "U5",
+            "message": "Check Lengths ⚠"
+          }
+        ],
+        "rowWarnings": []
+      }
+    },
+    {
+      "id": "intervention-watercourse-remeandered-split",
+      "purpose": "intervention",
+      "title": "Watercourse — part retained, part re-meandered",
+      "description": "R001 and R002, ditches in Moderate condition with no encroachment, are retained as they are. R003, a 100 m ditch in Moderate condition, is split: R003a, its first 40 m, is Retained, and R003b, the other 60 m, is re-meandered onto a 90 m route, Enhanced by Realignment to Good. As the metric user guide says, the baseline section is split into a retained and an enhanced section, and no length is lost: the workbook records R003 as a 40 m retained section and a 60 m section enhanced by 90 m. This checks the service prices the Enhanced part's baseline value on the 60 m left beside the Retained part, not on the whole 100 m.",
+      "size": 1,
+      "subject": {
+        "layer": "Rivers",
+        "ref": "R003b",
+        "note": "R003a, 40 m, Retained; R003b, the other 60 m re-meandered onto 90 m"
+      },
+      "files": {
+        "geoPackage": "intervention/watercourse-remeandered-split.gpkg",
+        "baselineStage": "intervention/watercourse-remeandered-split-baseline.gpkg",
+        "workbook": "intervention/watercourse-remeandered-split.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "every value one the BNG Service template offers",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "every post-intervention feature names its parent",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookSource": "5a3f9c41a32b84ac441e2b2027eed8aabd136661b2b65be83f661950181e8203",
+      "inputRows": {
+        "habitatBaseline": 1,
+        "habitatCreation": 0,
+        "habitatEnhancement": 0,
+        "hedgerowBaseline": 0,
+        "hedgerowCreation": 0,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 4,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 1
+      },
+      "rejectedInputs": [],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 431.471646415921,
+            "hedgerow": 0,
+            "watercourse": 4.90073874837461
+          },
+          "postInterventionUnits": {
+            "area": 431.471646415921,
+            "hedgerow": 0,
+            "watercourse": 5.42104674873508
+          },
+          "netUnitChange": {
+            "area": 0,
+            "hedgerow": 0,
+            "watercourse": 0.520308000360476
+          },
+          "netPercentChange": {
+            "area": 0,
+            "hedgerow": 0,
+            "watercourse": 0.106169299584281
+          },
+          "netGainMessage": {
+            "area": "On-site net gain is less than target set ⚠",
+            "hedgerow": null,
+            "watercourse": null
+          },
+          "unitsRequired": {
+            "area": 474.618811057513,
+            "hedgerow": 0,
+            "watercourse": 5.39081262321207
+          },
+          "unitDeficit": {
+            "area": 43.1471646415921,
+            "hedgerow": 0,
+            "watercourse": 0
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "Yes ✓",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": 0
+        },
+        "sheetWarnings": [
+          {
+            "sheet": "watercourseBaseline",
+            "cell": "U5",
+            "message": "Check Lengths ⚠"
+          }
+        ],
+        "rowWarnings": []
+      }
+    },
+    {
+      "id": "intervention-watercourse-enhanced-shorter",
+      "purpose": "intervention",
+      "title": "Watercourse — Enhanced onto a shorter line",
+      "description": "R001 and R002, ditches in Moderate condition with no encroachment, are retained as they are. R003, a 100 m ditch in Moderate condition, is Enhanced to Good on a line only 80 m long: part of the stretch is culverted or filled. A shorter Enhanced watercourse still loses the rest, so 20 m is lost. This checks a watercourse Enhanced onto a shorter line is priced as the metric does, its loss included.",
+      "size": 1,
+      "subject": {
+        "layer": "Rivers",
+        "ref": "R003",
+        "note": "the 100 m ditch Enhanced onto an 80 m line, 20 m lost"
+      },
+      "files": {
+        "geoPackage": "intervention/watercourse-enhanced-shorter.gpkg",
+        "baselineStage": "intervention/watercourse-enhanced-shorter-baseline.gpkg",
+        "workbook": "intervention/watercourse-enhanced-shorter.xlsx"
+      },
+      "gain": null,
+      "checks": [
+        {
+          "check": "every value one the BNG Service template offers",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "every post-intervention feature names its parent",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "workbook opens in Excel without repair (lint)",
+          "expected": "no issues",
+          "actual": "no issues",
+          "passed": true
+        },
+        {
+          "check": "valid data (no metric errors or rejected inputs)",
+          "expected": "none",
+          "actual": "none",
+          "passed": true
+        }
+      ],
+      "workbookSource": "1473e7fb84fed25e0c61ecc87426919e622bc37ab5598f360c62d99ecf9fc4ba",
+      "inputRows": {
+        "habitatBaseline": 1,
+        "habitatCreation": 0,
+        "habitatEnhancement": 0,
+        "hedgerowBaseline": 0,
+        "hedgerowCreation": 0,
+        "hedgerowEnhancement": 0,
+        "watercourseBaseline": 3,
+        "watercourseCreation": 0,
+        "watercourseEnhancement": 1
+      },
+      "rejectedInputs": [],
+      "notes": [],
+      "metric": {
+        "headline": {
+          "baselineUnits": {
+            "area": 457.835181874701,
+            "hedgerow": 0,
+            "watercourse": 4.42348478218656
+          },
+          "postInterventionUnits": {
+            "area": 457.835181874701,
+            "hedgerow": 0,
+            "watercourse": 4.54098238237805
+          },
+          "netUnitChange": {
+            "area": 0,
+            "hedgerow": 0,
+            "watercourse": 0.117497600191487
+          },
+          "netPercentChange": {
+            "area": 0,
+            "hedgerow": 0,
+            "watercourse": 0.0265622254799318
+          },
+          "netGainMessage": {
+            "area": "On-site net gain is less than target set ⚠",
+            "hedgerow": null,
+            "watercourse": "On-site net gain is less than target set ⚠"
+          },
+          "unitsRequired": {
+            "area": 503.618700062172,
+            "hedgerow": 0,
+            "watercourse": 4.86583326040522
+          },
+          "unitDeficit": {
+            "area": 45.7835181874702,
+            "hedgerow": 0,
+            "watercourse": 0.32485087802717
+          },
+          "target": 0.1,
+          "tradingRulesSatisfied": "Yes ✓",
+          "messages": [
+            "Input errors/rule breaks present in metric ▲"
+          ]
+        },
+        "trading": {
+          "area": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "hedgerow": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Very Low",
+              "satisfied": "Yes ✓"
+            }
+          ],
+          "watercourse": [
+            {
+              "distinctiveness": "Very High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "High",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Medium",
+              "satisfied": "Yes ✓"
+            },
+            {
+              "distinctiveness": "Low",
+              "satisfied": "Yes ✓"
+            }
+          ]
+        },
+        "corrected": {
+          "areaCumulativeSurplus": 0
+        },
+        "sheetWarnings": [],
+        "rowWarnings": []
+      }
+    },
+    {
       "id": "area-enhanced-medium-condition-na",
       "purpose": "intervention",
       "title": "Area habitat — enhancement of a Medium habitat in Condition Assessment N/A",
