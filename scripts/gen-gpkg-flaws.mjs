@@ -77,6 +77,27 @@ export function splitFlaws(names, { bngService, stage }) {
   return { legacy, ...lists };
 }
 
+/** Refuse a second flaw of one kind, saying why where there is a reason. */
+function assertOneAtATime(names, kind, reason = "") {
+  if (names.length > 1) {
+    throw new FlawSelectionError(
+      `Only one ${kind} flaw at a time${reason}; got ${names.join(", ")}`,
+    );
+  }
+}
+
+/**
+ * Refuse a flaw that changes post-intervention features on a baseline-stage
+ * file, which leaves those tables empty.
+ */
+function assertPostInterventionStage(names, kinds, stage) {
+  if (stage === STAGE_BASELINE && names.length > 0) {
+    throw new FlawSelectionError(
+      `${kinds} flaws change post-intervention features, which the baseline-stage file leaves empty; drop --stage ${STAGE_BASELINE}`,
+    );
+  }
+}
+
 /**
  * Refuse a BNG Service flaw selection the file could not hold, so a file is
  * never named for a flaw it does not carry.
@@ -89,41 +110,19 @@ function assertBngServiceFlawsWritable(
   // record is, each lineage flaw restamps the same feature, and some degrade
   // flaws break the same row, so a second of any would be named in the file
   // but not written to it. It takes one site-change flaw at a time too.
-  if (versionFlawNames.length > 1) {
-    throw new FlawSelectionError(
-      `Only one template-version flaw at a time; got ${versionFlawNames.join(", ")}`,
-    );
-  }
-  if (lineageFlawNames.length > 1) {
-    throw new FlawSelectionError(
-      `Only one lineage flaw at a time, as each restamps the same feature; got ${lineageFlawNames.join(", ")}`,
-    );
-  }
-  if (degradeFlawNames.length > 1) {
-    throw new FlawSelectionError(
-      `Only one degraded-habitat flaw at a time, as some break the same row; got ${degradeFlawNames.join(", ")}`,
-    );
-  }
-  if (changeFlawNames.length > 1) {
-    throw new FlawSelectionError(
-      `Only one site-change flaw at a time; got ${changeFlawNames.join(", ")}`,
-    );
-  }
-  // Lineage, degrade and site-change flaws change post-intervention
-  // features, and the baseline-stage file leaves those tables empty.
-  if (stage === STAGE_BASELINE && lineageFlawNames.length > 0) {
-    throw new FlawSelectionError(
-      `Lineage flaws change post-intervention features, which the baseline-stage file leaves empty; drop --stage ${STAGE_BASELINE}`,
-    );
-  }
-  if (stage === STAGE_BASELINE && degradeFlawNames.length > 0) {
-    throw new FlawSelectionError(
-      `Degraded-habitat flaws change post-intervention features, which the baseline-stage file leaves empty; drop --stage ${STAGE_BASELINE}`,
-    );
-  }
-  if (stage === STAGE_BASELINE && changeFlawNames.length > 0) {
-    throw new FlawSelectionError(
-      `Site-change flaws change post-intervention features, which the baseline-stage file leaves empty; drop --stage ${STAGE_BASELINE}`,
-    );
-  }
+  assertOneAtATime(versionFlawNames, "template-version");
+  assertOneAtATime(
+    lineageFlawNames,
+    "lineage",
+    ", as each restamps the same feature",
+  );
+  assertOneAtATime(
+    degradeFlawNames,
+    "degraded-habitat",
+    ", as some break the same row",
+  );
+  assertOneAtATime(changeFlawNames, "site-change");
+  assertPostInterventionStage(lineageFlawNames, "Lineage", stage);
+  assertPostInterventionStage(degradeFlawNames, "Degraded-habitat", stage);
+  assertPostInterventionStage(changeFlawNames, "Site-change", stage);
 }
