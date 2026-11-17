@@ -312,9 +312,16 @@ Any unexplained difference. CI runs
 then exits 1 if anything is unexplained. Locally, pass the same flag to see
 whether a run would pass.
 
-CI then runs the BNG Service template's comparison in the same job, whether or
-not the legacy run passed, and puts both summaries on the job summary and both
-reports in the artifact:
+CI runs the BNG Service template's comparison in a job of its own, beside the
+legacy one, with its own summary and its own artifact
+(`metric-comparison-service-template-library-pinned`, and `-main` or
+`-candidate` for the other legs), and a check of its own:
+`Compare the service with the metric, BNG Service template (library pinned)`.
+The legacy job keeps its name, which the backend's and bng-library's rulesets
+require. Every difference the BNG Service template's run finds is explained,
+so it gates as the legacy run does (BMD-1087): it fails the workflow, and it
+blocks a merge in the backend or bng-library once their ruleset requires its
+check too:
 
 ```sh
 npm run compare:metric -- --service-template --fail-on-unexplained

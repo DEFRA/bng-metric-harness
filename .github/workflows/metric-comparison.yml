@@ -2,8 +2,9 @@ name: Metric comparison
 
 # Compares the service with the Statutory Biodiversity Metric, figure by
 # figure, for every committed scenario (npm run compare:metric, BMD-1036):
-# the legacy template's with the service-template flag off, then the BNG
-# Service template's valid scenarios with it on (BMD-1084, BMD-1172).
+# the legacy template's with the service-template flag off, and the BNG
+# Service template's with it on (BMD-1084, BMD-1172), in separate jobs
+# (BMD-1087), so each template's result is a check of its own.
 #
 # The answer depends on three commits: the backend's (validation, sizing and
 # the enrichment that drives the engine and derives the trading-rule
@@ -120,14 +121,27 @@ defaults:
     shell: bash
 
 jobs:
-  # One job per leg. It fails the workflow on any difference from the metric
-  # that nothing known explains (scripts/metric-comparison/unexplained.mjs),
-  # as well as on a clone, install or import that fails.
+  # One job per leg and template. Each fails the workflow on any difference
+  # from the metric that nothing known explains
+  # (scripts/metric-comparison/unexplained.mjs), as well as on a clone,
+  # install or import that fails.
+  #
+  # The legacy template's job keeps the name it has always had, since the
+  # backend's and bng-library's rulesets require it by that name
+  # ("Compare the service with the metric / Compare the service with the
+  # metric (library pinned)", and "(library candidate)"). The BNG Service
+  # template's job is named for it, so it is a check of its own: every one
+  # of its differences is explained (BMD-1087 AC2), so it gates here as the
+  # legacy one does, and gates a caller once the caller's ruleset requires it.
   compare:
-    name: Compare the service with the metric (library ${{ matrix.library }})
+    name: ${{ matrix.template == 'service' && 'Compare the service with the metric, BNG Service template' || 'Compare the service with the metric' }} (library ${{ matrix.library }})
     strategy:
       fail-fast: false
       matrix:
+        # legacy: the legacy template's corpus, the service-template flag off,
+        # until the legacy template is decommissioned (BMD-1097).
+        # service: the BNG Service template's, with the flag on.
+        template: [legacy, service]
         # A library commit to test (from bng-library's caller) runs the
         # candidate leg only. Otherwise a pull request or a merge group (the
         # caller's event, when called) tries the pinned engine only, and
@@ -136,8 +150,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Named once: the upload step gives it to the artifact and the
-      # comparison names it in the job summary.
-      METRIC_COMPARISON_ARTIFACT: metric-comparison-library-${{ matrix.library }}
+      # comparison names it in the job summary. The legacy name is as it was.
+      METRIC_COMPARISON_ARTIFACT: metric-comparison-${{ matrix.template == 'service' && 'service-template-' || '' }}library-${{ matrix.library }}
     steps:
       # Where the backend under test is checked out. The comparison reads
       # this (scripts/metric-comparison/backend.mjs) in place of the sibling
@@ -261,36 +275,42 @@ jobs:
       # job, after the reports are written. The log lists every difference;
       # a summary goes on the job summary, leading with any unexplained
       # differences; the full report (report.html and report.xlsx) is in the
-      # artifact. The BNG Service template corpus's expected codes are checked
-      # here too, as this is the one job with a backend installed.
+      # artifact.
       - name: Test comparison and import assertions
-        run: npx vitest run tests/scripts/metric-comparison tests/scripts/scenarios/import-timing.test.mjs tests/scripts/service-template/expected-codes.test.mjs
+        if: matrix.template == 'legacy'
+        run: npx vitest run tests/scripts/metric-comparison tests/scripts/scenarios/import-timing.test.mjs
 
       - name: Compare the service with the metric
         id: compare-metric
+        if: matrix.template == 'legacy'
         run: npm run compare:metric -- --fail-on-unexplained
 
+      # The BNG Service template corpus's expected codes are checked here, as
+      # this is the template's one job with a backend installed.
+      - name: Test the BNG Service template corpus's expected codes
+        if: matrix.template == 'service'
+        run: npx vitest run tests/scripts/service-template/expected-codes.test.mjs
+
       # The BNG Service template's scenarios, with the service-template flag
-      # on, which is the only way the service reads them (BMD-1084). It runs
-      # whether or not the legacy comparison passed, so each reports. Every
+      # on, which is the only way the service reads them (BMD-1084). Every
       # scenario, the invalid ones included: each invalid one the service
       # accepts is explained, against the BNG Service file, in
       # unexplained.mjs's SERVICE_TEMPLATE_ tables. A scenario added later is
       # compared as it is. Its reports go to
-      # metric-comparison/service-template/, in the same artifact.
+      # metric-comparison/service-template/.
       - name: Compare the service with the metric, BNG Service template
         id: compare-metric-service-template
-        if: ${{ !cancelled() && steps.backend.outcome == 'success' }}
+        if: matrix.template == 'service'
         run: npm run compare:metric -- --service-template --fail-on-unexplained
 
       - name: Publish the metric comparison summary
         if: ${{ !cancelled() && (steps.compare-metric.outcome != 'skipped' || steps.compare-metric-service-template.outcome != 'skipped') }}
+        env:
+          SUMMARY: metric-comparison/${{ matrix.template == 'service' && 'service-template/' || '' }}summary.md
         run: |
-          for summary in metric-comparison/summary.md metric-comparison/service-template/summary.md; do
-            if [ -f "$summary" ]; then
-              cat "$summary" >> "$GITHUB_STEP_SUMMARY"
-            fi
-          done
+          if [ -f "$SUMMARY" ]; then
+            cat "$SUMMARY" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload the metric comparison report
         if: ${{ !cancelled() && (steps.compare-metric.outcome != 'skipped' || steps.compare-metric-service-template.outcome != 'skipped') }}
