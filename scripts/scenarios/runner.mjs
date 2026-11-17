@@ -330,7 +330,11 @@ function attachResults(entry, scenario, results) {
   );
 }
 
-async function recalculateAll(entries, scenarios, { outDir, soffice, kept }) {
+async function recalculateAll(
+  entries,
+  scenarios,
+  { outDir, soffice, processes, kept },
+) {
   const attach = (entry, results) =>
     attachResults(
       entry,
@@ -362,6 +366,7 @@ async function recalculateAll(entries, scenarios, { outDir, soffice, kept }) {
       {
         workDir,
         soffice,
+        processes,
         onProgress: (done, total) => {
           if (done % PROGRESS_EVERY === 0 || done === total) {
             info(`  recalculated ${done} of ${total}`);
@@ -470,6 +475,8 @@ function reportFailedChecks(entries) {
  * @param {boolean} [options.recalculate] run LibreOffice and check the
  *   metric's verdicts (needs a template)
  * @param {string} [options.soffice] LibreOffice binary
+ * @param {number} [options.processes] LibreOffice processes to run at once;
+ *   one per CPU by default
  * @param {boolean} [options.partial] a filtered run: replace only these
  *   scenarios' files rather than their whole purpose folders
  * @param {string} [options.format] 'legacy' (the default): a baseline /
@@ -486,6 +493,7 @@ export async function buildScenarioCorpus({
   templatePath,
   recalculate = false,
   soffice,
+  processes,
   partial = false,
   format = FORMAT_LEGACY,
 }) {
@@ -533,7 +541,12 @@ export async function buildScenarioCorpus({
 
   if (workbook && recalculate) {
     header("Recalculating the workbooks with LibreOffice", "cyan");
-    await recalculateAll(entries, scenarios, { outDir, soffice, kept });
+    await recalculateAll(entries, scenarios, {
+      outDir,
+      soffice,
+      processes,
+      kept,
+    });
   }
   reportFailedChecks(entries);
   return entries;

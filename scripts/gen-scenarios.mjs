@@ -9,6 +9,7 @@
  *
  *   --no-workbooks   GeoPackages only: no template, no LibreOffice.
  *   --no-recalc      write the workbooks but don't recalculate them.
+ *   --processes N    LibreOffice processes to recalculate with at once.
  *
  * A filtered run (--only / --scenario) replaces only its own scenarios'
  * files and merges them into the manifest already in the output folder.
@@ -87,6 +88,9 @@ Usage: npm run generate:scenarios -- [options]
   --no-recalc       Write the workbooks without recalculating them. Excel
                     recalculates on open; manifest.json then has no metric
                     results.
+  --processes N     LibreOffice processes to recalculate with at once
+                    (default: one per CPU). Each takes about 1 GB of
+                    memory, so lower it on a machine short of memory.
   --template PATH   Statutory Biodiversity Metric workbook to write into
                     (default: $METRIC_TEMPLATE, else the published tool,
                     downloaded once from GOV.UK and cached).
@@ -109,6 +113,7 @@ const { values: args } = parseArgs({
     centre: { type: "string", default: "" },
     "no-workbooks": { type: "boolean", default: false },
     "no-recalc": { type: "boolean", default: false },
+    processes: { type: "string", default: "" },
     template: { type: "string", default: process.env.METRIC_TEMPLATE ?? "" },
     "download-template": { type: "boolean", default: false },
     list: { type: "boolean", default: false },
@@ -171,6 +176,21 @@ function resolveSeed(previous) {
     process.exit(1);
   }
   return seed;
+}
+
+/** --processes as a whole number above 0, or undefined for one per CPU. */
+function processesOrExit() {
+  if (!args.processes) {
+    return undefined;
+  }
+  const processes = Number(args.processes);
+  if (!Number.isInteger(processes) || processes < 1) {
+    error(
+      `--processes must be a whole number of 1 or more (got: ${args.processes})`,
+    );
+    process.exit(1);
+  }
+  return processes;
 }
 
 /** The template to write into, or null for GeoPackages only. */
@@ -296,6 +316,7 @@ async function main() {
     return;
   }
 
+  const processes = processesOrExit();
   const templatePath = await templateOrExit();
   const recalculate = Boolean(templatePath) && !args["no-recalc"];
   assertLibreOffice(recalculate);
@@ -317,6 +338,7 @@ async function main() {
     seed,
     templatePath,
     recalculate,
+    processes,
     partial: isFiltered(),
     format,
   });

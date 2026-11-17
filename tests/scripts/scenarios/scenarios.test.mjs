@@ -612,6 +612,14 @@ describe("generate:scenarios — filtered runs", () => {
     rmSync(outDir, { recursive: true, force: true });
   });
 
+  it.each(["0", "two", "1.5"])("refuses --processes %s", (value) => {
+    const run = cli("--processes", value);
+    expect(run.status).toBe(1);
+    expect(run.stderr + run.stdout).toContain(
+      `--processes must be a whole number of 1 or more (got: ${value})`,
+    );
+  });
+
   it("keeps the rest of the corpus and its manifest", () => {
     const run = cli("--scenario", "intervention-area-created");
     expect(run.status, run.stderr).toBe(0);
