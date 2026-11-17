@@ -1,7 +1,7 @@
 /**
  * `--flaw` for the BNG Service format: split the selection into the legacy
- * flaws and the format's own lineage, degraded-habitat and template-version
- * flaws, and refuse a selection the file could not hold.
+ * flaws and the format's own lineage, degraded-habitat, site-change and
+ * template-version flaws, and refuse a selection the file could not hold.
  *
  * Split out of `gen-gpkg.mjs` to keep that file within its size budget; it is
  * the CLI's only consumer.
@@ -9,6 +9,7 @@
 
 import {
   BNG_SERVICE_FLAWS,
+  CATEGORY_CHANGE,
   CATEGORY_DEGRADE,
   CATEGORY_LINEAGE,
   CATEGORY_VERSION,
@@ -22,6 +23,7 @@ import {
 const FLAW_LISTS = {
   [CATEGORY_LINEAGE]: "lineageFlawNames",
   [CATEGORY_DEGRADE]: "degradeFlawNames",
+  [CATEGORY_CHANGE]: "changeFlawNames",
   [CATEGORY_VERSION]: "versionFlawNames",
 };
 
@@ -42,8 +44,8 @@ export function flawListFor(category, name) {
 
 /**
  * Split --flaw into the legacy flaws, which the legacy generator draws, and
- * the BNG Service format's own lineage, degraded-habitat and template-version
- * flaws, which are applied to the converted file. A flaw the template cannot
+ * the BNG Service format's own lineage, degraded-habitat, site-change and
+ * template-version flaws, which are applied to the converted file. A flaw the template cannot
  * carry is refused.
  */
 export function splitFlaws(names, { bngService, stage }) {
@@ -51,6 +53,7 @@ export function splitFlaws(names, { bngService, stage }) {
   const lists = {
     lineageFlawNames: [],
     degradeFlawNames: [],
+    changeFlawNames: [],
     versionFlawNames: [],
   };
   for (const name of names) {
@@ -79,13 +82,13 @@ export function splitFlaws(names, { bngService, stage }) {
  * never named for a flaw it does not carry.
  */
 function assertBngServiceFlawsWritable(
-  { lineageFlawNames, degradeFlawNames, versionFlawNames },
+  { lineageFlawNames, degradeFlawNames, changeFlawNames, versionFlawNames },
   stage,
 ) {
   // As bng-library's partitionFlaws: each version flaw says what the whole
   // record is, each lineage flaw restamps the same feature, and some degrade
   // flaws break the same row, so a second of any would be named in the file
-  // but not written to it.
+  // but not written to it. It takes one site-change flaw at a time too.
   if (versionFlawNames.length > 1) {
     throw new FlawSelectionError(
       `Only one template-version flaw at a time; got ${versionFlawNames.join(", ")}`,
@@ -101,8 +104,13 @@ function assertBngServiceFlawsWritable(
       `Only one degraded-habitat flaw at a time, as some break the same row; got ${degradeFlawNames.join(", ")}`,
     );
   }
-  // Lineage and degrade flaws change post-intervention features, and the
-  // baseline-stage file leaves those tables empty.
+  if (changeFlawNames.length > 1) {
+    throw new FlawSelectionError(
+      `Only one site-change flaw at a time; got ${changeFlawNames.join(", ")}`,
+    );
+  }
+  // Lineage, degrade and site-change flaws change post-intervention
+  // features, and the baseline-stage file leaves those tables empty.
   if (stage === STAGE_BASELINE && lineageFlawNames.length > 0) {
     throw new FlawSelectionError(
       `Lineage flaws change post-intervention features, which the baseline-stage file leaves empty; drop --stage ${STAGE_BASELINE}`,
@@ -111,6 +119,11 @@ function assertBngServiceFlawsWritable(
   if (stage === STAGE_BASELINE && degradeFlawNames.length > 0) {
     throw new FlawSelectionError(
       `Degraded-habitat flaws change post-intervention features, which the baseline-stage file leaves empty; drop --stage ${STAGE_BASELINE}`,
+    );
+  }
+  if (stage === STAGE_BASELINE && changeFlawNames.length > 0) {
+    throw new FlawSelectionError(
+      `Site-change flaws change post-intervention features, which the baseline-stage file leaves empty; drop --stage ${STAGE_BASELINE}`,
     );
   }
 }

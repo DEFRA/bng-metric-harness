@@ -71,7 +71,7 @@ Valid files, combined and baseline-stage: each should upload cleanly.
 
 ## spatial-problems/
 
-Valid schema, invalid geometry: each trips one geometry validator. Baseline-stage files, as the legacy family's are, so a broken parcel does not also break its post-intervention lineage.
+Valid schema, invalid geometry: each trips one geometry validator. Baseline-stage files, as the legacy family's are, so a broken parcel does not also break its post-intervention lineage. `remeandered-watercourse-outside.gpkg` holds both stages, as its flaw is in the re-meandered channel.
 
 | File | Covers | Expected | Built from |
 | ---- | ------ | -------- | ---------- |
@@ -87,6 +87,7 @@ Valid schema, invalid geometry: each trips one geometry validator. Baseline-stag
 | `area-sum-mismatch-baseline.gpkg` | habitat parcels do not tile the redline | AREA_SUM_MISMATCH | seed 1, baseline stage, flaw `area-sum-mismatch` |
 | `redline-not-in-england-baseline.gpkg` | redline placed outside England (Snowdonia, Wales) | REDLINE_OUTSIDE_ENGLAND | seed 1, baseline stage, flaw `redline-not-in-england` |
 | `redline-too-large-baseline.gpkg` | redline area exceeds the 100 sq km limit | REDLINE_AREA_TOO_LARGE | seed 1, baseline stage, flaw `redline-too-large` |
+| `remeandered-watercourse-outside.gpkg` | the re-meandered watercourse's new route goes 5 m outside the red line: its bend is moved out across the boundary, while its baseline line stays inside | WATERCOURSES_OUTSIDE_REDLINE | seed 1, flaw `remeandered-watercourse-outside` |
 
 ## invalid-schema/
 

@@ -67,7 +67,7 @@ export const FAMILIES = [
   {
     dir: "spatial-problems",
     covers:
-      "Valid schema, invalid geometry: each trips one geometry validator. Baseline-stage files, as the legacy family's are, so a broken parcel does not also break its post-intervention lineage",
+      "Valid schema, invalid geometry: each trips one geometry validator. Baseline-stage files, as the legacy family's are, so a broken parcel does not also break its post-intervention lineage. `remeandered-watercourse-outside.gpkg` holds both stages, as its flaw is in the re-meandered channel",
   },
   {
     dir: "invalid-schema",
@@ -300,6 +300,13 @@ const SPATIAL = [
 ].map((name) =>
   flawFixture("spatial-problems", name, { stage: STAGE_BASELINE }),
 );
+
+// A re-meandered watercourse whose new channel bends outside the red line,
+// while its baseline line stays inside: it needs the post-intervention
+// tables, so it is the one spatial file that is not baseline-stage.
+const SPATIAL_POST_INTERVENTION = [
+  flawFixture("spatial-problems", "remeandered-watercourse-outside"),
+];
 
 const AREA_BASELINE = "Area Habitats Baseline";
 const HEDGEROWS_BASELINE = "Hedgerows Baseline";
@@ -539,6 +546,7 @@ const FILENAME = [
 export const RECIPES = [
   ...VALID,
   ...SPATIAL,
+  ...SPATIAL_POST_INTERVENTION,
   ...INVALID_SCHEMA,
   ...EMPTY_LAYER,
   ...ATTRIBUTE,

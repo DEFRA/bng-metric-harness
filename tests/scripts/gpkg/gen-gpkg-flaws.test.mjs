@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BNG_SERVICE_FLAWS,
+  CATEGORY_CHANGE,
   CATEGORY_DEGRADE,
   CATEGORY_LINEAGE,
   CATEGORY_VERSION,
@@ -12,6 +13,7 @@ describe("flawListFor", () => {
   it.each([
     [CATEGORY_LINEAGE, "lineageFlawNames"],
     [CATEGORY_DEGRADE, "degradeFlawNames"],
+    [CATEGORY_CHANGE, "changeFlawNames"],
     [CATEGORY_VERSION, "versionFlawNames"],
   ])("puts a %s flaw in %s", (category, list) => {
     expect(flawListFor(category, "a-flaw")).toBe(list);
@@ -37,14 +39,29 @@ describe("splitFlaws", () => {
   it("files each BNG Service flaw by its category", () => {
     expect(
       splitFlaws(
-        ["lineage-parent-missing", "degrade-not-worse", "version-unsupported"],
+        [
+          "lineage-parent-missing",
+          "degrade-not-worse",
+          "remeandered-watercourse-outside",
+          "version-unsupported",
+        ],
         { bngService: true, stage: "post-intervention" },
       ),
     ).toEqual({
       legacy: [],
       lineageFlawNames: ["lineage-parent-missing"],
       degradeFlawNames: ["degrade-not-worse"],
+      changeFlawNames: ["remeandered-watercourse-outside"],
       versionFlawNames: ["version-unsupported"],
     });
+  });
+
+  it("refuses a site-change flaw on a baseline-stage file, which has no change to break", () => {
+    expect(() =>
+      splitFlaws(["remeandered-watercourse-outside"], {
+        bngService: true,
+        stage: "baseline",
+      }),
+    ).toThrow(/Site-change flaws change post-intervention features/);
   });
 });

@@ -46,6 +46,10 @@ const FLAW_CATEGORY_HEADINGS = [
     "Degraded-habitat flaws (--format bng-service only; a habitat that gets worse, recorded wrongly):",
   ],
   [
+    "site-change",
+    "Site-change flaws (--format bng-service only; a change the default site makes, drawn wrongly):",
+  ],
+  [
     "template-version",
     "Template-version flaws (--format bng-service only; the gpkg_metadata version record):",
   ],

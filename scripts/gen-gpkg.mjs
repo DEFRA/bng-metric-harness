@@ -333,8 +333,13 @@ async function runSynthetic(centre, seed) {
     1,
     Number.parseInt(args.count, PARSE_INT_BASE_10) || DEFAULT_RUN_COUNT,
   );
-  const { legacy, lineageFlawNames, degradeFlawNames, versionFlawNames } =
-    splitFlaws(args.flaw, { bngService, stage: selectedStage });
+  const {
+    legacy,
+    lineageFlawNames,
+    degradeFlawNames,
+    changeFlawNames,
+    versionFlawNames,
+  } = splitFlaws(args.flaw, { bngService, stage: selectedStage });
   const selection = resolveFlawSelection({
     bad: args.bad,
     flaws: legacy,
@@ -353,6 +358,7 @@ async function runSynthetic(centre, seed) {
     ...selection,
     lineageFlawNames,
     degradeFlawNames,
+    changeFlawNames,
     versionFlawNames,
   };
   if (habitatPins) {
@@ -402,6 +408,7 @@ function syntheticOutPaths(plan, flawSuffix, suffix, stamp) {
     const extraFlaws = [
       ...plan.lineageFlawNames,
       ...plan.degradeFlawNames,
+      ...plan.changeFlawNames,
       ...plan.versionFlawNames,
     ];
     return {
