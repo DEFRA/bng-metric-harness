@@ -223,10 +223,11 @@ file:
 
 - **Nothing, for the metric template.** By default the generator uses the
   calculation tool Defra publishes on GOV.UK (*The Statutory Metric*, macro-free
-  `.xlsx`, release 1.0.4). It downloads it on first use, checks it against a
+  `.xlsx`, release 1.1.1). It downloads it on first use, checks it against a
   pinned checksum, and keeps it in the gitignored `.cache/metric-template/`.
-  Every scenario's verdict was validated against this release; it gives the
-  same results as the filled-in example workbook the work began with.
+  Every scenario's verdict was validated against this release. Both corpora
+  give the same results on it as on 1.0.4, the release they were first built
+  on, which GOV.UK no longer serves.
 
   To use a different workbook, put it in the gitignored `./workbooks/` and pass
   `--template workbooks/<name>.xlsx` or set `METRIC_TEMPLATE` (the path must be
