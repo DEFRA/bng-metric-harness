@@ -53,6 +53,7 @@ import {
   ensurePublishedTemplate,
   resolveTemplate,
 } from "./scenarios/template.mjs";
+import { parseProcesses } from "./scenarios/processes.mjs";
 
 // Purposes only the BNG Service corpus has scenarios for.
 const BNG_SERVICE_ONLY_PURPOSES = catalogueFor(
@@ -178,19 +179,14 @@ function resolveSeed(previous) {
   return seed;
 }
 
-/** --processes as a whole number above 0, or undefined for one per CPU. */
+/** --processes, or undefined for one per CPU; a bad value exits. */
 function processesOrExit() {
-  if (!args.processes) {
-    return undefined;
-  }
-  const processes = Number(args.processes);
-  if (!Number.isInteger(processes) || processes < 1) {
-    error(
-      `--processes must be a whole number of 1 or more (got: ${args.processes})`,
-    );
+  try {
+    return parseProcesses(args.processes);
+  } catch (err) {
+    error(err.message);
     process.exit(1);
   }
-  return processes;
 }
 
 /** The template to write into, or null for GeoPackages only. */
