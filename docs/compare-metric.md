@@ -313,15 +313,22 @@ then exits 1 if anything is unexplained. Locally, pass the same flag to see
 whether a run would pass.
 
 CI runs the BNG Service template's comparison in a job of its own, beside the
-legacy one, with its own summary and its own artifact
-(`metric-comparison-service-template-library-pinned`, and `-main` or
-`-candidate` for the other legs), and a check of its own:
-`Compare the service with the metric, BNG Service template (library pinned)`.
-The legacy job keeps its name, which the backend's and bng-library's rulesets
-require. Every difference the BNG Service template's run finds is explained,
-so it gates as the legacy run does (BMD-1087): it fails the workflow, and it
-blocks a merge in the backend or bng-library once their ruleset requires its
-check too:
+legacy one, each with its own summary, artifact and check:
+`Compare the service with the metric, legacy template (library pinned)` (artifact
+`metric-comparison-library-pinned`) and
+`Compare the service with the metric, BNG Service template (library pinned)`
+(artifact `metric-comparison-service-template-library-pinned`), with `main`
+or `candidate` in place of `pinned` for the other legs. Every difference the
+BNG Service template's run finds is explained, so both gate (BMD-1087).
+
+A ruleset requires neither job. It requires the gate job,
+`Compare the service with the metric (library pinned)` (`(library candidate)`
+when bng-library calls the workflow), which passes only when every template's
+job passed. That is the name the one comparison job had before the templates
+were split, so the backend's and bng-library's rulesets did not change, and
+retiring the legacy template (BMD-1097) changes only the workflow. Outside a
+pull request, a merge group or a library call the gate covers every leg and
+is named `(library all)`.
 
 ```sh
 npm run compare:metric -- --service-template --fail-on-unexplained

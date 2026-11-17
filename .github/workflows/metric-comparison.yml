@@ -126,15 +126,10 @@ jobs:
   # (scripts/metric-comparison/unexplained.mjs), as well as on a clone,
   # install or import that fails.
   #
-  # The legacy template's job keeps the name it has always had, since the
-  # backend's and bng-library's rulesets require it by that name
-  # ("Compare the service with the metric / Compare the service with the
-  # metric (library pinned)", and "(library candidate)"). The BNG Service
-  # template's job is named for it, so it is a check of its own: every one
-  # of its differences is explained (BMD-1087 AC2), so it gates here as the
-  # legacy one does, and gates a caller once the caller's ruleset requires it.
+  # Each template's job is a check of its own, named for the template, so
+  # its result is seen on its own. What gates a merge is the gate job below.
   compare:
-    name: ${{ matrix.template == 'service' && 'Compare the service with the metric, BNG Service template' || 'Compare the service with the metric' }} (library ${{ matrix.library }})
+    name: Compare the service with the metric, ${{ matrix.template == 'service' && 'BNG Service' || 'legacy' }} template (library ${{ matrix.library }})
     strategy:
       fail-fast: false
       matrix:
@@ -319,3 +314,29 @@ jobs:
           name: ${{ env.METRIC_COMPARISON_ARTIFACT }}
           path: metric-comparison/
           if-no-files-found: warn
+
+  # The one check the rulesets require, by the name the comparison job had
+  # before the templates were split: the backend's ruleset requires
+  # "Compare the service with the metric / Compare the service with the
+  # metric (library pinned)", and bng-library's "(library candidate)". It
+  # passes only when every template's job on every leg passed, so both
+  # templates gate (BMD-1087 AC2, AC5) with no ruleset naming either, and
+  # retiring the legacy template (BMD-1097) or adding a leg changes only this
+  # workflow. A pull request, a merge group and a library caller each run one
+  # leg, so the gate is named for it; elsewhere it covers every leg, and is
+  # named "all", as no ruleset is checked there.
+  gate:
+    name: Compare the service with the metric (library ${{ inputs.library-sha && 'candidate' || ((github.event_name == 'pull_request' || github.event_name == 'merge_group') && 'pinned' || 'all') }})
+    needs: compare
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every template's comparison to pass
+        env:
+          RESULT: ${{ needs.compare.result }}
+        run: |
+          echo "The comparison jobs finished: $RESULT"
+          if [ "$RESULT" != "success" ]; then
+            echo "A template's comparison did not pass; see its job for the differences."
+            exit 1
+          fi
