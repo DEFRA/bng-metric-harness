@@ -7,7 +7,11 @@ import {
   CATEGORY_VERSION,
   FlawSelectionError,
 } from "#bng-lib";
-import { flawListFor, splitFlaws } from "../../../scripts/gen-gpkg-flaws.mjs";
+import {
+  assertChangeFlawsDrawable,
+  flawListFor,
+  splitFlaws,
+} from "../../../scripts/gen-gpkg-flaws.mjs";
 
 describe("flawListFor", () => {
   it.each([
@@ -63,5 +67,44 @@ describe("splitFlaws", () => {
         stage: "baseline",
       }),
     ).toThrow(/Site-change flaws change post-intervention features/);
+  });
+});
+
+describe("assertChangeFlawsDrawable", () => {
+  const CHANGE = ["remeandered-watercourse-outside"];
+
+  it("refuses a site-change flaw beside a geometric flaw or --bad", () => {
+    const refused = () =>
+      assertChangeFlawsDrawable(CHANGE, {
+        geometricFlawNames: ["bowtie-parcel"],
+        emptyLayers: new Set(),
+      });
+    expect(refused).toThrow(FlawSelectionError);
+    expect(refused).toThrow(/drop the geometric flaw or --bad/);
+  });
+
+  it("refuses a site-change flaw with the rivers layer empty", () => {
+    const refused = () =>
+      assertChangeFlawsDrawable(CHANGE, {
+        geometricFlawNames: [],
+        emptyLayers: new Set(["rivers"]),
+      });
+    expect(refused).toThrow(FlawSelectionError);
+    expect(refused).toThrow(/empty rivers layer cannot hold; drop no-rivers/);
+  });
+
+  it("passes a site that draws the change, and any site with no site-change flaw", () => {
+    expect(() =>
+      assertChangeFlawsDrawable(CHANGE, {
+        geometricFlawNames: [],
+        emptyLayers: new Set(["hedgerows"]),
+      }),
+    ).not.toThrow();
+    expect(() =>
+      assertChangeFlawsDrawable([], {
+        geometricFlawNames: ["bowtie-parcel"],
+        emptyLayers: new Set(["rivers"]),
+      }),
+    ).not.toThrow();
   });
 });

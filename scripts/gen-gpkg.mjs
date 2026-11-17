@@ -66,7 +66,7 @@ import {
   HABITATS_LAYER,
   resolveHabitatPins,
 } from "./gen-gpkg-habitat-pins.mjs";
-import { splitFlaws } from "./gen-gpkg-flaws.mjs";
+import { assertChangeFlawsDrawable, splitFlaws } from "./gen-gpkg-flaws.mjs";
 import { printHelp } from "./gen-gpkg-help.mjs";
 import { runFromList, runFromWorkbook } from "./gen-gpkg-workbook.mjs";
 import { assertWorseDrawn, parseWorseCounts } from "./gen-gpkg-worse.mjs";
@@ -345,6 +345,7 @@ async function runSynthetic(centre, seed) {
     flaws: legacy,
     numParcels,
   });
+  assertChangeFlawsDrawable(changeFlawNames, selection);
   const habitatPins = resolveHabitatPins(args.habitat, numParcels, selection);
   const worseHabitatCounts = parseWorseCounts(args.worse, degradeFlawNames);
   const irreplaceableLayers = parseIrreplaceableLayers(args.irreplaceable);

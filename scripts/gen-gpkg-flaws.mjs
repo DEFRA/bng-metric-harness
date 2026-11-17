@@ -57,24 +57,64 @@ export function splitFlaws(names, { bngService, stage }) {
     versionFlawNames: [],
   };
   for (const name of names) {
-    const flaw = BNG_SERVICE_FLAWS[name];
-    if (bngService && LEGACY_ONLY_FLAWS.has(name)) {
-      throw new FlawSelectionError(
-        `Flaw "${name}" cannot be written in the BNG Service template (it has no Count column).`,
-      );
-    }
-    if (!flaw) {
-      legacy.push(name);
-    } else if (bngService) {
-      lists[flawListFor(flaw.category, name)].push(name);
+    const list = listOf(name, bngService);
+    if (list) {
+      lists[list].push(name);
     } else {
-      throw new FlawSelectionError(
-        `Flaw "${name}" is a BNG Service template flaw; add --format ${FORMAT_BNG_SERVICE}.`,
-      );
+      legacy.push(name);
     }
   }
   assertBngServiceFlawsWritable(lists, stage);
   return { legacy, ...lists };
+}
+
+/**
+ * The BNG Service list a flaw goes in, or null for a legacy flaw. A flaw the
+ * template cannot carry, or a BNG Service flaw without the format, is refused.
+ */
+function listOf(name, bngService) {
+  if (bngService && LEGACY_ONLY_FLAWS.has(name)) {
+    throw new FlawSelectionError(
+      `Flaw "${name}" cannot be written in the BNG Service template (it has no Count column).`,
+    );
+  }
+  const flaw = BNG_SERVICE_FLAWS[name];
+  if (!flaw) {
+    return null;
+  }
+  if (!bngService) {
+    throw new FlawSelectionError(
+      `Flaw "${name}" is a BNG Service template flaw; add --format ${FORMAT_BNG_SERVICE}.`,
+    );
+  }
+  return flawListFor(flaw.category, name);
+}
+
+/**
+ * Refuse a site-change flaw on a site that cannot draw the change it breaks:
+ * one with a geometric flaw or --bad, which draws the minimal bad fixture,
+ * or with the rivers layer empty. bng-library refuses both too, but with a
+ * plain error, after the output folder is cleared; refused here, the user
+ * gets the CLI's message and nothing is touched.
+ */
+export function assertChangeFlawsDrawable(
+  changeFlawNames,
+  { geometricFlawNames = [], emptyLayers = new Set() },
+) {
+  if (changeFlawNames.length === 0) {
+    return;
+  }
+  const names = changeFlawNames.join(", ");
+  if (geometricFlawNames.length > 0) {
+    throw new FlawSelectionError(
+      `Site-change flaw ${names} breaks a change the default site draws, which a geometric flaw or --bad does not draw; drop the geometric flaw or --bad`,
+    );
+  }
+  if (emptyLayers.has("rivers")) {
+    throw new FlawSelectionError(
+      `Site-change flaw ${names} breaks a watercourse change, which an empty rivers layer cannot hold; drop no-rivers`,
+    );
+  }
 }
 
 /** Refuse a second flaw of one kind, saying why where there is a reason. */
