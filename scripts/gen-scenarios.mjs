@@ -181,12 +181,14 @@ function resolveSeed(previous) {
 
 /** --processes, or undefined for one per CPU; a bad value exits. */
 function processesOrExit() {
+  let processes;
   try {
-    return parseProcesses(args.processes);
+    processes = parseProcesses(args.processes);
   } catch (err) {
     error(err.message);
     process.exit(1);
   }
+  return processes;
 }
 
 /** The template to write into, or null for GeoPackages only. */
