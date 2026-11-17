@@ -89,9 +89,10 @@ Usage: npm run generate:scenarios -- [options]
   --no-recalc       Write the workbooks without recalculating them. Excel
                     recalculates on open; manifest.json then has no metric
                     results.
-  --processes N     LibreOffice processes to recalculate with at once
-                    (default: one per CPU). Each takes about 1 GB of
-                    memory, so lower it on a machine short of memory.
+  --processes N     LibreOffice processes to recalculate with at once,
+                    from 1 to the number of CPUs (default: one per CPU).
+                    Each takes about 1 GB of memory, so lower it on a
+                    machine short of memory.
   --template PATH   Statutory Biodiversity Metric workbook to write into
                     (default: $METRIC_TEMPLATE, else the published tool,
                     downloaded once from GOV.UK and cached).

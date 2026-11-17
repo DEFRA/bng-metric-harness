@@ -43,9 +43,19 @@ describe("parseProcesses", () => {
     expect(parseProcesses("")).toBeUndefined();
   });
 
-  it.each(["0", "-1", "two", "1.5"])("refuses %s", (text) => {
-    expect(() => parseProcesses(text)).toThrow(
-      `--processes must be a whole number of 1 or more (got: ${text})`,
+  it.each(["0", "-1", "two", "1.5", "1e9", "0x2", " 2 ", "02"])(
+    "refuses %j",
+    (text) => {
+      expect(() => parseProcesses(text)).toThrow(
+        `--processes must be a whole number of 1 or more (got: ${text})`,
+      );
+    },
+  );
+
+  it("refuses more processes than the machine has CPUs", () => {
+    expect(parseProcesses("4", 4)).toBe(4);
+    expect(() => parseProcesses("5", 4)).toThrow(
+      "--processes 5 is more than this machine's 4 CPUs",
     );
   });
 });

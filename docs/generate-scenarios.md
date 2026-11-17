@@ -479,7 +479,7 @@ against it.
 | `--centre E,N` | Red Line Boundary centre, BNG/EPSG:27700 (default `530000,180000`) |
 | `--no-workbooks` | GeoPackages only: no template, no LibreOffice |
 | `--no-recalc` | Write the workbooks without recalculating them |
-| `--processes N` | LibreOffice processes to recalculate with at once (default: one per CPU); each takes about 1 GB of memory |
+| `--processes N` | LibreOffice processes to recalculate with at once, from 1 to the number of CPUs (default: one per CPU); each takes about 1 GB of memory |
 | `--template PATH` | The metric v4 workbook to write into (default `$METRIC_TEMPLATE`, else the published tool); must be inside the harness |
 | `--download-template` | Download the published template into the cache and exit |
 | `--list` | Print the catalogue and exit |
