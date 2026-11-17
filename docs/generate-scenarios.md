@@ -244,6 +244,14 @@ file:
   two-core machine a workbook takes about 3.5 seconds, the trading-rule matrix
   under a minute, and the whole catalogue about three minutes.
 
+  **Short of memory?** Each LibreOffice process takes about 1 GB. On a
+  machine with little free memory, such as one running the dev stack, the
+  kernel can kill them part-way (`LibreOffice exited with status 137`).
+  `--processes 2` runs fewer at once. A whole corpus in one run also holds
+  every workbook's results until it ends, so building one purpose at a time
+  (`--only <purpose>`, into the same `--outdir`) keeps each run smaller; the
+  manifest merges them in catalogue order.
+
   With `--no-recalc` the workbooks are written but not recalculated: they
   hold formulas only, and `manifest.json` has no results. Excel recalculates a
   generated workbook when it is opened, so a human tester needs nothing else.
@@ -472,6 +480,7 @@ against it.
 | `--centre E,N` | Red Line Boundary centre, BNG/EPSG:27700 (default `530000,180000`) |
 | `--no-workbooks` | GeoPackages only: no template, no LibreOffice |
 | `--no-recalc` | Write the workbooks without recalculating them |
+| `--processes N` | LibreOffice processes to recalculate with at once, from 1 to the number of CPUs (default: one per CPU); each takes about 1 GB of memory |
 | `--template PATH` | The metric v4 workbook to write into (default `$METRIC_TEMPLATE`, else the published tool); must be inside the harness |
 | `--download-template` | Download the published template into the cache and exit |
 | `--list` | Print the catalogue and exit |
