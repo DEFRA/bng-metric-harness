@@ -295,7 +295,10 @@ jobs:
       # metric-comparison/service-template/.
       - name: Compare the service with the metric, BNG Service template
         id: compare-metric-service-template
-        if: matrix.template == 'service'
+        # Runs whether or not the expected-codes test passed, so the
+        # comparison still reports when it fails, as it did as a step of the
+        # legacy job.
+        if: ${{ !cancelled() && matrix.template == 'service' && steps.backend.outcome == 'success' }}
         run: npm run compare:metric -- --service-template --fail-on-unexplained
 
       - name: Publish the metric comparison summary
