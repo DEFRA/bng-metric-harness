@@ -45,7 +45,7 @@ describe("splitFlaws", () => {
       splitFlaws(
         [
           "lineage-parent-missing",
-          "degrade-not-worse",
+          "degrade-watercourse-encroachment-no-advance",
           "remeandered-watercourse-outside",
           "version-unsupported",
         ],
@@ -54,7 +54,7 @@ describe("splitFlaws", () => {
     ).toEqual({
       legacy: [],
       lineageFlawNames: ["lineage-parent-missing"],
-      degradeFlawNames: ["degrade-not-worse"],
+      degradeFlawNames: ["degrade-watercourse-encroachment-no-advance"],
       changeFlawNames: ["remeandered-watercourse-outside"],
       versionFlawNames: ["version-unsupported"],
     });

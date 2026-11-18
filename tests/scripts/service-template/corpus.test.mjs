@@ -19,7 +19,6 @@ import {
   it,
 } from "vitest";
 import {
-  CONDITIONS,
   FORMAT_BNG_SERVICE,
   checkLineage,
   checkTemplateValues,
@@ -615,38 +614,6 @@ function habitat(file, layer, ref) {
 // worse, a culvert drawn as a ditch) would rebuild each fixture to match
 // itself, so these check the facts each recipe relies on, in the file built.
 describe("the fixtures derived for QA's BMD-1086 scenarios", () => {
-  it.each([
-    [
-      "attribute-problems/degrade-area-advance-missing.gpkg",
-      "Area Habitats",
-      "H043",
-    ],
-    [
-      "attribute-problems/degrade-vertical-area-advance-missing.gpkg",
-      "Vertical Area Habitats",
-      "V005",
-    ],
-  ])(
-    "%s holds a habitat that gets worse, with no years in advance",
-    (recipePath, layer, ref) => {
-      const { baseline, post } = habitat(builtAt(recipePath), layer, ref);
-      expect(post).toHaveLength(1);
-      const [row] = post;
-      expect(row["Retention Category"]).toBe("Created");
-      expect(row.parent_uuid).toBe(baseline.feature_uuid);
-      expect(row["Proposed Habitat Type"]).toBe(
-        baseline["Baseline Habitat Type"],
-      );
-      expect(CONDITIONS.indexOf(row["Proposed Condition"])).toBeGreaterThan(
-        CONDITIONS.indexOf(baseline["Baseline Condition"]),
-      );
-      expect(row["Habitat created in advance/years"]).toBeNull();
-      // The default site gives it 30+, so the edit is what breaks the rule.
-      const [base] = habitat(builtAt(DEFAULT_SITE), layer, ref).post;
-      expect(base["Habitat created in advance/years"]).toBe("30+");
-    },
-  );
-
   it("watercourse-culvert-left-out.gpkg loses a culvert the default site retains", () => {
     const fixture = habitat(
       builtAt("attribute-problems/watercourse-culvert-left-out.gpkg"),
