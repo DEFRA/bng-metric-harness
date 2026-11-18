@@ -89,12 +89,19 @@ for each corpus, followed by the known gaps.
 
 ### Where it runs in CI
 
-In the **Metric comparison** workflow (`.github/workflows/metric-comparison.yml`),
-in each template's job, after the comparison: it is the job that checks out
-and installs the backend under test. That workflow runs on this repo's pull
-requests, merge groups and pushes to `main`, and the backend calls it on each
-of its pull requests with the pull request's commit. A wrong result fails the
-job, and so the `Compare the service with the metric (library pinned)` check
-the backend's ruleset requires. The backend calls the workflow at this repo's
-`main`, so a change to the test reaches the backend's pull requests once it
-merges here.
+In its own workflow, **Example file uploads**
+(`.github/workflows/example-file-uploads.yml`), as one check, `Upload every
+example file`. It runs on this repo's pull requests (against the backend branch
+of the same name if there is one, otherwise the backend's `main`), merge
+groups and pushes to `main`. The backend calls it (`workflow_call`) with the
+commit under test on each of its pull requests, merge groups and pushes to
+`main`, from its own `example-file-uploads.yml`, so a pull request there is
+checked against its own code. A wrong result fails the check.
+
+The backend calls the workflow at this repo's `main`, so a change to the test
+reaches the backend's pull requests once it merges here. For the check to
+block a merge, a ruleset must require it; that is set in each repo's settings,
+not here.
+
+The backend is checked out and installed by
+`.github/actions/check-out-backend`, which the metric comparison uses too.

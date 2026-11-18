@@ -241,7 +241,7 @@ See [docs/generate-test-data.md](docs/generate-test-data.md) and [docs/generate-
 
 ## Uploading every example file
 
-`npm run test:uploads` uploads every example GeoPackage in `example-files/` (both templates; `bng-500/` and the scenario corpus aside) through the backend's own upload code, and fails if a file in `valid/` is refused or a file in a folder of problems is accepted. Each failure names the file, whether it should have been accepted or refused, and what happened, with the error codes. It runs the backend checked out beside the harness (run `npm run install:be` first), and runs in CI on this repo's pull requests and the backend's. See [docs/example-file-uploads.md](docs/example-file-uploads.md).
+`npm run test:uploads` uploads every example GeoPackage in `example-files/` (both templates; `bng-500/` and the scenario corpus aside) through the backend's own upload code, and fails if a file in `valid/` is refused or a file in a folder of problems is accepted. Each failure names the file, whether it should have been accepted or refused, and what happened, with the error codes. It runs the backend checked out beside the harness (run `npm run install:be` first), and runs in CI, as the `Example file uploads` workflow, on this repo's pull requests and the backend's. See [docs/example-file-uploads.md](docs/example-file-uploads.md).
 
 ## Tilt
 
