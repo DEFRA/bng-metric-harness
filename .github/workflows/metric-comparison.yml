@@ -6,6 +6,10 @@ name: Metric comparison
 # Service template's with it on (BMD-1084, BMD-1172), in separate jobs
 # (BMD-1087), so each template's result is a check of its own.
 #
+# Each job also uploads every example file in example-files/ through the same
+# backend, and fails if one is accepted or refused when it should not be
+# (docs/example-file-uploads.md).
+#
 # The answer depends on three commits: the backend's (validation, sizing and
 # the enrichment that drives the engine and derives the trading-rule
 # statuses), the engine's in bng-library (the unit calculations, multipliers
@@ -318,6 +322,25 @@ jobs:
           path: metric-comparison/
           if-no-files-found: warn
 
+      # Every example file in example-files/ (bng-500/ and the scenario
+      # corpus aside) uploaded through the backend under test, with the
+      # service-template flag as its template needs: a file in valid/ must be
+      # accepted, and a file in a folder of problems refused, except as
+      # scripts/example-uploads/expectations.mjs lists. Here as this
+      # is the job with that backend installed, on the harness's pull requests
+      # and on the backend's, which call this workflow. A wrong result fails
+      # the job, and so the gate. The log and the job summary name each file,
+      # what it should have done, what it did and its error codes. Runs
+      # whether or not the comparison passed, and after it, so neither hides
+      # the other. REQUIRE_BACKEND makes a backend that did not install fail
+      # the test rather than skip it.
+      - name: Upload every example file, ${{ matrix.template == 'service' && 'BNG Service' || 'legacy' }} template
+        if: ${{ !cancelled() && steps.backend.outcome == 'success' }}
+        env:
+          REQUIRE_BACKEND: "true"
+          UPLOAD_TEST: tests/scripts/example-uploads/${{ matrix.template == 'service' && 'service-template' || 'legacy' }}-uploads.test.mjs
+        run: npx vitest run "$UPLOAD_TEST"
+
   # The one check the rulesets require, by the name the comparison job had
   # before the templates were split: the backend's ruleset requires
   # "Compare the service with the metric / Compare the service with the
@@ -340,6 +363,6 @@ jobs:
         run: |
           echo "The comparison jobs finished: $RESULT"
           if [ "$RESULT" != "success" ]; then
-            echo "A template's comparison did not pass; see its job for the differences."
+            echo "A template's comparison or example file uploads did not pass; see its job for what went wrong."
             exit 1
           fi
