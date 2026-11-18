@@ -24,6 +24,24 @@ const SECTION = /^##\s+([\w-]+)\/\s*$/;
 const FILE_CELL = /^`([^`]+\.gpkg)`$/;
 const BARE_CODE = /^`?([A-Z][A-Z0-9_]+)`?$/;
 
+/** A table row's file and Expected cell, or null for any other line. */
+function parseRow(line) {
+  if (!line.startsWith("|")) {
+    return null;
+  }
+  const cells = line.split("|").map((cell) => cell.trim());
+  const file = FILE_CELL.exec(cells[1] ?? "");
+  if (!file) {
+    return null;
+  }
+  const expected = cells.at(EXPECTED_CELL) ?? "";
+  return {
+    file: file[1],
+    expected,
+    code: BARE_CODE.exec(expected)?.[1] ?? null,
+  };
+}
+
 /**
  * Each README row's file, under the corpus (`valid/default-site.gpkg`), with
  * its Expected cell and the bare code it names, or null where it names none
@@ -37,20 +55,13 @@ export function readmeRows(readme = SERVICE_TEMPLATE_README) {
   let dir = null;
   for (const line of readFileSync(readme, "utf8").split("\n")) {
     const heading = SECTION.exec(line);
+    const row = heading || !dir ? null : parseRow(line);
     if (heading) {
       dir = heading[1];
-      continue;
-    }
-    if (!dir || !line.startsWith("|")) {
-      continue;
-    }
-    const cells = line.split("|").map((cell) => cell.trim());
-    const file = FILE_CELL.exec(cells[1] ?? "");
-    if (file) {
-      const expected = cells.at(EXPECTED_CELL) ?? "";
-      rows.set(`${dir}/${file[1]}`, {
-        expected,
-        code: BARE_CODE.exec(expected)?.[1] ?? null,
+    } else if (row) {
+      rows.set(`${dir}/${row.file}`, {
+        expected: row.expected,
+        code: row.code,
       });
     }
   }
