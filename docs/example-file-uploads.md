@@ -44,8 +44,18 @@ files the folder gets wrong, each with its reason:
   README row says. For example,
   `service-template/attribute-problems/irreplaceable-area-habitat.gpkg`, as the
   service does not check irreplaceable area habitats yet. A known gap passes
-  while the service still accepts it. Once the service refuses it, the test
-  fails and asks for the entry to be removed, so the list stays true.
+  while the service still accepts it. Once the service refuses it, it still
+  passes, but is reported as **stale**, in the log and the job summary, for
+  the entry to be removed. It does not fail: the backend runs this test at
+  harness `main`, so failing would block the backend change that closes the
+  gap until the harness had dropped the entry, and the harness change that
+  drops it would fail against the backend's `main`. A throw on a known-gap
+  file still fails.
+
+The BNG Service template's exceptions repeat what its README's Expected column
+says, which `scripts/service-template/readme.mjs` writes from the recipes. A
+test holds the two to each other, so a recipe change that alters a file's
+Expected cell fails until the exceptions match.
 
 ### How a file is uploaded
 

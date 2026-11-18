@@ -18,12 +18,13 @@
 // The byte-for-byte rebuild (corpus.test.mjs) cannot catch a fixture whose
 // recipe changed with it; the lineage flaws are checked there too.
 
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
 import { loadGate } from "../../../.claude/skills/geopackage-validation-explainer/scripts/observe-fixtures.mjs";
 import { disallowedValues } from "../../../scripts/allowed-values.mjs";
+import { readmeRows } from "../../../scripts/service-template/readme-rows.mjs";
 import {
   backendDir,
   isBackendInstalled,
@@ -34,13 +35,6 @@ const SLOW_TEST_TIMEOUT = 30_000;
 const EXAMPLE_FILES = path.resolve(import.meta.dirname, "../../../example-files");
 const CORPUS_DIR = "service-template";
 const CORPUS = path.join(EXAMPLE_FILES, CORPUS_DIR);
-const README = path.join(CORPUS, "README.md");
-
-// The Expected column, counted from the end of a row.
-const EXPECTED_CELL = -3;
-const SECTION = /^##\s+([\w-]+)\/\s*$/;
-const FILE_CELL = /^`([^`]+\.gpkg)`$/;
-const BARE_CODE = /^`?([A-Z][A-Z0-9_]+)`?$/;
 
 // Folders whose files are refused before any value is read: their schema is
 // not the template's, or they are not GeoPackages at all.
@@ -53,35 +47,6 @@ const PERMUTATIONS = "permutations";
 // other code is raised by a later stage, after the gate passes.
 const GATE_CODE =
   /^(TEMPLATE_VERSION_[A-Z_]+|TEXT_TOO_LONG|VALUE_NOT_ALLOWED|FEATURE_UUID_INVALID|PARENT_UUID_INVALID|PARENT_GEOM_INVALID)$/;
-
-/**
- * Each README row's file, under the corpus, with its Expected cell and the
- * bare code it names, or null where it names none ("accepted", "refused: …").
- */
-function readmeRows() {
-  const rows = new Map();
-  let dir = null;
-  for (const line of readFileSync(README, "utf8").split("\n")) {
-    const heading = SECTION.exec(line);
-    if (heading) {
-      dir = heading[1];
-      continue;
-    }
-    if (!dir || !line.startsWith("|")) {
-      continue;
-    }
-    const cells = line.split("|").map((cell) => cell.trim());
-    const file = FILE_CELL.exec(cells[1] ?? "");
-    if (file) {
-      const expected = cells.at(EXPECTED_CELL) ?? "";
-      rows.set(`${dir}/${file[1]}`, {
-        expected,
-        code: BARE_CODE.exec(expected)?.[1] ?? null,
-      });
-    }
-  }
-  return rows;
-}
 
 const ROWS = readmeRows();
 const FIXTURES = readdirSync(CORPUS, { recursive: true })

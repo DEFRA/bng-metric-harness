@@ -33,34 +33,39 @@ export function describeOutcome(result) {
  * Compare what happened with what the file expects.
  *
  * - The expected result passes.
- * - A known gap passes while the service still accepts the file, and fails
- *   once it refuses it, so the gap is removed from the list.
- * - A throw is never the expected result, even for a file to be refused.
+ * - A throw is never the expected result, even for a file to be refused or a
+ *   known gap.
+ * - A known gap passes whether the service accepts it, as it does today, or
+ *   refuses it. A known gap the service refuses is stale: it is reported, for
+ *   the entry to be removed, but does not fail. Failing would block the
+ *   backend change that closes the gap, since the backend runs this test at
+ *   harness main, where the gap is still listed.
  *
  * @param {string} file the path under example-files/
  * @param {{ expected: string, knownGap?: string }} expectation
  * @param {object} result from uploadExampleFile
- * @returns {{ file: string, pass: boolean, knownGap: boolean, expected: string, actual: string, message: string }}
+ * @returns {{ file: string, pass: boolean, knownGap: boolean, stale: boolean, expected: string, actual: string, message: string }}
  */
 export function verdict(file, expectation, result) {
   const actual = describeOutcome(result);
-  const base = { file, expected: expectation.expected, actual };
-  if (expectation.knownGap) {
-    const stillAccepted = result.outcome === ACCEPTED;
+  const base = { file, expected: expectation.expected, actual, stale: false };
+  if (expectation.knownGap && result.outcome !== FAILED) {
+    const stale = result.outcome !== ACCEPTED;
     return {
       ...base,
-      pass: stillAccepted,
+      pass: true,
       knownGap: true,
-      message: stillAccepted
-        ? `${file} should be refused but is accepted today, a known gap: ${expectation.knownGap}`
-        : `${file} was a known gap (${expectation.knownGap}) and is now ${actual}. Remove it from KNOWN_GAPS in scripts/example-uploads/expectations.mjs, and update its README row.`,
+      stale,
+      message: stale
+        ? `${file} was a known gap (${expectation.knownGap}) and is now ${actual}. Remove it from KNOWN_GAPS in scripts/example-uploads/expectations.mjs, and update its README row.`
+        : `${file} should be refused but is accepted today, a known gap: ${expectation.knownGap}`,
     };
   }
   const pass = result.outcome === expectation.expected;
   return {
     ...base,
     pass,
-    knownGap: false,
+    knownGap: Boolean(expectation.knownGap),
     message: `${file} ${SHOULD[expectation.expected]}, and was ${actual}`,
   };
 }
@@ -74,14 +79,15 @@ const codeSpan = (v) => `\`${cell(v.file)}\``;
 
 /**
  * The CI job summary for one corpus: a count, every wrong result, then the
- * known gaps.
+ * known gaps, and any known gap the service now refuses.
  *
  * @param {string} title which corpus, and with which backend
  * @param {Array<ReturnType<typeof verdict>>} verdicts
  */
 export function summaryMarkdown(title, verdicts) {
   const wrong = verdicts.filter((v) => !v.pass);
-  const gaps = verdicts.filter((v) => v.pass && v.knownGap);
+  const gaps = verdicts.filter((v) => v.pass && v.knownGap && !v.stale);
+  const stale = verdicts.filter((v) => v.stale);
   const lines = [`### ${title}`, ""];
   lines.push(
     wrong.length === 0
@@ -104,6 +110,16 @@ export function summaryMarkdown(title, verdicts) {
       `Known gaps, which should be refused but are accepted today: ${gaps.map(codeSpan).join(", ")}.`,
       "",
     );
+  }
+  if (stale.length > 0) {
+    lines.push(
+      "Stale known gaps, which the service now refuses: remove each from KNOWN_GAPS in `scripts/example-uploads/expectations.mjs`, and update its README row.",
+      "",
+    );
+    for (const v of stale) {
+      lines.push(`- ${codeSpan(v)}: ${cell(v.actual)}`);
+    }
+    lines.push("");
   }
   return `${lines.join("\n")}\n`;
 }
