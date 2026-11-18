@@ -239,6 +239,10 @@ See [docs/generate-test-data.md](docs/generate-test-data.md) and [docs/generate-
 
 `npm run compare:metric` imports every scenario in the corpus through the backend's upload pipeline and compares the service's figures (unit calculations per feature, totals, net gain, trading rules figures and statuses) with the metric's own, to within a tolerance too small to change any project's outcome. It writes an HTML report of every discrepancy, how far it is from the metric's value, and what the service does not implement yet. It runs the backend checked out beside the harness, in process (run `npm run install:be` first). This repo's pull-request check and weekly schedule produce the report as a CI artifact, leading with any difference nothing known explains; `-- --fail-on-unexplained` exits 1 on one (CI will pass it once the BMD-1042 branches have merged). See [docs/compare-metric.md](docs/compare-metric.md).
 
+## Uploading every example file
+
+`npm run test:uploads` uploads every example GeoPackage in `example-files/` (both templates; `bng-500/` and the scenario corpus aside) through the backend's own upload code, and fails if a file in `valid/` is refused or a file in a folder of problems is accepted. Each failure names the file, whether it should have been accepted or refused, and what happened, with the error codes. It runs the backend checked out beside the harness (run `npm run install:be` first), and runs in CI, as the `Example file uploads` workflow, on this repo's pull requests and the backend's. See [docs/example-file-uploads.md](docs/example-file-uploads.md).
+
 ## Tilt
 
 [Tilt](https://tilt.dev/) is a local development orchestrator. Instead of manually running `docker compose up` and `npm run dev` separately, Tilt starts the full stack — Docker services **and** both Node apps — in one command, with dependency ordering (apps wait for their backing services to be healthy) and a web dashboard for logs and restarts.

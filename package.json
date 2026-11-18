@@ -35,6 +35,7 @@
     "be": "node scripts/proxy.mjs be",
     "lint": "node scripts/lint.mjs",
     "test:scripts": "vitest run tests/scripts",
+    "test:uploads": "vitest run tests/scripts/example-uploads",
     "test:scripts:watch": "vitest tests/scripts",
     "generate:gpkg": "node scripts/gen-gpkg.mjs",
     "generate:scenarios": "node scripts/gen-scenarios.mjs",

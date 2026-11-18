@@ -1,0 +1,122 @@
+name: Example file uploads
+
+# Uploads every example GeoPackage in example-files/ (bng-500/ and the
+# scenario corpus aside) through the backend's own upload code, in process,
+# and fails if one is accepted or refused when it should not be: a file in
+# valid/ must be accepted, and a file in a folder of problems refused, except
+# as scripts/example-uploads/expectations.mjs lists. See
+# docs/example-file-uploads.md.
+#
+# The answer depends on two commits: the backend's (the checks an upload
+# runs) and the harness's (the example files and what each should do). The
+# frontend plays no part.
+#
+# - Pull requests: against the backend branch of the same name if there is
+#   one, otherwise the backend's main.
+# - Merge queue (merge_group): against the backend's main, since a merge
+#   group has no branch name to match. The trigger is what lets the uploads
+#   be a required check: without it the queue would wait for a status that
+#   never arrives.
+# - On main, on each merge, and by hand (workflow_dispatch): against the
+#   backend's main.
+# - Called from the backend (workflow_call): the backend's own
+#   example-file-uploads.yml calls this workflow with the commit to test, on
+#   each of its pull requests, merge groups and pushes to main, so a change
+#   in what the service accepts is seen on the backend change that made it.
+#   That run is in the backend's Actions tab. The run's ref, sha and event
+#   are then the backend's, so the harness is checked out by name (at its
+#   main) and its commit read from that checkout, not from the run.
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+  merge_group:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      backend-sha:
+        description: The bng-metric-backend commit to upload through, as a full sha (default resolved from the branch)
+        required: false
+        type: string
+        default: ''
+      backend-ref:
+        description: What to call that commit in the summary (a branch name, say)
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+# A newer push to a pull request supersedes the run in flight; everything
+# else is grouped by commit, so every merge and every backend publish is
+# checked. When the backend calls this workflow, both are the backend's.
+concurrency:
+  group: example-file-uploads-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  uploads:
+    name: Upload every example file
+    runs-on: ubuntu-latest
+    steps:
+      # Named, since a called workflow's checkout defaults to the caller's
+      # repo. For the harness's own runs this checks out the event's ref; for
+      # a call from the backend, the harness's main.
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          repository: DEFRA/bng-metric-harness
+
+      - name: Setup Node
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      - name: Check out the backend under test
+        id: backend
+        uses: ./.github/actions/check-out-backend
+        with:
+          backend-sha: ${{ inputs.backend-sha }}
+          backend-ref: ${{ inputs.backend-ref }}
+          pr-branch: ${{ github.head_ref }}
+
+      - name: Say what is under test
+        env:
+          BACKEND_REF: ${{ steps.backend.outputs.ref }}
+          BACKEND_SHA: ${{ steps.backend.outputs.sha }}
+        run: |
+          # From the checkout, not the run: when the backend calls this
+          # workflow the run's sha is the backend's.
+          harness=$(git rev-parse HEAD)
+          {
+            echo "Uploaded the example files at harness \`${harness:0:7}\` through bng-metric-backend@$BACKEND_REF \`${BACKEND_SHA:0:7}\`."
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Both templates, each test file with the backend's service-template
+      # flag as its corpus needs. Each file is a test of its own; a wrong
+      # result names the file, what it should have done, what it did and its
+      # error codes, in the log and in the job summary. REQUIRE_BACKEND makes
+      # a backend that is not installed fail the test rather than skip it.
+      - name: Upload every example file
+        env:
+          REQUIRE_BACKEND: "true"
+        run: npm run test:uploads

@@ -22,8 +22,17 @@ directory level, so a family can be read in one listing.
 These files are **the harness's own copies**. `journey-tests`, `backend` and
 `prototype` each keep separate copies of their fixtures; those are not kept in
 sync with this directory, and some already differ byte-for-byte despite sharing
-a filename. Nothing in the harness reads this directory — it is a reference
-corpus for humans.
+a filename.
+
+**The folder a file is in says what the service should do with it.** CI
+uploads every file here through the backend's own upload code and fails if a
+file in `valid/` is refused, or a file in a folder of problems is accepted
+(`npm run test:uploads`). The few files whose folder does not say,
+such as a baseline with no hedgerows, which the service accepts, are listed
+with their reasons in `scripts/example-uploads/expectations.mjs`; so is any
+file the service should refuse but accepts today. `bng-500/` and
+`permutations/` are left out. See `docs/example-file-uploads.md`. A file added
+to a folder is tested from then on, so file it where its result belongs.
 
 Regenerate reproducible fixtures with `npm run generate:gpkg` (see
 `docs/generate-test-data.md`). The `--flaw <name>` vocabulary in
@@ -47,7 +56,6 @@ one.
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
 | `Baseline - complete with area refs.gpkg`        | The canonical happy-path baseline. 3 habitats, 2 hedgerows, 1 river, 1 RLB, area refs populated. **Has no Urban Trees layer** — see Gaps. |
 | `Baseline - complete but null area refs.gpkg`    | Identical to the above except `Habitats."Parcel Ref"`, which holds the literal **string** `"Null"` on all 3 rows — not SQL `NULL`. **Probably not what was intended** — see Open questions. |
-| `Baseline - three rlb polygons.gpkg`             | RLB layer holds 3 polygons rather than 1. **Classification unconfirmed** — see Open questions.      |
 | `Post-intervention - complete.gpkg`              | Happy-path post-intervention. 12 habitats + RLB only; no hedgerow/river/tree layers.               |
 | `Post-intervention - complete (bng-500 variant).gpkg` | Structurally identical to the above (12 habitats + RLB) but different bytes. **Suspected stale duplicate** — see Open questions. Was `Post-intervention - complete, bng-500 variant.gpkg`; the comma is invalid in an uploaded filename (`SAFE_FILENAME_RE`) — see `filename-problems/`. |
 | `Baseline - retained hedgerow.gpkg` / `Post-intervention - retained hedgerow.gpkg` | A hedgerow retained through the intervention. Baseline 3 habitats / 2 hedgerows; post-intervention 12 habitats / 3 hedgerows. The pair shares one RLB. |
@@ -110,11 +118,12 @@ geometry validation — so a schema fixture never reaches the geometry validator
 | `Baseline - wrong geometry type in Habitats.gpkg`             | `Habitats.geom` declared `LINESTRING`; schema expects `MULTIPOLYGON`. Was `Baseline - habitats with incorrect geometry.gpkg`. |
 | `Baseline - wrong geometry type in Hedgerows.gpkg`            | `Hedgerows.geom` declared `POLYGON`; schema expects `LINESTRING`. Was `Baseline - hedgerow incorrect geometry.gpkg`. |
 | `Baseline - wrong geometry type in Rivers.gpkg`               | `Rivers.geom` declared `POLYGON`; schema expects `LINESTRING`. Was `Baseline - watercourse incorrect geometry.gpkg`. |
-| `Baseline - rlb has wrong spatial reference.gpkg`             | RLB declares `srs_id` 99999 instead of 27700. **Not minimal** — see below.   |
-| `Post-intervention - wrong geometry column name in RLB layer.gpkg` | RLB geometry column named `geom`; schema expects `geometry`. Was `Post-intervention - incorrect geom column name.gpkg`. |
+| `Baseline - rlb has wrong spatial reference.gpkg`             | RLB declares `srs_id` 99999 instead of 27700. Its RLB geometry column is `geom`; see "RLB geometry columns named `geom`". |
+| `Post-intervention - wrong geometry column name in RLB layer.gpkg` | RLB geometry column named `geom` where the reference schema names it `geometry`. Was `Post-intervention - incorrect geom column name.gpkg`. **Accepted**: the service does not match a geometry column's name to the template's, only checks that it is a safe SQLite identifier (`compareGeometryRegistrationRow`), so this is not a flaw. Listed as accepted by design in `scripts/example-uploads/expectations.mjs`. |
+| `Baseline - three rlb polygons.gpkg`                          | RLB layer holds 3 polygons rather than 1, so the file is refused with `GPKG_RLB_TOO_MANY_POLYGONS`. Was in `valid/`, filed as valid on the assumption that a multi-polygon RLB was; the service refuses it, and journey-tests relies on that. |
 | `Post-intervention - no geometry column in RLB layer.gpkg`    | RLB layer registers no geometry column at all.                               |
-| `Post-intervention - multiple geometry columns in RLB layer.gpkg` | RLB registers two geometry columns (`geom` + `geom2`). **Not minimal.**  |
-| `Post-intervention - wrong geometry type in RLB layer.gpkg`   | RLB geometry declared `POINT`; schema expects `POLYGON`. Was `Post-intervention - wrong geometry in RLB layer.gpkg`. **Not minimal.** |
+| `Post-intervention - multiple geometry columns in RLB layer.gpkg` | RLB registers two geometry columns (`geom` + `geom2`). |
+| `Post-intervention - wrong geometry type in RLB layer.gpkg`   | RLB geometry declared `POINT`; schema expects `POLYGON`. Was `Post-intervention - wrong geometry in RLB layer.gpkg`. |
 
 The three renamed `wrong geometry type in …` files previously read as "incorrect
 geometry", which suggested invalid geometry (a geometry-validator concern). They
@@ -129,9 +138,9 @@ Schema is intact; one feature layer is present but holds zero rows.
 | --------------------------------------------- | -------------------------------------------------------------------- | --------------- | ------------------ |
 | `Baseline - no habitats (full site).gpkg`     | Habitats empty on a full-size site (0 habitats, 16 hedgerows, 3 rivers, 25 trees). Was `Baseline - no habitats, full site.gpkg`; the comma is invalid in an uploaded filename (`SAFE_FILENAME_RE`) — see `filename-problems/`. | `no-habitats` | `NO_HABITAT_AREAS` |
 | `Baseline - no habitats (minimal site).gpkg`  | Habitats empty on a minimal site (0 habitats, 2 hedgerows, 1 river, no trees). Same scenario as above at a different scale — see Gaps. Renamed for the same reason as the file above. | `no-habitats` | `NO_HABITAT_AREAS` |
-| `Baseline - no hedgerows.gpkg`                | Hedgerows layer present, zero rows.                                  | `no-hedgerows`  | none specific      |
-| `Baseline - no watercourses.gpkg`             | Rivers layer present, zero rows.                                     | `no-rivers`     | none specific      |
-| `Baseline - no rlb polygons.gpkg`             | RLB layer present, zero rows.                                        | —               | none specific      |
+| `Baseline - no hedgerows.gpkg`                | Hedgerows layer present, zero rows. **Accepted**: a site need not have hedgerows. | `no-hedgerows`  | none (accepted)    |
+| `Baseline - no watercourses.gpkg`             | Rivers layer present, zero rows. **Accepted**: a site need not have watercourses. | `no-rivers`     | none (accepted)    |
+| `Baseline - no rlb polygons.gpkg`             | RLB layer present, zero rows.                                        | —               | `GPKG_RLB_NO_POLYGON` |
 
 The two "no habitats" files were previously `Baseline - no habitats.gpkg` and
 `Baseline - no habitats polygons.gpkg`, which named the same scenario twice with
@@ -149,7 +158,7 @@ Schema and geometry are both valid; attribute values trip a later validator.
 | `Post-intervention - missing habitat ref.gpkg`          | One habitat's Parcel Ref is SQL `NULL`. | — | `HABITAT_REF_MISSING`                  |
 | `Baseline - habitat ref invalid characters.gpkg`        | One habitat's Parcel Ref holds U+FFFD, the character a decoder puts in place of invalid UTF-8. The generator cannot write invalid bytes, and the backend rejects the character whichever way it arrived. `--size 5`. | `habitat-ref-invalid-characters` | `HABITAT_REF_INVALID_CHARACTERS` |
 | `Baseline - habitat ref invalid UTF-8 bytes.gpkg`       | One habitat's Parcel Ref is the bytes `48 FF 30 31` stored as TEXT — genuinely invalid UTF-8, as a file from another tool might carry. | — | `HABITAT_REF_INVALID_CHARACTERS` |
-| `Post-intervention - missing proposed habitat data.gpkg` | 1 of 12 parcels has null Proposed Habitat Type / Condition / Distinctiveness; 2 of 12 have null creation-delay values. Was `Post-intervention (missing data) - fails validation.gpkg`, which named no validator. **Not minimal.** | — | — |
+| `Post-intervention - missing proposed habitat data.gpkg` | 1 of 12 parcels has null Proposed Habitat Type / Condition / Distinctiveness; 2 of 12 have null creation-delay values. Was `Post-intervention (missing data) - fails validation.gpkg`, which named no validator. **Accepted**: the parcel is saved Incomplete, for the user to complete in the service. Listed as accepted by design in `scripts/example-uploads/expectations.mjs`. | — | none (accepted) |
 | `Post-intervention - advance and delay both set.gpkg`    | One created habitat parcel (H001) carries both advance (2) and delayed (3) creation years — the statutory metric forbids the pair. Upload as the post-intervention half after any valid baseline; the check runs per file, so the baseline pairing doesn't matter. | `advance-delay-both-set` | `ADVANCE_AND_DELAY_BOTH_SET` |
 | `Post-intervention - blank and placeholder baseline types on every layer.gpkg`  | Retained or enhanced rows with no baseline habitat type on every feature layer. `BASELINE_TYPE_MISSING` catches a blank (SQL `NULL` or `''`) or a placeholder (`Null`, `N/A`, `(no selection)`, `To be created`). Hand-edited for BMD-1056: Habitats H002 `Baseline Habitat Type` = SQL `NULL`; H004 = `N/A`; Hedgerows HG011 `Baseline Hedge Type` = `(no selection)`; Rivers R003 `Baseline River Type` = `Null`; Urban Trees T002 `Baseline Tree Size` = `''`. Works with any baseline file. **Since BMD-1175 it is refused first with `VALUE_NOT_ALLOWED`**: `N/A` is not in the Baseline Habitat Type list and `(no selection)` is not in the Baseline Hedge Type list, and its Urban Trees carry the old generator tree words (`Woodland tree`, `Hedgerow tree` …), so `BASELINE_TYPE_MISSING` is no longer reached. SQL `NULL`, `''` and `Null` still count as blank. | — | `VALUE_NOT_ALLOWED` (was `BASELINE_TYPE_MISSING`) |
 | `Post-intervention - blank baseline types on every layer.gpkg` | The same file with only blanks the rule treats as blank, so `BASELINE_TYPE_MISSING` is reached again (BMD-1175): Habitats H002 and H004 `Baseline Habitat Type` = SQL `NULL`; Hedgerows HG011 `Baseline Hedge Type` = `''`; Rivers R003 `Baseline River Type` = `Null`; Urban Trees T002 `Baseline Tree Size` = `''`. Its tree words were rewritten to the template's, as in "Template words (BMD-1175)". Works with any baseline file. | — | `BASELINE_TYPE_MISSING` |
@@ -262,22 +271,22 @@ bng-metric-journey-tests made to its copies (`fixture-mutations.py`,
 `recut_culvert_baseline_conditions`). The negative fixtures in
 `attribute-problems/` and `empty-layer/` keep their culverts.
 
-## Fixtures that are not minimal
+## RLB geometry columns named `geom`
 
-Four fixtures trip a validator in addition to the one they are named for,
-because their RLB geometry column is named `geom` where the reference schema
-(`backend/src/validation/reference/gpkg-template.schema.json`)
-requires `geometry`. Schema comparison runs first, so **the validator that fires
-may not be the one the fixture is named for**:
+Four fixtures name their RLB geometry column `geom` where the reference schema
+(`backend/src/validation/reference/gpkg-template.schema.json`) names it
+`geometry`. This was once thought to trip schema comparison ahead of the check
+each was built for, but the service does not match geometry column names to
+the template's, only checks that each is a safe SQLite identifier
+(`compareGeometryRegistrationRow`). So each file meets the check it is named
+for: the first three are refused with `GPKG_BASELINE_SRS_ID`,
+`GPKG_BASELINE_MULTIPLE_GEOMETRY_COLUMNS` and
+`GPKG_BASELINE_GEOMETRY_TYPE_NAME`, and the fourth is accepted (see its row).
 
 - `invalid-schema/Baseline - rlb has wrong spatial reference.gpkg`
 - `invalid-schema/Post-intervention - multiple geometry columns in RLB layer.gpkg`
 - `invalid-schema/Post-intervention - wrong geometry type in RLB layer.gpkg`
 - `attribute-problems/Post-intervention - missing proposed habitat data.gpkg`
-
-For the three `invalid-schema/` files this only muddies *which* schema error fires. For
-the `attribute-problems/` one it is more serious: it is filed as an attribute fixture but
-will fail schema comparison and never reach the attribute validator.
 
 ## Gaps
 
@@ -305,7 +314,7 @@ built on completely different sites.
 
 | Shape                       | Layers                                          | Used by                                                                 |
 | --------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------- |
-| **Minimal, no trees**       | 3 habitats, 2 hedgerows, 1 river, **Urban Trees absent** | `valid/Baseline - complete *`, `valid/Baseline - three rlb polygons.gpkg`, `valid/Baseline - retained hedgerow.gpkg`, all of `invalid-schema/` (baseline), `empty-layer/Baseline - no habitats (minimal site).gpkg`, `empty-layer/Baseline - no rlb polygons.gpkg`, `attribute-problems/Baseline - missing habitat refs on every layer.gpkg`, `- habitat ref invalid UTF-8 bytes.gpkg` |
+| **Minimal, no trees**       | 3 habitats, 2 hedgerows, 1 river, **Urban Trees absent** | `valid/Baseline - complete *`, `valid/Baseline - retained hedgerow.gpkg`, all of `invalid-schema/` (baseline), `empty-layer/Baseline - no habitats (minimal site).gpkg`, `empty-layer/Baseline - no rlb polygons.gpkg`, `attribute-problems/Baseline - missing habitat refs on every layer.gpkg`, `- habitat ref invalid UTF-8 bytes.gpkg` |
 | **Small, all five layers**  | 1–5 habitats, 1–3 hedgerows, 1–2 rivers, 1–5 trees | all of `spatial-problems/` (baseline), `valid/Baseline - duplicate habitat ref.gpkg`, `attribute-problems/Baseline - missing habitat ref.gpkg`, `- habitat ref invalid characters.gpkg` |
 | **Full-size, all five layers** | 50 habitats, 16 hedgerows, 3 rivers, 25 trees | `attribute-problems/Baseline - habitat distinctiveness out of scope.gpkg`, `empty-layer/Baseline - no habitats (full site).gpkg`, `- no hedgerows.gpkg`, `- no watercourses.gpkg` |
 | **Post-intervention**       | 12 habitats + RLB; hedgerow/river/tree layers **absent** | every `Post-intervention - *` fixture except the two `valid/retained *` ones |
@@ -313,12 +322,11 @@ built on completely different sites.
 
 Reproducibility splits along family, not shape: `spatial-problems/`, `empty-layer/` and
 `attribute-problems/` map onto `--flaw` names and can be regenerated. **No `invalid-schema/`
-fixture can be** — the generator has no schema flaw family, so all fourteen are
+fixture can be** — the generator has no schema flaw family, so all fifteen are
 unreproducible one-offs.
 
 ## Open questions
 
 - **Is `valid/Baseline - complete but null area refs.gpkg` doing what its name says?** Its `Habitats."Parcel Ref"` values are the three-character string `"Null"`, not SQL `NULL`; every other column matches the "complete with area refs" fixture exactly. Two problems follow. If the intent was to cover *absent* refs, the fixture does not do it; `attribute-problems/Baseline - missing habitat refs on every layer.gpkg` now does, with genuine SQL `NULL`s. All three rows share the same value, which no longer matters: BMD-1058 allows habitats to share a reference, so it is valid. Whether it covers what its name says is still open.
 - **Two "pairs" fail the legacy pair check.** `node scripts/check-gpkg-pair.mjs --dir example-files` checks every pair in the corpus, and passes all but two. `attribute-problems/… missing habitat ref` is two single-file `HABITAT_REF_MISSING` fixtures that share a name, not a pair: different sites, and the baseline file carries proposed data. `valid/… retained hedgerow` is a hand-built pair whose baseline carries proposed values on its habitats and river, and whose post-intervention parcels `H2-1`…`H2-10` and hedgerow `HR3` name no baseline ref. They are left as they are until BMD-1097; `tests/scripts/gpkg/lineage-check.test.mjs` pins them as the only failures.
-- **Is a multi-polygon RLB valid?** `valid/Baseline - three rlb polygons.gpkg` is filed as valid on the assumption it is; if not, it belongs in `spatial-problems/` or `invalid-schema/`. `invalid-schema/Baseline - no habitats table (three rlb polygons).gpkg` is filed on its habitats-table flaw regardless.
 - **Is `valid/Post-intervention - complete (bng-500 variant).gpkg` needed?** It is structurally identical to `valid/Post-intervention - complete.gpkg` but differs byte-for-byte. It was kept rather than deleted pending a decision. A byte-identical copy of `Baseline - complete with area refs.gpkg` was removed from the same directory.

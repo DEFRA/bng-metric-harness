@@ -110,7 +110,6 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  BACKEND_URL: https://github.com/DEFRA/bng-metric-backend.git
   LIBRARY_URL: https://github.com/DEFRA/bng-library.git
 
 # Explicit bash runs every step with -o pipefail as well as -e, so a
@@ -148,17 +147,6 @@ jobs:
       # comparison names it in the job summary. The legacy name is as it was.
       METRIC_COMPARISON_ARTIFACT: metric-comparison-${{ matrix.template == 'service' && 'service-template-' || '' }}library-${{ matrix.library }}
     steps:
-      # Where the backend under test is checked out. The comparison reads
-      # this (scripts/metric-comparison/backend.mjs) in place of the sibling
-      # a developer has beside the harness. It is under the runner's temp
-      # directory, not beside the workspace: the workspace is named after
-      # the repo whose run this is, so when the backend calls this workflow
-      # a "../bng-metric-backend" beside it is the workspace itself, and the
-      # backend checkout would overwrite the harness's. Set by a step, since
-      # a job's env cannot read the runner context.
-      - name: Locate the backend checkout
-        run: echo "BNG_BACKEND_DIR=$RUNNER_TEMP/bng-metric-backend" >> "$GITHUB_ENV"
-
       # Named, since a called workflow's checkout defaults to the caller's
       # repo. For the harness's own runs this is the triggering repo and
       # checks out the event's ref as before; for a call from the backend or
@@ -177,47 +165,15 @@ jobs:
       - run: npm ci
 
       # The metric comparison runs the backend's upload pipeline in process,
-      # so it needs the backend checked out, at BNG_BACKEND_DIR, and
-      # installed. The branch is resolved to a commit first and that commit
-      # checked out, so the job summary names exactly what was compared even
-      # if a merge lands mid-run. The branch is looked up by its full ref: a
-      # bare name is a glob on the tail of a ref, so "fix" would match a
-      # backend branch "alice/fix" as well. The backend's caller names the
-      # commit instead, and nothing is resolved. A merge group has no head
-      # branch, so it compares against the backend's main.
+      # so it needs the backend checked out and installed, at the commit
+      # under test, which this action resolves and names in BNG_BACKEND_DIR.
       - name: Check out the backend under test
         id: backend
-        env:
-          PR_BRANCH: ${{ github.head_ref }}
-          INPUT_SHA: ${{ inputs.backend-sha }}
-          INPUT_REF: ${{ inputs.backend-ref }}
-        run: |
-          if [ -n "$INPUT_SHA" ]; then
-            sha="$INPUT_SHA"
-            ref="${INPUT_REF:-$INPUT_SHA}"
-          else
-            ref=main
-            if [ -n "$PR_BRANCH" ] && git ls-remote --exit-code "$BACKEND_URL" "refs/heads/$PR_BRANCH" > /dev/null; then
-              ref="$PR_BRANCH"
-            fi
-            sha=$(git ls-remote --exit-code "$BACKEND_URL" "refs/heads/$ref" | cut -f1)
-          fi
-          if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "Could not resolve bng-metric-backend@$ref to a single commit: '$sha'"
-            exit 1
-          fi
-          echo "Metric comparison runs bng-metric-backend@$ref ($sha)"
-          echo "ref=$ref" >> "$GITHUB_OUTPUT"
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          git init --quiet "$BNG_BACKEND_DIR"
-          cd "$BNG_BACKEND_DIR"
-          git fetch --quiet --depth 1 "$BACKEND_URL" "$sha"
-          git checkout --quiet FETCH_HEAD
-          # As the backend's own CI does: min-release-age collides with the
-          # git-dependency prepare step npm runs for bng-library
-          # (npm/cli#9005), and npm ci installs exact locked versions anyway.
-          sed -i '/^min-release-age=/d' .npmrc
-          npm ci
+        uses: ./.github/actions/check-out-backend
+        with:
+          backend-sha: ${{ inputs.backend-sha }}
+          backend-ref: ${{ inputs.backend-ref }}
+          pr-branch: ${{ github.head_ref }}
 
       # The main and candidate legs swap the engine in the backend's
       # node_modules, for the library's main or for the commit the library's
