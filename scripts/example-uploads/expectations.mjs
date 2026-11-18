@@ -195,7 +195,7 @@ export function expectationFor(file) {
 
 const LEGACY_POST_INTERVENTION =
   /(^Post-intervention\b|-post-intervention\.gpkg$)/;
-const SERVICE_BASELINE_STAGE = /-baseline\.gpkg$/;
+const SERVICE_BASELINE_STAGE_SUFFIX = "-baseline.gpkg";
 
 /**
  * The uploads a user makes with a file, in order, by the route's project
@@ -213,7 +213,7 @@ const SERVICE_BASELINE_STAGE = /-baseline\.gpkg$/;
 export function uploadsFor(file) {
   const name = path.posix.basename(file);
   if (templateOf(file) === SERVICE_TEMPLATE) {
-    return SERVICE_BASELINE_STAGE.test(name)
+    return name.endsWith(SERVICE_BASELINE_STAGE_SUFFIX)
       ? [BASELINE]
       : [BASELINE, POST_INTERVENTION];
   }

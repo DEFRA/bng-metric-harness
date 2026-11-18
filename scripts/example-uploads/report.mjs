@@ -66,7 +66,11 @@ export function verdict(file, expectation, result) {
 }
 
 const cell = (text) =>
-  String(text).replaceAll("|", "\\|").replaceAll("\n", " ");
+  String(text)
+    .replaceAll("|", String.raw`\|`)
+    .replaceAll("\n", " ");
+
+const codeSpan = (v) => `\`${cell(v.file)}\``;
 
 /**
  * The CI job summary for one corpus: a count, every wrong result, then the
@@ -97,7 +101,7 @@ export function summaryMarkdown(title, verdicts) {
   }
   if (gaps.length > 0) {
     lines.push(
-      `Known gaps, which should be refused but are accepted today: ${gaps.map((v) => `\`${cell(v.file)}\``).join(", ")}.`,
+      `Known gaps, which should be refused but are accepted today: ${gaps.map(codeSpan).join(", ")}.`,
       "",
     );
   }
