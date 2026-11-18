@@ -48,6 +48,7 @@ auth, reports) answered with an HTTP status and no code.
 
 | Section | What it words | Keyed by |
 | --- | --- | --- |
+| `fileCheck` | The upload page, when the service could not start or finish checking a file: nothing is wrong with the file, so each says to try again | What went wrong |
 | `upload` | The drop-out page (the former `dropout-copy.yaml`, unchanged) | Backend code |
 | `edit` | A refusal of a change made on screen: `summary` for the error summary, `inline` by the field | Backend code |
 | `forms` | A field's own validation, before anything reaches the backend | Field, then rule |
@@ -176,6 +177,13 @@ document links to `error-text.yaml` on the frontend's `main`.
 - **One file, not one per section**, so there is one place to look and one
   file to review. Sections keep it navigable; at about 1,500 lines with forms,
   the header's section list is the contents page.
+- **The file check's own messages are a section, not upload codes.** A check
+  that could not start or finish (`fileCheck.timedOut`, `serviceBusy`,
+  `cannotStart`) is shown on the upload page, not the drop-out page, and the
+  frontend gives up on its own, so there is no backend code to key it by.
+  `upload.errors.VALIDATION_BUSY` repeats `fileCheck.serviceBusy`'s words.
+  The frontend's error message export (`npm run export:error-text`)
+  includes the `fileCheck` section by default.
 - **Surfaces, not one kind per code**: `HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE`
   is met both on upload and on an edit.
 - **The backend declares surfaces; nothing infers them.** Where a code is
