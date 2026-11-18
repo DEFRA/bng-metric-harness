@@ -42,6 +42,14 @@ function parseRow(line) {
   };
 }
 
+/** Add a line's row to `rows`, if it is a table row under a heading. */
+function addRow(rows, dir, line) {
+  const row = dir ? parseRow(line) : null;
+  if (row) {
+    rows.set(`${dir}/${row.file}`, { expected: row.expected, code: row.code });
+  }
+}
+
 /**
  * Each README row's file, under the corpus (`valid/default-site.gpkg`), with
  * its Expected cell and the bare code it names, or null where it names none
@@ -55,14 +63,10 @@ export function readmeRows(readme = SERVICE_TEMPLATE_README) {
   let dir = null;
   for (const line of readFileSync(readme, "utf8").split("\n")) {
     const heading = SECTION.exec(line);
-    const row = heading || !dir ? null : parseRow(line);
     if (heading) {
       dir = heading[1];
-    } else if (row) {
-      rows.set(`${dir}/${row.file}`, {
-        expected: row.expected,
-        code: row.code,
-      });
+    } else {
+      addRow(rows, dir, line);
     }
   }
   return rows;
