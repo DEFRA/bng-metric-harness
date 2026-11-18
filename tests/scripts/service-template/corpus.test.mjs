@@ -19,7 +19,6 @@ import {
   it,
 } from "vitest";
 import {
-  CONDITIONS,
   FORMAT_BNG_SERVICE,
   checkLineage,
   checkTemplateValues,
