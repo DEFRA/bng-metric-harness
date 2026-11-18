@@ -80,13 +80,25 @@ describe("parseWorseCounts", () => {
   });
 
   it("refuses a zero count for the kind a degrade flaw breaks, and takes it otherwise", () => {
-    expect(() => parseWorseCounts(["hedge=0"], ["degrade-not-worse"])).toThrow(
-      /degrade-not-worse breaks .* cannot set hedge to 0/,
+    expect(() =>
+      parseWorseCounts(
+        ["worse-watercourse=0"],
+        ["degrade-watercourse-advance-not-encroachment"],
+      ),
+    ).toThrow(
+      /degrade-watercourse-advance-not-encroachment breaks .* cannot set worse-watercourse to 0/,
     );
-    expect(parseWorseCounts(["hedge=0"])).toEqual({ hedge: 0 });
+    expect(parseWorseCounts(["worse-watercourse=0"])).toEqual({
+      "worse-watercourse": 0,
+    });
     expect(
-      parseWorseCounts(["worse-watercourse=0"], ["degrade-not-worse"]),
-    ).toEqual({ "worse-watercourse": 0 });
+      parseWorseCounts(
+        ["hedge=0"],
+        ["degrade-watercourse-advance-not-encroachment"],
+      ),
+    ).toEqual({
+      hedge: 0,
+    });
   });
 
   it("refuses a kind given twice", () => {
@@ -141,7 +153,7 @@ describe("generate:gpkg --worse", () => {
       "--flaw",
       "bowtie-parcel",
       "--flaw",
-      "degrade-not-worse",
+      "degrade-watercourse-advance-not-encroachment",
       "--worse",
       "hedge=3",
     );
@@ -188,11 +200,11 @@ describe("generate:gpkg --worse", () => {
         "--format",
         "bng-service",
         "--flaw",
-        "degrade-not-worse",
+        "degrade-watercourse-advance-not-encroachment",
         "--worse",
-        "hedge=0",
+        "worse-watercourse=0",
       ],
-      /--worse: degrade-not-worse breaks .* cannot set hedge to 0/,
+      /--worse: degrade-watercourse-advance-not-encroachment breaks .* cannot set worse-watercourse to 0/,
     ],
   ])("refuses %j", (args, message) => {
     const result = generate(...args);

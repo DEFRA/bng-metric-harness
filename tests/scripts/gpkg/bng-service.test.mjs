@@ -121,8 +121,8 @@ describe("gen-gpkg --format bng-service", () => {
   });
 
   it("writes a degraded-habitat flaw, and names it in the file name", () => {
-    // The hedges that get worse, by their years in advance: the same seed
-    // with and without the flaw, so the flaw is what clears them.
+    // The watercourses created again, by their years in advance: the same
+    // seed with and without the flaw, so the flaw is what sets them.
     const worseAdvance = (...flaw) => {
       const dir = outDir();
       const result = run(
@@ -142,7 +142,7 @@ describe("gen-gpkg --format bng-service", () => {
         const advance = db
           .prepare(
             `SELECT "Habitat created in advance/years" AS advance
-               FROM "Hedgerows Post-Intervention"
+               FROM "Watercourses Post-Intervention"
               WHERE "Retention Category" = 'Created' AND parent_uuid IS NOT NULL`,
           )
           .all()
@@ -152,13 +152,19 @@ describe("gen-gpkg --format bng-service", () => {
         db.close();
       }
     };
+    const tenYears = (advance) => advance.filter((a) => a === "10").length;
     const plain = worseAdvance();
     expect(plain.advance.length).toBeGreaterThan(0);
-    expect(new Set(plain.advance)).toEqual(new Set(["30+"]));
-    const flawed = worseAdvance("--flaw", "degrade-advance-missing");
-    expect(path.basename(flawed.file)).toMatch(/degrade-advance-missing/);
+    const flawed = worseAdvance(
+      "--flaw",
+      "degrade-watercourse-advance-not-encroachment",
+    );
+    expect(path.basename(flawed.file)).toMatch(
+      /degrade-watercourse-advance-not-encroachment/,
+    );
     expect(flawed.advance).toHaveLength(plain.advance.length);
-    expect(flawed.advance).toContain(null);
+    // The watercourse worse in condition joins the encroachment-only one at 10.
+    expect(tenYears(flawed.advance)).toBe(tenYears(plain.advance) + 1);
   });
 
   it("writes one file holding both stages from a workbook", () => {
@@ -225,7 +231,9 @@ describe("gen-gpkg --format bng-service", () => {
     expect(result.stdout).toMatch(/lineage-parent-unknown/);
     expect(result.stdout).toMatch(/version-record-missing/);
     expect(result.stdout).toMatch(/Degraded-habitat flaws/);
-    expect(result.stdout).toMatch(/degrade-not-worse/);
+    expect(result.stdout).toMatch(
+      /degrade-watercourse-encroachment-no-advance/,
+    );
     expect(result.stdout).toMatch(/tree-count-not-whole.*legacy only/);
   });
 
@@ -277,9 +285,9 @@ describe("gen-gpkg --format bng-service", () => {
         "--format",
         "bng-service",
         "--flaw",
-        "degrade-advance-missing",
+        "degrade-watercourse-advance-not-encroachment",
         "--flaw",
-        "degrade-not-worse",
+        "degrade-watercourse-encroachment-no-advance",
       ],
       /Only one degraded-habitat flaw at a time/,
     ],
@@ -290,11 +298,14 @@ describe("gen-gpkg --format bng-service", () => {
         "--stage",
         "baseline",
         "--flaw",
-        "degrade-not-worse",
+        "degrade-watercourse-encroachment-no-advance",
       ],
       /Degraded-habitat flaws change post-intervention features/,
     ],
-    [["--flaw", "degrade-not-worse"], /add --format bng-service/],
+    [
+      ["--flaw", "degrade-watercourse-encroachment-no-advance"],
+      /add --format bng-service/,
+    ],
     [
       [
         "--from",

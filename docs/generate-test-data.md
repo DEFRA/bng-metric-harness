@@ -221,7 +221,7 @@ npm run generate:gpkg -- --format bng-service --size 20 --seed 7
 npm run generate:gpkg -- --format bng-service --stage baseline
 npm run generate:gpkg -- --format bng-service --from path/to/MyMetric.xlsx
 npm run generate:gpkg -- --format bng-service --flaw lineage-parent-unknown
-npm run generate:gpkg -- --format bng-service --flaw degrade-not-worse
+npm run generate:gpkg -- --format bng-service --flaw degrade-watercourse-advance-not-encroachment
 ```
 
 A BNG Service file is **one GeoPackage holding both stages**: a Baseline and a
@@ -253,7 +253,7 @@ and converted along the way.
   `tree-count-not-whole` (the template has no Count column). The format adds
   lineage flaws (`lineage-parent-missing`, `-unknown`, `-wrong`,
   `-geom-mismatch`, `-geom-missing`), degraded-habitat flaws
-  (`degrade-advance-missing`, `degrade-not-worse`,
+  (`degrade-habitat-ref-blank`,
   `degrade-watercourse-advance-not-encroachment`,
   `-encroachment-no-advance`, `-retained-and-created`) and template-version
   flaws (`version-record-missing`, `-duplicated`, `version-unsupported`),

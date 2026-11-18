@@ -207,15 +207,11 @@ function derived(
 
 const HABITAT_REF = "Habitat Ref";
 const RETENTION = "Retention Category";
-const ADVANCE_YEARS = "Habitat created in advance/years";
 const BASELINE_SIGNIFICANCE = "Baseline Strategic Significance";
 const HIGH = "High";
-// The default site's habitats these fixtures change: a Retained woodland, the
-// area and vertical area habitats that get worse, each Created again in its
-// own type 30+ years in advance, and a Retained culvert.
+// The default site's habitats these fixtures change: a Retained woodland and
+// a Retained culvert.
 const RETAINED_WOODLAND = "H002";
-const WORSE_AREA_HABITAT = "H043";
-const WORSE_VERTICAL_HABITAT = "V005";
 // The default site's demolished structure: a baseline row and no
 // post-intervention one, so a blank Area fails only the Area check.
 const DEMOLISHED_VERTICAL_HABITAT = "V004";
@@ -409,8 +405,6 @@ const ATTRIBUTE = [
   "missing-habitat-ref",
   "habitat-ref-invalid-characters",
   "advance-delay-both-set",
-  "degrade-advance-missing",
-  "degrade-not-worse",
   "degrade-watercourse-retained-and-created",
   "degrade-habitat-ref-blank",
 ].map((name) => flawFixture("attribute-problems", name));
@@ -431,29 +425,6 @@ const BASELINE_SIGNIFICANCE_HIGH = derived(
     ),
   ],
   `${ACCEPTED}, its baseline strategic significance stored and priced as Low`,
-);
-
-const DEGRADE_ADVANCE_MISSING = [
-  ["area", "Area Habitats", "an area habitat", WORSE_AREA_HABITAT],
-  [
-    "vertical-area",
-    "Vertical Area Habitats",
-    "a vertical area habitat",
-    WORSE_VERTICAL_HABITAT,
-  ],
-].map(([name, layer, habitat, ref]) =>
-  derived(
-    `attribute-problems/degrade-${name}-advance-missing.gpkg`,
-    `\`valid/default-site.gpkg\` with ${ref}, ${habitat} that gets worse (Created in its own type, linked to its parent, in a lower condition), given no years created in advance, where the Metric asks for 30 plus`,
-    [
-      setValues(
-        `${layer} Post-Intervention`,
-        { [ADVANCE_YEARS]: null },
-        { [HABITAT_REF]: ref, [RETENTION]: "Created" },
-      ),
-    ],
-    "STAGED_DEGRADE_ADVANCE_NOT_30_PLUS",
-  ),
 );
 
 const VERTICAL_AREA_MISSING = derived(
@@ -552,7 +523,6 @@ export const RECIPES = [
   ...EMPTY_LAYER,
   ...ATTRIBUTE,
   BASELINE_SIGNIFICANCE_HIGH,
-  ...DEGRADE_ADVANCE_MISSING,
   VERTICAL_AREA_MISSING,
   NATURAL_WATERCOURSE_LOST,
   ...IRREPLACEABLE,

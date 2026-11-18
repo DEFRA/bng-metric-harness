@@ -332,18 +332,6 @@
     "group": "Links to the baseline",
     "checks": "A baseline watercourse that is neither a canal nor a ditch has no post-intervention habitat. The statutory metric allows only a canal or a ditch to be permanently lost."
   },
-  "STAGED_DEGRADE_NOT_WORSE": {
-    "group": "Links to the baseline",
-    "checks": "An area habitat or hedgerow is recorded as Created in the same habitat type as its baseline and linked to it, but is not in a lower condition and has no delay — so it was in fact kept. A habitat with a delay is one lost for a time and put back, which passes."
-  },
-  "STAGED_DEGRADE_ADVANCE_NOT_30_PLUS": {
-    "group": "Links to the baseline",
-    "checks": "An area habitat or hedgerow recorded as lost and created again in a lower condition, in the same habitat type and linked to its baseline, does not give its years created in advance as 30+, which the statutory metric asks for in that case."
-  },
-  "STAGED_WATERCOURSE_NO_INTERVENTION": {
-    "group": "Links to the baseline",
-    "checks": "A watercourse is recorded as Created in the same river type as its baseline and linked to it, but with no lower condition, no more encroachment, no shorter length and no delay — so nothing was done to it."
-  },
   "COMMENT_INVALID_CHARACTERS": {
     "group": "Habitat data",
     "checks": "A habitat's comment holds characters the service cannot read as text. This applies to the comment on any area habitat, tree, hedgerow or watercourse."
