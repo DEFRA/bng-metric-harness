@@ -182,7 +182,8 @@ document links to `error-text.yaml` on the frontend's `main`.
   `cannotStart`) is shown on the upload page, not the drop-out page, and the
   frontend gives up on its own, so there is no backend code to key it by.
   `upload.errors.VALIDATION_BUSY` repeats `fileCheck.serviceBusy`'s words.
-  The error message export gives the section by default.
+  The frontend's error message export (`npm run export:error-text`)
+  includes the `fileCheck` section by default.
 - **Surfaces, not one kind per code**: `HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE`
   is met both on upload and on an edit.
 - **The backend declares surfaces; nothing infers them.** Where a code is
