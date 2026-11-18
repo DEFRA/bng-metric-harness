@@ -15,7 +15,8 @@
  *   meant to accept, such as a baseline with no hedgerows;
  * - KNOWN_GAPS: a file the service should refuse but accepts today, as the
  *   corpus's README records. The test passes while the service still accepts
- *   it, and fails once the service refuses it, so the entry is removed then.
+ *   it. Once the service refuses it, the test still passes, but reports the
+ *   entry as stale, for removal.
  *
  * Paths are relative to example-files/, with forward slashes.
  */
