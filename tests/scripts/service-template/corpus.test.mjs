@@ -19,6 +19,7 @@ import {
   it,
 } from "vitest";
 import {
+  CONDITIONS,
   FORMAT_BNG_SERVICE,
   checkLineage,
   checkTemplateValues,
@@ -614,6 +615,68 @@ function habitat(file, layer, ref) {
 // worse, a culvert drawn as a ditch) would rebuild each fixture to match
 // itself, so these check the facts each recipe relies on, in the file built.
 describe("the fixtures derived for QA's BMD-1086 scenarios", () => {
+  // The default site's habitat on each layer that gets worse as the guide
+  // asks, and each degrade fixture that breaks one step on it. The service
+  // holds a row to the steps only when it is Created in its parent's own
+  // type, linked to it, with no delay, and its conditions are ones the
+  // Metric scores (bng-metric-backend, worsened-habitat-steps.js), so a
+  // repin that redrew one of these would otherwise ship a file the service
+  // accepts while its README says it is refused.
+  describe.each([
+    ["area", "Area Habitats", "H043", "Habitat Type"],
+    ["vertical-area", "Vertical Area Habitats", "V005", "Habitat Type"],
+    ["hedgerow", "Hedgerows", "HG017", "Hedge Type"],
+  ])("degrade-%s-*.gpkg", (name, layer, ref, typeColumn) => {
+    const ADVANCE = "Habitat created in advance/years";
+    const DELAY = "Delay in starting habitat creation/years";
+    const scored = (condition) => CONDITIONS.indexOf(condition);
+
+    /** The habitat's baseline row and its one Created row, held to the steps. */
+    function worseHabitat(file) {
+      const { baseline, post } = habitat(file, layer, ref);
+      const created = post.filter(
+        (row) => row["Retention Category"] === "Created",
+      );
+      expect(created).toHaveLength(1);
+      const [row] = created;
+      expect(row.parent_uuid).toBe(baseline.feature_uuid);
+      expect(row["Parent Ref"]).toBe(baseline["Habitat Ref"]);
+      expect(row[`Proposed ${typeColumn}`]).toBe(
+        baseline[`Baseline ${typeColumn}`],
+      );
+      expect([null, "", "0", 0]).toContain(row[DELAY]);
+      expect(scored(baseline["Baseline Condition"])).toBeGreaterThanOrEqual(0);
+      expect(scored(row["Proposed Condition"])).toBeGreaterThanOrEqual(0);
+      return { baseline, row };
+    }
+
+    it("is drawn on the default site as a habitat that gets worse, lower and 30+ years in advance", () => {
+      const { baseline, row } = worseHabitat(builtAt(DEFAULT_SITE));
+      expect(scored(row["Proposed Condition"])).toBeGreaterThan(
+        scored(baseline["Baseline Condition"]),
+      );
+      expect(row[ADVANCE]).toBe("30+");
+    });
+
+    it(`degrade-${name}-advance-missing.gpkg keeps it lower, with no years in advance`, () => {
+      const { baseline, row } = worseHabitat(
+        builtAt(`attribute-problems/degrade-${name}-advance-missing.gpkg`),
+      );
+      expect(scored(row["Proposed Condition"])).toBeGreaterThan(
+        scored(baseline["Baseline Condition"]),
+      );
+      expect(row[ADVANCE]).toBeNull();
+    });
+
+    it(`degrade-${name}-not-worse.gpkg gives it its baseline condition, 30+ years in advance`, () => {
+      const { baseline, row } = worseHabitat(
+        builtAt(`attribute-problems/degrade-${name}-not-worse.gpkg`),
+      );
+      expect(row["Proposed Condition"]).toBe(baseline["Baseline Condition"]);
+      expect(row[ADVANCE]).toBe("30+");
+    });
+  });
+
   it("watercourse-culvert-left-out.gpkg loses a culvert the default site retains", () => {
     const fixture = habitat(
       builtAt("attribute-problems/watercourse-culvert-left-out.gpkg"),
