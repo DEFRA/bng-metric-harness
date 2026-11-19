@@ -71,4 +71,10 @@ describe.each([
     );
     expect(() => verify(copy, subject())).not.toThrow();
   });
+
+  it("refuses a stage it does not know, naming it", () => {
+    expect(() => verify(file, subject("post_intervention"))).toThrow(
+      'names the stage "post_intervention", not one of baseline, post-intervention',
+    );
+  });
 });

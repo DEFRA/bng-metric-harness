@@ -14,6 +14,7 @@ import {
   generateBngServiceSynthetic,
 } from "#bng-lib";
 import { openGeoPackageReadonly } from "#gpkg-io";
+import { SUBJECT_STAGES, missingSubject, subjectStage } from "./verify.mjs";
 
 // A scenario that breaks a rule on purpose, as bng-library marks it.
 const INVALID_PREFIX = "invalid-";
@@ -29,12 +30,6 @@ const BNG_SERVICE_LAYERS = {
   "Vertical Area Habitats": "Vertical Area Habitats",
 };
 
-/** The BNG Service table suffix for each stage a subject may name. */
-const SUBJECT_STAGES = {
-  baseline: "Baseline",
-  "post-intervention": "Post-Intervention",
-};
-
 /**
  * The scenario's subject feature must be in the BNG Service file, by its
  * Habitat Ref: at the stage it names, or at either stage (a created feature
@@ -44,8 +39,9 @@ const SUBJECT_STAGES = {
  */
 export function verifyBngServiceSubject(file, subject) {
   const layer = BNG_SERVICE_LAYERS[subject.layer];
-  const stages = subject.stage
-    ? [SUBJECT_STAGES[subject.stage]]
+  const stage = subjectStage(subject);
+  const stages = stage
+    ? [SUBJECT_STAGES[stage]]
     : Object.values(SUBJECT_STAGES);
   const db = openGeoPackageReadonly(file);
   try {
@@ -58,9 +54,7 @@ export function verifyBngServiceSubject(file, subject) {
           .get(subject.ref).n > 0,
     );
     if (!found) {
-      throw new Error(
-        `subject ${layer}${subject.stage ? ` ${SUBJECT_STAGES[subject.stage]}` : ""} "${subject.ref}" is missing — the layer generated too few features`,
-      );
+      throw missingSubject(layer, stage, subject.ref);
     }
   } finally {
     db.close();

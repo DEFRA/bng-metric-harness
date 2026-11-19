@@ -42,6 +42,42 @@ export function verifyPair(baselineFile, piFile) {
 }
 
 /**
+ * The stages a scenario's subject may name, each with its BNG Service table
+ * suffix: the one list both formats' subject checks read (bng-library's
+ * catalogue, checkSubject, holds scenarios to it too).
+ */
+export const SUBJECT_STAGES = Object.freeze({
+  baseline: "Baseline",
+  "post-intervention": "Post-Intervention",
+});
+
+/**
+ * The stage a subject names, or null when it names none. One the checks do
+ * not know is refused by name, rather than read as no stage at all or as a
+ * table that is not there.
+ */
+export function subjectStage(subject) {
+  const { stage } = subject;
+  if (stage === undefined) {
+    return null;
+  }
+  if (!Object.hasOwn(SUBJECT_STAGES, stage)) {
+    throw new Error(
+      `subject ${subject.layer} "${subject.ref}" names the stage ${JSON.stringify(stage)}, not one of ${Object.keys(SUBJECT_STAGES).join(", ")}`,
+    );
+  }
+  return stage;
+}
+
+/** How a missing subject is named: its layer, and its stage if it names one. */
+export function missingSubject(layer, stage, ref) {
+  const where = stage ? `${layer} (${stage})` : layer;
+  return new Error(
+    `subject ${where} "${ref}" is missing — the layer generated too few features`,
+  );
+}
+
+/**
  * The rows of a legacy post-intervention layer at each stage a subject may
  * name: the file holds both. A Lost tree, hedgerow or watercourse is the
  * baseline feature alone; a Lost area habitat is created again in place
@@ -67,17 +103,16 @@ function stageCondition(layer, stage) {
  */
 export function verifySubject(piFile, subject) {
   const refColumn = refColumnFor(subject.layer);
+  const stage = subjectStage(subject);
   const db = openGeoPackageReadonly(piFile);
   try {
     const found = db
       .prepare(
-        `SELECT count(*) AS n FROM "${subject.layer}" WHERE "${refColumn}" = ? ${stageCondition(subject.layer, subject.stage)}`,
+        `SELECT count(*) AS n FROM "${subject.layer}" WHERE "${refColumn}" = ? ${stageCondition(subject.layer, stage)}`,
       )
       .get(subject.ref).n;
     if (found === 0) {
-      throw new Error(
-        `subject ${subject.layer}${subject.stage ? ` (${subject.stage})` : ""} "${subject.ref}" is missing — the layer generated too few features`,
-      );
+      throw missingSubject(subject.layer, stage, subject.ref);
     }
   } finally {
     db.close();
