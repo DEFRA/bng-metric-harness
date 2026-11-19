@@ -260,6 +260,14 @@
     "group": "Edits made on screen",
     "checks": "The change would leave an enhanced habitat that is not a permitted enhancement of the habitat it started as."
   },
+  "TREE_DEGRADE_NOT_VALID": {
+    "group": "Edits made on screen",
+    "checks": "The change would leave an existing tree that is recorded as created again over its baseline tree, with no delay, in the same or a better condition than its baseline tree, or not created as far in advance as the template's longest years created in advance, which the statutory metric asks for when a tree's condition gets worse."
+  },
+  "HABITAT_DEGRADE_NOT_VALID": {
+    "group": "Edits made on screen",
+    "checks": "The change would leave an area habitat or hedgerow that is recorded as created again in the same habitat type as its baseline habitat, and linked to it, with no delay, in the same or a better condition than its baseline habitat, or not created as far in advance as the template's longest years created in advance, which the statutory metric asks for when a habitat's condition gets worse."
+  },
   "BASELINE_NOT_ENHANCEABLE": {
     "group": "Habitat data",
     "checks": "A post-intervention habitat is recorded as Enhanced, but its baseline habitat is one the service cannot enhance at all — for example a medium distinctiveness habitat already in good condition. The whole file is refused rather than the enhancement being dropped, and every such habitat is named at once."
@@ -331,6 +339,14 @@
   "STAGED_NATURAL_WATERCOURSE_LOST": {
     "group": "Links to the baseline",
     "checks": "A baseline watercourse that is neither a canal nor a ditch has no post-intervention habitat. The statutory metric allows only a canal or a ditch to be permanently lost."
+  },
+  "STAGED_TREE_DEGRADE_NOT_VALID": {
+    "group": "Links to the baseline",
+    "checks": "An existing tree is recorded as created again over its baseline tree, with no delay, but is in the same or a better condition than its baseline tree, or is not created as far in advance as the template's longest years created in advance. The statutory metric records a tree whose condition gets worse as lost and created again in a lower condition that far in advance; a tree put back after a delay passes."
+  },
+  "STAGED_HABITAT_DEGRADE_NOT_VALID": {
+    "group": "Links to the baseline",
+    "checks": "An area habitat, vertical area habitat or hedgerow is recorded as created again in the same habitat type as the baseline habitat it is linked to, with no delay, but is in the same or a better condition than its baseline habitat, or is not created as far in advance as the template's longest years created in advance. Linked to its baseline habitat, it is on that habitat's land, so the statutory metric reads it as that habitat getting worse; a habitat cleared and put back gives a delay and passes, and a condition the metric does not score is not judged."
   },
   "COMMENT_INVALID_CHARACTERS": {
     "group": "Habitat data",
