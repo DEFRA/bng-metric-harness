@@ -440,6 +440,53 @@ const VERTICAL_AREA_MISSING = derived(
   "VERTICAL_HABITAT_AREA_NOT_POSITIVE",
 );
 
+const ADVANCE_YEARS = "Habitat created in advance/years";
+const PROPOSED_CONDITION = "Proposed Condition";
+const DEGRADE_REFUSED = "STAGED_HABITAT_DEGRADE_NOT_VALID";
+
+// The default site's habitats that get worse, one on each layer the guide's
+// steps hold: each Created again in its parent's own type, linked to it, in a
+// lower condition, 30+ years in advance, as the guide asks ("Habitat
+// retention"). Each fixture breaks one step on one of them, with no delay.
+const WORSE_HABITATS = [
+  ["area", "Area Habitats", "an area habitat", "H043", "Moderate"],
+  [
+    "vertical-area",
+    "Vertical Area Habitats",
+    "a vertical area habitat",
+    "V005",
+    "Good",
+  ],
+  ["hedgerow", "Hedgerows", "a hedgerow", "HG017", "Moderate"],
+];
+
+const DEGRADE_REFUSALS = WORSE_HABITATS.flatMap(
+  ([name, layer, habitat, ref, baselineCondition]) => {
+    const created = { [HABITAT_REF]: ref, [RETENTION]: "Created" };
+    const table = `${layer} Post-Intervention`;
+    return [
+      derived(
+        `attribute-problems/degrade-${name}-advance-missing.gpkg`,
+        `\`valid/default-site.gpkg\` with ${ref}, ${habitat} that gets worse (Created in its own type, linked to its parent, in a lower condition, with no delay), given no years created in advance, where the Metric asks for 30 plus`,
+        [setValues(table, { [ADVANCE_YEARS]: null }, created)],
+        DEGRADE_REFUSED,
+      ),
+      derived(
+        `attribute-problems/degrade-${name}-not-worse.gpkg`,
+        `\`valid/default-site.gpkg\` with ${ref}, ${habitat} Created in its own type, linked to its parent, 30+ years in advance, with no delay, given its baseline condition (${baselineCondition}): kept as it was, it should be Retained, or given a delay if it is cleared and put back`,
+        [
+          setValues(
+            table,
+            { [PROPOSED_CONDITION]: baselineCondition },
+            created,
+          ),
+        ],
+        DEGRADE_REFUSED,
+      ),
+    ];
+  },
+);
+
 const NATURAL_WATERCOURSE_LOST = derived(
   "attribute-problems/watercourse-culvert-left-out.gpkg",
   `\`valid/default-site.gpkg\` with the Retained culvert ${RETAINED_CULVERT}'s post-intervention row left out, so it is lost. Only a canal or a ditch may be lost; this stands in for a natural river left out (see the gaps below)`,
@@ -524,6 +571,7 @@ export const RECIPES = [
   ...ATTRIBUTE,
   BASELINE_SIGNIFICANCE_HIGH,
   VERTICAL_AREA_MISSING,
+  ...DEGRADE_REFUSALS,
   NATURAL_WATERCOURSE_LOST,
   ...IRREPLACEABLE,
   ...treeRecipes({ derived, accepted: ACCEPTED }),
