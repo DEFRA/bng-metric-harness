@@ -46,10 +46,10 @@ export function verifyBngServiceSubject(file, subject) {
   const db = openGeoPackageReadonly(file);
   try {
     const found = stages.some(
-      (stage) =>
+      (suffix) =>
         db
           .prepare(
-            `SELECT count(*) AS n FROM "${layer} ${stage}" WHERE "Habitat Ref" = ?`,
+            `SELECT count(*) AS n FROM "${layer} ${suffix}" WHERE "Habitat Ref" = ?`,
           )
           .get(subject.ref).n > 0,
     );
