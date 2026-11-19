@@ -14,6 +14,7 @@ import {
   generateBngServiceSynthetic,
 } from "#bng-lib";
 import { openGeoPackageReadonly } from "#gpkg-io";
+import { SUBJECT_STAGES, missingSubject, subjectStage } from "./verify.mjs";
 
 // A scenario that breaks a rule on purpose, as bng-library marks it.
 const INVALID_PREFIX = "invalid-";
@@ -30,25 +31,30 @@ const BNG_SERVICE_LAYERS = {
 };
 
 /**
- * The scenario's subject feature must be in the BNG Service file, at either
- * stage (a created feature has no baseline row), by its Habitat Ref.
+ * The scenario's subject feature must be in the BNG Service file, by its
+ * Habitat Ref: at the stage it names, or at either stage (a created feature
+ * has no baseline row, a lost one no post-intervention row). A subject whose
+ * ref is at both, such as a tree that worsens and keeps the ref of the tree it
+ * is, names the stage that shows it was drawn.
  */
-function verifyBngServiceSubject(file, subject) {
+export function verifyBngServiceSubject(file, subject) {
   const layer = BNG_SERVICE_LAYERS[subject.layer];
+  const stage = subjectStage(subject);
+  const stages = stage
+    ? [SUBJECT_STAGES[stage]]
+    : Object.values(SUBJECT_STAGES);
   const db = openGeoPackageReadonly(file);
   try {
-    const found = ["Baseline", "Post-Intervention"].some(
-      (stage) =>
+    const found = stages.some(
+      (suffix) =>
         db
           .prepare(
-            `SELECT count(*) AS n FROM "${layer} ${stage}" WHERE "Habitat Ref" = ?`,
+            `SELECT count(*) AS n FROM "${layer} ${suffix}" WHERE "Habitat Ref" = ?`,
           )
           .get(subject.ref).n > 0,
     );
     if (!found) {
-      throw new Error(
-        `subject ${layer} "${subject.ref}" is missing — the layer generated too few features`,
-      );
+      throw missingSubject(layer, stage, subject.ref);
     }
   } finally {
     db.close();

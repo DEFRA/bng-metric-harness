@@ -199,6 +199,54 @@ describe("independent AC3-AC5 workbook timing inputs", () => {
     );
   });
 
+  it("counts a legacy tree that worsens once, though its Created row's placeholder shares its ref", () => {
+    const dir = path.join(COMMITTED_CORPUS, "intervention");
+    const { rows } = importWorkbookRows(
+      path.join(dir, "tree-condition-lowered-baseline.gpkg"),
+      path.join(dir, "tree-condition-lowered-post-intervention.gpkg"),
+    );
+
+    expect(rows.habitatBaseline.map((row) => row.reference)).toEqual([
+      "H001",
+      "T001",
+      "T003",
+      "T005",
+    ]);
+    expect(rows.habitatCreation.map((row) => row.reference)).toEqual([
+      "T001",
+      "T003",
+    ]);
+  });
+
+  it("keeps both baseline habitats that share a ref", () => {
+    const { baseline, pi } = pair("invalid-timing-retained-lost");
+    const shared = (file) => {
+      const copy = path.join(directory, `shared-ref-${path.basename(file)}`);
+      copyFileSync(file, copy);
+      const db = new Database(copy);
+      try {
+        db.prepare(
+          `UPDATE Habitats SET "Parcel Ref" = 'H001' WHERE "Parcel Ref" = 'H002'`,
+        ).run();
+      } finally {
+        db.close();
+      }
+      return copy;
+    };
+    const before = importWorkbookRows(baseline, pi).rows.habitatBaseline;
+
+    const after = importWorkbookRows(shared(baseline), shared(pi)).rows
+      .habitatBaseline;
+
+    const sizesOf = (rows, refs) =>
+      rows.filter((row) => refs.includes(row.reference)).map((r) => r.size);
+    expect(after).toHaveLength(before.length);
+    // Each keeps its own row, not one of the two twice.
+    expect(sizesOf(after, ["H001"])).toEqual(
+      sizesOf(before, ["H001", "H002"]),
+    );
+  });
+
   it("prices Lost replacements with their timing credit and retains the baseline loss", () => {
     const { baseline, pi } = pair("invalid-timing-retained-lost");
     const { rows, timingChanges } = importWorkbookRows(baseline, pi);

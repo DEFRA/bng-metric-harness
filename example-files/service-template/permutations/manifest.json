@@ -2559,12 +2559,13 @@
       "id": "intervention-tree-condition-lowered",
       "purpose": "intervention",
       "title": "Individual tree — condition lowered, recorded as lost and recreated",
-      "description": "T001, a Medium rural tree in Moderate condition, cannot be kept in that condition, so, as the metric user guide says, it is recorded as lost and T002 is created on its spot, the same size, type and setting, in Poor condition, with \"created in advance\" set to 30+ years. T003, a Large urban tree in Good condition, is lost for a time and put back as T004 after a 5-year delay, in Moderate condition. T005 is retained as it is. The metric loses T001 and T003 in full and prices T002 and T004 as creations. In the BNG Service file T002 and T004 are each Category Existing and linked to the tree they are, so this checks the service reads an existing tree created again as that tree lost and recreated, priced as the metric prices it.",
+      "description": "T001, a Medium rural tree in Moderate condition, cannot be kept in that condition, so, as the metric user guide says, it is recorded as lost and created again on its spot, the same size, type and setting, in Poor condition, with \"created in advance\" set to 30+ years. T003, a Large urban tree in Good condition, is lost for a time and put back after a 5-year delay, in Moderate condition. T005 is retained as it is. The metric loses T001 and T003 in full and prices the two trees created again as creations. Each keeps the Habitat Ref of the tree it is, T001 and T003, as the template's copy button writes them, so a user can see it is the same tree. In the BNG Service file each is also Category Existing and linked to that tree. This checks the service reads an existing tree created again as that tree lost and recreated, priced as the metric prices it.",
       "size": 1,
       "subject": {
         "layer": "Urban Trees",
-        "ref": "T002",
-        "note": "T001 recreated in a lower condition, 30+ years in advance; T004 is T003 put back after a delay"
+        "ref": "T001",
+        "stage": "post-intervention",
+        "note": "T001 recreated in a lower condition, 30+ years in advance; T003 put back after a delay"
       },
       "files": {
         "geoPackage": "intervention/tree-condition-lowered.gpkg",
@@ -2598,7 +2599,7 @@
           "passed": true
         }
       ],
-      "workbookSource": "45a0b70c1499e22d69105b9e799f829a2cc31935d530340cef12a3d82a98b4bd",
+      "workbookSource": "28685c70581d34a9b9e770dbd1899753416f16520811bf95323561afa7714dbf",
       "inputRows": {
         "habitatBaseline": 4,
         "habitatCreation": 2,
@@ -2738,7 +2739,7 @@
         "rowWarnings": [
           {
             "sheet": "habitatCreation",
-            "reference": "T002",
+            "reference": "T001",
             "message": "Check details - Is there evidence that habitat has reached target condition? ⚠",
             "cells": [
               "R11"
@@ -2746,7 +2747,7 @@
           },
           {
             "sheet": "habitatCreation",
-            "reference": "T002",
+            "reference": "T001",
             "message": "Low Difficulty - only applicable if all habitat created before losses ⚠",
             "cells": [
               "V11"
@@ -2754,7 +2755,7 @@
           },
           {
             "sheet": "habitatCreation",
-            "reference": "T004",
+            "reference": "T003",
             "message": "Check details- Delay in starting habitat in required condition? ⚠",
             "cells": [
               "R12"
