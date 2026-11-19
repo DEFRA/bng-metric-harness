@@ -42,7 +42,26 @@ export function verifyPair(baselineFile, piFile) {
 }
 
 /**
- * The scenario's subject feature must have landed. A hedgerow or watercourse
+ * The rows of a legacy post-intervention layer at each stage a subject may
+ * name: the file holds both. A Lost tree, hedgerow or watercourse is the
+ * baseline feature alone; a Lost area habitat is created again in place
+ * (bng-library's workbook rows), so it is at both stages. A Created row is
+ * post-intervention alone.
+ */
+function stageCondition(layer, stage) {
+  if (stage === "post-intervention" && layer !== "Habitats") {
+    return `AND "Retention Category" IS NOT 'Lost'`;
+  }
+  if (stage === "baseline") {
+    return `AND "Retention Category" IS NOT 'Created'`;
+  }
+  return "";
+}
+
+/**
+ * The scenario's subject feature must have landed, at the stage it names if
+ * it names one: a tree that worsens keeps the ref of the tree it is, so only
+ * its post-intervention row shows it was drawn. A hedgerow or watercourse
  * subject depends on the rejection sampler drawing enough lines, so fail
  * loudly rather than ship a fixture that silently misses its case.
  */
@@ -52,12 +71,12 @@ export function verifySubject(piFile, subject) {
   try {
     const found = db
       .prepare(
-        `SELECT count(*) AS n FROM "${subject.layer}" WHERE "${refColumn}" = ?`,
+        `SELECT count(*) AS n FROM "${subject.layer}" WHERE "${refColumn}" = ? ${stageCondition(subject.layer, subject.stage)}`,
       )
       .get(subject.ref).n;
     if (found === 0) {
       throw new Error(
-        `subject ${subject.layer} "${subject.ref}" is missing — the layer generated too few features`,
+        `subject ${subject.layer}${subject.stage ? ` (${subject.stage})` : ""} "${subject.ref}" is missing — the layer generated too few features`,
       );
     }
   } finally {

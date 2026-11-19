@@ -42,7 +42,7 @@ const SUBJECT_STAGES = {
  * ref is at both, such as a tree that worsens and keeps the ref of the tree it
  * is, names the stage that shows it was drawn.
  */
-function verifyBngServiceSubject(file, subject) {
+export function verifyBngServiceSubject(file, subject) {
   const layer = BNG_SERVICE_LAYERS[subject.layer];
   const stages = subject.stage
     ? [SUBJECT_STAGES[subject.stage]]
