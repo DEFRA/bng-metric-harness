@@ -1,32 +1,44 @@
 import { workbookRowsFromGeoPackage } from "#workbook-writer";
 import { metricTiming, readTimingInputs } from "./import-timing.mjs";
 
-function restoreAreaBaseline(rows, baselineRows) {
-  const current = new Map(
-    rows.habitatBaseline.map((row) => [row.reference, row]),
-  );
-  const inBaselineHalf = new Set(
-    baselineRows.habitatBaseline.map((row) => row.reference),
-  );
-  // The service saves every baseline habitat the post-intervention file
-  // holds, so one the baseline half lacks would be under-counted here: the
-  // pair disagrees, and is refused rather than priced.
-  const unmatched = [...current.keys()].filter(
-    (ref) => !inBaselineHalf.has(ref),
-  );
-  if (unmatched.length > 0) {
-    throw new Error(
-      `The post-intervention file holds baseline habitats the baseline half does not: ${unmatched.join(", ")}`,
-    );
+/** Each row of a list by its reference, in order: a reference may repeat. */
+function rowsByReference(list) {
+  const byReference = new Map();
+  for (const row of list) {
+    byReference.set(row.reference, [
+      ...(byReference.get(row.reference) ?? []),
+      row,
+    ]);
   }
+  return byReference;
+}
+
+function restoreAreaBaseline(rows, baselineRows) {
+  // A reference may repeat (BMD-1058), and a legacy tree that worsens keeps
+  // the ref of the tree it is, so the baseline half holds that ref twice: the
+  // tree, and the Created row's N/A placeholder. Each post-intervention
+  // baseline row is matched to one baseline-half row, in order, so neither
+  // is counted twice.
+  const current = rowsByReference(rows.habitatBaseline);
   // The baseline the service saves is rebuilt from the post-intervention file,
   // whose Created rows have no baseline habitat. Keep the baseline half's
   // order, with each kept row's allocation fields from the post-intervention
   // file.
   rows.habitatBaseline = baselineRows.habitatBaseline.flatMap((row) => {
-    const proposedBaseline = current.get(row.reference);
+    const proposedBaseline = current.get(row.reference)?.shift();
     return proposedBaseline ? [proposedBaseline] : [];
   });
+  // The service saves every baseline habitat the post-intervention file
+  // holds, so one the baseline half lacks would be under-counted here: the
+  // pair disagrees, and is refused rather than priced.
+  const unmatched = [...current]
+    .filter(([, left]) => left.length > 0)
+    .map(([ref]) => ref);
+  if (unmatched.length > 0) {
+    throw new Error(
+      `The post-intervention file holds baseline habitats the baseline half does not: ${unmatched.join(", ")}`,
+    );
+  }
 }
 
 function applyRowTiming(row, input, sheet, changes) {

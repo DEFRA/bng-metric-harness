@@ -29,15 +29,27 @@ const BNG_SERVICE_LAYERS = {
   "Vertical Area Habitats": "Vertical Area Habitats",
 };
 
+/** The BNG Service table suffix for each stage a subject may name. */
+const SUBJECT_STAGES = {
+  baseline: "Baseline",
+  "post-intervention": "Post-Intervention",
+};
+
 /**
- * The scenario's subject feature must be in the BNG Service file, at either
- * stage (a created feature has no baseline row), by its Habitat Ref.
+ * The scenario's subject feature must be in the BNG Service file, by its
+ * Habitat Ref: at the stage it names, or at either stage (a created feature
+ * has no baseline row, a lost one no post-intervention row). A subject whose
+ * ref is at both, such as a tree that worsens and keeps the ref of the tree it
+ * is, names the stage that shows it was drawn.
  */
 function verifyBngServiceSubject(file, subject) {
   const layer = BNG_SERVICE_LAYERS[subject.layer];
+  const stages = subject.stage
+    ? [SUBJECT_STAGES[subject.stage]]
+    : Object.values(SUBJECT_STAGES);
   const db = openGeoPackageReadonly(file);
   try {
-    const found = ["Baseline", "Post-Intervention"].some(
+    const found = stages.some(
       (stage) =>
         db
           .prepare(
@@ -47,7 +59,7 @@ function verifyBngServiceSubject(file, subject) {
     );
     if (!found) {
       throw new Error(
-        `subject ${layer} "${subject.ref}" is missing — the layer generated too few features`,
+        `subject ${layer}${subject.stage ? ` ${SUBJECT_STAGES[subject.stage]}` : ""} "${subject.ref}" is missing — the layer generated too few features`,
       );
     }
   } finally {
