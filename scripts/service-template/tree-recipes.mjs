@@ -27,6 +27,13 @@ const PLANTED_TREE = "T005";
 // one's place.
 const RETAINED_TREE_AGAIN = "T004A";
 const REPLANTED_TREE = "T026";
+// A felled tree in Moderate condition, so it has a lower one to get worse to,
+// and the Retained row its Created again row is copied from.
+const MODERATE_FELLED_TREE = "T007";
+const ADVANCE_YEARS = "Habitat Created/Enhanced in advance/years";
+const DELAY_YEARS = "Delay in starting habitat creation/enhancement in years";
+const LOWER_CONDITION = "Poor";
+const PUT_BACK_DELAY = "5";
 
 // Each fixture's SQL edits to `valid/default-site.gpkg`.
 const ENHANCED_NOT_BETTER_EDITS = [
@@ -83,6 +90,66 @@ const KEPT_TWICE_EDITS = [
     { [HABITAT_REF]: RETAINED_TREE_AGAIN },
   ),
 ];
+
+/**
+ * The felled tree T007 Created again where it stood, linked to it, in its own
+ * size, type and setting, as the template records a tree that is cleared and
+ * put back: `values` sets its condition and timing.
+ */
+function createdAgainEdits(values) {
+  const createdAgain = {
+    [HABITAT_REF]: MODERATE_FELLED_TREE,
+    [RETENTION]: "Created",
+  };
+  return [
+    copyRow(
+      TREES_POST,
+      { [HABITAT_REF]: RETAINED_TREE },
+      {
+        [HABITAT_REF]: MODERATE_FELLED_TREE,
+        [RETENTION]: "Created",
+        Category: "Existing",
+        [COMMENT]: null,
+        ...values,
+      },
+    ),
+    linkToParent(
+      TREES_POST,
+      createdAgain,
+      TREES_BASELINE,
+      { [HABITAT_REF]: MODERATE_FELLED_TREE },
+      {
+        geom: "geom",
+        "Baseline Tree Size": "Baseline Tree Size",
+        "Baseline Tree Type": "Baseline Tree Type",
+        "Baseline Rural or Urban Tree": "Baseline Rural or Urban Tree",
+        "Baseline Condition": "Baseline Condition",
+        "Baseline Strategic Significance": "Baseline Strategic Significance",
+      },
+    ),
+    linkToParent(
+      TREES_POST,
+      createdAgain,
+      TREES_BASELINE,
+      { [HABITAT_REF]: MODERATE_FELLED_TREE },
+      {
+        "Baseline Tree Size": "Proposed Tree Size",
+        "Baseline Tree Type": "Proposed Tree Type",
+        "Baseline Rural or Urban Tree": "Proposed Rural or Urban Tree",
+      },
+    ),
+  ];
+}
+
+// T007 got worse: Created again in a lower condition, 30+ years in advance,
+// with no delay, as the guide asks; each fixture breaks one of those.
+const degradedTree = (values) =>
+  createdAgainEdits({
+    [PROPOSED_CONDITION]: LOWER_CONDITION,
+    [ADVANCE_YEARS]: "30+",
+    [DELAY_YEARS]: null,
+    ...values,
+  });
 
 /** Mark one tree irreplaceable in one stage only. */
 function markIrreplaceable(table, ref) {
@@ -142,6 +209,34 @@ export function treeRecipes({ derived, accepted }) {
       markIrreplaceable(TREES_BASELINE, FELLED_TREE),
       "IRREPLACEABLE_TREE",
       [TREES_BASELINE],
+    ),
+    derived(
+      "attribute-problems/tree-degrade-same-condition.gpkg",
+      `\`valid/default-site.gpkg\` with the felled tree ${MODERATE_FELLED_TREE} (Moderate) Created again where it stood, linked to it, 30+ years in advance, in the same condition: kept as it was, it should be Retained`,
+      degradedTree({ [PROPOSED_CONDITION]: "Moderate" }),
+      "STAGED_TREE_DEGRADE_NOT_VALID",
+    ),
+    derived(
+      "attribute-problems/tree-degrade-better-condition.gpkg",
+      `\`valid/default-site.gpkg\` with the felled tree ${MODERATE_FELLED_TREE} (Moderate) Created again where it stood, linked to it, 30+ years in advance, in a better condition (Good): a tree that gets better is Enhanced`,
+      degradedTree({ [PROPOSED_CONDITION]: "Good" }),
+      "STAGED_TREE_DEGRADE_NOT_VALID",
+    ),
+    derived(
+      "attribute-problems/tree-degrade-advance-10.gpkg",
+      `\`valid/default-site.gpkg\` with the felled tree ${MODERATE_FELLED_TREE} (Moderate) Created again where it stood, linked to it, in a lower condition (${LOWER_CONDITION}), only 10 years in advance, where the Metric asks for 30 plus`,
+      degradedTree({ [ADVANCE_YEARS]: "10" }),
+      "STAGED_TREE_DEGRADE_NOT_VALID",
+    ),
+    derived(
+      "valid/tree-put-back-same-condition.gpkg",
+      `\`valid/default-site.gpkg\` with the felled tree ${MODERATE_FELLED_TREE} (Moderate) cleared and put back where it stood, linked to it, after a ${PUT_BACK_DELAY}-year delay, in its baseline condition`,
+      createdAgainEdits({
+        [PROPOSED_CONDITION]: "Moderate",
+        [ADVANCE_YEARS]: null,
+        [DELAY_YEARS]: PUT_BACK_DELAY,
+      }),
+      `${accepted}: ${MODERATE_FELLED_TREE} is lost and Created again`,
     ),
     derived(
       "attribute-problems/irreplaceable-tree-post-intervention-only.gpkg",
