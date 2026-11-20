@@ -105,7 +105,7 @@ describe("the example files' expectations", () => {
     });
     expect(
       expectationFor(
-        "service-template/lineage-problems/lineage-parent-wrong.gpkg",
+        "service-template/attribute-problems/irreplaceable-area-habitat.gpkg",
       ),
     ).toMatchObject({ expected: REFUSED, knownGap: expect.any(String) });
   });

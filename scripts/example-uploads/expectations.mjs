@@ -120,10 +120,6 @@ export const KNOWN_GAPS = new Map([
     "service-template/attribute-problems/irreplaceable-area-habitat.gpkg",
     "the service does not check irreplaceable area habitats yet",
   ],
-  [
-    "service-template/lineage-problems/lineage-parent-wrong.gpkg",
-    "the service compares the parent's shape with the one the row recorded, not with the row's own shape",
-  ],
 ]);
 
 /** Which corpus a path under example-files/ belongs to. */
