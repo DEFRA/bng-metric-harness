@@ -61,8 +61,8 @@ const REPLANTED_EDITS = [
       "Proposed Rural or Urban Tree": "Rural tree",
       [PROPOSED_CONDITION]: "Moderate",
       "Proposed Strategic Significance": "Low",
-      "Habitat Created/Enhanced in advance/years": "0",
-      "Delay in starting habitat creation/enhancement in years": "0",
+      [ADVANCE_YEARS]: "0",
+      [DELAY_YEARS]: "0",
       [COMMENT]: `Planted in place of ${FELLED_TREE}`,
     },
   ),
@@ -163,6 +163,44 @@ function markIrreplaceable(table, ref) {
 }
 
 /**
+ * The felled tree T007 Created again where it stood: three that break one of
+ * the guide's steps for a tree that gets worse, and one put back after a
+ * delay, which the service takes.
+ */
+function degradedTreeRecipes({ derived, accepted }) {
+  return [
+    derived(
+      "attribute-problems/tree-degrade-same-condition.gpkg",
+      `\`valid/default-site.gpkg\` with the felled tree ${MODERATE_FELLED_TREE} (Moderate) Created again where it stood, linked to it, 30+ years in advance, in the same condition: kept as it was, it should be Retained`,
+      degradedTree({ [PROPOSED_CONDITION]: "Moderate" }),
+      "STAGED_TREE_DEGRADE_NOT_VALID",
+    ),
+    derived(
+      "attribute-problems/tree-degrade-better-condition.gpkg",
+      `\`valid/default-site.gpkg\` with the felled tree ${MODERATE_FELLED_TREE} (Moderate) Created again where it stood, linked to it, 30+ years in advance, in a better condition (Good): a tree that gets better is Enhanced`,
+      degradedTree({ [PROPOSED_CONDITION]: "Good" }),
+      "STAGED_TREE_DEGRADE_NOT_VALID",
+    ),
+    derived(
+      "attribute-problems/tree-degrade-advance-10.gpkg",
+      `\`valid/default-site.gpkg\` with the felled tree ${MODERATE_FELLED_TREE} (Moderate) Created again where it stood, linked to it, in a lower condition (${LOWER_CONDITION}), only 10 years in advance, where the Metric asks for 30 plus`,
+      degradedTree({ [ADVANCE_YEARS]: "10" }),
+      "STAGED_TREE_DEGRADE_NOT_VALID",
+    ),
+    derived(
+      "valid/tree-put-back-same-condition.gpkg",
+      `\`valid/default-site.gpkg\` with the felled tree ${MODERATE_FELLED_TREE} (Moderate) cleared and put back where it stood, linked to it, after a ${PUT_BACK_DELAY}-year delay, in its baseline condition`,
+      createdAgainEdits({
+        [PROPOSED_CONDITION]: "Moderate",
+        [ADVANCE_YEARS]: null,
+        [DELAY_YEARS]: PUT_BACK_DELAY,
+      }),
+      `${accepted}: ${MODERATE_FELLED_TREE} is lost and Created again`,
+    ),
+  ];
+}
+
+/**
  * The tree recipes, each built with recipes.mjs's `derived`; `accepted` is
  * its outcome for a file the service takes. Both are passed in rather than
  * imported, as recipes.mjs imports this module.
@@ -210,34 +248,7 @@ export function treeRecipes({ derived, accepted }) {
       "IRREPLACEABLE_TREE",
       [TREES_BASELINE],
     ),
-    derived(
-      "attribute-problems/tree-degrade-same-condition.gpkg",
-      `\`valid/default-site.gpkg\` with the felled tree ${MODERATE_FELLED_TREE} (Moderate) Created again where it stood, linked to it, 30+ years in advance, in the same condition: kept as it was, it should be Retained`,
-      degradedTree({ [PROPOSED_CONDITION]: "Moderate" }),
-      "STAGED_TREE_DEGRADE_NOT_VALID",
-    ),
-    derived(
-      "attribute-problems/tree-degrade-better-condition.gpkg",
-      `\`valid/default-site.gpkg\` with the felled tree ${MODERATE_FELLED_TREE} (Moderate) Created again where it stood, linked to it, 30+ years in advance, in a better condition (Good): a tree that gets better is Enhanced`,
-      degradedTree({ [PROPOSED_CONDITION]: "Good" }),
-      "STAGED_TREE_DEGRADE_NOT_VALID",
-    ),
-    derived(
-      "attribute-problems/tree-degrade-advance-10.gpkg",
-      `\`valid/default-site.gpkg\` with the felled tree ${MODERATE_FELLED_TREE} (Moderate) Created again where it stood, linked to it, in a lower condition (${LOWER_CONDITION}), only 10 years in advance, where the Metric asks for 30 plus`,
-      degradedTree({ [ADVANCE_YEARS]: "10" }),
-      "STAGED_TREE_DEGRADE_NOT_VALID",
-    ),
-    derived(
-      "valid/tree-put-back-same-condition.gpkg",
-      `\`valid/default-site.gpkg\` with the felled tree ${MODERATE_FELLED_TREE} (Moderate) cleared and put back where it stood, linked to it, after a ${PUT_BACK_DELAY}-year delay, in its baseline condition`,
-      createdAgainEdits({
-        [PROPOSED_CONDITION]: "Moderate",
-        [ADVANCE_YEARS]: null,
-        [DELAY_YEARS]: PUT_BACK_DELAY,
-      }),
-      `${accepted}: ${MODERATE_FELLED_TREE} is lost and Created again`,
-    ),
+    ...degradedTreeRecipes({ derived, accepted }),
     derived(
       "attribute-problems/irreplaceable-tree-post-intervention-only.gpkg",
       `\`valid/default-site.gpkg\` with the Retained tree ${RETAINED_TREE} marked irreplaceable at post-intervention only, its baseline row left No`,

@@ -33,6 +33,7 @@ import {
   setVersionRecord,
 } from "./derive.mjs";
 import { bng500Recipes } from "./bng-500-recipes.mjs";
+import { createdAreaRecipes } from "./created-area-recipes.mjs";
 import { treeRecipes } from "./tree-recipes.mjs";
 
 export const KIND_GENERATED = "generated";
@@ -436,53 +437,9 @@ const VERTICAL_AREA_MISSING = derived(
   "VERTICAL_HABITAT_AREA_NOT_POSITIVE",
 );
 
-const DEGRADE_REFUSED = "STAGED_HABITAT_DEGRADE_NOT_VALID";
-
-// A Created area habitat with no target condition or timing, and one with no
-// habitat type at all: values a surveyor can leave blank in QGIS.
-const CREATED_AREA = "H005";
-const AREA_POST = "Area Habitats Post-Intervention";
-const CREATED_AREA_WHERE = {
-  [HABITAT_REF]: CREATED_AREA,
-  [RETENTION]: "Created",
-};
-const CREATED_AREA_BLANKS = [
-  derived(
-    "incomplete/area-created-no-condition-or-timing.gpkg",
-    `\`valid/default-site.gpkg\` with ${CREATED_AREA}, a Created area habitat, given no Proposed Condition, years created in advance or delay`,
-    [
-      setValues(
-        AREA_POST,
-        {
-          "Proposed Condition": null,
-          "Habitat created in advance/years": null,
-          "Delay in starting habitat creation/years": null,
-        },
-        CREATED_AREA_WHERE,
-      ),
-    ],
-    `${ACCEPTED}, ${CREATED_AREA} saved Incomplete, with no target condition to price it at`,
-  ),
-  derived(
-    "attribute-problems/area-created-no-habitat-type.gpkg",
-    `\`valid/default-site.gpkg\` with ${CREATED_AREA}, a Created area habitat linked to its parent, given no Proposed Broad Habitat Type, Habitat Type or Distinctiveness. The service reads a blank Proposed Habitat Type as the row's Baseline one, so it takes ${CREATED_AREA} as Created in its parent's own type, and holds it to the steps for a habitat that gets worse`,
-    [
-      setValues(
-        AREA_POST,
-        {
-          "Proposed Broad Habitat Type": null,
-          "Proposed Habitat Type": null,
-          "Proposed Distinctiveness": null,
-        },
-        CREATED_AREA_WHERE,
-      ),
-    ],
-    DEGRADE_REFUSED,
-  ),
-];
-
 const ADVANCE_YEARS = "Habitat created in advance/years";
 const PROPOSED_CONDITION = "Proposed Condition";
+const DEGRADE_REFUSED = "STAGED_HABITAT_DEGRADE_NOT_VALID";
 
 // The default site's habitats that get worse, one on each layer the guide's
 // steps hold: each Created again in its parent's own type, linked to it, in a
@@ -611,7 +568,7 @@ export const RECIPES = [
   ...ATTRIBUTE,
   BASELINE_SIGNIFICANCE_HIGH,
   VERTICAL_AREA_MISSING,
-  ...CREATED_AREA_BLANKS,
+  ...createdAreaRecipes({ derived, accepted: ACCEPTED }),
   ...DEGRADE_REFUSALS,
   NATURAL_WATERCOURSE_LOST,
   ...IRREPLACEABLE,
