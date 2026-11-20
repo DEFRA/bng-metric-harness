@@ -158,7 +158,7 @@ A post-intervention feature names its baseline parent wrongly. `npm run check:li
 | ---- | ------ | -------- | ---------- |
 | `lineage-parent-missing.gpkg` | a Retained area habitat carries no Parent Ref, parent_uuid or parent_geom, so it names no baseline habitat it continues | STAGED_PARENT_LINK_MISSING | seed 1, flaw `lineage-parent-missing` |
 | `lineage-parent-unknown.gpkg` | a Retained area habitat names a parent, by Parent Ref and parent_uuid, that is not in the baseline | STAGED_UNKNOWN_PARENT_REF | seed 1, flaw `lineage-parent-unknown` |
-| `lineage-parent-wrong.gpkg` | a Retained area habitat names another baseline parcel as its parent, so it lies outside the parent it names | refused. Accepted today: the service compares the parent's shape with the one the row recorded, not with the row's own shape | seed 1, flaw `lineage-parent-wrong` |
+| `lineage-parent-wrong.gpkg` | a Retained area habitat names another baseline parcel as its parent, so it lies outside the parent it names | STAGED_OUTSIDE_PARENT | seed 1, flaw `lineage-parent-wrong` |
 | `lineage-parent-geom-mismatch.gpkg` | a Retained area habitat's parent_geom is its parent's shape moved 5 m, as if the baseline changed after the copy | STAGED_BASELINE_DRIFTED | seed 1, flaw `lineage-parent-geom-mismatch` |
 | `lineage-parent-geom-missing.gpkg` | a Retained area habitat names its parent by Parent Ref and parent_uuid, but has no parent_geom, so the parent's shape cannot be compared | STAGED_BASELINE_DRIFTED | seed 1, flaw `lineage-parent-geom-missing` |
 
