@@ -33,6 +33,7 @@ import {
   setVersionRecord,
 } from "./derive.mjs";
 import { bng500Recipes } from "./bng-500-recipes.mjs";
+import { createdAreaRecipes } from "./created-area-recipes.mjs";
 import { treeRecipes } from "./tree-recipes.mjs";
 
 export const KIND_GENERATED = "generated";
@@ -567,6 +568,7 @@ export const RECIPES = [
   ...ATTRIBUTE,
   BASELINE_SIGNIFICANCE_HIGH,
   VERTICAL_AREA_MISSING,
+  ...createdAreaRecipes({ derived, accepted: ACCEPTED }),
   ...DEGRADE_REFUSALS,
   NATURAL_WATERCOURSE_LOST,
   ...IRREPLACEABLE,
