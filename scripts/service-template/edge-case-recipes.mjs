@@ -14,11 +14,13 @@ const PARENT_REF = "Parent Ref";
 const RETENTION = "Retention Category";
 const COMMENT = "Comment";
 const BASELINE_CONDITION = "Baseline Condition";
+const BASELINE_RIPARIAN = "Baseline Encroachment into riparian zone";
 const ADVANCE_YEARS = "Habitat created in advance/years";
 const DELAY_YEARS = "Delay in starting habitat creation/years";
 
-const AREA_BASELINE = "Area Habitats Baseline";
-const AREA_POST = "Area Habitats Post-Intervention";
+const AREA_LAYER = "Area Habitats";
+const AREA_BASELINE = `${AREA_LAYER} Baseline`;
+const AREA_POST = `${AREA_LAYER} Post-Intervention`;
 const HEDGEROWS_BASELINE = "Hedgerows Baseline";
 const HEDGEROWS_POST = "Hedgerows Post-Intervention";
 const WATERCOURSES_BASELINE = "Watercourses Baseline";
@@ -120,7 +122,7 @@ const UNLINKED_BASELINE_WATERCOURSE = {
   [BASELINE_CONDITION]: null,
   "Baseline Strategic Significance": null,
   "Baseline Encroachment into Watercourse": null,
-  "Baseline Encroachment into riparian zone": null,
+  [BASELINE_RIPARIAN]: null,
   "Baseline Length": null,
 };
 
@@ -145,7 +147,7 @@ function renameEdits(table, ref, newRef, bothStages) {
 
 const renamedRefEdits = (bothStages) =>
   RENAMED_REFS.flatMap(([ref, newRef]) =>
-    renameEdits("Area Habitats", ref, newRef, bothStages),
+    renameEdits(AREA_LAYER, ref, newRef, bothStages),
   );
 
 /** Blank a baseline value on a feature, and on its Retained child too. */
@@ -163,7 +165,7 @@ function blankBaselineEdits(layer, ref, column, bothStages) {
 
 const incompleteBaselineEdits = (bothStages) => [
   ...blankBaselineEdits(
-    "Area Habitats",
+    AREA_LAYER,
     RETAINED_WOODLAND,
     BASELINE_CONDITION,
     bothStages,
@@ -177,21 +179,16 @@ const incompleteBaselineEdits = (bothStages) => [
   ...blankBaselineEdits(
     "Watercourses",
     RETAINED_DITCH,
-    "Baseline Encroachment into riparian zone",
+    BASELINE_RIPARIAN,
     bothStages,
   ),
 ];
 
 const RENAMED_LIST = `${RETAINED_WOODLAND} \`${LONG_REF}\` (${LONG_REF.length} characters), ${RETAINED_POND} \`${NON_ASCII_REF}\` (letters outside ASCII), ${RETAINED_MARGIN} padded with three spaces each side, and ${RETAINED_LAST_WOODLAND} a ${SHORT_TEXT_LIMIT}-character ref, the limit`;
-const INCOMPLETE_LIST = `${RETAINED_WOODLAND}'s ${BASELINE_CONDITION}, ${RETAINED_HEDGEROW}'s ${BASELINE_CONDITION} and ${RETAINED_DITCH}'s Baseline Encroachment into riparian zone left blank`;
+const INCOMPLETE_LIST = `${RETAINED_WOODLAND}'s ${BASELINE_CONDITION}, ${RETAINED_HEDGEROW}'s ${BASELINE_CONDITION} and ${RETAINED_DITCH}'s ${BASELINE_RIPARIAN} left blank`;
 
-/**
- * The edge-case recipes, each built with recipes.mjs's `derived` (from
- * `valid/default-site.gpkg`) or `derivedFrom` (from another generated file);
- * `accepted` is the accepted outcome. All are passed in rather than imported,
- * as recipes.mjs imports this module.
- */
-export function edgeCaseRecipes({ derived, derivedFrom, accepted }) {
+/** Files the service accepts, every feature Complete. */
+function validRecipes({ derived, derivedFrom, accepted }) {
   return [
     derived(
       "valid/long-and-padded-refs.gpkg",
@@ -224,6 +221,24 @@ export function edgeCaseRecipes({ derived, derivedFrom, accepted }) {
       ],
       accepted,
     ),
+    derived(
+      "valid/watercourse-enhanced-encroachment-reduced.gpkg",
+      `\`valid/default-site.gpkg\` with the Enhanced ${ENHANCED_CANAL}'s proposed encroachment reduced from its baseline (Major, Moderate/ Minor) to Minor and No Encroachment/ No Encroachment`,
+      [
+        setValues(
+          WATERCOURSES_POST,
+          ENCROACHMENT_REDUCED,
+          byRef(ENHANCED_CANAL),
+        ),
+      ],
+      accepted,
+    ),
+  ];
+}
+
+/** Files the service accepts, saving some features Incomplete. */
+function incompleteRecipes({ derived, derivedFrom }) {
+  return [
     derivedFrom(
       BASELINE_STAGE_BASE,
       "incomplete/baseline-incomplete-every-layer-baseline.gpkg",
@@ -261,18 +276,6 @@ export function edgeCaseRecipes({ derived, derivedFrom, accepted }) {
       "saved as Incomplete: the hedgerow",
     ),
     derived(
-      "valid/watercourse-enhanced-encroachment-reduced.gpkg",
-      `\`valid/default-site.gpkg\` with the Enhanced ${ENHANCED_CANAL}'s proposed encroachment reduced from its baseline (Major, Moderate/ Minor) to Minor and No Encroachment/ No Encroachment`,
-      [
-        setValues(
-          WATERCOURSES_POST,
-          ENCROACHMENT_REDUCED,
-          byRef(ENHANCED_CANAL),
-        ),
-      ],
-      accepted,
-    ),
-    derived(
       "incomplete/hedgerow-created-no-condition-or-timing.gpkg",
       `\`valid/default-site.gpkg\` with ${CREATED_GOOD_HEDGEROW}, a Created hedgerow, given no Proposed Condition, years created in advance or delay: the hedgerow twin of \`incomplete/area-created-no-condition-or-timing.gpkg\``,
       [
@@ -297,13 +300,12 @@ export function edgeCaseRecipes({ derived, derivedFrom, accepted }) {
       ].map(([table, ref]) => setValues(table, BOTH_YEARS, byRef(ref))),
       "saved as Incomplete: the six features, as the service takes one of the two years, not both",
     ),
-    derivedFrom(
-      BASELINE_STAGE_BASE,
-      "spatial-problems/redline-missing-baseline.gpkg",
-      `\`${BASELINE_STAGE_BASE}\` with its \`${RED_LINE}\` row deleted: the layer is present and empty`,
-      [deleteRows(RED_LINE, { fid: RED_LINE_FID })],
-      "GPKG_RLB_NO_POLYGON",
-    ),
+  ];
+}
+
+/** Files the service refuses for a Habitat Ref or a Comment. */
+function textRefusalRecipes({ derived, derivedFrom }) {
+  return [
     derivedFrom(
       "attribute-problems/missing-habitat-ref.gpkg",
       "attribute-problems/missing-habitat-ref-every-layer.gpkg",
@@ -359,6 +361,19 @@ export function edgeCaseRecipes({ derived, derivedFrom, accepted }) {
       ],
       "COMMENT_INVALID_CHARACTERS",
     ),
+  ];
+}
+
+/** Files the service refuses for a missing red line boundary, an out-of-scope habitat or an incomplete baseline. */
+function otherRefusalRecipes({ derived, derivedFrom }) {
+  return [
+    derivedFrom(
+      BASELINE_STAGE_BASE,
+      "spatial-problems/redline-missing-baseline.gpkg",
+      `\`${BASELINE_STAGE_BASE}\` with its \`${RED_LINE}\` row deleted: the layer is present and empty`,
+      [deleteRows(RED_LINE, { fid: RED_LINE_FID })],
+      "NO_REDLINE",
+    ),
     derived(
       "attribute-problems/distinctiveness-post-intervention-only.gpkg",
       `\`valid/default-site.gpkg\` with the Created ${CREATED_ALLOTMENTS} made Lowland meadows, a Very High distinctiveness grassland, in its post-intervention row only`,
@@ -369,7 +384,7 @@ export function edgeCaseRecipes({ derived, derivedFrom, accepted }) {
       "attribute-problems/baseline-area-incomplete.gpkg",
       `\`valid/default-site.gpkg\` with the Retained ${RETAINED_WOODLAND}'s ${BASELINE_CONDITION} left blank in both stages: accepted at a baseline upload, refused at a baseline + post-intervention one`,
       blankBaselineEdits(
-        "Area Habitats",
+        AREA_LAYER,
         RETAINED_WOODLAND,
         BASELINE_CONDITION,
         true,
@@ -382,5 +397,20 @@ export function edgeCaseRecipes({ derived, derivedFrom, accepted }) {
       incompleteBaselineEdits(true),
       "BASELINE_HABITATS_INCOMPLETE",
     ),
+  ];
+}
+
+/**
+ * The edge-case recipes, each built with recipes.mjs's `derived` (from
+ * `valid/default-site.gpkg`) or `derivedFrom` (from another generated file);
+ * `accepted` is the accepted outcome. All are passed in rather than imported,
+ * as recipes.mjs imports this module.
+ */
+export function edgeCaseRecipes(builders) {
+  return [
+    ...validRecipes(builders),
+    ...incompleteRecipes(builders),
+    ...textRefusalRecipes(builders),
+    ...otherRefusalRecipes(builders),
   ];
 }

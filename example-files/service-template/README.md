@@ -94,7 +94,7 @@ Valid schema, invalid geometry: each trips one geometry validator. Baseline-stag
 | `redline-not-in-england-baseline.gpkg` | redline placed outside England (Snowdonia, Wales) | REDLINE_OUTSIDE_ENGLAND | seed 1, baseline stage, flaw `redline-not-in-england` |
 | `redline-too-large-baseline.gpkg` | redline area exceeds the 100 sq km limit | REDLINE_AREA_TOO_LARGE | seed 1, baseline stage, flaw `redline-too-large` |
 | `remeandered-watercourse-outside.gpkg` | the re-meandered watercourse's new route goes 5 m outside the red line: its bend is moved out across the boundary, while its baseline line stays inside | WATERCOURSES_OUTSIDE_REDLINE | seed 1, flaw `remeandered-watercourse-outside` |
-| `redline-missing-baseline.gpkg` | `valid/default-site-baseline.gpkg` with its `Red Line Boundary` row deleted: the layer is present and empty | GPKG_RLB_NO_POLYGON | `valid/default-site-baseline.gpkg`, edited by SQL |
+| `redline-missing-baseline.gpkg` | `valid/default-site-baseline.gpkg` with its `Red Line Boundary` row deleted: the layer is present and empty | NO_REDLINE | `valid/default-site-baseline.gpkg`, edited by SQL |
 
 ## invalid-schema/
 
