@@ -4,8 +4,9 @@
  * each stage holds, the post-intervention Retention Categories, and every
  * row that records a habitat getting worse (Created, linked to its baseline
  * parent, in its own type: "30+" or "10" years in advance, or a watercourse
- * whose condition gets worse). Use it to compare seeds, and to write the
- * table that goes with a file handed over.
+ * whose condition gets worse), and every baseline feature split into more
+ * than one post-intervention part, with what each part becomes. Use it to
+ * compare seeds, and to write the table that goes with a file handed over.
  *
  *   node .claude/skills/generate-geopackage/scripts/summarise.mjs <file.gpkg> [--json]
  */
@@ -59,6 +60,36 @@ function worseRows(layer, typeColumn, sizeColumn, places) {
   }));
 }
 
+/**
+ * Each baseline feature with more than one post-intervention part linked to
+ * it, and each part: its Retention Category, its proposed type and condition,
+ * and its size. A parcel split by `--worse split-parcel` shows as a Retained,
+ * an Enhanced and a Created (Developed land; sealed surface) part.
+ */
+function splitRows(layer, typeColumn, sizeColumn, places) {
+  if (!typeColumn) {
+    return [];
+  }
+  const parts = all(
+    `SELECT b."Habitat Ref" parent, p."Habitat Ref" ref,
+            p."Retention Category" retention, p."Proposed ${typeColumn}" type,
+            p."Baseline Condition" fromCondition, p."Proposed Condition" toCondition,
+            p."${sizeColumn}" size
+       FROM "${layer} Baseline" b
+       JOIN "${layer} Post-Intervention" p ON p.parent_uuid = b.feature_uuid
+      WHERE (SELECT count(*) FROM "${layer} Post-Intervention" q
+              WHERE q.parent_uuid = b.feature_uuid) > 1
+      ORDER BY b.fid, p.fid`,
+  ).map((r) => ({
+    ...r,
+    size: r.size == null ? null : Number(r.size.toFixed(places)),
+  }));
+  return [...Map.groupBy(parts, (r) => r.parent)].map(([parent, rows]) => ({
+    parent,
+    parts: rows.map(({ parent: _, ...part }) => part),
+  }));
+}
+
 const summary = LAYERS.map(([layer, typeColumn, sizeColumn, unit, places]) => ({
   layer,
   unit,
@@ -77,6 +108,7 @@ const summary = LAYERS.map(([layer, typeColumn, sizeColumn, unit, places]) => ({
       ORDER BY b.fid`,
   ).map((r) => r.ref),
   worse: worseRows(layer, typeColumn, sizeColumn, places),
+  split: splitRows(layer, typeColumn, sizeColumn, places),
 }));
 db.close();
 
@@ -94,6 +126,13 @@ if (flag === "--json") {
       console.log(
         `  worse: ${w.ref} (parent ${w.parent}) ${w.type}: ${w.fromCondition} -> ${w.toCondition}, advance ${w.advance ?? "blank"}, ${w.size ?? "?"} ${s.unit}`,
       );
+    }
+    for (const { parent, parts } of s.split) {
+      const described = parts.map(
+        (p) =>
+          `${p.ref} ${p.retention} ${p.type}: ${p.fromCondition} -> ${p.toCondition}, ${p.size ?? "?"} ${s.unit}`,
+      );
+      console.log(`  split: ${parent} into ${described.join("; ")}`);
     }
   }
 }

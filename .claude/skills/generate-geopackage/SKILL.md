@@ -67,8 +67,10 @@ asked for.** The default is still the legacy format.
    `--worse split-parcel=N`: a Retained part **a**, an Enhanced part **b**
    and a part **c** lost to development (Created as Developed land; sealed
    surface), all linked to the parent. Few seeds can split one (`--seed 1
-   --size 15` draws two), so try several seeds and check with
-   `summarise.mjs`.
+   --size 15` draws two), so try several seeds: `summarise.mjs` prints a
+   `split:` line for each baseline feature with more than one part, and
+   a three-way split is one with a Retained, an Enhanced and a Created
+   (Developed land; sealed surface) part.
 
 3. **Choose a seed that shows what was asked.** `--worse` sets how many;
    the seed sets which conditions they move between (Good to Poor, Moderate
@@ -80,7 +82,8 @@ asked for.** The default is still the legacy format.
    ```
 
    It prints, per layer, the counts at each stage, the Retention Categories,
-   the lost features and every row recording a habitat that gets worse.
+   the lost features, every row recording a habitat that gets worse, and
+   every baseline feature split into more than one part.
    Pick the seed that covers the cases the request names, and regenerate it
    with `--package-template` into the final `--outdir`.
 
