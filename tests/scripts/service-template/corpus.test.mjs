@@ -762,6 +762,28 @@ describe("the fixtures derived for QA's BMD-1086 scenarios", () => {
   });
 });
 
+describe("the edge-case fixtures", () => {
+  // Rows with no Habitat Ref, counted as the service counts them: blank once
+  // trimmed.
+  const blankRefs = (file, layer) =>
+    query(
+      file,
+      `SELECT count(*) AS n FROM "${layer} Baseline" WHERE trim(coalesce("Habitat Ref", '')) = ''`,
+    )[0].n;
+  const LAYERS = ["Area Habitats", "Hedgerows", "Watercourses"];
+
+  it("missing-habitat-ref-every-layer.gpkg leaves one baseline row on each layer with no Habitat Ref", () => {
+    // Its source has the blank on the area layer only, so the hedgerow and
+    // watercourse blanks are this recipe's own edits.
+    const source = builtAt("attribute-problems/missing-habitat-ref.gpkg");
+    expect(LAYERS.map((layer) => blankRefs(source, layer))).toEqual([1, 0, 0]);
+    const file = builtAt(
+      "attribute-problems/missing-habitat-ref-every-layer.gpkg",
+    );
+    expect(LAYERS.map((layer) => blankRefs(file, layer))).toEqual([1, 1, 1]);
+  });
+});
+
 // As for the BMD-1086 fixtures: each test checks the default site holds what
 // its edit starts from, so a repin that moved a tree shows here.
 describe("the fixtures derived for manual tests of individual trees", () => {

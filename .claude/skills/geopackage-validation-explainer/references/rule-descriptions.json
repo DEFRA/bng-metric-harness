@@ -74,7 +74,7 @@
   },
   "NO_REDLINE": {
     "group": "Shapes present and of the right kind",
-    "checks": "No red line boundary reached the geometry stage. In ordinary use the equivalent structural rule fires first; both are shown to the user as the same message."
+    "checks": "No red line boundary reached the geometry stage. In a legacy template file the equivalent structural rule fires first, and both are shown to the user as the same message; the BNG Service template has no structural rule for it, so this is the one a file with no red line boundary meets."
   },
   "GPKG_RLB_NO_POLYGON": {
     "group": "Shapes present and of the right kind",
