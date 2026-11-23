@@ -84,11 +84,11 @@ const RENAMED_REFS = [
 // A comment past the 999-character limit, and one holding U+FFFD, the
 // character a file's bad bytes read as.
 const LONG_TEXT_LIMIT = 999;
-const COMMENT_OVER_LIMIT = "Allotment plots on the old paddock. ".repeat(32);
-const COMMENT_INVALID = "Allotment plots on the old � paddock";
+const COMMENT_OVER_LIMIT = "Allotment plots on the old paddock. "
+  .repeat(32)
+  .trim();
+const COMMENT_INVALID = "Allotment plots on the old \uFFFD paddock";
 
-// Both years given on a Created and an Enhanced feature on each linear layer
-// and the area layer.
 // Proposed encroachment better than the Enhanced canal's baseline (Major,
 // Moderate/ Minor), so a page shows which side it reads.
 const ENCROACHMENT_REDUCED = {
@@ -103,6 +103,8 @@ const NO_CONDITION_OR_TIMING = {
   [DELAY_YEARS]: null,
 };
 
+// Both years given on a Created and an Enhanced feature on each linear layer
+// and the area layer.
 const BOTH_YEARS = { [ADVANCE_YEARS]: "2", [DELAY_YEARS]: "3" };
 
 // Lowland meadows, a Very High distinctiveness grassland the service leaves
@@ -339,7 +341,7 @@ function textRefusalRecipes({ derived, derivedFrom }) {
     ),
     derived(
       "attribute-problems/comment-too-long.gpkg",
-      `\`valid/default-site.gpkg\` with the Created ${CREATED_ALLOTMENTS}'s Comment ${COMMENT_OVER_LIMIT.trim().length} characters long, past the ${LONG_TEXT_LIMIT}-character limit`,
+      `\`valid/default-site.gpkg\` with the Created ${CREATED_ALLOTMENTS}'s Comment ${COMMENT_OVER_LIMIT.length} characters long, past the ${LONG_TEXT_LIMIT}-character limit`,
       [
         setValues(
           AREA_POST,
