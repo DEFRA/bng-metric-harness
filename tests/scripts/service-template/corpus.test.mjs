@@ -42,7 +42,8 @@ import {
   templateCommit,
 } from "../../../scripts/service-template/convert.mjs";
 import { renderReadme } from "../../../scripts/service-template/readme.mjs";
-import { splitParcels } from "../gpkg/_split-parcels.mjs";
+import { splitParcels, threeWaySplitParcels } from "../gpkg/_split-parcels.mjs";
+import { worseRows } from "../gpkg/_worse-rows.mjs";
 import {
   FAMILIES,
   KIND_CONVERTED,
@@ -465,6 +466,38 @@ describe("the built fixtures", () => {
     const asked = recipe.options.worseHabitatCounts["partly-worse-parcel"];
     expect(asked).toBeGreaterThan(0);
     expect(splitParcels(built(recipe))).toBe(asked);
+  });
+
+  // Likewise for a split with no part worse, which is drawn only where a
+  // Retained parcel can be enhanced from its condition.
+  it("split as many area habitats into Retained, Enhanced and lost parts as the recipe asks for, and nothing gets worse", () => {
+    const recipe = recipeFor("valid/retained-enhanced-lost-parcels.gpkg");
+    const asked = recipe.options.worseHabitatCounts["split-parcel"];
+    expect(asked).toBeGreaterThan(0);
+    const file = built(recipe);
+    expect(threeWaySplitParcels(file)).toBe(asked);
+    // Read from the file, not the recipe: a library that drew a kind the
+    // recipe sets to none, or a new kind it does not name, fails here.
+    expect(worseRows(file)).toEqual({
+      "Area Habitats": [],
+      "Vertical Area Habitats": [],
+      Hedgerows: [],
+      Watercourses: [],
+      "Individual Trees": [],
+    });
+  });
+
+  // So the check above cannot pass by finding nothing anywhere.
+  it("find the default site's habitats that get worse on every layer that draws one", () => {
+    const worse = worseRows(built(recipeFor("valid/default-site.gpkg")));
+    for (const layer of [
+      "Area Habitats",
+      "Vertical Area Habitats",
+      "Hedgerows",
+      "Watercourses",
+    ]) {
+      expect(worse[layer].length, layer).toBeGreaterThanOrEqual(1);
+    }
   });
 
   // As for irreplaceableLayers: a repin that dropped the 30+ delay would

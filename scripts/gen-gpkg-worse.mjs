@@ -93,5 +93,7 @@ export function worseHelp() {
                       hedge gets worse as a whole; partly-worse-hedge is split
                       into a Retained part a and a worse part b, as
                       partly-worse-parcel splits an area parcel (none by
-                      default).`;
+                      default). split-parcel splits one with no part worse:
+                      a Retained part a, an Enhanced part b and a part c
+                      lost to development (none by default).`;
 }

@@ -34,6 +34,7 @@ import {
 } from "./derive.mjs";
 import { bng500Recipes } from "./bng-500-recipes.mjs";
 import { createdAreaRecipes } from "./created-area-recipes.mjs";
+import { splitParcelRecipes } from "./split-parcel-recipes.mjs";
 import { treeRecipes } from "./tree-recipes.mjs";
 
 export const KIND_GENERATED = "generated";
@@ -52,9 +53,6 @@ const SPATIAL_PROBLEMS = "spatial-problems";
 const SEED = 1;
 const SMALL_SITE = 3;
 const LARGE_SITE = 150;
-// Few enough parcels to talk through, with three of them split.
-const PARTLY_RETAINED_SITE = 15;
-const PARTLY_RETAINED_PARCELS = 3;
 // The legacy duplicate-habitat-ref fixture's size, kept.
 const DUPLICATE_REF_SITE = 5;
 
@@ -257,16 +255,7 @@ const VALID = [
     ACCEPTED,
     { seed: 3, numParcels: LARGE_SITE, stage: STAGE_BASELINE },
   ),
-  generated(
-    "valid/partly-retained-parcels.gpkg",
-    `A ${PARTLY_RETAINED_SITE}-parcel site where ${PARTLY_RETAINED_PARCELS} baseline area habitats are only partly retained: each is split into a Retained part a and a part b Created in a worse condition, both linked to the baseline habitat`,
-    ACCEPTED,
-    {
-      seed: SEED,
-      numParcels: PARTLY_RETAINED_SITE,
-      worseHabitatCounts: { "partly-worse-parcel": PARTLY_RETAINED_PARCELS },
-    },
-  ),
+  ...splitParcelRecipes({ generated, accepted: ACCEPTED, seed: SEED }),
   {
     ...flawFixture("valid", "duplicate-habitat-ref", {
       numParcels: DUPLICATE_REF_SITE,
