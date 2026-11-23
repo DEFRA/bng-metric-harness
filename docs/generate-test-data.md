@@ -337,19 +337,21 @@ npm run generate:gpkg -- --format bng-service --size 15 --seed 1 \
 ### More habitats that get worse (`--worse`)
 
 A synthetic BNG Service site draws one habitat that gets worse of each kind,
-but no `partly-worse-parcel`, which it draws only when asked for.
+but no `partly-worse-parcel` or `split-parcel`, which it draws only when
+asked for.
 `--worse KIND=N` (repeatable, 0 to 50) draws N of a kind instead, each a
 feature of its own linked to its own baseline parent:
 
-| Kind                     | What one is                                                                       |
-| ------------------------ | --------------------------------------------------------------------------------- |
-| `parcel`                 | A Retained area parcel set to Created in its own type, lower condition, 30+ years |
-| `vertical`               | A vertical area habitat, the same                                                 |
-| `hedge`                  | A hedgerow that gets worse as a whole, the same                                   |
-| `partly-worse-hedge`     | A hedgerow split into a Retained part `a` and a worse Created part `b`            |
-| `encroached-watercourse` | A watercourse whose encroachment gets worse, 10 years in advance                  |
-| `worse-watercourse`      | A watercourse whose condition gets worse, no years in advance                     |
-| `partly-worse-parcel`    | An area parcel split into a Retained part `a` and a worse Created part `b`        |
+| Kind                     | What one is                                                                                                                                                                                        |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `parcel`                 | A Retained area parcel set to Created in its own type, lower condition, 30+ years                                                                                                                  |
+| `vertical`               | A vertical area habitat, the same                                                                                                                                                                  |
+| `hedge`                  | A hedgerow that gets worse as a whole, the same                                                                                                                                                    |
+| `partly-worse-hedge`     | A hedgerow split into a Retained part `a` and a worse Created part `b`                                                                                                                             |
+| `encroached-watercourse` | A watercourse whose encroachment gets worse, 10 years in advance                                                                                                                                   |
+| `worse-watercourse`      | A watercourse whose condition gets worse, no years in advance                                                                                                                                      |
+| `partly-worse-parcel`    | An area parcel split into a Retained part `a` and a worse Created part `b`                                                                                                                         |
+| `split-parcel`           | An area parcel split with no part worse: a Retained part `a`, an Enhanced part `b` (better condition, same habitat) and a part `c` lost to development (Created as Developed land; sealed surface) |
 
 ```sh
 npm run generate:gpkg -- --format bng-service --size 15 --seed 6 \
@@ -357,8 +359,20 @@ npm run generate:gpkg -- --format bng-service --size 15 --seed 6 \
   --package-template
 ```
 
-Parcels get worse, in whole or in part, only while another Retained parcel
-stays, so a site may give fewer than it asks for. `--worse` is refused with `--bad` or a
+Parcels get worse, in whole or in part, or are split, only while another
+Retained parcel stays, and a `split-parcel` only where the parcel's habitat
+can be enhanced from its condition, so a site may give fewer than it asks
+for: `--seed 1` with `--size 15` draws two `split-parcel`s, and many other
+seeds draw none. `split-parcel` is not a habitat that gets worse, but is
+asked for with `--worse` too.
+
+```sh
+npm run generate:gpkg -- --format bng-service --size 15 --seed 1 \
+  --centre 460000,210000 --worse split-parcel=2 --irreplaceable none \
+  --package-template
+```
+
+`--worse` is refused with `--bad` or a
 geometric flaw unless a degrade flaw is given too (the minimal site holds
 none until a degrade flaw adds them), with `--stage baseline` (whose file
 leaves the post-intervention tables empty), and in workbook mode.
