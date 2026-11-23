@@ -37,6 +37,7 @@ const CREATED_ALLOTMENTS = "H005";
 const RETAINED_HEDGEROW = "HG001";
 const ENHANCED_HEDGEROW = "HG002";
 const CREATED_HEDGEROW = "HG009";
+const CREATED_GOOD_HEDGEROW = "HG015";
 const LOST_HEDGEROW = "HG004";
 const LOST_DITCH = "R002";
 const CREATED_CULVERT = "R003";
@@ -86,6 +87,20 @@ const COMMENT_INVALID = "Allotment plots on the old � paddock";
 
 // Both years given on a Created and an Enhanced feature on each linear layer
 // and the area layer.
+// Proposed encroachment better than the Enhanced canal's baseline (Major,
+// Moderate/ Minor), so a page shows which side it reads.
+const ENCROACHMENT_REDUCED = {
+  "Proposed Encroachment into Watercourse": "Minor",
+  "Proposed Encroachment into riparian zone":
+    "No Encroachment/ No Encroachment",
+};
+
+const NO_CONDITION_OR_TIMING = {
+  "Proposed Condition": null,
+  [ADVANCE_YEARS]: null,
+  [DELAY_YEARS]: null,
+};
+
 const BOTH_YEARS = { [ADVANCE_YEARS]: "2", [DELAY_YEARS]: "3" };
 
 // Lowland meadows, a Very High distinctiveness grassland the service leaves
@@ -94,13 +109,6 @@ const OUT_OF_SCOPE_MEADOW = {
   "Proposed Broad Habitat Type": "Grassland",
   "Proposed Habitat Type": "Lowland meadows",
   "Proposed Distinctiveness": "V.High",
-};
-
-const PROPOSED_AREA_BLANK = {
-  "Proposed Broad Habitat Type": null,
-  "Proposed Habitat Type": null,
-  "Proposed Distinctiveness": null,
-  "Proposed Condition": null,
 };
 
 const UNLINKED_BASELINE_WATERCOURSE = {
@@ -199,17 +207,6 @@ export function edgeCaseRecipes({ derived, derivedFrom, accepted }) {
       accepted,
     ),
     derived(
-      "valid/retained-area-proposed-blank.gpkg",
-      `\`valid/default-site.gpkg\` with the Retained ${RETAINED_LAST_WOODLAND}'s Proposed habitat, distinctiveness and condition left blank, as a surveyor may leave them for a habitat kept as it is: the service shows its baseline values`,
-      [
-        setValues(AREA_POST, PROPOSED_AREA_BLANK, {
-          ...byRef(RETAINED_LAST_WOODLAND),
-          [RETENTION]: "Retained",
-        }),
-      ],
-      accepted,
-    ),
-    derived(
       "valid/watercourses-created-only.gpkg",
       `\`valid/default-site.gpkg\` with no baseline watercourses and one post-intervention one: ${CREATED_DITCH}, a ditch Created with no parent. Watercourse units are gained from a zero baseline`,
       [
@@ -262,6 +259,30 @@ export function edgeCaseRecipes({ derived, derivedFrom, accepted }) {
         ),
       ],
       "saved as Incomplete: the hedgerow",
+    ),
+    derived(
+      "valid/watercourse-enhanced-encroachment-reduced.gpkg",
+      `\`valid/default-site.gpkg\` with the Enhanced ${ENHANCED_CANAL}'s proposed encroachment reduced from its baseline (Major, Moderate/ Minor) to Minor and No Encroachment/ No Encroachment`,
+      [
+        setValues(
+          WATERCOURSES_POST,
+          ENCROACHMENT_REDUCED,
+          byRef(ENHANCED_CANAL),
+        ),
+      ],
+      accepted,
+    ),
+    derived(
+      "incomplete/hedgerow-created-no-condition-or-timing.gpkg",
+      `\`valid/default-site.gpkg\` with ${CREATED_GOOD_HEDGEROW}, a Created hedgerow, given no Proposed Condition, years created in advance or delay: the hedgerow twin of \`incomplete/area-created-no-condition-or-timing.gpkg\``,
+      [
+        setValues(
+          HEDGEROWS_POST,
+          NO_CONDITION_OR_TIMING,
+          byRef(CREATED_GOOD_HEDGEROW),
+        ),
+      ],
+      "saved as Incomplete: the hedgerow, with no target condition to price it at",
     ),
     derived(
       "incomplete/advance-delay-both-set-every-layer.gpkg",
