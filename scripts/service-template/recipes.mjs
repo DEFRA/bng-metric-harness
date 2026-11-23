@@ -34,6 +34,7 @@ import {
 } from "./derive.mjs";
 import { bng500Recipes } from "./bng-500-recipes.mjs";
 import { createdAreaRecipes } from "./created-area-recipes.mjs";
+import { edgeCaseRecipes } from "./edge-case-recipes.mjs";
 import { splitParcelRecipes } from "./split-parcel-recipes.mjs";
 import { treeRecipes } from "./tree-recipes.mjs";
 
@@ -198,6 +199,14 @@ function derived(
     edits,
     irreplaceableTables,
   };
+}
+
+/**
+ * A file derived by SQL edits from `from`, a generated recipe other than
+ * `valid/default-site.gpkg`: its baseline-stage file, or a flaw fixture.
+ */
+function derivedFrom(from, path, covers, edits, expected = SCHEMA_REFUSED) {
+  return { ...derived(path, covers, edits, expected), from };
 }
 
 const HABITAT_REF = "Habitat Ref";
@@ -562,6 +571,7 @@ export const RECIPES = [
   NATURAL_WATERCOURSE_LOST,
   ...IRREPLACEABLE,
   ...treeRecipes({ derived, accepted: ACCEPTED }),
+  ...edgeCaseRecipes({ derived, derivedFrom, accepted: ACCEPTED }),
   ...LINEAGE,
   ...INCOMPLETE,
   ...VERSION,
@@ -578,6 +588,7 @@ export const RECIPES = [
 export const GAPS = [
   "A natural river left out, and an irreplaceable tree that gets worse: the service refuses either file for another reason first, so a fixture could not show the rule. Natural rivers (Other rivers and streams, High; Priority habitat, V.High) are out of the service's scope, and only canals and ditches may be lost (a culvert left out is refused, STAGED_NATURAL_WATERCOURSE_LOST: `attribute-problems/watercourse-culvert-left-out.gpkg`); an irreplaceable tree is refused whether or not it gets worse (`attribute-problems/irreplaceable-tree.gpkg`).",
   "The harness's import-timing scenarios: they edit legacy files, so `permutations/` builds them in the legacy format only.",
+  "A red line boundary of more than one polygon: the BNG Service template's checks do not count them (GPKG_RLB_TOO_MANY_POLYGONS is the legacy template's), so a copied polygon is refused as AREA_SUM_MISMATCH, the habitats no longer covering the red line, which `spatial-problems/area-sum-mismatch-baseline.gpkg` shows already.",
 ];
 
 /** The recipe that builds `recipePath`. */
