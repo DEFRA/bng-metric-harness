@@ -4,6 +4,8 @@
  * worse. Kept apart from recipes.mjs, which lists them with the rest.
  */
 
+import { WORSE_KINDS } from "#bng-lib";
+
 // Few enough parcels to talk through, with three of them split.
 const PARTLY_RETAINED_SITE = 15;
 const PARTLY_RETAINED_PARCELS = 3;
@@ -11,16 +13,12 @@ const PARTLY_RETAINED_PARCELS = 3;
 // 15-parcel site has two that can be enhanced from their condition.
 const SPLIT_PARCEL_SITE = 15;
 const SPLIT_PARCELS = 2;
-// Every kind of habitat that gets worse a default site draws one of, set to
-// none, so nothing on the split-parcel site gets worse.
-const NOTHING_WORSE = {
-  parcel: 0,
-  vertical: 0,
-  hedge: 0,
-  "partly-worse-hedge": 0,
-  "encroached-watercourse": 0,
-  "worse-watercourse": 0,
-};
+const SPLIT_PARCEL = "split-parcel";
+// Every kind of habitat that gets worse the library knows, set to none, so
+// nothing on the split-parcel site gets worse, a kind added later included.
+const NOTHING_WORSE = Object.fromEntries(
+  WORSE_KINDS.filter((kind) => kind !== SPLIT_PARCEL).map((kind) => [kind, 0]),
+);
 
 /**
  * The split-parcel recipes, each built with recipes.mjs's `generated` from
@@ -46,7 +44,7 @@ export function splitParcelRecipes({ generated, accepted, seed }) {
       {
         seed,
         numParcels: SPLIT_PARCEL_SITE,
-        worseHabitatCounts: { ...NOTHING_WORSE, "split-parcel": SPLIT_PARCELS },
+        worseHabitatCounts: { ...NOTHING_WORSE, [SPLIT_PARCEL]: SPLIT_PARCELS },
       },
     ),
   ];

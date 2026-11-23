@@ -43,6 +43,7 @@ import {
 } from "../../../scripts/service-template/convert.mjs";
 import { renderReadme } from "../../../scripts/service-template/readme.mjs";
 import { splitParcels, threeWaySplitParcels } from "../gpkg/_split-parcels.mjs";
+import { worseRows } from "../gpkg/_worse-rows.mjs";
 import {
   FAMILIES,
   KIND_CONVERTED,
@@ -475,11 +476,27 @@ describe("the built fixtures", () => {
     expect(asked).toBeGreaterThan(0);
     const file = built(recipe);
     expect(threeWaySplitParcels(file)).toBe(asked);
-    expect(splitParcels(file)).toBe(0);
-    for (const [kind, count] of Object.entries(
-      recipe.options.worseHabitatCounts,
-    )) {
-      expect(count, kind).toBe(kind === "split-parcel" ? asked : 0);
+    // Read from the file, not the recipe: a library that drew a kind the
+    // recipe sets to none, or a new kind it does not name, fails here.
+    expect(worseRows(file)).toEqual({
+      "Area Habitats": [],
+      "Vertical Area Habitats": [],
+      Hedgerows: [],
+      Watercourses: [],
+      "Individual Trees": [],
+    });
+  });
+
+  // So the check above cannot pass by finding nothing anywhere.
+  it("find the default site's habitats that get worse on every layer that draws one", () => {
+    const worse = worseRows(built(recipeFor("valid/default-site.gpkg")));
+    for (const layer of [
+      "Area Habitats",
+      "Vertical Area Habitats",
+      "Hedgerows",
+      "Watercourses",
+    ]) {
+      expect(worse[layer].length, layer).toBeGreaterThanOrEqual(1);
     }
   });
 

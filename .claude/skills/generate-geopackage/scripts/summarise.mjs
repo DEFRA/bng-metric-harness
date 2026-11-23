@@ -71,7 +71,7 @@ function splitRows(layer, typeColumn, sizeColumn, places) {
     return [];
   }
   const parts = all(
-    `SELECT b."Habitat Ref" parent, p."Habitat Ref" ref,
+    `SELECT b.feature_uuid uuid, b."Habitat Ref" parent, p."Habitat Ref" ref,
             p."Retention Category" retention, p."Proposed ${typeColumn}" type,
             p."Baseline Condition" fromCondition, p."Proposed Condition" toCondition,
             p."${sizeColumn}" size
@@ -84,9 +84,10 @@ function splitRows(layer, typeColumn, sizeColumn, places) {
     ...r,
     size: r.size == null ? null : Number(r.size.toFixed(places)),
   }));
-  return [...Map.groupBy(parts, (r) => r.parent)].map(([parent, rows]) => ({
-    parent,
-    parts: rows.map(({ parent: _, ...part }) => part),
+  // By the parent's identity, not its ref: two parents can share a ref.
+  return [...Map.groupBy(parts, (r) => r.uuid).values()].map((rows) => ({
+    parent: rows[0].parent,
+    parts: rows.map(({ uuid: _uuid, parent: _parent, ...part }) => part),
   }));
 }
 
