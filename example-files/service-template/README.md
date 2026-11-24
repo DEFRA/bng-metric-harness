@@ -95,6 +95,7 @@ Valid schema, invalid geometry: each trips one geometry validator. Baseline-stag
 | `redline-too-large-baseline.gpkg` | redline area exceeds the 100 sq km limit | REDLINE_AREA_TOO_LARGE | seed 1, baseline stage, flaw `redline-too-large` |
 | `remeandered-watercourse-outside.gpkg` | the re-meandered watercourse's new route goes 5 m outside the red line: its bend is moved out across the boundary, while its baseline line stays inside | WATERCOURSES_OUTSIDE_REDLINE | seed 1, flaw `remeandered-watercourse-outside` |
 | `redline-missing-baseline.gpkg` | `valid/default-site-baseline.gpkg` with its `Red Line Boundary` row deleted: the layer is present and empty | NO_REDLINE | `valid/default-site-baseline.gpkg`, edited by SQL |
+| `redline-multiple-baseline.gpkg` | `valid/default-site-baseline.gpkg` with its `Red Line Boundary` row copied: the layer holds two boundaries, where the template has one | GPKG_RLB_TOO_MANY_POLYGONS | `valid/default-site-baseline.gpkg`, edited by SQL |
 
 ## invalid-schema/
 
@@ -243,4 +244,3 @@ A valid file; only the upload's own file name is invalid.
 
 - A natural river left out, and an irreplaceable tree that gets worse: the service refuses either file for another reason first, so a fixture could not show the rule. Natural rivers (Other rivers and streams, High; Priority habitat, V.High) are out of the service's scope, and only canals and ditches may be lost (a culvert left out is refused, STAGED_NATURAL_WATERCOURSE_LOST: `attribute-problems/watercourse-culvert-left-out.gpkg`); an irreplaceable tree is refused whether or not it gets worse (`attribute-problems/irreplaceable-tree.gpkg`).
 - The harness's import-timing scenarios: they edit legacy files, so `permutations/` builds them in the legacy format only.
-- A red line boundary of more than one polygon: the BNG Service template's checks do not count them (GPKG_RLB_TOO_MANY_POLYGONS is the legacy template's), so a copied polygon is refused as AREA_SUM_MISMATCH, the habitats no longer covering the red line, which `spatial-problems/area-sum-mismatch-baseline.gpkg` shows already.
