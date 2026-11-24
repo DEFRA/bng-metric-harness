@@ -7,7 +7,7 @@
  * lists them with the rest.
  */
 
-import { deleteRows, setValues } from "./derive.mjs";
+import { copyRow, deleteRows, setValues } from "./derive.mjs";
 
 const HABITAT_REF = "Habitat Ref";
 const PARENT_REF = "Parent Ref";
@@ -393,7 +393,7 @@ function textRefusalRecipes({ derived, derivedFrom }) {
   ];
 }
 
-/** Files the service refuses for a missing red line boundary, an out-of-scope habitat or an incomplete baseline. */
+/** Files the service refuses for a missing or second red line boundary, an out-of-scope habitat or an incomplete baseline. */
 function otherRefusalRecipes({ derived, derivedFrom }) {
   return [
     derivedFrom(
@@ -402,6 +402,13 @@ function otherRefusalRecipes({ derived, derivedFrom }) {
       `\`${BASELINE_STAGE_BASE}\` with its \`${RED_LINE}\` row deleted: the layer is present and empty`,
       [deleteRows(RED_LINE, { fid: RED_LINE_FID })],
       "NO_REDLINE",
+    ),
+    derivedFrom(
+      BASELINE_STAGE_BASE,
+      "spatial-problems/redline-multiple-baseline.gpkg",
+      `\`${BASELINE_STAGE_BASE}\` with its \`${RED_LINE}\` row copied: the layer holds two boundaries, where the template has one`,
+      [copyRow(RED_LINE, { fid: RED_LINE_FID })],
+      "GPKG_RLB_TOO_MANY_POLYGONS",
     ),
     derived(
       "attribute-problems/distinctiveness-post-intervention-only.gpkg",

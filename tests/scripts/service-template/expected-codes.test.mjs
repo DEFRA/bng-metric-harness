@@ -43,10 +43,11 @@ const NOT_SCHEMA_VALID = new Set(["invalid-schema", "malformed"]);
 const PERMUTATIONS = "permutations";
 
 // The codes the BNG Service template gate itself raises for a file whose
-// schema is the template's: its version record, then its text values. Any
-// other code is raised by a later stage, after the gate passes.
+// schema is the template's: its version record, then how many red line
+// boundaries it holds, then its text values. Any other code is raised by a
+// later stage, after the gate passes.
 const GATE_CODE =
-  /^(TEMPLATE_VERSION_[A-Z_]+|TEXT_TOO_LONG|VALUE_NOT_ALLOWED|FEATURE_UUID_INVALID|PARENT_UUID_INVALID|PARENT_GEOM_INVALID)$/;
+  /^(TEMPLATE_VERSION_[A-Z_]+|GPKG_RLB_TOO_MANY_POLYGONS|TEXT_TOO_LONG|VALUE_NOT_ALLOWED|FEATURE_UUID_INVALID|PARENT_UUID_INVALID|PARENT_GEOM_INVALID)$/;
 
 const ROWS = readmeRows();
 const FIXTURES = readdirSync(CORPUS, { recursive: true })
