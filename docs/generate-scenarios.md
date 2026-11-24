@@ -225,9 +225,7 @@ file:
   calculation tool Defra publishes on GOV.UK (*The Statutory Metric*, macro-free
   `.xlsx`, release 1.1.1). It downloads it on first use, checks it against a
   pinned checksum, and keeps it in the gitignored `.cache/metric-template/`.
-  Every scenario's verdict was validated against this release. Both corpora
-  give the same results on it as on 1.0.4, the release they were first built
-  on, which GOV.UK no longer serves.
+  Every scenario's verdict was validated against this release.
 
   To use a different workbook, put it in the gitignored `./workbooks/` and pass
   `--template workbooks/<name>.xlsx` or set `METRIC_TEMPLATE` (the path must be
