@@ -35,6 +35,7 @@ const RETAINED_POND = "H029";
 const RETAINED_MARGIN = "H034";
 const RETAINED_LAST_WOODLAND = "H050";
 const ENHANCED_GRASSLAND = "H001";
+const ENHANCED_GREEN_ROOF = "H006";
 const CREATED_ALLOTMENTS = "H005";
 const RETAINED_HEDGEROW = "HG001";
 const ENHANCED_HEDGEROW = "HG002";
@@ -266,18 +267,6 @@ function incompleteRecipes({ derived, derivedFrom }) {
       "saved as Incomplete: both watercourses",
     ),
     derived(
-      "incomplete/hedgerow-enhanced-significance-blank.gpkg",
-      `\`valid/default-site.gpkg\` with the Enhanced ${ENHANCED_HEDGEROW}'s Proposed Strategic Significance left blank`,
-      [
-        setValues(
-          HEDGEROWS_POST,
-          { "Proposed Strategic Significance": null },
-          byRef(ENHANCED_HEDGEROW),
-        ),
-      ],
-      "saved as Incomplete: the hedgerow",
-    ),
-    derived(
       "incomplete/hedgerow-created-no-condition-or-timing.gpkg",
       `\`valid/default-site.gpkg\` with ${CREATED_GOOD_HEDGEROW}, a Created hedgerow, given no Proposed Condition, years created in advance or delay: the hedgerow twin of \`incomplete/area-created-no-condition-or-timing.gpkg\``,
       [
@@ -303,6 +292,31 @@ function incompleteRecipes({ derived, derivedFrom }) {
       "saved as Incomplete: the six features, as the service takes one of the two years, not both",
     ),
   ];
+}
+
+// An Enhanced feature on each layer that has one with a proposed condition,
+// given no Proposed Strategic Significance: the one value its units then lack.
+const SIGNIFICANCE_BLANK = [
+  ["area", AREA_POST, ENHANCED_GREEN_ROOF, "area habitat"],
+  ["hedgerow", HEDGEROWS_POST, ENHANCED_HEDGEROW, "hedgerow"],
+];
+
+/** Files the service saves Incomplete for want of a proposed significance. */
+function significanceBlankRecipes({ derived }) {
+  return SIGNIFICANCE_BLANK.map(([name, table, ref, feature]) =>
+    derived(
+      `incomplete/${name}-enhanced-significance-blank.gpkg`,
+      `\`valid/default-site.gpkg\` with the Enhanced ${ref}'s Proposed Strategic Significance left blank`,
+      [
+        setValues(
+          table,
+          { "Proposed Strategic Significance": null },
+          byRef(ref),
+        ),
+      ],
+      `saved as Incomplete: the ${feature}`,
+    ),
+  );
 }
 
 /** Files the service refuses for a Habitat Ref or a Comment. */
@@ -412,6 +426,7 @@ export function edgeCaseRecipes(builders) {
   return [
     ...validRecipes(builders),
     ...incompleteRecipes(builders),
+    ...significanceBlankRecipes(builders),
     ...textRefusalRecipes(builders),
     ...otherRefusalRecipes(builders),
   ];
