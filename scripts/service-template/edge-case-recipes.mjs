@@ -25,6 +25,8 @@ const HEDGEROWS_BASELINE = "Hedgerows Baseline";
 const HEDGEROWS_POST = "Hedgerows Post-Intervention";
 const WATERCOURSES_BASELINE = "Watercourses Baseline";
 const WATERCOURSES_POST = "Watercourses Post-Intervention";
+const TREES_POST = "Individual Trees Post-Intervention";
+const VERTICAL_POST = "Vertical Area Habitats Post-Intervention";
 const RED_LINE = "Red Line Boundary";
 
 const BASELINE_STAGE_BASE = "valid/default-site-baseline.gpkg";
@@ -47,6 +49,8 @@ const CREATED_CULVERT = "R003";
 const CREATED_DITCH = "R004";
 const ENHANCED_CANAL = "R006";
 const RETAINED_DITCH = "R007";
+const ENHANCED_TREE = "T013";
+const ENHANCED_GREEN_WALL = "V002";
 // The default site's baseline watercourses, and every post-intervention one
 // but the Created ditch the watercourses-only file keeps.
 const BASELINE_WATERCOURSES = [
@@ -294,11 +298,20 @@ function incompleteRecipes({ derived, derivedFrom }) {
   ];
 }
 
-// An Enhanced feature on each layer that has one with a proposed condition,
-// given no Proposed Strategic Significance: the one value its units then lack.
+// An Enhanced feature on each post-intervention layer, given no Proposed
+// Strategic Significance: the one value its units then lack, as every other
+// proposed value stays.
 const SIGNIFICANCE_BLANK = [
   ["area", AREA_POST, ENHANCED_GREEN_ROOF, "area habitat"],
+  [
+    "vertical-area",
+    VERTICAL_POST,
+    ENHANCED_GREEN_WALL,
+    "vertical area habitat",
+  ],
   ["hedgerow", HEDGEROWS_POST, ENHANCED_HEDGEROW, "hedgerow"],
+  ["watercourse", WATERCOURSES_POST, ENHANCED_CANAL, "watercourse"],
+  ["tree", TREES_POST, ENHANCED_TREE, "tree"],
 ];
 
 /** Files the service saves Incomplete for want of a proposed significance. */
