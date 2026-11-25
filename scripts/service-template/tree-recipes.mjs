@@ -105,6 +105,7 @@ const RECORDED_TWICE_EDITS = [
       [PROPOSED_CONDITION]: LOWER_CONDITION,
       [ADVANCE_YEARS]: "30+",
       [DELAY_YEARS]: null,
+      [COMMENT]: null,
     },
   ),
 ];

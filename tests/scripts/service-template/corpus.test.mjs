@@ -827,6 +827,8 @@ describe("the fixtures derived for manual tests of individual trees", () => {
     const file = builtAt("attribute-problems/tree-recorded-twice.gpkg");
     const { baseline, post } = habitat(file, TREES, "T004");
     expect(post.map((r) => r["Habitat Ref"]).sort()).toEqual(["T004", "T004A"]);
+    const kept = post.find((r) => r["Habitat Ref"] === "T004");
+    expect(kept["Retention Category"]).toBe("Retained");
     const again = post.find((r) => r["Habitat Ref"] === "T004A");
     expect(again["Retention Category"]).toBe("Created");
     expect(again.Category).toBe("Existing");
