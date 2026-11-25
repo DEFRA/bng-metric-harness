@@ -1,7 +1,8 @@
 /**
  * The recipes for the corpus's individual-tree fixtures: files derived from
  * `valid/default-site.gpkg` that show the service's tree rules (an Enhanced
- * tree, a tree kept twice, a replanted tree, irreplaceable trees). Kept apart
+ * tree, a tree kept twice, a tree recorded twice, a replanted tree,
+ * irreplaceable trees). Kept apart
  * from recipes.mjs, which lists them with the rest.
  */
 
@@ -23,8 +24,8 @@ const RETAINED_GOOD_TREE = "T008";
 const ENHANCED_TREE = "T006";
 const FELLED_TREE = "T002";
 const PLANTED_TREE = "T005";
-// The second point of the tree kept twice, and the tree planted in the felled
-// one's place.
+// The second point of the tree kept twice (and of the one recorded twice),
+// and the tree planted in the felled one's place.
 const RETAINED_TREE_AGAIN = "T004A";
 const REPLANTED_TREE = "T026";
 // A felled tree in Moderate condition, so it has a lower one to get worse to,
@@ -88,6 +89,24 @@ const KEPT_TWICE_EDITS = [
     TREES_POST,
     { [HABITAT_REF]: RETAINED_TREE },
     { [HABITAT_REF]: RETAINED_TREE_AGAIN },
+  ),
+];
+// T004 kept and also Created again over itself as an Existing tree, linked
+// to it, as a tree that gets worse is recorded (Poor, 30+ years in advance,
+// no delay), so only the recorded-twice rule is broken.
+const RECORDED_TWICE_EDITS = [
+  copyRow(
+    TREES_POST,
+    { [HABITAT_REF]: RETAINED_TREE },
+    {
+      [HABITAT_REF]: RETAINED_TREE_AGAIN,
+      [RETENTION]: "Created",
+      Category: "Existing",
+      [PROPOSED_CONDITION]: LOWER_CONDITION,
+      [ADVANCE_YEARS]: "30+",
+      [DELAY_YEARS]: null,
+      [COMMENT]: null,
+    },
   ),
 ];
 
@@ -240,6 +259,12 @@ export function treeRecipes({ derived, accepted }) {
       `\`valid/default-site.gpkg\` with a second Retained point, ${RETAINED_TREE_AGAIN}, linked to the Retained tree ${RETAINED_TREE}, on the same spot: two trees kept where the baseline has one`,
       KEPT_TWICE_EDITS,
       "STAGED_TREE_CHILDREN_TOO_MANY",
+    ),
+    derived(
+      "attribute-problems/tree-recorded-twice.gpkg",
+      `\`valid/default-site.gpkg\` with the Retained tree ${RETAINED_TREE} also Created again over itself as an Existing tree, ${RETAINED_TREE_AGAIN}, linked to it, on the same spot, in a lower condition (${LOWER_CONDITION}), 30+ years in advance: one tree both kept and lost and created again, so it would be scored twice`,
+      RECORDED_TWICE_EDITS,
+      "STAGED_TREE_RECORDED_TWICE",
     ),
     derived(
       "attribute-problems/irreplaceable-tree-baseline-only.gpkg",
