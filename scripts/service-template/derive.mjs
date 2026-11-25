@@ -9,7 +9,13 @@
  */
 
 import { TEMPLATE_SOURCE } from "#bng-lib";
-import { envelopeFromCoords, expandEnvelope, wkbToGeoJSON } from "#gpkg-io";
+import {
+  decodeGpkgBinary,
+  envelopeFromCoords,
+  expandEnvelope,
+  gpkgPolygon,
+  wkbToGeoJSON,
+} from "#gpkg-io";
 
 const GEOMETRY_COLUMN = "geom";
 
@@ -280,6 +286,68 @@ export const linkToParent =
       values[to] = parent[from];
     }
     setValues(table, values, where)(db);
+  };
+
+/** Twice a ring's signed area: positive where it runs anticlockwise. */
+const doubledSignedArea = (ring) =>
+  ring
+    .slice(1)
+    .reduce((sum, [x, y], i) => sum + ring[i][0] * y - x * ring[i][1], 0);
+
+/**
+ * Cut a bowtie `size` metres across into the middle of a polygon ring's first
+ * edge, on its inside: the ring leaves the edge, crosses itself and rejoins
+ * it. The bowtie's two halves wind opposite ways, so the ring's area as drawn
+ * is unchanged, and the shape stays within the polygon's own outline.
+ */
+function crossFirstEdge(ring, size) {
+  const [[ax, ay], [bx, by]] = ring;
+  const length = Math.hypot(bx - ax, by - ay);
+  if (length <= size) {
+    throw new Error(`the first edge is ${length} m long, too short to cross`);
+  }
+  const [ux, uy] = [(bx - ax) / length, (by - ay) / length];
+  // The inward normal: left of the edge on an anticlockwise ring.
+  const side = Math.sign(doubledSignedArea(ring));
+  const [nx, ny] = [-uy * side, ux * side];
+  const [mx, my] = [(ax + bx) / 2, (ay + by) / 2];
+  const half = size / 2;
+  const at = (along, inward) => [
+    mx + ux * along + nx * inward,
+    my + uy * along + ny * inward,
+  ];
+  return [
+    ring[0],
+    at(-half, 0),
+    at(half, size),
+    at(-half, size),
+    at(half, 0),
+    ...ring.slice(1),
+  ];
+}
+
+/**
+ * Make the one polygon `where` matches self-intersecting with
+ * {@link crossFirstEdge}: an invalid area habitat whose area, and so the
+ * site's total, stays as it was, and which overlaps nothing.
+ */
+export const crossPolygon =
+  (table, where, size = 1) =>
+  (db) => {
+    const row = oneRow(db, table, where);
+    const geometry = wkbToGeoJSON(row[GEOMETRY_COLUMN]);
+    if (geometry.type !== "Polygon" || geometry.coordinates.length !== 1) {
+      throw new Error(
+        `a ${geometry.type} with holes or parts cannot be crossed`,
+      );
+    }
+    const { srsId } = decodeGpkgBinary(row[GEOMETRY_COLUMN]);
+    const crossed = crossFirstEdge(geometry.coordinates[0], size);
+    setValues(
+      table,
+      { [GEOMETRY_COLUMN]: gpkgPolygon(srsId, crossed) },
+      { fid: row.fid },
+    )(db);
   };
 
 /**
