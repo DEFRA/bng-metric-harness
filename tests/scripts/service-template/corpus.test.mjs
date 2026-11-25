@@ -823,6 +823,20 @@ describe("the fixtures derived for manual tests of individual trees", () => {
     expect(retentions(tree(DEFAULT_SITE, "T004").post)).toEqual(["Retained"]);
   });
 
+  it("tree-recorded-twice.gpkg keeps T004 and Creates it again as an Existing tree, linked to it", () => {
+    const file = builtAt("attribute-problems/tree-recorded-twice.gpkg");
+    const { baseline, post } = habitat(file, TREES, "T004");
+    expect(post.map((r) => r["Habitat Ref"]).sort()).toEqual(["T004", "T004A"]);
+    const again = post.find((r) => r["Habitat Ref"] === "T004A");
+    expect(again["Retention Category"]).toBe("Created");
+    expect(again.Category).toBe("Existing");
+    expect(again.parent_uuid).toBe(baseline.feature_uuid);
+    expect(baseline["Baseline Condition"]).toBe("Fairly Poor");
+    expect(again["Proposed Condition"]).toBe("Poor");
+    expect(again["Habitat Created/Enhanced in advance/years"]).toBe("30+");
+    expect(retentions(tree(DEFAULT_SITE, "T004").post)).toEqual(["Retained"]);
+  });
+
   it("tree-replanted.gpkg plants T026 on the felled tree T002's spot, linked to it", () => {
     const file = builtAt("valid/tree-replanted.gpkg");
     const { baseline, post } = habitat(file, TREES, "T002");
