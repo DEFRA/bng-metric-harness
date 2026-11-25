@@ -51,6 +51,9 @@ const ENHANCED_CANAL = "R006";
 const RETAINED_DITCH = "R007";
 const ENHANCED_TREE = "T013";
 const ENHANCED_GREEN_WALL = "V002";
+// The Low Intensive orchards parcel in the baseline of
+// attribute-problems/distinctiveness-out-of-scope.gpkg.
+const LOW_ORCHARD = "H004";
 // The default site's baseline watercourses, and every post-intervention one
 // but the Created ditch the watercourses-only file keeps.
 const BASELINE_WATERCOURSES = [
@@ -365,6 +368,19 @@ function textRefusalRecipes({ derived, derivedFrom }) {
         ),
       ],
       "HABITAT_REF_MISSING",
+    ),
+    derivedFrom(
+      "attribute-problems/distinctiveness-out-of-scope.gpkg",
+      "attribute-problems/distinctiveness-out-of-scope-and-comment-invalid.gpkg",
+      `\`attribute-problems/distinctiveness-out-of-scope.gpkg\` with the baseline ${LOW_ORCHARD}'s Comment also holding U+FFFD: a second problem, so the out-of-scope habitats are listed with the others, under the distinctiveness bands the service allows`,
+      [
+        setValues(
+          AREA_BASELINE,
+          { [COMMENT]: COMMENT_INVALID },
+          byRef(LOW_ORCHARD),
+        ),
+      ],
+      "HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE",
     ),
     derived(
       "attribute-problems/comment-too-long.gpkg",
