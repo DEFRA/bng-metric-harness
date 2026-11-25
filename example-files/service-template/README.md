@@ -93,10 +93,10 @@ Valid schema, invalid geometry: each trips one geometry validator. Baseline-stag
 | `area-sum-mismatch-baseline.gpkg` | habitat parcels do not tile the redline | AREA_SUM_MISMATCH | seed 1, baseline stage, flaw `area-sum-mismatch` |
 | `redline-not-in-england-baseline.gpkg` | redline placed outside England (Snowdonia, Wales) | REDLINE_OUTSIDE_ENGLAND | seed 1, baseline stage, flaw `redline-not-in-england` |
 | `redline-too-large-baseline.gpkg` | redline area exceeds the 100 sq km limit | REDLINE_AREA_TOO_LARGE | seed 1, baseline stage, flaw `redline-too-large` |
-| `crossed-parcel-alone-baseline.gpkg` | `valid/default-site-baseline.gpkg` with H002's outline crossing itself in a 1 m bowtie cut into its first edge: an invalid parcel whose area, and so the site's total, is unchanged, and which overlaps nothing | AREA_PARCELS_INVALID_GEOMETRY | `valid/default-site-baseline.gpkg`, edited by SQL |
 | `remeandered-watercourse-outside.gpkg` | the re-meandered watercourse's new route goes 5 m outside the red line: its bend is moved out across the boundary, while its baseline line stays inside | WATERCOURSES_OUTSIDE_REDLINE | seed 1, flaw `remeandered-watercourse-outside` |
 | `redline-missing-baseline.gpkg` | `valid/default-site-baseline.gpkg` with its `Red Line Boundary` row deleted: the layer is present and empty | NO_REDLINE | `valid/default-site-baseline.gpkg`, edited by SQL |
 | `redline-multiple-baseline.gpkg` | `valid/default-site-baseline.gpkg` with its `Red Line Boundary` row copied: the layer holds two boundaries, where the template has one | GPKG_RLB_TOO_MANY_POLYGONS | `valid/default-site-baseline.gpkg`, edited by SQL |
+| `crossed-parcel-alone-baseline.gpkg` | `valid/default-site-baseline.gpkg` with H002's outline crossing itself in a 1 m bowtie cut into its first edge: an invalid parcel whose area, and so the site's total, is unchanged, and which overlaps nothing | AREA_PARCELS_INVALID_GEOMETRY | `valid/default-site-baseline.gpkg`, edited by SQL |
 
 ## invalid-schema/
 

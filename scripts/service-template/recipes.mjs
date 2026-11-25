@@ -20,7 +20,6 @@
 import { FORMAT_BNG_SERVICE, STAGE_BASELINE, listFlaws } from "#bng-lib";
 import {
   addGeometryColumn,
-  crossPolygon,
   deleteRows,
   dropColumns,
   dropGeometryColumn,
@@ -522,17 +521,6 @@ const INCOMPLETE = [
   "degrade-watercourse-encroachment-no-advance",
 ].map((name) => flawFixture("incomplete", name));
 
-// An invalid parcel and nothing else wrong, so the service names it on a page
-// of its own. The bowtie-parcel flaw adds its bowtie over the site's parcels,
-// which also puts the total area out (AREA_SUM_MISMATCH).
-const CROSSED_PARCEL_ALONE = derivedFrom(
-  "valid/default-site-baseline.gpkg",
-  `${SPATIAL_PROBLEMS}/crossed-parcel-alone-baseline.gpkg`,
-  `\`valid/default-site-baseline.gpkg\` with ${RETAINED_WOODLAND}'s outline crossing itself in a 1 m bowtie cut into its first edge: an invalid parcel whose area, and so the site's total, is unchanged, and which overlaps nothing`,
-  [crossPolygon(AREA_BASELINE, { [HABITAT_REF]: RETAINED_WOODLAND })],
-  "AREA_PARCELS_INVALID_GEOMETRY",
-);
-
 const VERSION = [
   "version-record-missing",
   "version-record-duplicated",
@@ -572,7 +560,6 @@ const FILENAME = [
 export const RECIPES = [
   ...VALID,
   ...SPATIAL,
-  CROSSED_PARCEL_ALONE,
   ...SPATIAL_POST_INTERVENTION,
   ...INVALID_SCHEMA,
   ...EMPTY_LAYER,

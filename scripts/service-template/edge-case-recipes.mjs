@@ -7,7 +7,7 @@
  * lists them with the rest.
  */
 
-import { copyRow, deleteRows, setValues } from "./derive.mjs";
+import { copyRow, crossPolygon, deleteRows, setValues } from "./derive.mjs";
 
 const HABITAT_REF = "Habitat Ref";
 const PARENT_REF = "Parent Ref";
@@ -409,7 +409,7 @@ function textRefusalRecipes({ derived, derivedFrom }) {
   ];
 }
 
-/** Files the service refuses for a missing or second red line boundary, an out-of-scope habitat or an incomplete baseline. */
+/** Files the service refuses for a missing or second red line boundary, a lone invalid parcel, an out-of-scope habitat or an incomplete baseline. */
 function otherRefusalRecipes({ derived, derivedFrom }) {
   return [
     derivedFrom(
@@ -425,6 +425,16 @@ function otherRefusalRecipes({ derived, derivedFrom }) {
       `\`${BASELINE_STAGE_BASE}\` with its \`${RED_LINE}\` row copied: the layer holds two boundaries, where the template has one`,
       [copyRow(RED_LINE, { fid: RED_LINE_FID })],
       "GPKG_RLB_TOO_MANY_POLYGONS",
+    ),
+    // An invalid parcel and nothing else wrong, so the service names it on a
+    // page of its own. The bowtie-parcel flaw adds its bowtie over the site's
+    // parcels, which also puts the total area out (AREA_SUM_MISMATCH).
+    derivedFrom(
+      BASELINE_STAGE_BASE,
+      "spatial-problems/crossed-parcel-alone-baseline.gpkg",
+      `\`${BASELINE_STAGE_BASE}\` with ${RETAINED_WOODLAND}'s outline crossing itself in a 1 m bowtie cut into its first edge: an invalid parcel whose area, and so the site's total, is unchanged, and which overlaps nothing`,
+      [crossPolygon(AREA_BASELINE, byRef(RETAINED_WOODLAND))],
+      "AREA_PARCELS_INVALID_GEOMETRY",
     ),
     derived(
       "attribute-problems/distinctiveness-post-intervention-only.gpkg",
