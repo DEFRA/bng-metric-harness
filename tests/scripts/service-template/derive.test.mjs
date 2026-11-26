@@ -1,9 +1,10 @@
 import Database from "better-sqlite3";
 import { TEMPLATE_SOURCE } from "#bng-lib";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { gpkgPoint } from "#gpkg-io";
+import { gpkgPoint, gpkgPolygon, wkbToGeoJSON } from "#gpkg-io";
 import {
   copyRow,
+  crossPolygon,
   deleteRows,
   linkToParent,
   setValues,
@@ -214,5 +215,107 @@ describe("the tree edits", () => {
       max_x: 530000.12345,
       max_y: 180000.5,
     });
+  });
+});
+
+describe("the polygon edit", () => {
+  const PARCELS = "Parcels";
+  const SRS = 27700;
+  const SIDE = 10;
+  const anticlockwise = [
+    [0, 0],
+    [SIDE, 0],
+    [SIDE, SIDE],
+    [0, SIDE],
+    [0, 0],
+  ];
+  const clockwise = anticlockwise.toReversed();
+
+  const insertParcel = (ref, ring) =>
+    db
+      .prepare(`INSERT INTO "${PARCELS}" (geom, "Habitat Ref") VALUES (?, ?)`)
+      .run(gpkgPolygon(SRS, ring), ref);
+
+  beforeEach(() => {
+    db.exec(
+      `CREATE TABLE "${PARCELS}" (fid INTEGER PRIMARY KEY, geom BLOB, "Habitat Ref" TEXT)`,
+    );
+    db.prepare("INSERT INTO gpkg_geometry_columns VALUES (?, 'geom')").run(
+      PARCELS,
+    );
+    db.prepare("INSERT INTO gpkg_contents VALUES (?, 0, 0, 10, 10)").run(
+      PARCELS,
+    );
+  });
+
+  const ringOf = (ref) =>
+    wkbToGeoJSON(
+      db
+        .prepare(`SELECT geom FROM "${PARCELS}" WHERE "Habitat Ref" = ?`)
+        .get(ref).geom,
+    ).coordinates[0];
+
+  const signedArea = (ring) =>
+    ring
+      .slice(1)
+      .reduce((sum, [x, y], i) => sum + ring[i][0] * y - x * ring[i][1], 0) / 2;
+
+  // Whether segments ab and cd cross at a point inside both.
+  const cross = ([ax, ay], [bx, by], [cx, cy], [dx, dy]) => {
+    const side = (px, py, qx, qy, rx, ry) =>
+      Math.sign((qx - px) * (ry - py) - (qy - py) * (rx - px));
+    return (
+      side(ax, ay, bx, by, cx, cy) * side(ax, ay, bx, by, dx, dy) < 0 &&
+      side(cx, cy, dx, dy, ax, ay) * side(cx, cy, dx, dy, bx, by) < 0
+    );
+  };
+
+  it.each([
+    ["an anticlockwise", anticlockwise],
+    ["a clockwise", clockwise],
+  ])("crosses %s ring inside its outline, keeping its area", (_, ring) => {
+    insertParcel("H001", ring);
+    crossPolygon(PARCELS, { "Habitat Ref": "H001" })(db);
+
+    const crossed = ringOf("H001");
+    expect(crossed).toHaveLength(ring.length + 4);
+    expect(signedArea(crossed)).toBeCloseTo(signedArea(ring), 9);
+    for (const [x, y] of crossed) {
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(x).toBeLessThanOrEqual(SIDE);
+      expect(y).toBeGreaterThanOrEqual(0);
+      expect(y).toBeLessThanOrEqual(SIDE);
+    }
+    const [, p, q, r, s] = crossed;
+    expect(cross(p, q, r, s)).toBe(true);
+  });
+
+  it("crosses only the polygon it names", () => {
+    insertParcel("H001", anticlockwise);
+    insertParcel("H002", anticlockwise);
+    crossPolygon(PARCELS, { "Habitat Ref": "H001" })(db);
+    expect(ringOf("H002")).toEqual(anticlockwise);
+  });
+
+  // A strip 10 m long and half a metre deep: the bowtie, 1 m deep, would
+  // reach past its far side into whatever lies beyond.
+  it("refuses an edge with too little of the polygon behind it", () => {
+    insertParcel("H001", [
+      [0, 0],
+      [SIDE, 0],
+      [SIDE, 0.5],
+      [0, 0.5],
+      [0, 0],
+    ]);
+    expect(() => crossPolygon(PARCELS, { "Habitat Ref": "H001" })(db)).toThrow(
+      /less than 1 m deep/,
+    );
+  });
+
+  it("refuses an edge too short to cross", () => {
+    insertParcel("H001", anticlockwise);
+    expect(() =>
+      crossPolygon(PARCELS, { "Habitat Ref": "H001" }, SIDE)(db),
+    ).toThrow(/too short/);
   });
 });
