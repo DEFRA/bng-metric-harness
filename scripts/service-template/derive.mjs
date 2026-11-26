@@ -294,11 +294,26 @@ const doubledSignedArea = (ring) =>
     .slice(1)
     .reduce((sum, [x, y], i) => sum + ring[i][0] * y - x * ring[i][1], 0);
 
+/** Whether [x, y] lies inside `ring`, by the even-odd rule. */
+function insideRing([x, y], ring) {
+  let inside = false;
+  for (let i = 1; i < ring.length; i++) {
+    const [x1, y1] = ring[i - 1];
+    const [x2, y2] = ring[i];
+    if (y1 > y !== y2 > y && x < x1 + ((y - y1) * (x2 - x1)) / (y2 - y1)) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
 /**
  * Cut a bowtie `size` metres across into the middle of a polygon ring's first
  * edge, on its inside: the ring leaves the edge, crosses itself and rejoins
  * it. The bowtie's two halves wind opposite ways, so the ring's area as drawn
- * is unchanged, and the shape stays within the polygon's own outline.
+ * is unchanged. The bowtie's inner corners must lie inside the ring, so the
+ * shape stays within the polygon's own outline; an edge with less than `size`
+ * metres of the polygon behind it is refused.
  */
 function crossFirstEdge(ring, size) {
   const [[ax, ay], [bx, by]] = ring;
@@ -316,14 +331,13 @@ function crossFirstEdge(ring, size) {
     mx + ux * along + nx * inward,
     my + uy * along + ny * inward,
   ];
-  return [
-    ring[0],
-    at(-half, 0),
-    at(half, size),
-    at(-half, size),
-    at(half, 0),
-    ...ring.slice(1),
-  ];
+  const inner = [at(half, size), at(-half, size)];
+  if (!inner.every((point) => insideRing(point, ring))) {
+    throw new Error(
+      `the polygon is less than ${size} m deep behind its first edge, so the bowtie would leave it`,
+    );
+  }
+  return [ring[0], at(-half, 0), ...inner, at(half, 0), ...ring.slice(1)];
 }
 
 /**

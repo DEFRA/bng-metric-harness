@@ -297,6 +297,21 @@ describe("the polygon edit", () => {
     expect(ringOf("H002")).toEqual(anticlockwise);
   });
 
+  // A strip 10 m long and half a metre deep: the bowtie, 1 m deep, would
+  // reach past its far side into whatever lies beyond.
+  it("refuses an edge with too little of the polygon behind it", () => {
+    insertParcel("H001", [
+      [0, 0],
+      [SIDE, 0],
+      [SIDE, 0.5],
+      [0, 0.5],
+      [0, 0],
+    ]);
+    expect(() => crossPolygon(PARCELS, { "Habitat Ref": "H001" })(db)).toThrow(
+      /less than 1 m deep/,
+    );
+  });
+
   it("refuses an edge too short to cross", () => {
     insertParcel("H001", anticlockwise);
     expect(() =>
