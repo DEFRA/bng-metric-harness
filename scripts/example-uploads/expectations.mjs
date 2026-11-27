@@ -74,53 +74,19 @@ export const FOLDERS_NOT_UPLOADED = new Map([
   ],
 ]);
 
-/** Files in a folder of problems that the service is meant to accept. */
-export const ACCEPTED_BY_DESIGN = new Map([
-  [
-    "empty-layer/Baseline - no hedgerows.gpkg",
-    "a site need not have hedgerows",
-  ],
-  [
-    "empty-layer/Baseline - no watercourses.gpkg",
-    "a site need not have watercourses",
-  ],
-  [
-    "invalid-schema/Post-intervention - wrong geometry column name in RLB layer.gpkg",
-    "the legacy template's geometry column names are not matched, only checked to be safe SQLite identifiers",
-  ],
-  [
-    "attribute-problems/Post-intervention - missing proposed habitat data.gpkg",
-    "the parcel with no proposed habitat data is saved Incomplete, for the user to complete in the service",
-  ],
-  [
-    "service-template/empty-layer/no-hedgerows.gpkg",
-    "a site need not have hedgerows",
-  ],
-  [
-    "service-template/empty-layer/no-rivers.gpkg",
-    "a site need not have watercourses",
-  ],
-  [
-    "service-template/empty-layer/no-trees.gpkg",
-    "a site need not have individual trees",
-  ],
-  [
-    "service-template/attribute-problems/advance-delay-both-set.gpkg",
-    "saved Incomplete, with both the advance and the delay cleared",
-  ],
-  [
-    "service-template/attribute-problems/baseline-significance-high.gpkg",
-    "its baseline strategic significance is stored and priced as Low",
-  ],
-]);
+/**
+ * Files in a folder of problems that the service is meant to accept. Empty:
+ * a file the service accepts belongs in valid/ or incomplete/, so its folder
+ * says what should happen to it.
+ */
+export const ACCEPTED_BY_DESIGN = new Map();
 
-/** Files the service should refuse but accepts today. */
-export const KNOWN_GAPS = new Map([
-  [
-    "service-template/attribute-problems/irreplaceable-area-habitat.gpkg",
-    "the service does not check irreplaceable area habitats yet",
-  ],
-]);
+/**
+ * Files the service should refuse but accepts today. Empty: a file goes here
+ * only while the backend change that refuses it is in progress, and is
+ * removed once it merges.
+ */
+export const KNOWN_GAPS = new Map();
 
 /** Which corpus a path under example-files/ belongs to. */
 export function templateOf(file) {

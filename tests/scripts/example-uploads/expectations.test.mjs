@@ -83,31 +83,29 @@ describe("the example files' expectations", () => {
     ["accepted by design", ACCEPTED_BY_DESIGN],
     ["known gaps", KNOWN_GAPS],
   ])(
-    "list as %s only files in the corpus, each in a folder of files to refuse",
+    "list no files as %s, so a file's folder says what it should do",
     (_, list) => {
-      for (const file of list.keys()) {
-        expect(ALL_FILES, file).toContain(file);
-        expect(isUploaded(file), file).toBe(true);
-        expect(["valid", "incomplete"], file).not.toContain(folderOf(file));
-      }
+      expect([...list.keys()]).toEqual([]);
     },
   );
 
-  it("refuse a file with its folder's problem, and accept one listed as accepted by design", () => {
+  it("expect every file in a folder of problems to be refused", () => {
+    const problems = ALL_FILES.filter(isUploaded).filter(
+      (file) => !["valid", "incomplete"].includes(folderOf(file)),
+    );
+    expect(problems.length).toBeGreaterThan(0);
+    for (const file of problems) {
+      expect(expectationFor(file), file).toEqual({ expected: REFUSED });
+    }
+  });
+
+  it("refuse a file with its folder's problem, and accept a valid one", () => {
     expect(expectationFor("malformed/Not a valid geopackage.gpkg")).toEqual({
       expected: REFUSED,
     });
-    expect(
-      expectationFor("empty-layer/Baseline - no hedgerows.gpkg"),
-    ).toMatchObject({
+    expect(expectationFor("valid/Baseline - no hedgerows.gpkg")).toEqual({
       expected: ACCEPTED,
-      reason: expect.any(String),
     });
-    expect(
-      expectationFor(
-        "service-template/attribute-problems/irreplaceable-area-habitat.gpkg",
-      ),
-    ).toMatchObject({ expected: REFUSED, knownGap: expect.any(String) });
   });
 
   it("stop on a folder it does not know", () => {

@@ -34,28 +34,31 @@ the legacy template's (`example-files/`) and the BNG Service template's
 A folder not in this table fails the test, so a new folder cannot be left out
 of it unnoticed. A file added to one of these folders is tested from then on.
 
-`scripts/example-uploads/expectations.mjs` holds the table, and two lists of
-files the folder gets wrong, each with its reason:
+`scripts/example-uploads/expectations.mjs` holds the table. **The folder is
+the whole answer**: there are no exceptions. A file the service accepts, such
+as a baseline with no hedgerows, is in `valid/` or `incomplete/`, however
+unusual it is; a file in a folder of problems is refused. A test fails if
+either list below holds a file.
+
+The file keeps two lists, both empty, for a change in progress:
 
 - **Accepted by design**: a file in a folder of problems that the service is
-  meant to accept. For example, `empty-layer/Baseline - no hedgerows.gpkg`: a
-  site need not have hedgerows.
-- **Known gaps**: a file the service should refuse but accepts today, as its
-  README row says. For example,
-  `service-template/attribute-problems/irreplaceable-area-habitat.gpkg`, as the
-  service does not check irreplaceable area habitats yet. A known gap passes
-  while the service still accepts it. Once the service refuses it, it still
-  passes, but is reported as **stale**, in the log and the job summary, for
-  the entry to be removed. It does not fail: the backend runs this test at
-  harness `main`, so failing would block the backend change that closes the
-  gap until the harness had dropped the entry, and the harness change that
-  drops it would fail against the backend's `main`. A throw on a known-gap
-  file still fails.
+  meant to accept. Move such a file to `valid/` or `incomplete/` instead.
+- **Known gaps**: a file the service should refuse but accepts today. Leave
+  such a file out of the corpus until the backend refuses it, and record the
+  gap instead: the BNG Service template's README lists them under Gaps, from
+  `GAPS` in `scripts/service-template/recipes.mjs`. An irreplaceable area
+  habitat is one. If a gap must be listed here, it passes while the service
+  still accepts it. Once the service refuses it, it still passes, but is
+  reported as **stale**, in the log and the job summary, for the entry to be
+  removed. It does not fail: the backend runs this test at harness `main`, so
+  failing would block the backend change that closes the gap until the
+  harness had dropped the entry, and the harness change that drops it would
+  fail against the backend's `main`. A throw on a known-gap file still fails.
 
-The BNG Service template's exceptions repeat what its README's Expected column
-says, which `scripts/service-template/readme.mjs` writes from the recipes. A
-test holds the two to each other, so a recipe change that alters a file's
-Expected cell fails until the exceptions match.
+The BNG Service template's README writes an Expected cell for every file
+from the recipes. A test holds each cell to the file's folder, so a recipe
+whose Expected cell says accepted cannot sit in a folder of problems.
 
 ### How a file is uploaded
 

@@ -451,7 +451,6 @@ describe("the built fixtures", () => {
         r.irreplaceableTables?.length > 0,
     );
     expect(marked.map((r) => r.path).sort()).toEqual([
-      "attribute-problems/irreplaceable-area-habitat.gpkg",
       "attribute-problems/irreplaceable-tree-baseline-only.gpkg",
       "attribute-problems/irreplaceable-tree-post-intervention-only.gpkg",
       "attribute-problems/irreplaceable-tree.gpkg",
@@ -525,8 +524,14 @@ describe("the built fixtures", () => {
     }
   });
 
-  it("hold only values the template offers, in every valid file", () => {
-    for (const recipe of RECIPES.filter((r) => r.path.startsWith("valid/"))) {
+  // baseline-significance-high.gpkg holds a High the template's drop-down
+  // does not offer, to show the service accepts it and prices it as Low.
+  it("hold only values the template offers, in every valid file but the one built not to", () => {
+    for (const recipe of RECIPES.filter(
+      (r) =>
+        r.path.startsWith("valid/") &&
+        r.path !== "valid/baseline-significance-high.gpkg",
+    )) {
       expect(checkTemplateValues(built(recipe)), recipe.path).toEqual([]);
     }
   });
@@ -723,7 +728,7 @@ describe("the fixtures derived for QA's BMD-1086 scenarios", () => {
   });
 
   it("baseline-significance-high.gpkg gives one Retained woodland High in both stages", () => {
-    const file = builtAt("attribute-problems/baseline-significance-high.gpkg");
+    const file = builtAt("valid/baseline-significance-high.gpkg");
     const { baseline, post } = habitat(file, "Area Habitats", "H002");
     expect(baseline["Baseline Broad Habitat Type"]).toBe("Woodland and forest");
     expect(post).toHaveLength(1);

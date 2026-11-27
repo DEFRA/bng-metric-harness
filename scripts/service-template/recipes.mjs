@@ -79,7 +79,8 @@ export const FAMILIES = [
   },
   {
     dir: "empty-layer",
-    covers: "Valid schema, a feature layer present but with no rows",
+    covers:
+      "Valid schema, the area habitats layer present but with no rows. An empty hedgerows, rivers or trees layer is valid, so those files are in `valid/`",
   },
   {
     dir: "attribute-problems",
@@ -94,7 +95,7 @@ export const FAMILIES = [
   {
     dir: "incomplete",
     covers:
-      "A watercourse that gets worse, or a tree Enhanced to a condition no better than its baseline one, is recorded in a way the service saves as Incomplete rather than refuses",
+      "A watercourse that gets worse, a tree Enhanced to a condition no better than its baseline one, or a created habitat with both advance and delay years, is recorded in a way the service saves as Incomplete rather than refuses",
   },
   {
     dir: "version-problems",
@@ -124,9 +125,6 @@ function flawInfo(name) {
   }
   return flaw;
 }
-
-const IRREPLACEABLE_NOT_CHECKED =
-  "Accepted today: the service does not check irreplaceable area habitats yet";
 
 /**
  * What the README says for these flaws in place of bng-library's note: the
@@ -388,24 +386,24 @@ const INVALID_SCHEMA = [
   },
 ];
 
-const EMPTY_LAYER = [
-  "no-habitats",
-  "no-hedgerows",
-  "no-rivers",
-  "no-trees",
-].map((name) => flawFixture("empty-layer", name));
+const EMPTY_LAYER = [flawFixture("empty-layer", "no-habitats")];
+
+// A layer other than the area habitats may be empty: a site need not have
+// hedgerows, watercourses or trees.
+const OPTIONAL_LAYER_EMPTY = ["no-hedgerows", "no-rivers", "no-trees"].map(
+  (name) => flawFixture("valid", name),
+);
 
 const ATTRIBUTE = [
   "distinctiveness-out-of-scope",
   "missing-habitat-ref",
   "habitat-ref-invalid-characters",
-  "advance-delay-both-set",
   "degrade-watercourse-retained-and-created",
   "degrade-habitat-ref-blank",
 ].map((name) => flawFixture("attribute-problems", name));
 
 const BASELINE_SIGNIFICANCE_HIGH = derived(
-  "attribute-problems/baseline-significance-high.gpkg",
+  "valid/baseline-significance-high.gpkg",
   `\`valid/default-site.gpkg\` with the Retained woodland ${RETAINED_WOODLAND}'s Baseline Strategic Significance \`${HIGH}\` in both stages: a value the template's drop-down does not offer, as the Metric guide puts every baseline habitat at Low`,
   [
     setValues(
@@ -493,13 +491,9 @@ const NATURAL_WATERCOURSE_LOST = derived(
   "STAGED_NATURAL_WATERCOURSE_LOST",
 );
 
+// An irreplaceable area habitat is left out until the service refuses one:
+// see GAPS.
 const IRREPLACEABLE = [
-  generated(
-    "attribute-problems/irreplaceable-area-habitat.gpkg",
-    "`valid/default-site.gpkg` with its woodland parcel marked irreplaceable (Irreplaceable Habitat `Yes`) in both stages",
-    `refused. ${IRREPLACEABLE_NOT_CHECKED}`,
-    { seed: SEED, irreplaceableLayers: ["habitats"] },
-  ),
   generated(
     "attribute-problems/irreplaceable-tree.gpkg",
     "`valid/default-site.gpkg` with one Retained tree marked irreplaceable (a veteran tree) in both stages",
@@ -517,6 +511,7 @@ const LINEAGE = [
 ].map((name) => flawFixture("lineage-problems", name));
 
 const INCOMPLETE = [
+  "advance-delay-both-set",
   "degrade-watercourse-advance-not-encroachment",
   "degrade-watercourse-encroachment-no-advance",
 ].map((name) => flawFixture("incomplete", name));
@@ -559,6 +554,7 @@ const FILENAME = [
 
 export const RECIPES = [
   ...VALID,
+  ...OPTIONAL_LAYER_EMPTY,
   ...SPATIAL,
   ...SPATIAL_POST_INTERVENTION,
   ...INVALID_SCHEMA,
@@ -587,6 +583,7 @@ export const RECIPES = [
  */
 export const GAPS = [
   "A natural river left out, and an irreplaceable tree that gets worse: the service refuses either file for another reason first, so a fixture could not show the rule. Natural rivers (Other rivers and streams, High; Priority habitat, V.High) are out of the service's scope, and only canals and ditches may be lost (a culvert left out is refused, STAGED_NATURAL_WATERCOURSE_LOST: `attribute-problems/watercourse-culvert-left-out.gpkg`); an irreplaceable tree is refused whether or not it gets worse (`attribute-problems/irreplaceable-tree.gpkg`).",
+  'An irreplaceable area habitat (Irreplaceable Habitat `Yes` on an area parcel): the service does not refuse one yet, and a file in a folder of problems must be refused. Restore `attribute-problems/irreplaceable-area-habitat.gpkg` (bng-library\'s `irreplaceableLayers: ["habitats"]`) with the backend change that refuses it. An irreplaceable tree is refused (`attribute-problems/irreplaceable-tree.gpkg`).',
   "The harness's import-timing scenarios: they edit legacy files, so `permutations/` builds them in the legacy format only.",
 ];
 
