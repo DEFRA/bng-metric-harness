@@ -78,9 +78,6 @@ export function describeUploads(template, title) {
         );
         const outcome = verdict(file, expectation, result);
         verdicts.push(outcome);
-        if (outcome.stale) {
-          console.warn(outcome.message);
-        }
         if (!outcome.pass) {
           expect.fail(outcome.message);
         }

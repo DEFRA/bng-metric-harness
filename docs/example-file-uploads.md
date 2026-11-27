@@ -34,28 +34,22 @@ the legacy template's (`example-files/`) and the BNG Service template's
 A folder not in this table fails the test, so a new folder cannot be left out
 of it unnoticed. A file added to one of these folders is tested from then on.
 
-`scripts/example-uploads/expectations.mjs` holds the table, and two lists of
-files the folder gets wrong, each with its reason:
+`scripts/example-uploads/expectations.mjs` holds the table. **The folder is
+the whole answer**: there are no exceptions. A file the service accepts, such
+as a baseline with no hedgerows, is in `valid/` or `incomplete/`, however
+unusual it is; a file in a folder of problems is refused.
 
-- **Accepted by design**: a file in a folder of problems that the service is
-  meant to accept. For example, `empty-layer/Baseline - no hedgerows.gpkg`: a
-  site need not have hedgerows.
-- **Known gaps**: a file the service should refuse but accepts today, as its
-  README row says. For example,
-  `service-template/attribute-problems/irreplaceable-area-habitat.gpkg`, as the
-  service does not check irreplaceable area habitats yet. A known gap passes
-  while the service still accepts it. Once the service refuses it, it still
-  passes, but is reported as **stale**, in the log and the job summary, for
-  the entry to be removed. It does not fail: the backend runs this test at
-  harness `main`, so failing would block the backend change that closes the
-  gap until the harness had dropped the entry, and the harness change that
-  drops it would fail against the backend's `main`. A throw on a known-gap
-  file still fails.
+A flaw the service does not refuse yet has no file until it does. The BNG
+Service template's README lists it under Gaps, from `GAPS` in
+`scripts/service-template/recipes.mjs`; an irreplaceable area habitat is one.
+Once the backend change that refuses it has merged, add the file to the
+folder of problems in a harness change. The backend runs this test at harness
+`main`, so the order matters: a file added first would fail every backend
+pull request until the backend refused it.
 
-The BNG Service template's exceptions repeat what its README's Expected column
-says, which `scripts/service-template/readme.mjs` writes from the recipes. A
-test holds the two to each other, so a recipe change that alters a file's
-Expected cell fails until the exceptions match.
+The BNG Service template's README writes an Expected cell for every file
+from the recipes. A test holds each cell to the file's folder, so a recipe
+whose Expected cell says accepted cannot sit in a folder of problems.
 
 ### How a file is uploaded
 

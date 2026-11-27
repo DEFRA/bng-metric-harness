@@ -68,6 +68,10 @@ Valid files, combined and baseline-stage: each should upload cleanly.
 | `retained-enhanced-lost-parcels.gpkg` | A 15-parcel site where 2 baseline area habitats are split with no part getting worse: each into a Retained part a, a part b Enhanced to a better condition in its own type, and a part c lost to development, Created as Developed land; sealed surface, all linked to the baseline habitat. Nothing else on the site gets worse | accepted | seed 1, 15 parcels, 0 `parcel`, 0 `vertical`, 0 `hedge`, 0 `partly-worse-hedge`, 0 `encroached-watercourse`, 0 `worse-watercourse`, 0 `partly-worse-parcel`, 2 `split-parcel` |
 | `duplicate-habitat-ref.gpkg` | Two habitat parcels share one Habitat Ref | accepted since BMD-1058, which lets habitats share a reference | seed 1, 5 parcels, flaw `duplicate-habitat-ref` |
 | `tiny-gap.gpkg` | parcels tile the redline except a sub-tolerance gap — file is accepted | accepted: the gap is below the AREA_SUM_MISMATCH tolerance | seed 1, flaw `tiny-gap` |
+| `no-hedgerows.gpkg` | Hedgerows layer present with zero rows | accepted: a site need not have hedgerows | seed 1, flaw `no-hedgerows` |
+| `no-rivers.gpkg` | Rivers layer present with zero rows | accepted: a site need not have watercourses | seed 1, flaw `no-rivers` |
+| `no-trees.gpkg` | Urban Trees layer present with zero rows | accepted: a site need not have individual trees | seed 1, flaw `no-trees` |
+| `baseline-significance-high.gpkg` | `valid/default-site.gpkg` with the Retained woodland H002's Baseline Strategic Significance `High` in both stages: a value the template's drop-down does not offer, as the Metric guide puts every baseline habitat at Low | accepted, its baseline strategic significance stored and priced as Low | `valid/default-site.gpkg`, edited by SQL |
 | `tree-replanted.gpkg` | `valid/default-site.gpkg` with T026, a small rural tree newly planted where the felled tree T002 stood, linked to it as its parent (T005 is planted with no parent) | accepted: T026 is priced as a creation, and T002 is lost in full | `valid/default-site.gpkg`, edited by SQL |
 | `tree-put-back-same-condition.gpkg` | `valid/default-site.gpkg` with the felled tree T007 (Moderate) cleared and put back where it stood, linked to it, after a 5-year delay, in its baseline condition | accepted: T007 is lost and Created again | `valid/default-site.gpkg`, edited by SQL |
 | `long-and-padded-refs.gpkg` | `valid/default-site.gpkg` with four Retained area habitats renamed in both stages: H002 `WOODLAND-NORTH-EDGE` (19 characters), H029 `Étang-du-Moulin-Ælfrīc` (letters outside ASCII), H034 padded with three spaces each side, and H050 a 99-character ref, the limit. The service trims the padded ref and keeps the others whole | accepted | `valid/default-site.gpkg`, edited by SQL |
@@ -121,14 +125,11 @@ Wrong table or column shape, derived from `valid/default-site.gpkg` by SQL: trip
 
 ## empty-layer/
 
-Valid schema, a feature layer present but with no rows.
+Valid schema, the area habitats layer present but with no rows. An empty hedgerows, rivers or trees layer is valid, so those files are in `valid/`.
 
 | File | Covers | Expected | Built from |
 | ---- | ------ | -------- | ---------- |
 | `no-habitats.gpkg` | Habitats layer present with zero rows | NO_HABITAT_AREAS | seed 1, flaw `no-habitats` |
-| `no-hedgerows.gpkg` | Hedgerows layer present with zero rows | (no specific backend error) | seed 1, flaw `no-hedgerows` |
-| `no-rivers.gpkg` | Rivers layer present with zero rows | (no specific backend error) | seed 1, flaw `no-rivers` |
-| `no-trees.gpkg` | Urban Trees layer present with zero rows | (no specific backend error) | seed 1, flaw `no-trees` |
 
 ## attribute-problems/
 
@@ -139,10 +140,8 @@ Valid schema and geometry: an attribute value trips a later validator, or a habi
 | `distinctiveness-out-of-scope.gpkg` | habitat types whose reference-data distinctiveness is rejected by the BNG Beta service | HABITAT_DISTINCTIVENESS_NOT_IN_SCOPE | seed 1, flaw `distinctiveness-out-of-scope` |
 | `missing-habitat-ref.gpkg` | a habitat parcel whose Parcel Ref is only spaces | HABITAT_REF_MISSING | seed 1, flaw `missing-habitat-ref` |
 | `habitat-ref-invalid-characters.gpkg` | a habitat parcel whose Parcel Ref holds the character a decoder puts in place of invalid UTF-8 | HABITAT_REF_INVALID_CHARACTERS | seed 1, flaw `habitat-ref-invalid-characters` |
-| `advance-delay-both-set.gpkg` | a created habitat carries both advance and delayed creation years | (accepted; saved Incomplete with both advance and delay cleared) | seed 1, flaw `advance-delay-both-set` |
 | `degrade-watercourse-retained-and-created.gpkg` | a baseline watercourse has both a Retained and a Created post-intervention part. The template records part of a stretch changing by splitting it at the baseline survey, as the service cannot measure part of a watercourse | STAGED_WATERCOURSE_RETAINED_AND_CREATED | seed 1, flaw `degrade-watercourse-retained-and-created` |
 | `degrade-habitat-ref-blank.gpkg` | an area habitat that gets worse has an empty Habitat Ref on its post-intervention row only; its baseline row keeps its ref, so only a check of the post-intervention tables finds it | HABITAT_REF_MISSING | seed 1, flaw `degrade-habitat-ref-blank` |
-| `baseline-significance-high.gpkg` | `valid/default-site.gpkg` with the Retained woodland H002's Baseline Strategic Significance `High` in both stages: a value the template's drop-down does not offer, as the Metric guide puts every baseline habitat at Low | accepted, its baseline strategic significance stored and priced as Low | `valid/default-site.gpkg`, edited by SQL |
 | `vertical-area-missing.gpkg` | `valid/default-site.gpkg` with the Area left blank on V004, a vertical area habitat (the demolished structure, so it has no post-intervention row). The surveyor types this Area in hectares, as a line cannot give it | VERTICAL_HABITAT_AREA_NOT_POSITIVE | `valid/default-site.gpkg`, edited by SQL |
 | `area-created-no-habitat-type.gpkg` | `valid/default-site.gpkg` with H005, a Created area habitat linked to its parent, given no Proposed Broad Habitat Type, Habitat Type or Distinctiveness. The service reads a blank Proposed Habitat Type as the row's Baseline one, so it takes H005 as Created in its parent's own type, and holds it to the steps for a habitat that gets worse | STAGED_HABITAT_DEGRADE_NOT_VALID | `valid/default-site.gpkg`, edited by SQL |
 | `degrade-area-advance-missing.gpkg` | `valid/default-site.gpkg` with H043, an area habitat that gets worse (Created in its own type, linked to its parent, in a lower condition, with no delay), given no years created in advance, where the Metric asks for 30 plus | STAGED_HABITAT_DEGRADE_NOT_VALID | `valid/default-site.gpkg`, edited by SQL |
@@ -152,7 +151,6 @@ Valid schema and geometry: an attribute value trips a later validator, or a habi
 | `degrade-hedgerow-advance-missing.gpkg` | `valid/default-site.gpkg` with HG017, a hedgerow that gets worse (Created in its own type, linked to its parent, in a lower condition, with no delay), given no years created in advance, where the Metric asks for 30 plus | STAGED_HABITAT_DEGRADE_NOT_VALID | `valid/default-site.gpkg`, edited by SQL |
 | `degrade-hedgerow-not-worse.gpkg` | `valid/default-site.gpkg` with HG017, a hedgerow Created in its own type, linked to its parent, 30+ years in advance, with no delay, given its baseline condition (Moderate): kept as it was, it should be Retained, or given a delay if it is cleared and put back | STAGED_HABITAT_DEGRADE_NOT_VALID | `valid/default-site.gpkg`, edited by SQL |
 | `watercourse-culvert-left-out.gpkg` | `valid/default-site.gpkg` with the Retained culvert R001's post-intervention row left out, so it is lost. Only a canal or a ditch may be lost; this stands in for a natural river left out (see the gaps below) | STAGED_NATURAL_WATERCOURSE_LOST | `valid/default-site.gpkg`, edited by SQL |
-| `irreplaceable-area-habitat.gpkg` | `valid/default-site.gpkg` with its woodland parcel marked irreplaceable (Irreplaceable Habitat `Yes`) in both stages | refused. Accepted today: the service does not check irreplaceable area habitats yet | seed 1, irreplaceable `habitats` |
 | `irreplaceable-tree.gpkg` | `valid/default-site.gpkg` with one Retained tree marked irreplaceable (a veteran tree) in both stages | IRREPLACEABLE_TREE | seed 1, irreplaceable `trees` |
 | `tree-enhanced-from-good.gpkg` | `valid/default-site.gpkg` with T008, a tree Retained in Good condition, Enhanced instead, still Good: a tree in Good condition cannot be enhanced. The template's drop-downs do not offer it, so it stands for a file edited outside QGIS | TREE_NOT_ENHANCEABLE | `valid/default-site.gpkg`, edited by SQL |
 | `tree-irreplaceable-blank.gpkg` | `valid/default-site.gpkg` with Irreplaceable Habitat left blank on every tree, in both stages: a tree's Irreplaceable Habitat must be No | IRREPLACEABLE_TREE | `valid/default-site.gpkg`, edited by SQL |
@@ -186,7 +184,7 @@ A post-intervention feature names its baseline parent wrongly. `npm run check:li
 
 ## incomplete/
 
-A watercourse that gets worse, or a tree Enhanced to a condition no better than its baseline one, is recorded in a way the service saves as Incomplete rather than refuses.
+A watercourse that gets worse, a tree Enhanced to a condition no better than its baseline one, or a created habitat with both advance and delay years, is recorded in a way the service saves as Incomplete rather than refuses.
 
 | File | Covers | Expected | Built from |
 | ---- | ------ | -------- | ---------- |
@@ -201,6 +199,7 @@ A watercourse that gets worse, or a tree Enhanced to a condition no better than 
 | `hedgerow-enhanced-significance-blank.gpkg` | `valid/default-site.gpkg` with the Enhanced HG002's Proposed Strategic Significance left blank | saved as Incomplete: the hedgerow | `valid/default-site.gpkg`, edited by SQL |
 | `watercourse-enhanced-significance-blank.gpkg` | `valid/default-site.gpkg` with the Enhanced R006's Proposed Strategic Significance left blank | saved as Incomplete: the watercourse | `valid/default-site.gpkg`, edited by SQL |
 | `tree-enhanced-significance-blank.gpkg` | `valid/default-site.gpkg` with the Enhanced T013's Proposed Strategic Significance left blank | saved as Incomplete: the tree | `valid/default-site.gpkg`, edited by SQL |
+| `advance-delay-both-set.gpkg` | a created habitat carries both advance and delayed creation years | (accepted; saved Incomplete with both advance and delay cleared) | seed 1, flaw `advance-delay-both-set` |
 | `degrade-watercourse-advance-not-encroachment.gpkg` | a watercourse whose condition gets worse, with no change of encroachment, is created 10 years in advance, which the Metric allows only where encroachment increases with no other impact | saved as Incomplete, with its years created in advance cleared | seed 1, flaw `degrade-watercourse-advance-not-encroachment` |
 | `degrade-watercourse-encroachment-no-advance.gpkg` | a watercourse whose only change is more encroachment has no years created in advance, though the Metric allows 10 or more for it | saved as Incomplete, for want of years created in advance | seed 1, flaw `degrade-watercourse-encroachment-no-advance` |
 
@@ -246,4 +245,5 @@ A valid file; only the upload's own file name is invalid.
 ## Gaps
 
 - A natural river left out, and an irreplaceable tree that gets worse: the service refuses either file for another reason first, so a fixture could not show the rule. Natural rivers (Other rivers and streams, High; Priority habitat, V.High) are out of the service's scope, and only canals and ditches may be lost (a culvert left out is refused, STAGED_NATURAL_WATERCOURSE_LOST: `attribute-problems/watercourse-culvert-left-out.gpkg`); an irreplaceable tree is refused whether or not it gets worse (`attribute-problems/irreplaceable-tree.gpkg`).
+- An irreplaceable area habitat (Irreplaceable Habitat `Yes` on an area parcel): the service does not refuse one yet, and a file in a folder of problems must be refused. Restore `attribute-problems/irreplaceable-area-habitat.gpkg` (bng-library's `irreplaceableLayers: ["habitats"]`) once the backend change that refuses it has merged. An irreplaceable tree is refused (`attribute-problems/irreplaceable-tree.gpkg`).
 - The harness's import-timing scenarios: they edit legacy files, so `permutations/` builds them in the legacy format only.

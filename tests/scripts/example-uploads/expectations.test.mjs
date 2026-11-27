@@ -6,9 +6,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ACCEPTED,
-  ACCEPTED_BY_DESIGN,
   BASELINE,
-  KNOWN_GAPS,
   LEGACY,
   POST_INTERVENTION,
   REFUSED,
@@ -79,35 +77,23 @@ describe("the example files' expectations", () => {
     );
   });
 
-  it.each([
-    ["accepted by design", ACCEPTED_BY_DESIGN],
-    ["known gaps", KNOWN_GAPS],
-  ])(
-    "list as %s only files in the corpus, each in a folder of files to refuse",
-    (_, list) => {
-      for (const file of list.keys()) {
-        expect(ALL_FILES, file).toContain(file);
-        expect(isUploaded(file), file).toBe(true);
-        expect(["valid", "incomplete"], file).not.toContain(folderOf(file));
-      }
-    },
-  );
+  it("expect every file in a folder of problems to be refused", () => {
+    const problems = ALL_FILES.filter(isUploaded).filter(
+      (file) => !["valid", "incomplete"].includes(folderOf(file)),
+    );
+    expect(problems.length).toBeGreaterThan(0);
+    for (const file of problems) {
+      expect(expectationFor(file), file).toEqual({ expected: REFUSED });
+    }
+  });
 
-  it("refuse a file with its folder's problem, and accept one listed as accepted by design", () => {
+  it("refuse a file with its folder's problem, and accept a valid one", () => {
     expect(expectationFor("malformed/Not a valid geopackage.gpkg")).toEqual({
       expected: REFUSED,
     });
-    expect(
-      expectationFor("empty-layer/Baseline - no hedgerows.gpkg"),
-    ).toMatchObject({
+    expect(expectationFor("valid/Baseline - no hedgerows.gpkg")).toEqual({
       expected: ACCEPTED,
-      reason: expect.any(String),
     });
-    expect(
-      expectationFor(
-        "service-template/attribute-problems/irreplaceable-area-habitat.gpkg",
-      ),
-    ).toMatchObject({ expected: REFUSED, knownGap: expect.any(String) });
   });
 
   it("stop on a folder it does not know", () => {
@@ -118,28 +104,19 @@ describe("the example files' expectations", () => {
 });
 
 // The BNG Service template README's Expected column, which readme.mjs writes
-// from the recipes, read the way its rows are worded: "refused. Accepted
-// today: …" is a known gap; "accepted …", "saved as Incomplete …" or "(no
-// specific backend error)" is accepted; anything else, a code or "refused: …",
-// is refused.
-const KNOWN_GAP_CELL = /^refused\. Accepted today/;
-const ACCEPTED_CELL =
-  /^\(?(accepted|saved as Incomplete)\b|^\(no specific backend error\)$/i;
-const KNOWN_GAP = "known gap";
-
+// from the recipes, read the way its rows are worded: "accepted …" or "saved as
+// Incomplete …" is accepted; anything else, a code or "refused: …", is
+// refused.
+const ACCEPTED_CELL = /^\(?(accepted|saved as Incomplete)\b/i;
 function readmeSays(expected) {
-  if (KNOWN_GAP_CELL.test(expected)) {
-    return KNOWN_GAP;
-  }
   return ACCEPTED_CELL.test(expected) ? ACCEPTED : REFUSED;
 }
 
 function expectationsSay(file) {
-  const expectation = expectationFor(file);
-  return expectation.knownGap ? KNOWN_GAP : expectation.expected;
+  return expectationFor(file).expected;
 }
 
-describe("the BNG Service template's exceptions", () => {
+describe("the BNG Service template's folders", () => {
   it("agree with its README's Expected column for every file uploaded", () => {
     const disagree = [...readmeRows()]
       .map(([row, { expected }]) => ({
@@ -158,15 +135,14 @@ describe("the BNG Service template's exceptions", () => {
   });
 
   it("read the README's wording as meant", () => {
-    expect(
-      readmeSays("refused. Accepted today: the service does not check"),
-    ).toBe(KNOWN_GAP);
     expect(readmeSays("accepted since BMD-1058")).toBe(ACCEPTED);
     expect(readmeSays("(accepted; saved Incomplete with both cleared)")).toBe(
       ACCEPTED,
     );
     expect(readmeSays("saved as Incomplete, for want of years")).toBe(ACCEPTED);
-    expect(readmeSays("(no specific backend error)")).toBe(ACCEPTED);
+    expect(readmeSays("accepted: a site need not have hedgerows")).toBe(
+      ACCEPTED,
+    );
     expect(readmeSays("IRREPLACEABLE_TREE")).toBe(REFUSED);
     expect(readmeSays("refused: the file cannot be read as a GeoPackage")).toBe(
       REFUSED,
@@ -247,60 +223,21 @@ describe("the report of an upload", () => {
     expect(verdict(FILE, { expected: REFUSED }, failed).pass).toBe(false);
   });
 
-  it("passes a known gap while it is accepted, and reports it as stale, without failing, once refused", () => {
-    const gap = { expected: REFUSED, knownGap: "not checked yet" };
-    expect(verdict(FILE, gap, accepted)).toMatchObject({
-      pass: true,
-      knownGap: true,
-      stale: false,
-    });
-    const fixed = verdict(FILE, gap, refused);
-    expect(fixed).toMatchObject({ pass: true, knownGap: true, stale: true });
-    expect(fixed.message).toMatch(/Remove it from KNOWN_GAPS/);
-  });
-
-  it("fails a known gap the service throws on, as a throw, not as a stale gap", () => {
-    const thrown = verdict(
-      FILE,
-      { expected: REFUSED, knownGap: "not checked yet" },
-      failed,
-    );
-    expect(thrown).toMatchObject({ pass: false, stale: false });
-    expect(thrown.message).toBe(
-      "valid/a.gpkg should have been refused, and was the service threw at the baseline upload: boom",
-    );
-  });
-
-  it("summarises every wrong result in a table, then the known gaps", () => {
+  it("summarises every wrong result in a table", () => {
     const summary = summaryMarkdown("Legacy", [
       verdict(FILE, { expected: ACCEPTED }, refused),
       verdict("valid/b.gpkg", { expected: ACCEPTED }, accepted),
-      verdict("x/c|d.gpkg", { expected: REFUSED, knownGap: "gap" }, accepted),
+      verdict("x/c|d.gpkg", { expected: REFUSED }, accepted),
     ]);
     expect(summary).toContain(
-      "**1 of 3 example files gave the wrong result.**",
+      "**2 of 3 example files gave the wrong result.**",
     );
     expect(summary).toContain(
       "| `valid/a.gpkg` | accepted | refused at the post-intervention upload with PARCEL_OVERLAPS, AREA_SUM_MISMATCH |",
     );
     expect(summary).toContain(
-      "Known gaps, which should be refused but are accepted today: `x/c\\|d.gpkg`.",
+      "| `x/c\\|d.gpkg` | refused | accepted (baseline then post-intervention upload) |",
     );
-    expect(summary).not.toContain("Stale known gaps");
-  });
-
-  it("lists a stale known gap apart, as a passing result", () => {
-    const summary = summaryMarkdown("Service", [
-      verdict(FILE, { expected: REFUSED, knownGap: "gap" }, refused),
-    ]);
-    expect(summary).toContain("All 1 example files gave the expected result.");
-    expect(summary).toContain(
-      "Stale known gaps, which the service now refuses",
-    );
-    expect(summary).toContain(
-      "- `valid/a.gpkg`: refused at the post-intervention upload with PARCEL_OVERLAPS, AREA_SUM_MISMATCH",
-    );
-    expect(summary).not.toContain("Known gaps, which should be refused");
   });
 
   it("says when every file gave the expected result", () => {
