@@ -37,24 +37,15 @@ of it unnoticed. A file added to one of these folders is tested from then on.
 `scripts/example-uploads/expectations.mjs` holds the table. **The folder is
 the whole answer**: there are no exceptions. A file the service accepts, such
 as a baseline with no hedgerows, is in `valid/` or `incomplete/`, however
-unusual it is; a file in a folder of problems is refused. A test fails if
-either list below holds a file.
+unusual it is; a file in a folder of problems is refused.
 
-The file keeps two lists, both empty, for a change in progress:
-
-- **Accepted by design**: a file in a folder of problems that the service is
-  meant to accept. Move such a file to `valid/` or `incomplete/` instead.
-- **Known gaps**: a file the service should refuse but accepts today. Leave
-  such a file out of the corpus until the backend refuses it, and record the
-  gap instead: the BNG Service template's README lists them under Gaps, from
-  `GAPS` in `scripts/service-template/recipes.mjs`. An irreplaceable area
-  habitat is one. If a gap must be listed here, it passes while the service
-  still accepts it. Once the service refuses it, it still passes, but is
-  reported as **stale**, in the log and the job summary, for the entry to be
-  removed. It does not fail: the backend runs this test at harness `main`, so
-  failing would block the backend change that closes the gap until the
-  harness had dropped the entry, and the harness change that drops it would
-  fail against the backend's `main`. A throw on a known-gap file still fails.
+A flaw the service does not refuse yet has no file until it does. The BNG
+Service template's README lists it under Gaps, from `GAPS` in
+`scripts/service-template/recipes.mjs`; an irreplaceable area habitat is one.
+Once the backend change that refuses it has merged, add the file to the
+folder of problems in a harness change. The backend runs this test at harness
+`main`, so the order matters: a file added first would fail every backend
+pull request until the backend refused it.
 
 The BNG Service template's README writes an Expected cell for every file
 from the recipes. A test holds each cell to the file's folder, so a recipe

@@ -583,7 +583,7 @@ export const RECIPES = [
  */
 export const GAPS = [
   "A natural river left out, and an irreplaceable tree that gets worse: the service refuses either file for another reason first, so a fixture could not show the rule. Natural rivers (Other rivers and streams, High; Priority habitat, V.High) are out of the service's scope, and only canals and ditches may be lost (a culvert left out is refused, STAGED_NATURAL_WATERCOURSE_LOST: `attribute-problems/watercourse-culvert-left-out.gpkg`); an irreplaceable tree is refused whether or not it gets worse (`attribute-problems/irreplaceable-tree.gpkg`).",
-  'An irreplaceable area habitat (Irreplaceable Habitat `Yes` on an area parcel): the service does not refuse one yet, and a file in a folder of problems must be refused. Restore `attribute-problems/irreplaceable-area-habitat.gpkg` (bng-library\'s `irreplaceableLayers: ["habitats"]`) with the backend change that refuses it. An irreplaceable tree is refused (`attribute-problems/irreplaceable-tree.gpkg`).',
+  'An irreplaceable area habitat (Irreplaceable Habitat `Yes` on an area parcel): the service does not refuse one yet, and a file in a folder of problems must be refused. Restore `attribute-problems/irreplaceable-area-habitat.gpkg` (bng-library\'s `irreplaceableLayers: ["habitats"]`) once the backend change that refuses it has merged. An irreplaceable tree is refused (`attribute-problems/irreplaceable-tree.gpkg`).',
   "The harness's import-timing scenarios: they edit legacy files, so `permutations/` builds them in the legacy format only.",
 ];
 
