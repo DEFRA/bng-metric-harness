@@ -128,10 +128,14 @@ function flawInfo(name) {
 
 /**
  * What the README says for these flaws in place of bng-library's note: the
- * two Incomplete outcomes in plain words. Each wins over the library's code.
- * Checked against DEFRA/bng-metric-backend#542 (BMD-1083).
+ * two Incomplete outcomes, checked against DEFRA/bng-metric-backend#542
+ * (BMD-1083), and why an empty optional layer is accepted, in plain words.
+ * Each wins over the library's code.
  */
 const BACKEND_OUTCOMES = {
+  "no-hedgerows": "accepted: a site need not have hedgerows",
+  "no-rivers": "accepted: a site need not have watercourses",
+  "no-trees": "accepted: a site need not have individual trees",
   "degrade-watercourse-advance-not-encroachment":
     "saved as Incomplete, with its years created in advance cleared",
   "degrade-watercourse-encroachment-no-advance":

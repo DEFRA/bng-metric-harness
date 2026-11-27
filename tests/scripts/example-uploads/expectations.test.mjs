@@ -104,11 +104,10 @@ describe("the example files' expectations", () => {
 });
 
 // The BNG Service template README's Expected column, which readme.mjs writes
-// from the recipes, read the way its rows are worded: "accepted …", "saved as
-// Incomplete …" or "(no specific backend error)" is accepted; anything else, a
-// code or "refused: …", is refused.
-const ACCEPTED_CELL =
-  /^\(?(accepted|saved as Incomplete)\b|^\(no specific backend error\)$/i;
+// from the recipes, read the way its rows are worded: "accepted …" or "saved as
+// Incomplete …" is accepted; anything else, a code or "refused: …", is
+// refused.
+const ACCEPTED_CELL = /^\(?(accepted|saved as Incomplete)\b/i;
 function readmeSays(expected) {
   return ACCEPTED_CELL.test(expected) ? ACCEPTED : REFUSED;
 }
@@ -141,7 +140,9 @@ describe("the BNG Service template's folders", () => {
       ACCEPTED,
     );
     expect(readmeSays("saved as Incomplete, for want of years")).toBe(ACCEPTED);
-    expect(readmeSays("(no specific backend error)")).toBe(ACCEPTED);
+    expect(readmeSays("accepted: a site need not have hedgerows")).toBe(
+      ACCEPTED,
+    );
     expect(readmeSays("IRREPLACEABLE_TREE")).toBe(REFUSED);
     expect(readmeSays("refused: the file cannot be read as a GeoPackage")).toBe(
       REFUSED,
